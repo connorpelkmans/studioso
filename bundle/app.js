@@ -3215,7 +3215,9 @@ function sbSignInSheet(mode, email, note){
   mode = mode === "hello" && !first ? "signin" : mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
   const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
   const T = {hello: "Welcome to Studyboard", signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
-  const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="email" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
+  // passkeys: on the sign-in sheet the email field also offers a saved passkey (01-passkeys.js)
+  const pk = mode === "signin" && !!(window.SBPK && SBPK.can());
+  const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="${pk ? "username webauthn" : "email"}" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
   const codeIn = `<label class="f"><span class="lh">Code ${REQ} <span class="hint">From the email</span></span><input type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" class="sb-code" autofocus></label>`;
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
@@ -3228,7 +3230,7 @@ function sbSignInSheet(mode, email, note){
   }[mode];
   const links = {
     hello: "",
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${pk ? ` · <button type="button" class="link-btn" id="sbPasskey">Sign In With a Passkey</button>` : ""}${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
@@ -3266,6 +3268,7 @@ function sbSignInSheet(mode, email, note){
           if (error && /confirm/i.test(error.message)) { sbLinkAsked(); await sb.auth.resend({type: "signup", email: em}).catch(() => {}); busy = false; sbSignInSheet("confirm", em, "Your email isn't confirmed yet, so we sent a new code."); return; }
           if (error) throw error;
           done("Signed in");
+          if (window.SBPK) SBPK.offerLater();
         } else if (mode === "signup") {
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
           if (!sbStrength(pw).ok) { say(SB_WEAK); return; }
@@ -3323,6 +3326,17 @@ function sbSignInSheet(mode, email, note){
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
+  if (pk) {
+    const pkIn = (data, err) => { if (err) { say(err); return; } if (data) done("Signed in"); };
+    SBPK.autofill(pkIn);
+    const pb = $("#sbPasskey");
+    if (pb) pb.addEventListener("click", async () => {
+      if (busy) return; busy = true; pb.disabled = true; say("Follow your device's prompt…");
+      try { const d = await SBPK.signIn(); say(""); pkIn(d); }
+      catch (e) { say(SBPK.words(e)); SBPK.autofill(pkIn); }
+      finally { busy = false; pb.disabled = false; }
+    });
+  }
   // A device that refused an account (a birthday under 13): no new account from here
   function sbNoAccount(){
     say(SBUNAME.NO_ACCOUNT);
@@ -3452,6 +3466,153 @@ async function sbSignOut(){
   });
 }
 
+/* ===== module: 01-passkeys.js: signing in with a passkey (Face ID, a fingerprint or a security key) on the website ===== */
+// Passkeys belong to studyboardapp.com (Supabase: Authentication, Passkeys, Relying Party ID), so they work only on that
+// website. The desktop app (app://) and the phone apps (capacitor://) keep email, Google, Apple and Microsoft.
+// Three ways in:
+//   1. the email field on the sign-in sheet offers saved passkeys by itself (autocomplete="username webauthn")
+//   2. a "Sign In With a Passkey" link under the password, for browsers that don't offer it in the field
+//   3. after an email and password sign-in, a one-time offer to save one; Settings has Passkeys to add or remove them
+const SBPK = window.SBPK = (() => {
+  const RP = "studyboardapp.com";
+  const ASKED = "studyboard:pk:asked:";
+  let ctl = null;
+  const host = () => { try { return location.hostname || ""; } catch (e) { return ""; } };
+  const onSite = () => { const h = host(); return h === RP || h.endsWith("." + RP); };
+  const native = () => !!(window.StudyboardNative || (typeof DESK !== "undefined" && DESK));
+  // the browser can do passkeys, this is the website, and accounts are Studyboard's own (not a self-hosted server)
+  const can = () => {
+    try {
+      return !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext && onSite() && !native()
+        && typeof sb !== "undefined" && sb && sb.auth && typeof sb.auth.signInWithPasskey === "function" && !sbCustom());
+    } catch (e) { return false; }
+  };
+  const quiet = e => { const s = String((e && (e.name || "")) + " " + (e && (e.message || "")) + " " + (e && e.code || "")); return /NotAllowed|Abort|cancel|timed out|ERROR_CEREMONY_ABORTED/i.test(s); };
+  const words = e => {
+    const s = String(e && (e.message || e) || "");
+    if (quiet(e)) return "Passkey sign-in was cancelled. Try again, or use your email and password.";
+    if (/not.?enabled|disabled|404|not found/i.test(s)) return "Passkey sign-in isn't available right now. Use your email and password.";
+    if (/credential|passkey/i.test(s) && /not|unknown|invalid/i.test(s)) return "That passkey isn't linked to a Studyboard account. Use your email and password, then save a new passkey.";
+    return typeof sbWords === "function" ? sbWords(e) : "That didn't work. Try again.";
+  };
+  const stop = () => { if (ctl) { try { ctl.abort(); } catch (e) {} ctl = null; } };
+
+  // 1. The email field offers a saved passkey (the browser's own suggestion; nothing shows when there's none)
+  async function autofill(onIn){
+    stop();
+    if (!can()) return;
+    try { if (!PublicKeyCredential.isConditionalMediationAvailable || !(await PublicKeyCredential.isConditionalMediationAvailable())) return; } catch (e) { return; }
+    const form = dlg.querySelector("form.sb-acct[data-mode=signin]"); if (!form) return;
+    const c = ctl = new AbortController();
+    // closing or replacing the sheet ends the offer
+    const end = () => { if (ctl === c) stop(); };
+    dlg.addEventListener("close", end, {once: true});
+    const watch = setInterval(() => { if (!form.isConnected) { clearInterval(watch); end(); } }, 800);
+    try {
+      const {data, error} = await sb.auth.signInWithPasskey({options: {mediation: "conditional", signal: c.signal}});
+      clearInterval(watch);
+      if (c.signal.aborted) return;
+      if (error) { if (!quiet(error)) onIn(null, words(error)); return; }
+      if (data) onIn(data);
+    } catch (e) { clearInterval(watch); if (!c.signal.aborted && !quiet(e)) onIn(null, words(e)); }
+    finally { if (ctl === c) ctl = null; }
+  }
+  // 2. The link: the browser's passkey sheet
+  async function signIn(){
+    stop();
+    const {data, error} = await sb.auth.signInWithPasskey();
+    if (error) throw error;
+    return data;
+  }
+
+  // 3. After a password sign-in: offer once per account, when nothing else is on screen
+  const askedKey = () => ASKED + ((typeof sbUser !== "undefined" && sbUser && sbUser.id) || "");
+  const asked = () => { try { return !!localStorage.getItem(askedKey()); } catch (e) { return true; } };
+  const markAsked = () => { try { localStorage.setItem(askedKey(), String(Date.now())); } catch (e) {} };
+  async function list(){
+    const {data, error} = await sb.auth.passkey.list();
+    if (error) throw error;
+    const a = Array.isArray(data) ? data : (data && (data.passkeys || data.items)) || [];
+    return a.filter(Boolean);
+  }
+  async function platformOk(){ try { return !!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } }
+  function offerLater(){
+    if (!can()) return;
+    let tries = 0;
+    const tick = async () => {
+      if (!sbUser || asked() || ++tries > 90) return;
+      // wait for the sign-in sheet, the welcome setup and anything else to finish
+      if (dlg.open || (window.SBOB && SBOB.pending && SBOB.pending()) || document.hidden) { setTimeout(tick, 2000); return; }
+      if (!(await platformOk())) return;
+      let have = []; try { have = await list(); } catch (e) { return; }
+      if (have.length) { markAsked(); return; }
+      if (dlg.open || !sbUser || asked()) { setTimeout(tick, 2000); return; }
+      markAsked();
+      offerSheet();
+    };
+    setTimeout(tick, 1500);
+  }
+  const KEY_IC = `<svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="4"/><path d="M11 12l9 9M17 18l2-2M15 16l2-2"/></svg>`;
+  function offerSheet(){
+    openSheet(`<div class="sheet sb-pk">${head("Sign In Faster Next Time")}
+      <div class="sheet-body">
+        <div class="sb-pk-ic">${KEY_IC}</div>
+        <p style="margin:0">Save a passkey and sign in with Face ID, your fingerprint or your device's PIN. No password to type.</p>
+        <p class="mini" style="margin:0">It's saved by your device or password manager, never sent to Studyboard. Your password keeps working too.</p>
+        <p class="status-msg" id="pkMsg" style="margin:0" aria-live="polite"></p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Not Now</button><span class="spacer"></span><button type="button" class="btn primary" id="pkSave">Save a Passkey</button></div></div>`);
+    const b = $("#pkSave");
+    if (b) b.addEventListener("click", async () => {
+      b.disabled = true; const m = $("#pkMsg"); if (m) m.textContent = "Follow your device's prompt…";
+      const ok = await add(t => { if (m) m.textContent = t; });
+      b.disabled = false;
+      if (ok) { if (dlg.open) dlg.close(); toast("Passkey saved. Next time, tap the email field and pick it."); }
+    });
+  }
+  // say: shows a problem; true when one was saved
+  async function add(say){
+    try {
+      const {error} = await sb.auth.registerPasskey();
+      if (error) throw error;
+      return true;
+    } catch (e) {
+      const s = String(e && (e.message || e) || "");
+      say(quiet(e) ? "No passkey was saved." : /exclude|already|InvalidState/i.test(s + (e && e.name)) ? "This device already has a passkey for your account." : words(e));
+      return false;
+    }
+  }
+
+  /* Settings: Passkeys */
+  const when = v => { const t = Date.parse(v || ""); return t ? new Date(t).toLocaleDateString(undefined, {month: "short", day: "numeric", year: "numeric"}) : ""; };
+  async function manageSheet(note){
+    openSheet(`<div class="sheet sb-pk">${head("Passkeys")}<div class="sheet-body"><p class="mini" style="margin:0">Loading…</p></div></div>`);
+    let have = [], err = "";
+    try { have = await list(); } catch (e) { err = words(e); }
+    if (!dlg.querySelector(".sb-pk")) return;
+    const rows = have.map(p => `<li><span class="sb-pk-name"><b>${esc(p.friendly_name || p.name || "Passkey")}</b><span class="mini">${[p.created_at ? "Added " + when(p.created_at) : "", p.last_used_at ? "last used " + when(p.last_used_at) : ""].filter(Boolean).join(", ")}</span></span><button type="button" class="btn small" data-pk-del="${esc(p.id)}">Remove</button></li>`).join("");
+    openSheet(`<div class="sheet sb-pk">${head("Passkeys")}
+      <div class="sheet-body">
+        <p style="margin:0">Sign in with Face ID, your fingerprint or your device's PIN instead of a password. Passkeys work on studyboardapp.com.</p>
+        ${err ? `<p class="status-msg" style="margin:0">${esc(err)}</p>` : have.length ? `<ul class="sb-pk-list" aria-label="Your passkeys">${rows}</ul>` : `<p class="mini" style="margin:0">You haven't saved a passkey yet.</p>`}
+        <p class="status-msg" id="pkMsg" style="margin:0" aria-live="polite">${esc(note || "")}</p>
+      </div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Done</button><span class="spacer"></span><button type="button" class="btn primary" id="pkAdd">Add a Passkey</button></div></div>`);
+    const m = $("#pkMsg"), say = t => { if (m) m.textContent = t; };
+    const a = $("#pkAdd");
+    if (a) a.addEventListener("click", async () => { a.disabled = true; say("Follow your device's prompt…"); const ok = await add(say); a.disabled = false; if (ok) manageSheet("Passkey saved."); });
+    dlg.querySelectorAll("[data-pk-del]").forEach(b => b.addEventListener("click", async () => {
+      if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Remove?"; b.classList.add("danger"); return; }
+      b.disabled = true;
+      try { const {error} = await sb.auth.passkey.delete({passkeyId: b.dataset.pkDel}); if (error) throw error; manageSheet("Passkey removed. Also delete it from your device or password manager."); }
+      catch (e) { b.disabled = false; say(words(e)); }
+    }));
+  }
+  hook("menu", () => can() && sbUser ? `<button data-act="pk-manage" data-group="account"><span>Passkeys<span class="sub">Sign in with Face ID or your fingerprint</span></span></button>` : "");
+  hook("act", act => { if (act === "pk-manage") { manageSheet(); return true; } return false; });
+
+  return {can, autofill, signIn, offerLater, manageSheet, stop, words};
+})();
 /* ===== module: 01-undo.js: the app's core, changes and undo ===== */
 /* Changes and undo */
 // Ctrl/Cmd+Z steps back through recent changes, newest first
@@ -3831,6 +3992,12 @@ const SBPOLICY = (() => {
     return Math.max(1, m ? m.length : 1);
   }
 
+  // Optional fields in a shape, nested ones included (those make structured outputs slow to compile)
+  const OPT_MAX = 8;
+  function optionalCount(s){ if (!s || typeof s !== "object") return 0; let n = 0;
+    if (s.properties) { const req = new Set(s.required || []); for (const [k, v] of Object.entries(s.properties)) { if (!req.has(k)) n++; n += optionalCount(v); } }
+    if (s.items) n += optionalCount(s.items);
+    return n; }
   // The request sent to Anthropic. Only this builds it, from the choices above.
   function buildRequest({system, blocks, schema, task, cacheMedia, web}){
     let sys = String(system || "").trim();
@@ -3844,7 +4011,11 @@ const SBPOLICY = (() => {
     if (cacheMedia) { const c = req.messages[0].content; let last = -1; c.forEach((b, i) => { if (b.type !== "text") last = i; }); if (last >= 0) c[last] = Object.assign({}, c[last], {cache_control: {type: "ephemeral"}}); }
     if (task.effort === "none") { req.thinking = {type: "disabled"}; req.output_config = {effort: "low"}; }
     else { req.thinking = {type: "adaptive"}; req.output_config = {effort: task.effort}; }
-    if (schema) req.output_config.format = {type: "json_schema", schema};
+    // A shape with many optional fields (the chat's intent: about 30) is described in the instructions instead of enforced:
+    // structured outputs compile each shape first, and compiling that one took about 3 minutes a request (an 11-token answer
+    // came back after 181 seconds). Shapes with few optional fields (cards, quiz questions) stay enforced. readAnswer reads both.
+    if (schema && optionalCount(schema) > OPT_MAX) { req.system = [{type: "text", text: `${sys}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`.trim()}]; if (req.system[0].text.length >= 2000) req.system[0].cache_control = {type: "ephemeral"}; else req.system = req.system[0].text; }
+    else if (schema) req.output_config.format = {type: "json_schema", schema};
     if (web && (web.search || web.fetch)) {
       req.tools = [];
       if (web.search) req.tools.push({type: "web_search_20250305", name: "web_search", max_uses: WEB.searchUses});
@@ -33587,6 +33758,7 @@ document.head.appendChild(AREA_CSS);
     const cs = coursesArr(), aiOk = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
     const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => { const d = datesFor(c.id); return `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${d ? `<span class="ob-cn mini">${d} date${d === 1 ? "" : "s"}</span>` : ""}${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>` : "";
     const nF = foundHere().length;
+    const onL = (() => { try { return Object.values(window.SBLMS || {}).filter(L => L && L.P && typeof L.connected === "function" && L.connected()).map(L => L.P.name); } catch (e) { return []; } })();
     const tally = nF ? `<p class="ob-tally"><span><b>${nF} item${nF === 1 ? "" : "s"} found</b>, ${cs.length} course${cs.length === 1 ? "" : "s"}.</span>${window.SBSEM && SBSEM.review ? `<button type="button" class="link-btn" data-ob="check">Check Them</button>` : ""}</p>` : "";
     const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
@@ -33594,8 +33766,8 @@ document.head.appendChild(AREA_CSS);
       <p class="ob-lead">Connect your school's site to bring in every course and its due dates, or add a syllabus for each course.</p>
       <div class="ob-src main">
         <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
-        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
-        <button type="button" class="btn primary" data-ob="lms">Connect</button>
+        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">${onL.length ? `${esc(onL.join(" and "))} connected. Studyboard keeps it up to date.` : "Brightspace, Canvas or Blackboard. Studyboard only reads from it."}</span></span>
+        <button type="button" class="btn ${onL.length ? "" : "primary"}" data-ob="lms">${onL.length ? "Connect Another" : "Connect"}</button>
       </div>
       <div class="ob-src" id="obDrop">
         <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
@@ -34000,11 +34172,22 @@ document.head.appendChild(AREA_CSS);
   }
 
   // Open another app sheet (import, AI setup, Style Shop)
+  // A school site to go back to after signing in (95-lms.js): opened from the courses step, which it comes back to
+  function resumeLms(){
+    const L = window.SBLMS; if (!L || !L.resumeTake || !sbUser) return false;
+    const id = L.resumeTake(); if (!id) return false;
+    const at = STEPS.findIndex(x => x.id === "courses");
+    if (at >= 0 && step !== at) { step = at; dir = 1; show(at, true); }
+    leaveTo(() => L.resumeOpen(id));
+    return true;
+  }
   function leaveTo(fn){ away = {step}; fn(); if (!dlg.open) setTimeout(checkReturn, 250); }
   function checkReturn(){
     if (!away) return;
     if (dlg.open) return;
     const s = away.step; away = null;
+    // back from making an account to connect a school site: straight to that site's Connect sheet
+    if (STEPS[s] && STEPS[s].id === "courses" && resumeLms()) return;
     if (queue.length && STEPS[s] && STEPS[s].id === "courses") { nextSyllabus(); return; }
     dir = 1; show(s, true);
   }
@@ -34071,6 +34254,8 @@ document.head.appendChild(AREA_CSS);
     stop(); quoteHeld = null;
     try { if (window.SBSTREAK) SBSTREAK.newUser(); } catch (e) {}
     start("first");
+    // signed in on the way to connecting a school site (back from Google, Apple or Microsoft): pick up there
+    if (window.SBLMS && SBLMS.resumePeek && SBLMS.resumePeek()) setTimeout(resumeLms, 200);
   }
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)
@@ -46652,6 +46837,37 @@ function cleanFile(r) {
     return false;
   });
 
+  /* Connect, then a free account, then back: a student without an account who chose a school site's calendar link makes
+     one (or signs in) and lands back on that school site's Connect sheet to paste the link. Kept for 30 minutes, which
+     covers leaving for Google, Apple or Microsoft and coming back. The welcome setup takes it in its courses step
+     (40-onboarding.js); otherwise it opens once nothing else is on screen */
+  const RESUME = "studyboard:lms:resume", RESUME_MS = 30 * 60000;
+  function lmsResumeSet(id){ try { localStorage.setItem(RESUME, JSON.stringify({id, at: Date.now()})); } catch (e) {} }
+  function lmsResumePeek(){
+    let r = null; try { r = JSON.parse(localStorage.getItem(RESUME) || "null"); } catch (e) {}
+    if (!r || !r.id || !LMS[r.id] || Date.now() - (Number(r.at) || 0) > RESUME_MS) { if (r) try { localStorage.removeItem(RESUME); } catch (e) {} return ""; }
+    return r.id;
+  }
+  // the school site to go back to, once signed in (and forgotten then)
+  function lmsResumeTake(){
+    if (!sbUser) return "";
+    const id = lmsResumePeek(); if (!id) return "";
+    try { localStorage.removeItem(RESUME); } catch (e) {}
+    return id;
+  }
+  function lmsResumeOpen(id){
+    const L = LMS[id]; if (!L) return;
+    if (dlg.open) dlg.close();
+    L.bsSheet();
+    if (!L.connected()) setTimeout(() => { const i = $("#bsFeedIn"); if (i) try { i.focus({preventScroll: true}); } catch (e) {} }, 120);
+    toast("You're signed in. Now paste your " + L.P.name + " calendar link.");
+  }
+  hook("render", () => {
+    if (!sbUser || dlg.open || (window.SBOB && SBOB.pending && SBOB.pending())) return;
+    if (!lmsResumePeek()) return;
+    setTimeout(() => { if (dlg.open || (window.SBOB && SBOB.pending && SBOB.pending())) return; const id = lmsResumeTake(); if (id) lmsResumeOpen(id); }, 600);
+  });
+
   function makeLms(P){
   const F = P.k, A = P.k;
   // c.marks into out.grades: fills a Grades row that has no mark yet, or adds one; never replaces a mark Grades has
@@ -48082,17 +48298,18 @@ function cleanFile(r) {
     const ext = !!extWay;
     // A calendar link is read through the Studyboard account, so without one lead with the file
     const local = !(P.feedOnly ? bsDesk() && !!lmsBridge().feed : desk) && !cloud, dl = `<a href="${DESK_DL}" target="_blank" rel="noopener noreferrer">desktop app</a>`;
-    const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Use a Calendar File" : "Import Your Calendar File"}</b><span class="bs-pill">Works Here</span></div>
-          <p class="mini">Download the calendar file from ${P.name} and import it. It brings in due dates, quizzes and calendar events once, and you can import a new file any time.</p>
-          <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-file">Import a Calendar File</button></div></div>
-        <div class="bs-way"><div class="bs-way-h"><b>Keep It Up to Date With Your Calendar Link</b><span class="bs-pill">Needs a Free Account</span></div>
-          <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
-          <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
+    // Without an account: the calendar link (kept up to date) is the way in, so the account comes first and then straight
+    // back here. A one-off calendar file stays under Other options
+    const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Keep Due Dates Synced With Your Calendar Link" : "Keep It Synced Automatically"}</b><span class="bs-pill">Free Account</span></div>
+          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.</p>
+          ${findSteps(true)}
+          <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-acct">Create a Free Account</button><button class="btn" data-act="${A}-acct-in">I Have an Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
           <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `No grades or submissions, so tick off finished work yourself. Handy on your phone, alongside the extension.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
           ${!desk && !ext && !P.feedOnly ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
-          <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
+          <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button>${findSteps(true) ? "" : `<button class="btn" data-act="${A}-feed-help">How to Find It</button>`}</div>
+          ${findSteps(true)}</div>`;
     openSheet(`<div class="sheet bs-sheet">${head(`Connect ${P.name}`)}
       <div class="sheet-body">
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
@@ -48110,7 +48327,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file once, without an account</button>` : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
@@ -48123,7 +48340,7 @@ function cleanFile(r) {
   async function gcSheet(){
     if (!gcSigned()) {
       openSheet(`<div class="sheet bs-sheet">${head("Connect Google Classroom")}<div class="sheet-body"><p style="margin:0">Google Classroom connects through your Studyboard account, so it keeps syncing on every device. Sign in or create a free account first.</p></div>
-        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="sb-signin">Sign In or Create Account</button></div></div>`);
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="${A}-acct-in">I Have an Account</button><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-acct">Create a Free Account</button></div></div>`);
       return;
     }
     const body = (link, note) => `<div class="sheet bs-sheet">${head("Connect Google Classroom")}
@@ -48236,10 +48453,18 @@ function cleanFile(r) {
     list.addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
     inp.addEventListener("blur", () => setTimeout(() => show([]), 250));
   }
+  // Where the calendar link is. Phone apps for school sites don't show it, so say to use a browser (or a computer: an
+  // account brings it to the phone too)
+  function findSteps(fold){
+    if (!P.steps || !P.steps.length) return "";
+    const body = `<ol class="help-list bs-steps">${P.steps.map(x => `<li>${x}</li>`).join("")}</ol>
+        <p class="mini bs-note" style="margin:0"><b>On a phone?</b> The ${P.name} app doesn't show this link. Open ${P.name} in your phone's web browser instead, or do it later on a computer. Your account brings everything to your phone.</p>`;
+    return fold ? `<details class="bs-how"><summary>How to find your calendar link</summary>${body}</details>` : body;
+  }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}
       <div class="sheet-body">
-        <ol class="help-list bs-steps">${P.steps.map(x => `<li>${x}</li>`).join("")}</ol>
+        ${findSteps(false)}
         <p class="mini">This link is private to you. Anyone with it can see your ${P.name} calendar, so don't share it. If it ever gets out, reset it in the same place and paste the new one here.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-back">Back</button></div></div>`);
@@ -48684,6 +48909,8 @@ function cleanFile(r) {
       case "manual": { const pk = window.SBLMS_PICKED || {}; connectSheet({manual: true, host: pk.lms === P.id ? pk.host : "", note: pk.school ? `Type ${pk.school.name}'s ${P.name} address. It's the one in your browser's address bar when you're signed in to ${P.name}.` : ""}); return true; }
       case "back": bsSheet(); return true;
       case "file": dlg.close(); pickFile(); return true;
+      // a free account first, then back to this sheet (see lmsResume below)
+      case "acct": case "acct-in": lmsResumeSet(P.id); dlg.close(); setTimeout(() => SBGUEST.signUp(act.endsWith("-in") ? "signin" : "signup"), 30); return true;
       case "disconnect": disconnect(); return true;
       case "open-site": { const c = cfg(); let o = c.host ? "https://" + c.host : ""; if (!o) { try { o = new URL(c.feed).origin; } catch(e) { o = P.host ? "https://" + P.host : ""; } } if (o) window.open(o + P.siteHome, "_blank", "noopener"); else toast(`Add your ${P.name} address first`); return true; }
       case "sg-yes": applySuggestion(el.dataset.id); bsSheet("suggest"); return true;
@@ -49410,7 +49637,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   });
 
   const T = {st: () => state, applyChanges, clone, pickerSheet, grabOk, go: (tab, cid) => { if (dlg.open) dlg.close(); ui.tab = tab; ui.courseId = cid || null; render(); }, scroll: () => { const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = 99999; }};
-  window.SBLMS = Object.assign({}, LMS, T);
+  window.SBLMS = Object.assign({}, LMS, T, {resumePeek: lmsResumePeek, resumeTake: lmsResumeTake, resumeOpen: lmsResumeOpen});
   window.SBLMS_NEWS = days => {
     const since = Date.now() - (days || 10) * 864e5, out = [];
     ALL().forEach(L => { try { const c = L.cfg(); (c.newsItems || []).forEach(n => { const cid = c.map && c.map[n.ou]; const at = Date.parse(n.date || ""); if (!isNaN(at) && at >= since && cid && cid !== "skip" && cid !== "new") out.push({courseId: cid, title: n.title || "", text: String(n.text || "").slice(0, 400), date: n.date}); }); } catch(e) {} });
@@ -57534,7 +57761,7 @@ var TP_DATA = [];
   // Each category's groups, in order, by each row's data-act (or input id). A row's key decides its place; a row nobody
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
-    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
+    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
     appearance: [["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
@@ -57547,14 +57774,14 @@ var TP_DATA = [];
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
   const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
-    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
+    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "pk-manage": "passkey face id fingerprint touch id biometric login password", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet knowt todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   // An emoji before each row's title, by the row's key (rows that bring their own emoji or icon keep theirs)
-  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
+  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "pk-manage": "🔐", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
     "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
     "text-size": "🔠", "a11y-contrast": "👓", "lang-set": "🌐", "spell-set": "🔤",
     "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
@@ -71180,8 +71407,11 @@ var COMP_EXTRA = [];
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false;
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(); hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+    let hit = false, lift = 0;
+    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
+    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
+      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
+    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
     box.classList.toggle("cp-duck", hit);
   }
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
@@ -74099,7 +74329,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
-      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
@@ -77051,7 +77281,7 @@ window.SBCARDS = (() => {
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
-          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? `${ch[0].label}: ${ch[0].what.toLowerCase()} changed` : `Made ${ch.length} changes`;
+          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? (ch[0].field === "delete" ? `Deleted ${ch[0].label}` : `${ch[0].label}: ${ch[0].what.toLowerCase()} changed`) : `Made ${ch.length} changes`;
           applyChanges(built, lab);
           const say1 = c => c.t.kind === "newtask" ? `Added ${c.label}${c.to ? `, ${c.to}` : ""}` : c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`;
           return {answer: ch.map(say1).join(". ") + ". Say \"undo\" to take it back.", sources: [], followUps: [], actions: []};

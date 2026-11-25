@@ -2821,6 +2821,14 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .bs-plats{display:grid;gap:8px}
 .bs-plats[hidden]{display:none}
 .bs-manual-only{border-top:0;padding-top:0}
+/* Passkeys (01-passkeys.js) */
+.sb-pk .sheet-body{display:grid;gap:12px}
+.sb-pk .status-msg:empty{display:none}
+.sb-pk-ic{width:72px;height:72px;margin:4px auto 0;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft, color-mix(in srgb, var(--accent, #2563eb) 14%, transparent));color:var(--accent, #2563eb)}
+.sb-pk-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sb-pk-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line, rgba(127,127,127,.25));border-radius:12px}
+.sb-pk-name{flex:1;min-width:0;display:grid;gap:2px}
+.sb-pk-list .btn.danger{color:var(--late, #c0392b)}
 /* ===== module: 10-plan.css ===== */
 /* Studyboard Pro sheet, Your Devices, and the Settings row */
 dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
@@ -4546,6 +4554,11 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 .cn-more[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
 .cn-more[open] > summary{display:none}
 .c2-news{padding-bottom:10px}
+/* "How to find your calendar link", folded into the Connect sheet */
+.bs-how{margin-top:8px}
+.bs-how>summary{cursor:pointer;font-weight:700;font-size:.92rem;padding:4px 0}
+.bs-how[open]>summary{margin-bottom:6px}
+.bs-how .bs-steps{margin:0 0 8px}
 /* ===== module: 96-tp-zreg.css ===== */
 /* Theme Collections */
 /* While the Theme Collection card styles (bundle/tp.css) load, their previews wait quietly */
@@ -5059,10 +5072,11 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 /* ===== module: 98-companion.css ===== */
 /* Study Companions */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease}
-/* Stepping aside for a toast */
-.cp-front .cp.cp-duck{opacity:0;scale:.8}
-.cp-front .cp.cp-duck .cp-hit,.cp-front .cp-hit.cp-hit-off{pointer-events:none}
+.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .3s cubic-bezier(.2,.8,.3,1)}
+/* Stepping aside for a toast: it hops up above the message (it used to fade out, so it vanished whenever one showed) */
+.cp-front .cp.cp-duck{translate:0 var(--cp-lift,-64px)}
+.cp-front .cp-hit.cp-hit-off{pointer-events:none}
+@media (prefers-reduced-motion:reduce){.cp-front .cp{transition:opacity .2s ease}}
 /* The placement guard (SBCOMP.clamp) reads the safe area through this probe */
 .cp-probe{position:fixed;left:0;top:0;width:0;height:0;box-sizing:content-box;visibility:hidden;pointer-events:none;padding:var(--sb-sai-top,env(safe-area-inset-top,0px)) var(--sb-sai-right,env(safe-area-inset-right,0px)) var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) var(--sb-sai-left,env(safe-area-inset-left,0px))}
 .cp-front .cp-hit{position:absolute;left:10%;right:10%;top:4%;bottom:0;border-radius:46% 46% 40% 40%;pointer-events:auto;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;touch-action:none}

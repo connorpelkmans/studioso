@@ -355,7 +355,7 @@
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
-          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? `${ch[0].label}: ${ch[0].what.toLowerCase()} changed` : `Made ${ch.length} changes`;
+          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? (ch[0].field === "delete" ? `Deleted ${ch[0].label}` : `${ch[0].label}: ${ch[0].what.toLowerCase()} changed`) : `Made ${ch.length} changes`;
           applyChanges(built, lab);
           const say1 = c => c.t.kind === "newtask" ? `Added ${c.label}${c.to ? `, ${c.to}` : ""}` : c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`;
           return {answer: ch.map(say1).join(". ") + ". Say \"undo\" to take it back.", sources: [], followUps: [], actions: []};
