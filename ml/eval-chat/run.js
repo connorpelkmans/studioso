@@ -181,10 +181,15 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
           await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); if (!document.querySelector("#cptIn")) SBCOMPTAB.open(); });
           await p.waitForSelector("#cptIn", {timeout: 10000});
           const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
-          await p.fill("#cptIn", t.q); await p.click("#cptGo");
-          await p.waitForFunction(n0 => { const go = document.querySelector("#cptGo"); if (!document.querySelector("#cptIn") || (document.querySelector("dialog[open]") && !(go && go.disabled))) return true; // (a sheet the chat opens while still working, like Settings for a setting it changes, isn't the reply) // (and the last reply is a reply, not the status line still showing: "Working out what to do…" was saved as an answer)
+          const tb = await p.evaluate(() => Date.now()); await p.fill("#cptIn", t.q); await p.click("#cptGo");
+          await p.waitForFunction(([n0, qn, tb]) => { const go = document.querySelector("#cptGo");
+            // the reply saved in the chat for this message: done, wherever the app is showing (a reply that opened Settings closed the
+            // chat while it was still working, and an empty answer was recorded)
+            try { const cs = JSON.parse(localStorage.getItem("studyboard:comp:chats") || "[]").sort((a, b) => (b.at || 0) - (a.at || 0)), m = cs[0] && cs[0].msgs[cs[0].msgs.length - 1]; if (m && m.q === qn && (m.at || 0) >= tb && (m.a || m.err)) return true; } catch (e) {}
+            if (!document.querySelector("#cptIn")) return false;
+            if (document.querySelector("dialog[open]") && !(go && go.disabled)) return true; // (a sheet the chat opens while still working, like Settings for a setting it changes, isn't the reply) // (and the last reply is a reply, not the status line still showing: "Working out what to do…" was saved as an answer)
             const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop();
-            return document.querySelectorAll(".cpt-a, .cpt-err").length > n0 && !document.querySelector(".cpt-wait") && !document.querySelector("#cptStatus") && !(l && /^(Working out what to do|Thinking|Still thinking|Looking through|Doing those one at a time|Making your map|Adding to your map)/.test(l.innerText.trim())); }, n0, {timeout: 420000});
+            return document.querySelectorAll(".cpt-a, .cpt-err").length > n0 && !document.querySelector(".cpt-wait") && !document.querySelector("#cptStatus") && !(l && /^(Working out what to do|Thinking|Still thinking|Looking through|Doing those one at a time|Making your map|Adding to your map)/.test(l.innerText.trim())); }, [n0, String(t.q).replace(/\s+/g, " ").trim().slice(0, 1000), tb], {timeout: 420000});
           await p.waitForTimeout(800);
           left = await p.evaluate(() => !document.querySelector("#cptIn"));
           ans = await p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.replace(/\s*(Save This Reply|Report Response)\s*/g, " ").trim() : ""; });

@@ -272,11 +272,11 @@
   const MAP_Q = /\b(concept|mind|idea)[ -]?maps?\b|\bmap (of|about|for|with|where)\b|\bmap\b[^?]*\b(in the (center|middle)|main idea|connected to|linked to)\b/i;
   const MAP_ASK = /\b(make|create|build|draw|generate|give me|i want|i need|can you|could you|put|add|start|set up)\b|^\s*(a|an|my)\b|\b(in the (center|middle)|main idea is|connected to|linked to)\b/i;
   const DOIT_Q = /^\s*(ok(ay)?|yes|yeah|yep|sure|please|go ahead|go|do it|do that|make it|make that|create it|build it|just do it|now)\b[^?]{0,40}$|^\s*(can|could|will|would) you (just )?(make|do|create|build|draw|put) (it|that|this|one)\b/i;
-  async function mapAct(q){
+  async function mapAct(q, hint){
     if (!window.SBCMAP || !SBCMAP.createFrom) return null;
     // (a course named anywhere in the words, "a psych concept map", as well as "in BIOS 230": it went to General otherwise)
     const cn = window.SBTRUTH && SBTRUTH.courseIn ? SBTRUTH.courseIn(q) : null;
-    const course = cn ? (cn.code || cn.name) : (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
+    const course = hint || (cn ? (cn.code || cn.name) : "") || (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
     try {
       const r = await SBCMAP.createFrom(q.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?/i, ""), course);
       return {answer: `I made ${r.name}${r.ideas ? ` with ${r.ideas} ideas` : ""} in ${r.where}. Tap Open Map to see it; you can drag, rename or add ideas there.`, sources: [], followUps: [], actions: [],
@@ -1425,6 +1425,7 @@ Careful, these are easy to mix up:
     timer: {type: "OBJECT", properties: {do: {type: "STRING"}, minutes: {type: "NUMBER"}, task: {type: "STRING"}}},
     undo: {type: "BOOLEAN"},
     study: {type: "STRING"},
+    map: {type: "OBJECT", properties: {topic: {type: "STRING"}, course: {type: "STRING"}}},
     show: {type: "ARRAY", items: {type: "STRING"}},
     page: {type: "STRING"},
     theme: {type: "STRING"},
@@ -1436,7 +1437,8 @@ Careful, these are easy to mix up:
 DOING THINGS
 Studyboard makes every change you put in the JSON the moment you reply, then shows your answer. So write the answer as done, one short sentence per change with the exact name and the new value ("Moved Lab Report: Cardiac Cycle to Sat, Nov 28."). Never tell them to do something themselves that you can do here, never ask them to confirm a change they asked for, and never say you did anything that isn't in the JSON.
 - Any wording counts: "tick off the quiz", "history essay got extended by 2 days", "journal 3: 9/10 :)", "psych midterm = top priority", "gym tmrw 7am", "it's actually for psych", "lab report due thursday at 11:59pm", "foundations instructor is Ms. Brooks". A statement of a new fact about their planner (a new due date, a mark they got, a room, a new appointment, a class they dropped) is a request to update it. But a date said in passing while they tell a story or vent ("ugh my lab partner, and the cardiac lab is due thursday") that differs from the planner: point out the planner's date and ask which is right; change nothing yet.
-- Concept maps live in each course (Courses, then the course's Maps). "Open concept maps": go to Courses and say where they are; you can't make or change a map in this reply.
+- Concept maps live in each course (Courses, then the course's Maps). "Open concept maps": go to Courses and say where they are. To make one ("map out the defense mechanisms", "a mind map of WWI causes"), use "map" (below); keep your answer to a short line, the app adds what it made.
+- "Colours" or "a look" for Studyboard ("put the ocean colours on") is a theme; only an accessory they name ("make your scarf blue") is a wear colour.
 - A question changes nothing ("is chapter 7 for foundations?", "did I finish care plan 2?", "psych quiz 1 was 17/20 right?", "how do I add a course?"): just answer it. So does chat, and a plan they mention ("I'll do the reading later").
 - Several things in one message: do every one of them. "both", "all my A&P tasks", "everything due this week": one change per matching item (check each against the data).
 - Follow-ups belong to the conversation: "it", "that one", "the a&p one", "same for chapter 7", "and the quiz too", "actually one more day", "make it 30 min", "do the same for thursday and saturday", or a bare "thursday" / "blue" / "the care plan, out of 20" answering what you just asked. The [Studyboard changed: ...] lines show what each earlier reply really changed (old → new).
@@ -1458,6 +1460,7 @@ Studyboard makes every change you put in the JSON the moment you reply, then sho
 - "Go ahead", "do it", "yes", "sure" right after you offered or suggested changes: make exactly those changes now.
 - "undo" can go together with other changes in one reply (the undo happens first): "don't delete 3, mark it done instead" = "undo": true plus the change to mark it done.
 - Something repeating ("every sunday until the exam", "a weekly reminder to review my heart cards"): add one task or event for each date, up to the date they give or for the next 4 weeks, and say which dates.
+- Notifications or alerts ("turn on notifications for my study group"): they need the student's own OK in the browser, so you can't switch them on yourself. Open them with "page": "reminders" and say to turn on the reminders they want there (they cover events like the study group and due dates). Not a SETTINGS change.
 - App settings (text size, notifications and reminders, daily study hours, language, sounds, the daily quote...) you change with a SETTINGS change: never say a setting can't be changed before trying.
 - Something Studyboard can't do (send an email or text, check or submit on Brightspace, book or buy something, print, a phone alarm, see their other apps): say so honestly in one sentence, change nothing, and offer what you can do instead (like adding a task or an event to remind them). Never pretend.
 
@@ -1479,14 +1482,17 @@ What you can change, and how (refs are the codes in the data, like T3, C2, K14, 
 - "newCards": [{"deck": D ref,"front","back"}]: cards into an existing deck. "keep only 4" = delete the rest of that deck's cards (their F refs are under CARDS IN); "make them harder" = new front/back on those F refs; "put those in my X deck instead" = newCards into X with the same cards, and delete the deck you just made; "make a new deck called WWI for it" = a new deck holding that card, and delete the card or deck it was in. Before adding a card, look at the deck's cards under CARDS IN: if the same card is already there, ask instead of adding a copy. When they give a card's front and back after you asked ("what does the AV node do / delays the impulse"), add it. "Save those as cards" after a quiz: a card for every question of that quiz (all of them, including ones you haven't asked yet). Only use notes, decks or files that exist: "the note I just made" when no note was just made gets a question.
 - "timer": {"do": "start"|"stop"|"pause"|"resume"|"link","minutes","task": T ref}. A pomodoro is 25 minutes. "make it 50 minutes" while one runs = start 50. "it's for the a&p quiz" while one runs = link.
 - "undo": true (see above).
+- "map": {"topic","course": C ref}: a concept map made by the app on that topic, saved in the course the topic belongs to (defense mechanisms: Psychiatric Nursing; the heart: A&P); "" only when it fits no course.
 - "study": a D ref, to start a flashcard study session on that deck ("study my heart deck", "start a flashcard session for psych terms", "study them" after making cards).
-- "show": [refs] only when they ask to open, find or go to a particular thing ("open my heart deck", "where's my freud note"); "show me them", "list my quizzes", "what's in it" are answered in the chat, listing them in your answer. "page": today|calendar|flashcards|notes|courses|files|groups|grades|settings|companion when they ask to go to a part of the app.
+- "show": [refs] only when they ask to open, find or go to a particular thing ("open my heart deck", "where's my freud note"); "show me them", "list my quizzes", "what's in it" are answered in the chat, listing them in your answer. "page": today|calendar|flashcards|notes|courses|files|groups|grades|settings|reminders|companion when they ask to go to a part of the app.
 - "theme": a theme's name, or dark|light|system. A theme or mode isn't reversed by "undo": to set it back ("undo the dark mode"), give the theme or mode it was before (in the [Studyboard changed] line, or LOOK NOW). "wear": [{"item","on": true|false,"color"}] for what you (the companion) wear: put on, take off, or recolour an accessory you have. Only the accessories listed as yours: asked for one you don't have (a beanie, a crown), say you haven't unlocked it yet (the Wardrobe shows how) and wear nothing else instead.
 - "group": {"do": "new"|"join","name","code"}: start a study group (it opens New Group filled in) or join one with an invite code.
 
 ANSWERING
 - About their planner: read it exactly from the data (titles, due dates with the weekday, times, marks, rooms, instructors). "What am I working on" = tasks with status doing. A task marked OVERDUE is late: say so ("was due Mon, Nov 23, so it's overdue"), never as if it's still coming up. When they ask for a list (what's due, my marks, my quizzes, what's tomorrow), include every matching item from the data, done and open where it fits, and nothing that doesn't match. "Today"/"tomorrow" include classes and events from CLASSES AND EVENTS BY DATE as well as tasks due. Count and compare carefully. Never invent their data; if something they ask about in their planner isn't there, say so briefly.
 - "What should I do next" and plans for today: follow TODAY'S PLAN and DO THIS NEXT. But when the conversation is about one course or worry ("i'm scared of failing A&P" then "what do i do first"), answer within that: the first step for A&P.
+- A follow-up keeps the subject and time frame just discussed: "make me a 2 day plan" right after talking about A&P Quiz 4 is a plan for that quiz; "so what should i focus on" after talking about next week is about next week.
+- "Like what?" after you suggested something small: name one small, concrete step on one of their real tasks. "You're just saying that": back it up with real marks or progress from the data (19/20 on Foundations Quiz 1). "What do you think about me": say something kind based only on what the data shows (their marks, what they've finished), never personality traits you can't know.
 - Time they have ("I have the whole weekend free", "I've got a free hour now", "2 hours tonight"): that's study time to plan, so suggest what to do with it from what's due soonest (name the tasks and roughly how long each), and "split it up for me" then means a schedule for that time.
 - "Quiz me on what's due this week" means on the material those tasks cover (the A&P quiz's heart content, the psych terms), never on due dates.
 - Their notes, cards and files: quote and explain what they say (STICKY NOTES has each note's text).
@@ -1495,6 +1501,7 @@ ANSWERING
 - Just chatting (hello, how are you, feelings, jokes, questions about you): reply like a friend, briefly, to exactly what they said, and follow the conversation; play along with games and jokes. Don't bring up their tasks, deadlines, today's plan, the timer or what to work on unless they bring up school themselves, and never end a chat reply with "want to start on X?". When they do bring up school (stress about an exam, "I still have a lab report"), mention only what they brought up, kindly. When they mention a plan or event on a day ("my cousin's wedding saturday", "I have clinical wednesday"), match it to the planner: say kindly if something is due that day or if their planner has it on another day (clinical orientation is Friday). A mark they mention while venting that's already saved ("my quiz 1 was 11/20 too") is a feeling to answer kindly, not something to save. When they ask you for something to write or say (a motto, a pep talk, a joke "about nursing"), write it. Never repeat a suggestion you already made. Don't start a timer or change anything because of a feeling or a plan they mention ("ok 25 min then sleep"): just encourage them, unless they ask you to start one.
 - Plans and schedules: never put work on a task after its due date, keep a task's parts in order, fit the time they said ("after dinner" is the evening, "2 hours tonight" is two hours), and stick to the plan you already gave when they ask "what after that".
 - Write dates like "Wed, Nov 25" (never "Wednesday Wed"). Say only facts you're sure of: no made-up firsts, awards, dates or numbers; count items carefully (a course's decks are the ones with that course).
+- A mnemonic or memory trick for something in their notes uses what the note says (REBT's note has the ABC model: build on A, B, C).
 - Mnemonics, rhymes, jokes, mottos: write only the final version (no drafts or "no, better:"), check that a mnemonic's letters really spell the word, and "shorter" means one or two lines. "Another one" means another of the same thing you just gave.
 - "Ask me ..." / "quiz me": give the question only, never its answer; "I give up" or "skip": give that question's answer, then the next question.
 - In nursing talk "pt" means the patient. "Switching subjects" in study talk means another course or topic.
@@ -1542,13 +1549,13 @@ ANSWERING
     const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
     const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `You're wearing: ${worn.join(", ")}. ` : "You're wearing no accessories. "}${owned.length ? `Accessories you have: ${owned.join(", ")}. ` : ""}${pals.length ? `The student can switch to the other study companions they have in Studyboard (in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
-    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. Never write ref codes like T3 or N1 in the answer.)`;
+    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
     const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
     // (too many requests this minute: waited for a free slot, a few times, rather than given up)
     const tryCall = async () => { for (let i = 0; ; i++) { try { return await call(); } catch (e) { if (stopsHere(e) || usedUp(e) || i >= 3) throw e; const rate = !!(e && (e.rate || e.code === "limit" || /requests already|too many|a minute/i.test(String(e.message || "")))); if (rate) { T.status = "Lots of questions at once. One moment…"; drawStatus(); } await new Promise(res => setTimeout(res, rate ? 8000 : 1500)); } } };
     let r = await tryCall(), d = r && r.data && typeof r.data === "object" ? r.data : null;
-    const asked = x => !!x && ["changes", "newTasks", "newEvents", "newCourses", "newClasses", "newNotes", "newDecks", "newCards", "show", "wear"].some(k => Array.isArray(x[k]) && x[k].length) || !!(x && (x.undo || x.study || x.page || x.theme || (x.timer && x.timer.do && x.timer.do !== "none") || (x.group && x.group.do)));
+    const asked = x => !!x && ["changes", "newTasks", "newEvents", "newCourses", "newClasses", "newNotes", "newDecks", "newCards", "show", "wear"].some(k => Array.isArray(x[k]) && x[k].length) || !!(x && (x.undo || x.study || (x.map && x.map.topic) || x.page || x.theme || (x.timer && x.timer.do && x.timer.do !== "none") || (x.group && x.group.do)));
     // a reply that says it did something with nothing listed to do: asked once more
     if (d && !asked(d) && A.CLAIMS.test(String(d.answer || ""))) { try { const r2 = await call(`\n\nIMPORTANT: your last reply said "${clip(d.answer, 200)}" but listed no change. If the student asked for a change, list it in the JSON. If not, don't say anything was done.`); if (r2 && r2.data && r2.data.answer) d = r2.data; } catch (e) { if (stopsHere(e)) throw e; } }
     // no reply, or a placeholder ("placeholder", "...") where the reply should be: asked once more
@@ -1582,7 +1589,8 @@ ANSWERING
       // a colour: the exact one with Pro's any-colour, else the nearest of the course colours (said, so "hot pink #FF3E9A" isn't claimed)
       if (t && t.kind === "course" && cc.field === "color") { const want = String(cc.value || ""), hx = agHex(want), asked = (/#[0-9a-f]{6}\b/i.exec(want) || [])[0] || (NAMED[want.toLowerCase().trim()] || "");
         cc.value = hx || want; const cur = String((state.courses[t.id] || {}).color || "").toUpperCase();
-        if (hx && cur === hx) { extra.push(`${courseLabel(state.courses[t.id])} is already that colour.`); return; }
+        // (the nearest one is the colour it has: nothing changes, said as such, so "Changed it to hot pink" isn't claimed beside it)
+        if (hx && cur === hx) { if (asked && asked.toUpperCase() !== hx) fails.push(`change ${courseLabel(state.courses[t.id])}'s colour to ${asked} (your course colours don't include that exact shade, and the closest one is the colour it already has; Pro can use any colour exactly)`); else extra.push(`${courseLabel(state.courses[t.id])} is already that colour.`); return; }
         if (hx && asked && asked.toUpperCase() !== hx) extra.push(`(Your course colours don't include that exact shade, so I used the closest one, ${hx}. Pro can use any colour exactly.)`); }
       const x = A.check(cc, refs);
       if (x) checked.push(x); else failK.push({k: t ? `${t.kind === "grade" ? "task" : t.kind}:${t.id}:${cc.field}` : "", s: `change ${t ? A.labelOf(t) || "that" : "that"}'s ${String(cc.field || "").toLowerCase() || "details"}${cc.value ? ` to ${clip(cc.value, 40)}` : ""}`});
@@ -1649,8 +1657,17 @@ ANSWERING
     if (d.group && d.group.do) { const g = d.group; if (/join/i.test(g.do)) extra.push(window.SBGRPJOIN && SBGRPJOIN(String(g.code || "").trim()) ? `I opened Join${g.code ? ` with ${g.code} filled in` : ""}. Tap Join to check the code.` : "Joining a group needs you signed in and online. Open Groups and tap Join.");
       else { const nm = String(g.name || "").trim(); extra.push(window.SBGRPNEW && SBGRPNEW(nm, /project/i.test(q)) ? `I opened New Group${nm ? ` with "${nm}" filled in` : ""}. Check it and tap Create.` : `Groups need you signed in and online. Open Groups and tap New Group${nm ? ` to make "${nm}"` : ""}.`); } }
     // settings go through the Settings sheet's own controls, shown and confirmed there
-    if (sets.length) { const res = []; try { await A.propose(sets, {direct: true, results: res}); } catch (e) {}
+    // (Settings opens in the sheet the chat may be shown in: the chat is opened again after, so the reply is seen)
+    if (sets.length) { const res = []; try { await A.propose(sets, {direct: true, results: res}); } catch (e) {} try { if (!document.querySelector("#cptIn") && window.SBCOMPTAB) setTimeout(() => { try { if (!document.querySelector("#cptIn")) SBCOMPTAB.open(); } catch (e) {} }, 50); } catch (e) {}
       sets.forEach((x, i) => { const r = res[i]; if (r && r.title) log.push(`setting ${r.title}: ${r.from ? r.from + " → " : ""}${r.to}`); else if (r !== true) fails.push(`change the setting "${clip(x.setting, 40)}" (I couldn't find it in Settings)`); }); }
+    // a concept map, made by the map step (98-concept-map.js) and offered to open
+    let mapOpen = null;
+    if (d.map && d.map.topic) { const ct = d.map.course ? refs.get(String(d.map.course).trim().toUpperCase()) : null, cc = ct && ct.kind === "course" ? state.courses[ct.id] : null;
+      T.status = "Making your map…"; drawStatus();
+      // (the topic's name only: "the heart, from your Heart deck: SA node, ..." was read as a typed outline of three ideas)
+      const topic = clip(String(d.map.topic).split(/[,:;(]|\s+\b(?:from|using|based on|with)\b/i)[0].replace(/^(?:a\s+)?(?:concept\s+|mind\s+)?map\s+(?:of|about|on)\s+/i, "").trim() || String(d.map.topic), 80);
+      const r = await mapAct(`make a concept map about ${topic}`, cc ? (cc.code || cc.name) : "").catch(() => null);
+      if (r && r.mapOpen) { mapOpen = r.mapOpen; extra.push(r.answer); log.push(`made a concept map about ${clip(String(d.map.topic), 60)}`); } else fails.push(`make that map${r && r.answer ? ` (${clip(r.answer, 100)})` : ""}`); }
     // a study session on a deck (opened once the reply is shown)
     if (d.study) { const t = refs.get(String(d.study).trim().toUpperCase()), dk1 = t && t.kind === "deck" ? state.decks[t.id] : (decks.length ? state.decks[decks[decks.length - 1]] : null);
       if (dk1 && dk1.cards.length) { setTimeout(() => { try { startStudy([dk1.id]); } catch (e) {} }, 250); log.push(`opened ${dk1.name} to study`); } else fails.push(dk1 ? `study ${dk1.name} (it has no cards yet)` : "find that deck to study"); }
@@ -1660,6 +1677,8 @@ ANSWERING
     if (show.length) { shown = Object.assign({}, show[0], {label: A.labelOf(show[0])}); setTimeout(() => { A.jump(show[0]).catch(() => {}); }, 200); }
     else if (d.page) { const k = String(d.page).toLowerCase().replace(/^(my|the)\s+/, "").replace(/\s+(page|tab|view|section)$/, "").trim();
       if (/^(settings?|preferences|options)$/.test(k)) setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200);
+      // the Reminders and Notifications sheet (turning them on needs the student's OK in the browser, so it's opened for them)
+      else if (/^(reminders?|notifications?|alerts?)/.test(k)) setTimeout(() => { try { const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = "rm-open"; document.body.appendChild(b); b.click(); b.remove(); } catch (e) {} }, 200);
       else if (PAGES[k]) setTimeout(() => { try { ui.tab = PAGES[k]; if (PAGES[k] !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200); }
     let answer = String(d.answer || "").trim();
     // a reply that says it did what couldn't be done ("Done, notifications are muted" when the setting wasn't found): what really
@@ -1674,6 +1693,7 @@ ANSWERING
     answer = answer.replace(/\s*\((?:\s*(?:refs?\s+)?[A-Z]{1,2}\d{1,3}\s*,?)+\)/g, "").replace(/\b[A-Z]{1,2}\d{1,3}\b/g, x => refs.has(x) ? "" : x).replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
     const out = {answer: answer || "Done.", sources: [], followUps: [], actions: [], log, decks, agent: true};
     if (shown) out.show = [shown];
+    if (mapOpen) out.mapOpen = mapOpen;
     return out;
   }
   async function ask(q){
@@ -1757,8 +1777,9 @@ ANSWERING
         // crisis lines again; the crisis reply itself stays the written one above)
         if (!early && mathR && !MARKSAID(q) && (/\d/.test(q) || MT.mathy(q))) early = {answer: mathR.answer, math: mathR.math, sources: [], followUps: [], actions: []};
         const ids1 = snapIds();
-        // concept maps are made by their own step (98-concept-map.js), from here as from anywhere: left to the steps below
-        const mapQ = (MAP_Q.test(q) && MAP_ASK.test(q)) || (!!last && !!last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q));
+        // more on the map just made ("make it more detailed", "add more from my note"): the map step's own follow-up, below. A new map
+        // is Claude's "map" (it picks the course the topic is in; the words alone put "a map of defense mechanisms" in General)
+        const mapQ = !!last && !!last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q);
         if (!early && !mapQ) { T.status = "Thinking…"; draw(); early = await claudeTurn(q, c).catch(e => { if (stopsHere(e)) throw e; console.warn("claude step", e); return null; });
           // (never the small models' steps instead: they answered "what does my wednesday look like" with "I couldn't make that change")
           if (!early) early = {answer: "Sorry, I couldn't get a proper answer just now, so I didn't change anything. Could you say that again?", sources: [], followUps: [], actions: []}; }
@@ -1866,7 +1887,12 @@ ANSWERING
       }
       if (!made && mapMore && window.SBCMAP && SBCMAP.expandFrom) {
         T.status = "Adding to your map…"; draw();
-        try { const r = await SBCMAP.expandFrom(last.a.mapOpen.course, last.a.mapOpen.map, q); made = {answer: `I added ${r.added} more ideas to ${r.name} (${r.ideas} in all). Tap Open Map to see them.`, sources: [], followUps: [], actions: [], mapOpen: last.a.mapOpen}; }
+        // (with what their notes say on the map's topic: "add more from my note" was asked of an AI that never saw the note, and it
+        // found nothing to add)
+        let ask = q; try { const mc = state.courses[last.a.mapOpen.course], mm = mc && SBCMAP.mapsOf ? SBCMAP.mapsOf(mc).find(x => x.id === last.a.mapOpen.map) : null, ws = words(String(mm ? mm.name : "").replace(/\bmap\b/i, ""));
+          const nn = notesArr().filter(n => String(n.text || "").trim()).map(n => ({n, s: hits(n.text, ws) + (n.courseId && n.courseId === last.a.mapOpen.course ? 2 : 0)})).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 2);
+          if (nn.length) ask = `${q}. Use what the student's notes say: ${nn.map(x => clip(x.n.text, 900)).join(" / ")}`; } catch (e) {}
+        try { const r = await SBCMAP.expandFrom(last.a.mapOpen.course, last.a.mapOpen.map, ask); made = {answer: `I added ${r.added} more ideas to ${r.name} (${r.ideas} in all). Tap Open Map to see them.`, sources: [], followUps: [], actions: [], mapOpen: last.a.mapOpen}; }
         catch (e) { made = {answer: (e && e.message) || "I couldn't add to that map just now.", sources: [], followUps: [], actions: [], mapOpen: last.a.mapOpen}; }
       }
       if (multi && !made) { T.status = "Doing those one at a time…"; draw(); const r = await SBASSIST.ask(q, {screen: false}).catch(() => null); if (r && r.answer) made = {answer: r.answer, sources: [], followUps: [], actions: []}; }
