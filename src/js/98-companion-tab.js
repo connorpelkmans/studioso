@@ -457,6 +457,33 @@ Examples:
   const hm = s => { const m = HM.exec(String(s || "").trim()); return m ? pad2(Number(s.split(":")[0])) + ":" + s.split(":")[1] : ""; };
   // the task meant: named words, or "it" (the last task the chat talked about)
   // open tasks first, then finished ones (renaming or moving a task that's done still works)
+  /* Several tasks at once, from the words: the ones the last reply listed ("both", "all of them", "those", "the top two", "the first 3"),
+     or every open task narrowed by a course and/or a day or range ("everything due this week", "all my a&p tasks", "all the psych stuff
+     due friday"), minus any "except X". null when the words don't pick several; "everything" with nothing to narrow it is never one
+     (too big a change to guess). */
+  function tasksSel(q, chat, anyStatus){
+    const w = String(q || "").toLowerCase(), TR = window.SBTRUTH;
+    const pool = tasksArr().filter(t => anyStatus || t.status !== "done");
+    const exM = /\b(?:except|but not|other than|besides|apart from|not including)\s+(?:for\s+)?(?:the\s+|my\s+)?(.+?)\s*[.!]*$/.exec(w);
+    const drop = L => { if (!exM) return L; const xs = exM[1].split(/\s*(?:,|\band\b|&(?!p))\s*/).map(s => taskOf0(s, chat, true)).filter(Boolean); return L.filter(t => !xs.some(x => x.id === t.id)); };
+    const lastA = ((chat && chat.msgs) || []).filter(x => x.a).slice(-1)[0], txt = lastA ? String(lastA.a.answer || "").toLowerCase() : "";
+    const listed = txt ? pool.map(t => ({t, i: txt.indexOf(String(t.title || "").toLowerCase())})).filter(x => x.i >= 0 && x.t.title).sort((a, b) => a.i - b.i).map(x => x.t) : [];
+    const NW = {two: 2, three: 3, four: 4, five: 5, "2": 2, "3": 3, "4": 4, "5": 5};
+    let m;
+    if (listed.length > 1 && (m = /\b(?:the\s+)?(?:top|first)\s+(two|three|four|five|[2-5])\b/.exec(w))) return drop(listed.slice(0, NW[m[1]]));
+    if (listed.length > 1 && /\b(both|all of them|them all|all those|all of those|those|these|all these|each of them|every one of them|all \d+|the lot)\b/.test(w)) return drop(/\bboth\b/.test(w) ? listed.slice(0, 2) : listed);
+    if (/\b(everything|every (?:task|assignment|thing)|all (?:of )?(?:my |the )?(?:[\w&]+ ){0,2}(?:tasks|stuff|work|assignments|homework|things|items|readings|labs|quizzes))\b/.test(w)) {
+      let L = pool;
+      const cn = TR && TR.courseIn ? TR.courseIn(q) : null; if (cn) L = L.filter(t => t.courseId === cn.id);
+      // (the days that pick them, not the day they go to: "move everything due wednesday to friday")
+      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
+      const r = TR && TR.range && /\b(today|tonight|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|overdue|late|next \d+ days)\b/.test(sel) ? TR.range(sel, todayISO()) : null;
+      if (r) L = L.filter(t => t.due && t.due >= r.from && t.due <= r.to);
+      if (!cn && !r) return null;
+      return drop(L);
+    }
+    return null;
+  }
   function taskOf(name, chat, anyStatus){ return taskOf0(name, chat, anyStatus) || (anyStatus ? null : taskOf0(name, chat, true)); }
   function taskOf0(name, chat, anyStatus){
     const pool = tasksArr().filter(t => !t.archived && (anyStatus || t.status !== "done"));
@@ -717,6 +744,72 @@ Examples:
     return `Added ${n} card${n === 1 ? "" : "s"} to ${d.name} from ${z.title || "the quiz"}: each question on the front, its answer on the back. Say "undo" to take them back.`;
   }
   // a quiz from a deck (or from the deck a card is in): Make a Quiz, with that deck chosen
+  /* A quiz in the chat, one question at a time, with no AI step (quick, and right on any engine): "quiz me on my heart cards", "test me
+     on defense mechanisms", "ask me some questions about the therapeutic relationship". The questions come from a deck (its cards), or
+     from a note's "Term: meaning" lines. Each answer is checked against the key words of the right one, then the next question;
+     "next", "skip", "idk" show the answer; "stop" ends it with the score. A new request (not an answer) ends it quietly. */
+  const QUIZ_START = /\b(?:quiz|test|drill)\s+me\b|\bask me (?:some |a few |\d+ )?(?:questions|q'?s)\b|\b(?:let'?s|lets|can we|wanna|want to)\s+(?:do\s+)?(?:a\s+)?(?:quick\s+)?(?:quiz|practice questions)\b/i;
+  const QSTOPW = /^(the|and|for|with|from|that|this|these|those|into|onto|your|their|them|they|what|which|when|where|have|has|had|was|were|are|is|its|it's|of|to|in|on|at|by|or|an|a|be|as|so|um|uh|like|just|maybe|think|i|im|it|um|hmm)$/;
+  const qWords = s => (String(s || "").toLowerCase().match(/[a-z0-9]+/g) || []).filter(w => !QSTOPW.test(w));
+  function quizPool(topic){
+    const t = String(topic || "").toLowerCase().replace(/\b(me|on|about|over|my|the|some|a|few|cards?|flash ?cards?|deck|notes?|note|stuff|please|pls|quiz|test|drill|questions?|q'?s|from|with|ask|again)\b/g, " ").replace(/[^a-z0-9& ]/g, " ").replace(/\s+/g, " ").trim();
+    const decks = (typeof decksArr === "function" ? decksArr() : Object.values(state.decks || {})).filter(d => d && !d.archived && (d.cards || []).length);
+    const shuffle = L => L.map(x => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+    const tw = qWords(t);
+    if (t) { const dk = deckNamed(t) || decks.find(d => tw.length && tw.every(w => String(d.name).toLowerCase().includes(w.slice(0, 5))));
+      if (dk && (dk.cards || []).length) return {name: dk.name, items: shuffle(dk.cards.map(c => ({q: String(c.front), a: String(c.back)}))).slice(0, 10)}; }
+    // "the SA node card", "my heart cards": the cards about it first (the deck they're in)
+    const aboutCards = () => { const cs = decks.flatMap(d => d.cards).filter(c => tw.some(w => (String(c.front) + " " + String(c.back)).toLowerCase().includes(w.slice(0, 5)))); return cs.length ? {name: t, items: shuffle(cs.map(c => ({q: String(c.front), a: String(c.back)}))).slice(0, 10)} : null; };
+    if (tw.length && /\b(cards?|flash ?cards?|deck)\b/i.test(String(topic))) { const A = aboutCards(); if (A) return A; }
+    // a note about it: its "Term: meaning" lines
+    const notes = notesArr().filter(n => n && !n.archived && n.text).map(n => ({n, sc: tw.filter(w => String(n.text).toLowerCase().includes(w.slice(0, 5))).length + tw.filter(w => String(n.text).split("\n")[0].toLowerCase().includes(w.slice(0, 5))).length})).filter(x => !tw.length || x.sc > 0).sort((a, b) => b.sc - a.sc);
+    if (tw.length && notes.length) { const n = notes[0].n, head = String(n.text).split("\n")[0].trim();
+      const items = String(n.text).split("\n").slice(1).map(l => /^\s*[-•*]?\s*([A-Z][^:]{1,40}?)\s*[:–-]\s+(.{8,})$/.exec(l.trim())).filter(Boolean).map(m => ({q: `What is ${m[1].trim()}?`, a: m[2].trim()}));
+      if (items.length >= 2) return {name: head.slice(0, 50), items: shuffle(items).slice(0, 10)}; }
+    // cards in any deck about it
+    if (tw.length) { const cs = decks.flatMap(d => d.cards).filter(c => tw.some(w => (String(c.front) + " " + String(c.back)).toLowerCase().includes(w.slice(0, 5))));
+      if (cs.length >= 2) return {name: t, items: shuffle(cs.map(c => ({q: String(c.front), a: String(c.back)}))).slice(0, 10)}; }
+    // no topic: the deck with the most cards due, else the biggest
+    if (!t && decks.length) { const today = todayISO(), dk = decks.slice().sort((a, b) => (b.cards.filter(c => !c.due || c.due <= today).length - a.cards.filter(c => !c.due || c.due <= today).length) || b.cards.length - a.cards.length)[0];
+      return {name: dk.name, items: shuffle(dk.cards.map(c => ({q: String(c.front), a: String(c.back)}))).slice(0, 10)}; }
+    return null;
+  }
+  // how well an answer matches: the right answer's key words they gave (short ones like "SA" or "AV" must be exact: "AV node" isn't "SA node")
+  function quizMark(ans, right){
+    const k = [...new Set(qWords(right))], g = qWords(ans), has = w => w.length <= 3 ? g.includes(w) : g.some(x => x.slice(0, 5) === w.slice(0, 5));
+    if (!k.length) return 0;
+    const shortK = k.filter(w => w.length <= 3 && !/^\d+$/.test(w));
+    if (shortK.length && !shortK.every(has)) return 0;
+    const sc = k.filter(has).length / k.length;
+    return sc >= 0.5 || (k.length <= 2 && sc > 0) ? 2 : sc >= 0.25 ? 1 : 0;
+  }
+  function chatQuiz(q, last){
+    const w = String(q || "").toLowerCase().trim(), Z = last && last.a && last.a.quiz;
+    const ask = (z, pre) => ({answer: `${pre ? pre + "\n\n" : ""}Question ${z.i + 1} of ${z.items.length}: ${z.items[z.i].q}`, sources: [z.name ? `Quiz: ${clip(z.name, 34)}` : "Quiz"], followUps: [], actions: [], quiz: z});
+    if (Z && Z.items && Z.i < Z.items.length) {
+      const cur = Z.items[Z.i], z = Object.assign({}, Z, {i: Z.i + 1});
+      if (/^\s*(stop|quit|end|enough|no more|i'?m done|im done|that'?s enough|thats enough|done)\b/.test(w) || /\b(stop|end) (the )?quiz\b/.test(w)) return {answer: `Quiz over: you got ${Z.right} of ${Z.i} right.${Z.i ? "" : " Come back any time."}`, sources: [], followUps: [], actions: []};
+      // a new request, not an answer: the quiz ends and that's answered
+      if (QUIZ_START.test(w) || (w.split(/\s+/).length > 7 && /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:add|create|make|delete|remove|move|change|start|mark|open|go to|take me|switch|turn|set|put|show|what'?s due|what is due|how do i|explain|tell me)\b/.test(w))) { if (!QUIZ_START.test(w)) return null; }
+      else {
+        const pass = /^\s*(next|skip|pass|idk|i ?d(?:on'?t|unno) know|no idea|not sure|show (?:me )?(?:the )?answer|tell me|give up|reveal|\?+)\s*[.!?]*\s*$/.test(w) || /\b(no idea|i don'?t know|idk|dunno)\b/.test(w);
+        const mk = pass ? -1 : quizMark(q, cur.a);
+        if (mk === 2) z.right = Z.right + 1;
+        const said = mk === 2 ? `Right! ${cur.a}` : mk === 1 ? `Partly. The full answer: ${cur.a}` : mk === -1 ? `The answer: ${cur.a}` : `Not quite. The answer: ${cur.a}`;
+        if (z.i >= z.items.length) return {answer: `${said}\n\nThat's all ${z.items.length}: you got ${z.right} right.`, sources: [], followUps: [], actions: []};
+        return ask(z, said);
+      }
+    }
+    if (!QUIZ_START.test(w) || /\b(make|create|generate|build|write)\b[^?]*\bquiz\b/.test(w)) return null;
+    let topic = (/\b(?:on|about|over|from|with|using)\s+(.+?)\s*[.!?]*$/.exec(w) || [])[1] || w.replace(QUIZ_START, " ").replace(/^\s*(?:ok(?:ay)?|now|so|can you|could you|please|pls|then)\b/g, " ");
+    // "now quiz me on it", "quiz me on that": the deck it just made, or what the chat was just about
+    if (/^\s*(?:it|that|this|them|those|these|those cards|these cards|that deck|this deck)?\s*$/.test(topic.replace(/\b(now|again|please|pls|then)\b/g, "").trim()) && last) {
+      const R = last.a.ref && last.a.ref.kind === "deck" ? state.decks[last.a.ref.id] : last.a.card && last.a.card.deck ? state.decks[last.a.card.deck] : null;
+      topic = R ? R.name : /\b(it|that|this|them|those|these)\b/.test(w) ? String(last.ask || last.q || "") : topic; }
+    const P = quizPool(topic);
+    if (!P || !P.items.length) return null;
+    return ask({name: P.name, items: P.items, i: 0, right: 0}, `Okay, ${P.items.length} question${P.items.length === 1 ? "" : "s"} from ${P.name}. Answer in your own words, or say "skip" or "stop".`);
+  }
   function quizFromDeck(name){
     let dk = deckNamed(name);
     if (!dk) { const L = String(name || "").toLowerCase().replace(/\b(the|my|a|this|that|card|flashcard)\b/g, " ").trim(); if (L.length > 2) dk = (typeof decksArr === "function" ? decksArr() : []).find(x => (x.cards || []).some(c => String(c.front || "").toLowerCase().includes(L) || String(c.back || "").toLowerCase().includes(L))); }
@@ -854,7 +947,7 @@ Careful, these are easy to mix up:
         else if (/\b(due|deadline|extend(ed)?|bump(ed)?|mov(e|ed)|push(ed)?|postpon(e|ed)|delay(ed)?|reschedul(e|ed)|until|to (monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|next))\b/.test(w)) d.intent = "move_task";
         else d.intent = "question";
       }
-      if (/^(set_priority)$/.test(d.intent) && !/\b(urgent|priority|important)\b/.test(w)) d.intent = /\b(due|deadline)\b/.test(w) ? "move_task" : "question";
+      if (/^(set_priority)$/.test(d.intent) && !/\b(urgent|priority|important)\b|\b(?:to|as|=)\s+(?:high|low|medium|med)\b|\b(?:high|low|medium)\s*(?:pls|please|now)?\s*[.!]*$/.test(w)) d.intent = /\b(due|deadline)\b/.test(w) ? "move_task" : "question";
       // "remember that ...", "note to self": a note, not an event or a task
       if (/^(add_event|add_task)$/.test(d.intent) && /^\s*(remember that|note to self|note:|jot|write (this|that) down|make a note|save a note|sticky)/.test(w)) d.intent = "add_note";
       // joining (a code, "join") is never starting a new group
@@ -949,6 +1042,10 @@ Careful, these are easy to mix up:
       if (/^(move_task|delete_task|rename_task)$/.test(d.intent) && /^(the |that |this )?(event|meeting|appointment|session|study group|class)$/i.test(String(d.task || "").trim())) {
         const said = ((chat && chat.msgs) || []).slice(-4).map(x => (x.q || "") + " " + (x.a ? x.a.answer : "")).join(" ").toLowerCase();
         const ev = itemsOf("event").find(x => x.name && said.includes(x.name.toLowerCase())) || itemNamed("event", String(q)); if (ev) d.task = ev.name; }
+      // several tasks picked by the words ("everything due this week high priority pls", "both done"): the change they name, even when
+      // the model took it for a question
+      if (!preset && /^(question|chat|cant)$/.test(d.intent) && !asking) { const L = tasksSel(q, chat);
+        if (L && L.length >= 1) { if (/\b(urgent|priority|high|low)\b/.test(w)) d.intent = "set_priority"; else if (DONEW.test(w)) d.intent = "mark_done"; else if (/\b(in progress|started|working on)\b/.test(w)) d.intent = "mark_in_progress"; else if (/\b(move|push|bump|postpone|delay|reschedule)\b/.test(w)) d.intent = "move_task"; } }
       // a new task's course from the words, when the model left it out
       if (/^add_(task|event)$/.test(d.intent) && !d.course && window.SBTRUTH && SBTRUTH.courseNamed) { const c = SBTRUTH.courseNamed(q); if (c) d.course = c.code || c.name; }
     }
@@ -957,6 +1054,33 @@ Careful, these are easy to mix up:
     if (["mark_done", "mark_not_done", "mark_in_progress", "move_task", "rename_task", "delete_task", "set_priority", "task_course"].includes(it)) {
       // a course, deck, event or board with that name, matched better than any task: that's what's meant
       if (/^(rename_task|delete_task)$/.test(it) && d.task) { const x0 = itemNamed("", d.task); if (x0 && x0.kind !== "task") return itemAct(it === "rename_task" ? "rename_item" : "delete_item", Object.assign({}, d, {kind: x0.kind, item: d.task}), q, chat); }
+      // several at once ("set both to high", "everything due this week high priority", "mark all my a&p stuff done except the final"):
+      // each one changed, in one step they can undo
+      if (!preset && /^(mark_done|mark_not_done|mark_in_progress|move_task|set_priority|task_course)$/.test(it)) {
+        const L = tasksSel(q, chat, it === "mark_not_done");
+        if (L && !L.length) return say("I couldn't find any open tasks that match that, so I didn't change anything.");
+        if (L && L.length >= 1) {
+          const ww = String(q).toLowerCase(), pr = d.priority || (/\burgent\b/.test(ww) ? "urgent" : /\blow\b/.test(ww) ? "low" : /\b(medium|med|normal)\b/.test(ww) ? "med" : /\b(high|important|priority)\b/.test(ww) ? "high" : "");
+          const wh = it === "move_task" ? whenOf(q, d) : null, cc = it === "task_course" ? courseOfName(d.course) : null;
+          const rel = it === "move_task" && !wh.date ? /\b(?:by\s+|for\s+|back\s+)?(a|an|one|two|three|four|five|six|seven|\d{1,2})\s+(day|days|week|weeks)\b/i.exec(q) : null;
+          if (it === "set_priority" && !pr) return say(`What priority should those ${L.length} have: urgent, high, medium or low?`);
+          if (it === "move_task" && !wh.date && !wh.time && !rel) return say(`When should those ${L.length} be due? For example: move them to Friday.`);
+          if (it === "task_course" && !cc) return say("Which course should they be in?");
+          const ch = [];
+          L.forEach(t => { const n = clone(t);
+            if (it === "mark_done") { if (t.status === "done") return; n.status = "done"; n.doneAt = Date.now(); }
+            else if (it === "mark_not_done") { if (t.status !== "done") return; n.status = "todo"; n.doneAt = null; }
+            else if (it === "mark_in_progress") n.status = "doing";
+            else if (it === "set_priority") n.priority = pr;
+            else if (it === "task_course") n.courseId = cc.id;
+            else if (it === "move_task") { if (wh.date) n.due = wh.date; else if (rel && t.due) { const NW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7}, k = (NW[rel[1].toLowerCase()] || Number(rel[1])) * (/week/i.test(rel[2]) ? 7 : 1), x = new Date(t.due + "T12:00:00"); x.setDate(x.getDate() + (/\b(earlier|sooner|forward|up)\b/i.test(q) ? -k : k)); n.due = x.toISOString().slice(0, 10); } if (wh.time) n.time = wh.time; if (n.start && n.due && n.start > n.due) n.start = n.due; }
+            ch.push({kind: "task", id: t.id, after: n}); });
+          if (!ch.length) return say(it === "mark_done" ? "Those are already done." : "Nothing needed changing.");
+          const names = ch.map(c => state.tasks[c.id].title), what = {mark_done: "marked done", mark_not_done: "moved back to To Do", mark_in_progress: "moved to In Progress", set_priority: `set to ${({urgent: "urgent", high: "high", med: "medium", low: "low"})[pr]} priority`, task_course: cc ? `moved to ${courseLabel(cc)}` : "", move_task: wh && wh.date ? `moved to ${fmtDate(wh.date)}` : "moved"}[it];
+          applyChanges(ch, `${ch.length} tasks ${what}`);
+          return say(`Done: ${names.join(", ")} ${ch.length === 1 ? "was" : "were"} ${what}.`);
+        }
+      }
       const t = taskOf(d.task, chat, it === "mark_not_done");
       // not a task after all: the event, deck, course... with that name
       if (!t && d.task && !/^(it|that|this)$/i.test(String(d.task).trim())) {
@@ -1197,6 +1321,8 @@ Careful, these are easy to mix up:
       // an answer to what it just asked ("Conclusions" after "What should the deck be called?"), more on the map it just made,
       // and "it", "that", "what about X?", "why?" about the subject it just answered
       const last = (c.msgs || []).filter(x => x.q && x.a && !x.err).slice(-1)[0];
+      // a quiz in the chat: started, or an answer to its question (marked, then the next one)
+      { const qz = !att.length && !(window.SBCARE && SBCARE.distress(q)) && !(last && last.a.risk) ? chatQuiz(q, last) : null; if (qz) { if (!(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, 700)); m.a = qz; return; } }
       const NEWREQ = /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:add|create|make|delete|remove|move|change|start|stop|mark|open|go to|take me|switch|turn|set|put|show|study|quiz|explain|what|who|when|where|why|how|is|are|do|does|did|can|could|should)\b/i;
       const slot = !att.length && last && last.a.awaiting && !NEWREQ.test(q) && q.split(/\s+/).length <= 14 ? last.a.awaiting : null;
       const mapMore = !att.length && last && last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q) && q.split(/\s+/).length <= 12 && !/\b(new|another)\s+map\b/i.test(q);
@@ -1238,6 +1364,20 @@ Careful, these are easy to mix up:
         try { SBASSIST.control("undo"); } catch (e) {}
         const r1 = await intentAct(last.ask || last.q, c, att, Object.assign({}, last.a.did, {task: fix[1], taskFromQ: false})).catch(() => null);
         if (r1 && r1.answer) made = Object.assign({}, r1, {answer: `Okay, I put that back. ${r1.answer}`});
+      }
+      // "same for chapter 7", "and the quiz too", "do the same for thursday and saturday", "the lab report as well": what was just done,
+      // done to those too (each named task, or every open task due on a day they name)
+      if (!made && !fix && last && last.a.did && /^(move_task|mark_done|mark_in_progress|mark_not_done|set_priority|task_course)$/.test(last.a.did.intent) && !att.length) {
+        const sm = /^\s*(?:ok(?:ay)?\s+|now\s+|and\s+|also\s+|pls\s+|please\s+)*(?:do\s+|can you do\s+)?(?:the\s+)?same\s+(?:thing\s+)?(?:for|with|to)\s+(.+?)\s*[.!]*$/i.exec(q) || /^\s*(?:and|also|plus|oh and)\s+(?:do\s+)?(.+?)(?:\s+(?:too|as well|also))?\s*[.!]*$/i.exec(q) || /^\s*(.+?)\s+(?:too|as well)\s*[.!]*$/i.exec(q);
+        if (sm && sm[1].split(/\s+/).length <= 10 && !ISQ(q)) {
+          const did = last.a.did, DAY = /\b(today|tonight|tomorrow|this week|next week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i, seen = new Set(), L = [];
+          sm[1].split(/\s*,\s*|\s+and\s+(?!p\b)/i).map(s => s.replace(/^(?:the|my|for)\s+/i, "").trim()).filter(Boolean).forEach(part => {
+            const ts = DAY.test(part) && !taskOf0(part, c, did.intent === "mark_not_done") ? (tasksSel(`everything due ${part}`, c, did.intent === "mark_not_done") || []) : [taskOf0(part, c, did.intent === "mark_not_done")].filter(Boolean);
+            ts.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); L.push(t); } }); });
+          if (L.length) { const outs = [];
+            for (const t of L) { const r1 = await intentAct(last.ask || last.q, c, att, Object.assign({}, did, {task: t.title, taskFromQ: false})).catch(() => null); if (r1 && r1.answer) outs.push(r1.answer); }
+            if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: [], did: Object.assign({}, did, {cands: null})}; }
+        }
       }
       if (planA && planA.answer) made = {answer: planA.answer, sources: ["Your planner"], followUps: [], actions: [], plan: true};
       // maths, worked out exactly by the app (98-math.js)

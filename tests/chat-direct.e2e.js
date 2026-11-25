@@ -66,8 +66,20 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a deck opens Make a Quiz with it: " + a);
   await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
   await p.waitForTimeout(600); await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
+  // "quiz me ...": asked right here in the chat, one question at a time, each answer marked
   a = await chat("quiz me using the SA node card");
-  ok(/Make a Quiz with Heart/.test(a) || await p.evaluate(() => /Make a Quiz/.test((document.querySelector("dialog[open]") || {}).innerText || "")), "a quiz from a card (its deck): " + a);
+  ok(/Question 1 of \d+:/.test(a) && /SA node|heartbeat/i.test(a), "a quiz on a card is asked in the chat: " + a);
+  a = await chat("stop");
+  ok(/Quiz over/.test(a), "\"stop\" ends it with the score: " + a);
+  a = await chat("quiz me on the heart deck");
+  { const qn = (/Question 1 of \d+: (.+?)(?:\s{2,}|$)/m.exec(a) || [])[1] || "", back = await p.evaluate(f => { const c = window.__sbSync.state.decks.d2.cards.find(x => x.front === f); return c ? c.back : ""; }, qn.trim());
+    ok(!!back, "the question is one of the Heart cards: " + a);
+    a = await chat(back.toLowerCase());
+    ok(/^Right!/.test(a) && /Question 2 of/.test(a), "the right answer in their own words is marked right, then the next question: " + a); }
+  a = await chat("idk");
+  ok(/The answer:/.test(a), "\"idk\" shows the answer: " + a);
+  a = await chat("what's due tomorrow and can you add a reading for chapter 8");
+  ok(!/Question \d+ of|Not quite/.test(a), "a new request ends the quiz instead of being marked: " + a);
   await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
   await p.waitForTimeout(600); await p.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCOMPTAB.open(); }); await p.waitForSelector("#cptIn");
   a = await chat("what's 4x3x2 / 5");
@@ -125,7 +137,11 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await conv([["wats 7 x 8 again lol", /= 56/]]);
   // "quiz me on <a deck's name>": that deck, without the word "deck" (not a search of their notes for the name)
   a = await chat("Quiz me on Connor Pelkmans");
-  ok(/Opening Make a Quiz with Connor Pelkmans/.test(a), "quiz me on a deck by its name: " + a);
+  ok(/from Connor Pelkmans/.test(a) && /Question 1 of/.test(a), "quiz me on a deck by its name: " + a);
+  a = await chat("stop");
+  // "make a quiz from ..." still opens Make a Quiz with that deck
+  a = await chat("make a quiz from my Connor Pelkmans deck");
+  ok(/Make a Quiz with Connor Pelkmans/.test(a), "make a quiz from a deck opens Make a Quiz: " + a);
   // with the AI on this device, the quiz comes straight from the cards (a small model quizzed on "the deck" and "which flashcard")
   await p.waitForSelector("#mqGo", {timeout: 5000}).catch(() => {});
   const qs0 = await p.evaluate(() => ({dev: window.__sbAi.cfg().provider === "device", foot: (document.querySelector("#mqStatus") || {}).parentElement ? document.querySelector("#mqStatus").parentElement.innerText : ""}));
@@ -269,6 +285,14 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await chat("my friend said she wants to hurt herself");
   a = await chat("she told me not to tell anyone");
   ok(/safety/i.test(a) && /trusted adult|RA|counselor/i.test(a), "a friend's secret: safety comes first: " + a);
+  // several tasks at once: every open task the words pick changes, even when the model calls it a question
+  await fresh();
+  await p.evaluate(() => { const S = window.__sbSync, t = S.clone(S.state.tasks.t8); t.status = "todo"; t.doneAt = null; t.priority = "med"; S.applyChanges([{kind: "task", id: "t8", after: t}], "x"); window.__stubIntent = {intent: "question"}; });
+  a = await chat("everything due in the next 30 days high priority pls");
+  { const r = await p.evaluate(() => { const s = window.__sbSync.state, to = new Date(Date.now() + 29 * 864e5), iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const L = Object.values(s.tasks).filter(t => t.status !== "done" && t.due && t.due >= iso(new Date()) && t.due <= iso(to)); return {n: L.length, high: L.filter(t => t.priority === "high").length}; });
+    ok(r.n > 1 && r.high === r.n && /high priority/.test(a), `"everything due in the next 30 days high priority" sets all ${r.n} (${r.high} high): ` + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
   // a knock-knock joke is played along, never looked up ("backpack" isn't a Wikipedia article here)
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "chat", answer: "Ha, good one!", found: true, followUps: [], actions: []}; });
