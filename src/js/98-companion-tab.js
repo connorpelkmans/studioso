@@ -385,6 +385,15 @@
       if (!res || (!(res.changes || []).length && !res.timer && !forced && A.CLAIMS.test(res.answer || ""))) return null;
       // a change to their tasks asked for in so many words: done now (Undo, or "undo", takes it back), not left to confirm
       const ch = (res.changes || []).filter(c => c && c.t && (c.t.kind === "task" || c.t.kind === "newtask"));
+      // the same checks as the intent step: taking a mark off never deletes the task; a rename of "it" with nothing to point at and a name
+      // their words never say is asked about, not guessed
+      { const w = String(q).toLowerCase(), said = v => (String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []).some(x => w.replace(/\bto\b.*$/, "").includes(x));
+        if (ch.some(c => c.field === "delete") && /\b(grades?|marks?|scores?|results?|percent|points)\b/.test(w) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/.test(w))
+          return {answer: `I can't take a mark off from the chat yet, so I didn't change anything (${ch.find(c => c.field === "delete").label} and its mark are as they were). Open the task and clear its mark, or tell me the right mark and I'll save that instead.`, sources: [], followUps: [], actions: []};
+        const R = ((chat && chat.msgs) || []).slice(-3).some(x => x.a && (x.a.ref || (x.a.changes || []).length));
+        const named = l => { const ws = (String(l || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); };
+        if (!R && ch.some(c => c.field === "title" && c.t.kind === "task") && /\b(it|that|this|them)\b/.test(w) && !ch.filter(c => c.field === "title").every(c => named(c.label)))
+          return {answer: /\bgroups?\b/.test(String(((chat && chat.msgs) || []).slice(-1).map(x => x.q).join(" ")).toLowerCase()) ? "A study group is named when you make it: open Groups, tap New Group, and name it there (groups need you signed in)." : "Which one should I rename? Say its name, for example: rename Care Plan 2 to ...", sources: [], followUps: [], actions: []}; }
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
@@ -975,7 +984,7 @@ Careful, these are easy to mix up:
   async function intentAct(q, chat, att, preset){
     const r = await intentAct0(q, chat, att, preset);
     // a question back ("What should the deck be called?"): what it was doing is kept, so the next message can answer it
-    if (r && r.answer && LASTD && LASTD.intent !== "question" && LASTD.intent !== "chat" && LASTD.intent !== "cant" && /\?(\s|$)|For example:/.test(r.answer) && !/\b(undo|Done|Added|Made|Saved|moved|marked)\b/.test(r.answer)) r.awaiting = {d: LASTD, q: String(q).slice(0, 300)};
+    if (r && r.answer && !r.awaiting && LASTD && LASTD.intent !== "question" && LASTD.intent !== "chat" && LASTD.intent !== "cant" && /\?(\s|$)|For example:/.test(r.answer) && !/\b(undo|Done|Added|Made|Saved|moved|marked)\b/.test(r.answer)) r.awaiting = {d: LASTD, q: String(q).slice(0, 300)};
     // what was done, so "no, I meant X" can do it to X instead
     else if (r && r.answer && LASTD && !r.awaiting) r.did = Object.assign({}, LASTD, {cands: null});
     return r;
@@ -1115,7 +1124,7 @@ Careful, these are easy to mix up:
           else { d.intent = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent] || d.intent; d.kind = R.kind; d.item = refName(R); if (R.kind === "deck") d.deck = refName(R); } }
         // "it" with nothing the chat just made or showed, and a name their words never say: which one is asked, never guessed ("make a study
         // group" then "for psych, call it Psych Pals" renamed the Psych Midterm task)
-        else if (!R && !preset && /^(rename_item|rename_task|delete_item|delete_task)$/.test(d.intent) && /\b(it|that|this|them)\b/.test(w) && !said(d.item || d.task || d.deck)) {
+        else if (!R && !preset && /^(rename_item|rename_task|delete_item|delete_task)$/.test(d.intent) && /\b(it|that|this|them)\b/.test(w) && !(v => { const ws = (String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); })(d.item || d.task || d.deck)) {
           LASTD = Object.assign({}, d, {intent: "cant"});
           const grp = /\bgroups?\b/.test(String(((chat && chat.msgs) || []).slice(-1).map(x => x.q).join(" ")).toLowerCase());
           return say(grp ? `A study group is named when you make it: open Groups, tap New Group, and call it ${clip(String(d.title || "").trim() || "what you like", 40)} there (groups need you signed in).` : `Which one should I ${/rename/.test(d.intent) ? "rename" : "delete"}? Say its name, for example: rename Care Plan 2 to ...`);
