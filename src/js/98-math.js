@@ -634,6 +634,7 @@
   const SOLVERS = [formulas, chem, factorQ, numbers, dosage, grades, bmi, units, percent, rate, physics, points, chance, stats, geometry, misc, system, equation, arith];
   const NODIG = /^how many \w+|^\w+ (?:are )?in (?:a|an|one) \w+$|\binterior angles?\b|\bangles? (?:of|in) (?:a|an)\b|\b(formula|theorem|ohm'?s law|atomic (?:number|mass|weight)|symbol|molar mass|molecular (?:mass|weight)|balance|derivative|integral|differentiate|integrate|antiderivative|element|factor|factori[sz]e)\b/;
   function solve(q){
+    if (NOTSUM.test(String(q || ""))) return null;
     const s = low(q).replace(LEAD, "").replace(/\s+/g, " ").trim(), full = low(q);
     if (!s || s.length > 200 || !/\d/.test(s) && !NODIG.test(s)) return null;
     RAWQ = String(q);
@@ -817,7 +818,9 @@
     return `Step by step (brackets, then powers, then × and ÷ left to right, then + and −):\n${steps.map((x, i) => `${i + 1}. ${x}`).join("\n")}\nSo the answer is ${F(v)}.`;
   }
   // looks like maths but nothing here could work it out ("integrate x^2", "prove that..."): the AI works it, never the web
-  const mathy = q => { const s = low(q); return /\d\s*[-+*/^=×÷]\s*[\d(a-z]|\b(how many|how much|how long|total|altogether|in all|per|each|limit|probability|chance|odds|ratio|rate|solve|simplify|factor|derivative|differentiate|integrate|integral|equation|calculate|compute|square root|sqrt|percent|percentage|fraction|decimal|average|mean|median|mode|standard deviation|probability|hypotenuse|slope|area of|volume of|perimeter|circumference|convert|how many \w+ (are )?in)\b/.test(s) && /\d/.test(s); };
+  // something to remember or a range of chapters is never a sum ("remember that Dr. Chen said the midterm covers chapters 1-6")
+  const NOTSUM = /^\s*(?:can you |please |pls )?(?:remember|note that|make a note|keep in mind|fyi|just so you know|heads up|my (?:prof|professor|teacher|instructor)\b|(?:dr|prof|professor|mr|ms|mrs)\.?\s+\w+\s+(?:said|says|told))|\b(?:chapters?|ch|pages?|pp|units?|weeks?|lectures?|modules?|sections?|slides?|questions?|problems?|lessons?)\.?\s*\d+\s*(?:-|–|to|through|thru)\s*\d+/i;
+  const mathy = q => { if (NOTSUM.test(String(q || ""))) return false; const s = low(q); return /\d\s*[-+*/^=×÷]\s*[\d(a-z]|\b(how many|how much|how long|total|altogether|in all|per|each|limit|probability|chance|odds|ratio|rate|solve|simplify|factor|derivative|differentiate|integrate|integral|equation|calculate|compute|square root|sqrt|percent|percentage|fraction|decimal|average|mean|median|mode|standard deviation|probability|hypotenuse|slope|area of|volume of|perimeter|circumference|convert|how many \w+ (are )?in)\b/.test(s) && /\d/.test(s); };
 
   window.SBMATH = {solve, follow, mathy, calc};
 })();

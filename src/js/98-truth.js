@@ -391,9 +391,10 @@ window.SBTRUTH = (() => {
     Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).forEach(n => { const head = String(n.text).split("\n")[0].trim();
       String(n.text).split(/\n|(?<=[.!?])\s+(?=[A-Z])/).map(l => l.trim()).filter(l => l.length > 6).forEach(l => {
         // ("REBT" is "Rational-emotive behavior therapy": the initials of the line's words count as the word)
-        const ini = ((head + " " + l).match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join("");
-        const L = low(head + " " + l) + " " + ini, sc = keys.filter(k => L.includes(stem(k)) || (/^[a-z]{3,5}$/.test(k) && ini.includes(k))).length;
-        if (sc >= need && L.includes(stem(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
+        // (only the heading's own initials, from its start: the initials of a whole line spell almost anything, "pure" included)
+        const ini = (head.match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join(""), acr = k => /^[a-z]{3,5}$/.test(k) && ini.startsWith(k);
+        const L = low(head + " " + l), sc = keys.filter(k => L.includes(stem(k)) || acr(k)).length;
+        if (sc >= need && (L.includes(stem(longest)) || acr(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
     if (!hits.length) return null;
     hits.sort((a, b) => b.sc - a.sc || b.own - a.own);
     const top = hits.filter(h => h.sc === hits[0].sc).slice(0, 3);
@@ -411,7 +412,15 @@ window.SBTRUTH = (() => {
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     let webP = null;
-    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(look).then(R => (R && R.list) || [], () => []); return webP; };
+    // a word with several meanings that their own notes use ("sublimation", "projection", "conduction"): looked up on the web in the
+    // sense of those notes (the note's heading, or its course), not the chemistry or the film
+    let sense = "";
+    { const k0 = keys.slice().sort((a, b) => b.length - a.length)[0];
+      if (k0 && k0.length >= 6) { const st = k0.slice(0, k0.length - 2), n = Object.values(state.notes || {}).find(x => x && !x.archived && low(x.text || "").includes(st));
+        if (n) { const head = String(n.text).split("\n")[0].trim(), cs = state.courses || {}, c = n.courseId ? (Array.isArray(cs) ? cs.find(x => x.id === n.courseId) : cs[n.courseId]) : null;
+          sense = head && head.length <= 50 && !low(head).includes(st) ? head : c && c.name ? c.name : "";
+          if (sense && low(look).includes(low(sense))) sense = ""; } } }
+    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(sense ? `${look} (${sense})` : look).then(R => (R && R.list) || [], () => []); return webP; };
     if (!o.noWeb) getWeb();
     if (!notes) web = await getWeb();
     if (!notes && !web.length) { const ow = await own(q, o, level0(q)).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
@@ -422,7 +431,7 @@ window.SBTRUTH = (() => {
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 1200 : 900, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
@@ -497,6 +506,12 @@ window.SBTRUTH = (() => {
   // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
   const general = q0 => { const q = asked(norm ? norm(q0) : q0);
     if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // nothing to look up: a short reply that leans on the chat ("why", "on what", "which one", "guess", "pleeease", "next question",
+    // "so after thursday?", "which notes", "what's the easiest section"), jokes, tastes and live things (weather, news) are talk
+    if (/\b(jokes?|joke|laugh|funny|puns?|riddles?|knock knock|favou?rite|meaning of life|weather|forecast|news|score last night|coffee order|bored|boring)\b/i.test(q)) return false;
+    { const ws = String(q).toLowerCase().match(/[a-z][a-z']+/g) || [];
+      const content = ws.filter(w => !QSTOP.has(w) && !/^(what|whats|what's|which|when|where|how|who|why|so|and|but|or|then|ok|okay|oh|wait|hmm|um|yeah|yes|no|nah|pls|please|ple+ase+|one|ones|part|section|bit|thing|things|stuff|next|question|guess|again|easiest|hardest|best|worst|first|last|after|before|that|this|it|its|it's|they|them|those|these|notes?|tho|though|really|sure|more|else|other|another|same|like|just|lol|haha|now|still|actually|is|are|was|were|do|does|did|can|could|should|would|will|the|a|an|on|in|at|of|to|for|with|about|from|me|my|you|your|i|i'm|im|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mean|means)$/.test(w));
+      if (!content.length) return false; }
     // advice ("how should I study", "tips to remember", "best way to")
     if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
     // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing

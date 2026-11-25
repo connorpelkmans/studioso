@@ -10,7 +10,11 @@
 /* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
    a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
 window.SBLOCALANS = (() => {
-  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  const NEXT_RE = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  // (not when the question is about one thing or a choice: "what should I study first for quiz 4", "which should I prep first, the lab
+  // or the quiz", "what topics should I start with", "what should we go over at study group", "and tomorrow after study group?")
+  const NEXT_NOT = /\b(for (?:the |my |a |an )?\w|topics?|chapters?|sections?|parts?|between|\bor\b|we|us|group|best way|how|after|before|tomorrow|tonight|weekend|exam|quiz|midterm|final|lab|essay|care plan|journal|reading|notes?|cards?|deck)\b|\bwhich should\b/i;
+  const NEXT_Q = {test: s => NEXT_RE.test(String(s || "")) && !NEXT_NOT.test(String(s || "")), source: NEXT_RE.source};
   const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
   const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
   function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
@@ -739,6 +743,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   const NOTES_FIND = /\b(find|show|which|where|search|look up|look for|pull up|open|get|any|do i have|did i (write|take|make))\b[^?]*\bnotes?\b|\bnotes? (on|about|for|from|that (mention|mentions|talk about|talks about|cover|covers|say|says))\b/i;
   async function findNotes(q){
     if (!NOTES_FIND.test(q) || /\b(make|create|write|add|save|put|new)\b[^?]*\bnote\b/i.test(q) && !/\b(find|show|which|search|look)\b/i.test(q)) return null;
+    // a question about what the notes say ("what does my note say the ego uses", "is my WWI note accurate", "did my notes say who
+    // Peplau was", "is that example from my notes"): answered from them, not a list of notes
+    if (/^\s*(what|whats|what's|is|are|was|were|does|do|did|why|how|who|when|explain|summari[sz]e|list|according|can you (explain|summari[sz]e|tell))\b/i.test(q) && !/^\s*(do i have|did i (write|take|make|save)|is there|are there|what notes|which notes|where('?s| is| are| do| did)?\b)/i.test(q)) return null;
     const topic = String((q.match(/\b(?:on|about|for|from|mention(?:s|ing)?|talk(?:s|ing)? about|cover(?:s|ing)?|say(?:s|ing)?|with|regarding)\s+(.+?)\s*[?.!]*$/i) || [])[1] || "")
       .replace(/^(?:my|the|a|an)\s+/i, "").replace(/\s+notes?$/i, "").trim();
     const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
@@ -751,7 +758,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const tw = topic.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
     all.forEach(n => { const t = String(n.text).toLowerCase(); if (tw.length && tw.every(w => t.includes(w.replace(/s$/, "")))) found.set(n.id, n); });
     const list = [...found.values()].slice(0, 5);
-    const first = n => clip(String(n.text).replace(/\s*\n+\s*/g, " · ").trim(), 110);
+    // the note's heading and the line about the topic (not just its first words, which may stop before it)
+    const first = n => { const L = String(n.text).split(/\n+/).map(x => x.trim()).filter(Boolean), head = L[0] || "";
+      const hit = L.slice(1).find(l => tw.some(w => l.toLowerCase().includes(w.replace(/s$/, ""))));
+      return hit ? `${clip(head, 50)} · ${clip(hit, 160)}` : clip(L.join(" · "), 110); };
     if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
     return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
@@ -800,7 +810,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
-      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }

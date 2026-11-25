@@ -13,7 +13,7 @@ window.SBCARE = (() => {
     {re: /^(?:e-?mail|send (?:an? )?e-?mail(?: to)?|write (?:an? )?e-?mail to|reply to)\b|^(?:message|text|dm|whatsapp|snapchat)\s+(?!me\b|size\b|colou?r\b|font\b)(?:my|the|him|her|them|everyone|\w+)\b|^(?:let|tell)\s+(?:my|the)\s+(?:study group|group|friends?|class|classmates?|team|roommates?|partner|lab partner)\b/,
       say: w => `I can't send ${/text|message|dm|whatsapp|snap|tell|let/.test(w) ? "texts or messages" : "emails"} from Studyboard, so I didn't change anything. I can help you write what to say, or add a task to remind you to send it.`},
     // a phone call to someone ("call the clinical coordinator", "phone my mom"), not "call it Heart 2", "call me Jules", "call the essay 'X'"
-    {re: /^(?:phone|ring|facetime)\s+(?:my|the|him|her|them|dr|prof|professor)\b|^call\s+(?!(?:it|me|this|that|them|the (?:essay|task|deck|note|board|quiz|course|class|event|assignment|lab|paper|project|reading|history|psych|care))\b)(?:my|the|him|her|dr\.?|prof\.?|professor|doctor|nurse|clinical|coordinator|advisor|office|mom|dad|someone)\b(?!.*\binstead\b)/, say: () => "I can't make phone calls, so I didn't change anything. I can add a task to remind you to call, if that helps."},
+    {re: /^(?:phone|ring|facetime)\s+(?:my|the|him|her|them|dr|prof|professor)\b|^call\s+(?!.*["“'‘][^"”'’]{2,}["”'’])(?!.*\b(?:instead|from now on|renamed?)\b)(?!(?:my|the)\s+(?:[\w&]+\s+){0,3}(?:final|midterm|exam|quiz|test|lab|essay|paper|reading|report|journal|assignment|task|deck|note|course|class|plan)\b)(?!(?:it|me|this|that|them|the (?:essay|task|deck|note|board|quiz|course|class|event|assignment|lab|paper|project|reading|history|psych|care))\b)(?:my|the|him|her|dr\.?|prof\.?|professor|doctor|nurse|clinical|coordinator|advisor|office|mom|dad|someone)\b(?!.*\binstead\b)/, say: () => "I can't make phone calls, so I didn't change anything. I can add a task to remind you to call, if that helps."},
     {re: /^(?:ask|contact|reach out to|get in touch with|tell)\s+(?:my\s+)?(?:prof|professor|dr|doctor|instructor|teacher|ta|tutor|advisor|coordinator)\b/, say: () => "I can't contact your instructor for you, so I didn't change anything. I can help you write the message, and once they reply, tell me and I'll update the due date."},
     {re: /^(?:submit|upload|turn in|hand in|post|put)\b.*\b(?:to|on|in|into|onto)\s+(?:the\s+|my\s+)?(?:brightspace|canvas|moodle|blackboard|d2l|dropbox|drive|google drive|onedrive|portal|website|site|lms|turnitin)\b/,
       say: w => `I can't ${/upload|dropbox|drive|onedrive/.test(w) ? "upload files to other sites" : "submit work to your school site"}, so I didn't change anything. Once you've ${/upload/.test(w) ? "uploaded" : "submitted"} it, tell me and I'll mark it done.`},
@@ -56,5 +56,17 @@ IMPORTANT: the student may be struggling emotionally right now. Be gentle, calm 
 
 If they ask you to write or do graded work for them (an essay, a care plan, homework, quiz or test answers), kindly say you won't do it for them, without lecturing, and offer to help them do it themselves: brainstorm, outline, explain, quiz them, or give feedback on their draft. If they insist, stay kind and firm and offer the help again.`;
   const integrity = q => INTEGRITY.test(low(q));
-  return {cantDo, risk, distress, riskReply, CARE_RULE, integrity, INTEGRITY_RULE};
+  // the next few messages after a crisis reply, where a model drifts: not sure they're safe, a friend's secret, changing the subject
+  // ("i don't know" after "are you safe right now?", "she told me not to tell anyone", "can we just talk about something else")
+  function riskFollow(q, other){
+    const w = low(q).trim();
+    if (other && /\b(not to tell|told me not|don'?t tell|keep (it|this) (a )?secret|promised|be mad|get mad|hate me|be angry|betray|snitch|trust me)\b/.test(w))
+      return "I get why that feels hard, and caring about how she'll feel shows you're a good friend. But when someone's safety is at risk, telling a trusted adult isn't betraying her; it's how she gets help. An RA, a counselor or a trusted adult will know what to do. If she might be in danger right now, call 911 or call or text 988. You don't have to carry this by yourself.";
+    if (!other && /^(i\s+)?(don'?t|dont|do not)\s+know\b|^(idk|not sure|i'?m not sure|maybe|kind of|kinda|sort of|i guess)\s*[.!?]*$/.test(w))
+      return "That's okay. Not being sure is a lot to sit with. Because you're not sure, please reach out to someone now: call or text 988 (the Suicide & Crisis Lifeline in the US and Canada), or your local emergency number if you might act on these feelings. You could also tell someone you trust that you're having a hard time. I'm right here with you.";
+    if (!other && /\b(talk about something else|change the subject|something else|distract me|talk about anything)\b/.test(w))
+      return "Of course, we can talk about something else. What's something small that made you smile lately, or a show or song you've had on repeat? And if those heavy feelings come back, 988 is there any time, by call or text.";
+    return null;
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, CARE_RULE, integrity, INTEGRITY_RULE};
 })();
