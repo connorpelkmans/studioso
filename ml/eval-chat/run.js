@@ -169,7 +169,9 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
           await p.waitForSelector("#cptIn", {timeout: 10000});
           const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
           await p.fill("#cptIn", t.q); await p.click("#cptGo");
-          await p.waitForFunction(n0 => { if (!document.querySelector("#cptIn") || document.querySelector("dialog[open]")) return true; return document.querySelectorAll(".cpt-a, .cpt-err").length > n0 && !document.querySelector(".cpt-wait"); }, n0, {timeout: 420000});
+          await p.waitForFunction(n0 => { if (!document.querySelector("#cptIn") || document.querySelector("dialog[open]")) return true; // (and the last reply is a reply, not the status line still showing: "Working out what to do…" was saved as an answer)
+            const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop();
+            return document.querySelectorAll(".cpt-a, .cpt-err").length > n0 && !document.querySelector(".cpt-wait") && !document.querySelector("#cptStatus") && !(l && /^(Working out what to do|Thinking|Still thinking|Looking through|Doing those one at a time|Making your map|Adding to your map)/.test(l.innerText.trim())); }, n0, {timeout: 420000});
           await p.waitForTimeout(800);
           left = await p.evaluate(() => !document.querySelector("#cptIn"));
           ans = await p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.replace(/\s*(Save This Reply|Report Response)\s*/g, " ").trim() : ""; });
