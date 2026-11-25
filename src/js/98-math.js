@@ -262,7 +262,9 @@
       return out(`From ${F(a)} to ${F(b)} is ${v >= 0 ? "an increase" : "a decrease"} of ${F(Math.abs(v), 2)}%.`, {kind: "pctchg", a, b, value: v, steps: `Change ÷ starting value × 100: (${F(b)} − ${F(a)}) ÷ ${F(a)} × 100 = ${F(v, 2)}%.`});
     }
     // $40 with 25% off / 25% off 40 / 40 minus 25%
-    if ((m = new RegExp(`(?:^|\\b)${P} off(?: of)? ${N}`).exec(s)) || (m = new RegExp(`${N}[^%\\d]{0,40}?${P} off|${N} (?:minus|less|discounted by|with a discount of) ${P}`).exec(s)) && (m = m[1] != null ? [m[0], m[2], m[1]] : [m[0], m[4], m[3]])) {
+    // ("15% off a $48 jacket": the price may follow "a", "the", "my"...; and a price is a whole number of its own, never the "1" of
+    // "15%", which made it "$1 with 5% off")
+    if ((m = new RegExp(`(?:^|\\b)${P} off(?: of)?(?: (?:a|an|the|my|this|that))? ${N}`).exec(s)) || (m = new RegExp(`(?<![\\d.])${N}(?![\\d.])[^%\\d]{0,40}?${P} off|(?<![\\d.])${N} (?:minus|less|discounted by|with a discount of) ${P}`).exec(s)) && (m = m[1] != null ? [m[0], m[2], m[1]] : [m[0], m[4], m[3]])) {
       const p = Number(m[1]), price = Number(m[2]), v = price * (1 - p / 100);
       return out(`$${F(price, 2)} with ${F(p)}% off is $${F(v, 2)} (you save $${F(price - v, 2)}).`, {kind: "money", value: v, steps: `${F(p)}% of $${F(price, 2)} is $${F(price * p / 100, 2)}; $${F(price, 2)} − $${F(price * p / 100, 2)} = $${F(v, 2)}.`});
     }
