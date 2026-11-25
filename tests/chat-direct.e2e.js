@@ -293,6 +293,25 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
       const L = Object.values(s.tasks).filter(t => t.status !== "done" && t.due && t.due >= iso(new Date()) && t.due <= iso(to)); return {n: L.length, high: L.filter(t => t.priority === "high").length}; });
     ok(r.n > 1 && r.high === r.n && /high priority/.test(a), `"everything due in the next 30 days high priority" sets all ${r.n} (${r.high} high): ` + a); }
   await p.evaluate(() => { window.__stubIntent = null; });
+  // an edit the model took for a new task ("read chapter 7 in progress too"): that task changes, no task titled with the instruction
+  await fresh();
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.tasks).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Read chapter 7 in progress too"}; });
+    a = await chat("read chapter 7 in progress too");
+    const r = await p.evaluate(() => ({n: Object.keys(window.__sbSync.state.tasks).length, st: window.__sbSync.state.tasks.t9.status}));
+    ok(r.n === n0 && r.st === "doing", `an edit isn't a new task (${n0} -> ${r.n} tasks, status ${r.st}): ` + a);
+    await p.evaluate(() => { window.__stubIntent = null; }); }
+  // flashcards from a note of "Term: meaning" lines: a card per term; then "keep only 2" and "add one more about X" change that deck
+  await fresh();
+  await p.evaluate(() => { window.__sbSync.applyChanges([{kind: "note", id: "n9", after: {id: "n9", x: 0, y: 0, created: 1, text: "Defense mechanisms\nRepression: pushing painful thoughts out of awareness.\nProjection: attributing your own feelings to someone else.\nDisplacement: redirecting emotion to a safer target.\nSublimation: channeling urges into acceptable activities."}}], "x"); window.__stubIntent = {intent: "make_flashcards", topic: "defense mechanisms note"}; });
+  a = await chat("make flashcards from my defense mechanisms note");
+  { const dk = await p.evaluate(() => Object.values(window.__sbSync.state.decks).filter(d => /defense/i.test(d.name)).map(d => d.cards.map(c => c.front + "=" + c.back))[0] || []);
+    ok(dk.length === 4 && dk.some(x => /^What is Projection\?=attributing/.test(x)), "a card for each term in the note: " + JSON.stringify(dk) + " " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
+  a = await chat("too many, keep only 2");
+  ok(await p.evaluate(() => (Object.values(window.__sbSync.state.decks).find(d => /defense/i.test(d.name)) || {cards: []}).cards.length === 2) && /now has the first 2/.test(a), "\"keep only 2\" trims the deck it just made: " + a);
+  a = await chat("add one more about sublimation");
+  ok(await p.evaluate(() => (Object.values(window.__sbSync.state.decks).find(d => /defense/i.test(d.name)) || {cards: []}).cards.some(c => /Sublimation/.test(c.front))) && /Added a card/.test(a), "\"add one more about X\" adds the card from their note: " + a);
   // a knock-knock joke is played along, never looked up ("backpack" isn't a Wikipedia article here)
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "chat", answer: "Ha, good one!", found: true, followUps: [], actions: []}; });

@@ -743,6 +743,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   const NOTES_FIND = /\b(find|show|which|where|search|look up|look for|pull up|open|get|any|do i have|did i (write|take|make))\b[^?]*\bnotes?\b|\bnotes? (on|about|for|from|that (mention|mentions|talk about|talks about|cover|covers|say|says))\b/i;
   async function findNotes(q){
     if (!NOTES_FIND.test(q) || /\b(make|create|write|add|save|put|new)\b[^?]*\bnote\b/i.test(q) && !/\b(find|show|which|search|look)\b/i.test(q)) return null;
+    // a question about what the notes say ("what does my note say the ego uses", "is my WWI note accurate", "did my notes say who
+    // Peplau was", "is that example from my notes"): answered from them, not a list of notes
+    if (/^\s*(what|whats|what's|is|are|was|were|does|do|did|why|how|who|when|explain|summari[sz]e|list|according|can you (explain|summari[sz]e|tell))\b/i.test(q) && !/^\s*(do i have|did i (write|take|make|save)|is there|are there|what notes|which notes|where('?s| is| are| do| did)?\b)/i.test(q)) return null;
     const topic = String((q.match(/\b(?:on|about|for|from|mention(?:s|ing)?|talk(?:s|ing)? about|cover(?:s|ing)?|say(?:s|ing)?|with|regarding)\s+(.+?)\s*[?.!]*$/i) || [])[1] || "")
       .replace(/^(?:my|the|a|an)\s+/i, "").replace(/\s+notes?$/i, "").trim();
     const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
@@ -755,7 +758,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const tw = topic.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
     all.forEach(n => { const t = String(n.text).toLowerCase(); if (tw.length && tw.every(w => t.includes(w.replace(/s$/, "")))) found.set(n.id, n); });
     const list = [...found.values()].slice(0, 5);
-    const first = n => clip(String(n.text).replace(/\s*\n+\s*/g, " · ").trim(), 110);
+    // the note's heading and the line about the topic (not just its first words, which may stop before it)
+    const first = n => { const L = String(n.text).split(/\n+/).map(x => x.trim()).filter(Boolean), head = L[0] || "";
+      const hit = L.slice(1).find(l => tw.some(w => l.toLowerCase().includes(w.replace(/s$/, ""))));
+      return hit ? `${clip(head, 50)} · ${clip(hit, 160)}` : clip(L.join(" · "), 110); };
     if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
     return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};

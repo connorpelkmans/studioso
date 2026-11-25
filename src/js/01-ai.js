@@ -2801,11 +2801,11 @@ function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settin
 // Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
 // ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
 const AI_NEED_RX = {
-  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback|what (?:did|do) i (?:get|got|score)|what i got|how (?:did|do) i do|how did (?:it|that|i) go|did i (?:pass|do (?:ok|well|good|bad))|(?:need|have) to get|out of)\b|%|\b\d+\s*\/\s*\d+\b/i,
   plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
   tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
   work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
-  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule|events?|study group|orientation|what do i have|what(?:'s| is) on|free|busy|my day|look like|tomorrow|tmrw|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|this week|next week|weekend)\b/i,
   cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
   notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
   files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i
