@@ -86,7 +86,10 @@ const doneIds = new Set(fs.existsSync(OUTF) ? fs.readFileSync(OUTF, "utf8").spli
 const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
 (async () => {
   await new Promise(r => server.listen(0, "127.0.0.1", r));
-  const b = await chromium.launch({executablePath}), ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
+  // (the browser, set up again if it crashes: "Target page, context or browser has been closed" ended a run at p3-115)
+  let b = null, ctx = null;
+  const boot = async () => { try { if (b) await b.close(); } catch (e) {}
+  b = await chromium.launch({executablePath}); ctx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
   const e4b = process.env.ENGINE === "e4b";
   await ctx.addInitScript({content: (e4b ? `(${e4bStub})();` : `(${stub})(6144);`) + ` window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; window.__CHAT_MAX = 400000;`});
   await ctx.addInitScript({content: `localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"})); localStorage.setItem("studyboard:devAIOk", "1");
@@ -100,13 +103,17 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     for (let i = 0; i < 5; i++) { try { const r = await fetch(url, {headers: {"user-agent": "StudyboardEval/1.0 (test harness)"}}); if (r.status === 429) { await new Promise(res => setTimeout(res, 1500 * (i + 1))); continue; } const body = await r.text(); if (r.ok) fs.writeFileSync(key, JSON.stringify({status: r.status, body})); return route.fulfill({status: r.status, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body}); } catch (e) { await new Promise(res => setTimeout(res, 1000)); } }
     return route.fulfill({status: 429, body: ""});
   });
+  };
+  await boot();
   const snap = p => p.evaluate(() => { const s = window.__sbSync.state, m = x => Array.isArray(x) ? Object.fromEntries(x.map(i => [i.id, i])) : (x || {});
     return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: m(s.courses), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
   let n = 0;
-  for (const cv of ALL.slice(FROM, TO)) {
+  const LIST = ALL.slice(FROM, TO); let crashes = 0;
+  for (let ci = 0; ci < LIST.length; ci++) { const cv = LIST[ci];
     if (doneIds.has(cv.id)) continue;
     if (Date.now() > DEADLINE) { console.log("deadline: stopping"); break; }
-    const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message)); p.on("dialog", d => d.dismiss().catch(() => {}));
+    let p; try { p = await ctx.newPage(); } catch (e) { if (++crashes > 20) throw e; console.log("browser closed: starting it again"); await boot(); p = await ctx.newPage(); }
+    const errs = []; p.on("pageerror", e => errs.push(e.message)); p.on("dialog", d => d.dismiss().catch(() => {}));
     const rec = {id: cv.id, cat: cv.cat, turns: []};
     try {
       await p.goto(`http://127.0.0.1:${server.address().port}/index.html`);
@@ -138,10 +145,12 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
         rec.turns.push({q: t.q, expect: t.expect, ans: ans.slice(0, 1500), dlg, left, stateOk, state: t.state || "", diff: diff.slice(0, 6), secs: Math.round((Date.now() - t0) / 100) / 10, why});
       }
     } catch (e) { rec.err = String(e.message).slice(0, 150); }
+    // the browser died under this conversation: not recorded, the browser starts again and the conversation is run again
+    if (/has been closed|crashed|Target closed/i.test((rec.err || "") + rec.turns.map(t => t.why).join(" ")) && crashes < 20) { crashes++; console.log(`${cv.id}: the browser closed mid-conversation, starting it again and running it again`); await boot(); ci--; continue; }
     rec.errs = errs.slice(0, 2);
     fs.appendFileSync(OUTF, JSON.stringify(rec) + "\n"); n++;
     console.log(`${cv.id} [${cv.cat}] ${rec.turns.map(t => (t.stateOk === false ? "✗" : "·") + t.secs + "s").join(" ")} ${rec.turns.length ? rec.turns[0].q.slice(0, 50) + " -> " + rec.turns[rec.turns.length - 1].ans.replace(/\n/g, " ").slice(0, 80) : rec.err}`);
-    await p.close();
+    await p.close().catch(() => {});
   }
   console.log(`done ${n}`); if (CLAUDE) console.log(`${CLAUDE}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens`); await b.close(); server.close();
 })().catch(e => { console.error(e); process.exit(1); });
