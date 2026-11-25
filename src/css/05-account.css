@@ -67,3 +67,11 @@
 .bs-plats{display:grid;gap:8px}
 .bs-plats[hidden]{display:none}
 .bs-manual-only{border-top:0;padding-top:0}
+/* Passkeys (01-passkeys.js) */
+.sb-pk .sheet-body{display:grid;gap:12px}
+.sb-pk .status-msg:empty{display:none}
+.sb-pk-ic{width:72px;height:72px;margin:4px auto 0;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft, color-mix(in srgb, var(--accent, #2563eb) 14%, transparent));color:var(--accent, #2563eb)}
+.sb-pk-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.sb-pk-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line, rgba(127,127,127,.25));border-radius:12px}
+.sb-pk-name{flex:1;min-width:0;display:grid;gap:2px}
+.sb-pk-list .btn.danger{color:var(--late, #c0392b)}
