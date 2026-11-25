@@ -4625,7 +4625,15 @@ function aiParseJson(text){
   try { return JSON.parse(t); } catch(e) {}
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch(e) {} }
-  return aiRepairJson(t);
+  return aiRepairJson(t) || aiCutAnswer(t);
+}
+// A written answer the AI ran out of room in the middle of ({"answer": "…cut off): what it wrote, up to its last full sentence
+function aiCutAnswer(t){
+  const m = /^\s*(\{[\s\S]*?"(?:answer|reply|text|summary|explanation)"\s*:\s*")((?:[^"\\]|\\.)*)\\?$/.exec(String(t || ""));
+  if (!m) return null;
+  let v = m[2], s = v.search(/[.!?)](?=[^.!?)]*$)/);
+  if (s > 40) v = v.slice(0, s + 1);
+  try { const o = JSON.parse(m[1] + v + '"}'); return o && typeof o === "object" ? o : null; } catch(e) { return null; }
 }
 /* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
 // Cut-off or slightly broken JSON
@@ -71389,8 +71397,11 @@ var COMP_EXTRA = [];
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false;
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(); hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+    let hit = false, lift = 0;
+    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
+    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
+      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
+    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
     box.classList.toggle("cp-duck", hit);
   }
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
@@ -73514,7 +73525,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 /* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
    a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
 window.SBLOCALANS = (() => {
-  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  const NEXT_RE = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  // (not when the question is about one thing or a choice: "what should I study first for quiz 4", "which should I prep first, the lab
+  // or the quiz", "what topics should I start with", "what should we go over at study group", "and tomorrow after study group?")
+  const NEXT_NOT = /\b(for (?:the |my |a |an )?\w|topics?|chapters?|sections?|parts?|between|\bor\b|we|us|group|best way|how|after|before|tomorrow|tonight|weekend|exam|quiz|midterm|final|lab|essay|care plan|journal|reading|notes?|cards?|deck)\b|\bwhich should\b/i;
+  const NEXT_Q = {test: s => NEXT_RE.test(String(s || "")) && !NEXT_NOT.test(String(s || "")), source: NEXT_RE.source};
   const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
   const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
   function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
@@ -74304,7 +74319,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
-      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? `${qe[0].label}: ${qe[0].what.toLowerCase()} changed` : `Made ${qe.length} changes`);
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
     }
@@ -74756,6 +74771,10 @@ window.SBADVICE = (() => {
   function answer(q){
     { const t = timePlan(low(q)); if (t) return t; }
     const s = low(q); if (!ADVICE.test(s)) return null;
+    // remembering one thing ("how do I remember id ego superego", "how do I remember normal heart rate") wants a memory trick for it,
+    // which the AI gives; study tips are for remembering in general
+    { const m = /\bhow (?:do|can|would|should) i (?:remember|memori[sz]e|learn)\s+(?:the\s+)?(.+?)\s*[?.!]*$/.exec(s);
+      if (m && !/^(for|things|stuff|everything|it all|what i|better|more|faster|my (notes|cards|flashcards|exam|midterm|final|quiz|test|course|class)|all|this (stuff|material|week)|course|class)\b/.test(m[1])) return null; }
     // a question about anxiety or stress as a subject ("what's the difference between anxiety and panic disorder"), not about them: answered as knowledge
     if (!/\b(i|i'm|im|i've|me|my)\b/.test(s) && /\b(disorders?|difference|what is|what's|whats|define|explain|symptoms?|treat(ment|ed)?|causes?|theory|response|hormones?)\b/.test(s)) return null;
     const today = todayISO(), c0 = courseIn(s), onlyC = c0 && /\b(grade|grades|mark|marks|pull up|raise|bring up|improve|better in|doing better|failing)\b/.test(s);
@@ -76095,9 +76114,10 @@ window.SBTRUTH = (() => {
     Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).forEach(n => { const head = String(n.text).split("\n")[0].trim();
       String(n.text).split(/\n|(?<=[.!?])\s+(?=[A-Z])/).map(l => l.trim()).filter(l => l.length > 6).forEach(l => {
         // ("REBT" is "Rational-emotive behavior therapy": the initials of the line's words count as the word)
-        const ini = ((head + " " + l).match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join("");
-        const L = low(head + " " + l) + " " + ini, sc = keys.filter(k => L.includes(stem(k)) || (/^[a-z]{3,5}$/.test(k) && ini.includes(k))).length;
-        if (sc >= need && L.includes(stem(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
+        // (only the heading's own initials, from its start: the initials of a whole line spell almost anything, "pure" included)
+        const ini = (head.match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join(""), acr = k => /^[a-z]{3,5}$/.test(k) && ini.startsWith(k);
+        const L = low(head + " " + l), sc = keys.filter(k => L.includes(stem(k)) || acr(k)).length;
+        if (sc >= need && (L.includes(stem(longest)) || acr(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
     if (!hits.length) return null;
     hits.sort((a, b) => b.sc - a.sc || b.own - a.own);
     const top = hits.filter(h => h.sc === hits[0].sc).slice(0, 3);
@@ -76201,6 +76221,12 @@ window.SBTRUTH = (() => {
   // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
   const general = q0 => { const q = asked(norm ? norm(q0) : q0);
     if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // nothing to look up: a short reply that leans on the chat ("why", "on what", "which one", "guess", "pleeease", "next question",
+    // "so after thursday?", "which notes", "what's the easiest section"), jokes, tastes and live things (weather, news) are talk
+    if (/\b(jokes?|joke|laugh|funny|puns?|riddles?|knock knock|favou?rite|meaning of life|weather|forecast|news|score last night|coffee order|bored|boring)\b/i.test(q)) return false;
+    { const ws = String(q).toLowerCase().match(/[a-z][a-z']+/g) || [];
+      const content = ws.filter(w => !QSTOP.has(w) && !/^(what|whats|what's|which|when|where|how|who|why|so|and|but|or|then|ok|okay|oh|wait|hmm|um|yeah|yes|no|nah|pls|please|ple+ase+|one|ones|part|section|bit|thing|things|stuff|next|question|guess|again|easiest|hardest|best|worst|first|last|after|before|that|this|it|its|it's|they|them|those|these|notes?|tho|though|really|sure|more|else|other|another|same|like|just|lol|haha|now|still|actually|is|are|was|were|do|does|did|can|could|should|would|will|the|a|an|on|in|at|of|to|for|with|about|from|me|my|you|your|i|i'm|im|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mean|means)$/.test(w));
+      if (!content.length) return false; }
     // advice ("how should I study", "tips to remember", "best way to")
     if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
     // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing
@@ -76690,7 +76716,19 @@ IMPORTANT: the student may be struggling emotionally right now. Be gentle, calm 
 
 If they ask you to write or do graded work for them (an essay, a care plan, homework, quiz or test answers), kindly say you won't do it for them, without lecturing, and offer to help them do it themselves: brainstorm, outline, explain, quiz them, or give feedback on their draft. If they insist, stay kind and firm and offer the help again.`;
   const integrity = q => INTEGRITY.test(low(q));
-  return {cantDo, risk, distress, riskReply, CARE_RULE, integrity, INTEGRITY_RULE};
+  // the next few messages after a crisis reply, where a model drifts: not sure they're safe, a friend's secret, changing the subject
+  // ("i don't know" after "are you safe right now?", "she told me not to tell anyone", "can we just talk about something else")
+  function riskFollow(q, other){
+    const w = low(q).trim();
+    if (other && /\b(not to tell|told me not|don'?t tell|keep (it|this) (a )?secret|promised|be mad|get mad|hate me|be angry|betray|snitch|trust me)\b/.test(w))
+      return "I get why that feels hard, and caring about how she'll feel shows you're a good friend. But when someone's safety is at risk, telling a trusted adult isn't betraying her; it's how she gets help. An RA, a counselor or a trusted adult will know what to do. If she might be in danger right now, call 911 or call or text 988. You don't have to carry this by yourself.";
+    if (!other && /^(i\s+)?(don'?t|dont|do not)\s+know\b|^(idk|not sure|i'?m not sure|maybe|kind of|kinda|sort of|i guess)\s*[.!?]*$/.test(w))
+      return "That's okay. Not being sure is a lot to sit with. Because you're not sure, please reach out to someone now: call or text 988 (the Suicide & Crisis Lifeline in the US and Canada), or your local emergency number if you might act on these feelings. You could also tell someone you trust that you're having a hard time. I'm right here with you.";
+    if (!other && /\b(talk about something else|change the subject|something else|distract me|talk about anything)\b/.test(w))
+      return "Of course, we can talk about something else. What's something small that made you smile lately, or a show or song you've had on repeat? And if those heavy feelings come back, 988 is there any time, by call or text.";
+    return null;
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, CARE_RULE, integrity, INTEGRITY_RULE};
 })();
 /* Flashcards and decks in the chat, read in code (the Companion tab asks this before the AI step). A small model reached for "add a
    task" or "I can't do that" on most card wordings; here every wording in the tests is read the same way:
@@ -76801,7 +76839,7 @@ window.SBCARDS = (() => {
     }
     // the answer to its own question: which deck, or what the card says
     // (a new request or question isn't the answer: "create a study group called P3" after "which deck?")
-    if (L.ask && !/^\s*(no|nah|never ?mind|cancel|skip|stop)\b/.test(s) && !(!CARD.test(s) && /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:create|make|start|add|delete|remove|move|set|open|go|take|show|what|how|when|why|who|is|are|do|does|did|mark|change|rename)\b/.test(s) && !/^\s*(?:use|put it in)\b/.test(s))) {
+    if (L.ask && !/^\s*(no|nah|never ?mind|cancel|skip|stop)\b/.test(s) && !(!CARD.test(s) && /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:create|make|start|add|delete|remove|move|set|open|go|take|show|what|how|when|why|who|is|are|do|does|did|mark|change|rename|should|can|could|will|would|where|let'?s|lets|thanks|thank|ok|okay|lol|haha)\b/.test(s) && !/^\s*(?:use|put it in)\b/.test(s)) && !(!CARD.test(s) && /\?\s*$/.test(s) && !/\//.test(s))) {
       const dk = L.ask === "deck" ? (deckIn(q) || (/\b(the )?(first|1st)\b/.test(s) ? decks()[0] : /\b(the )?(second|2nd)\b/.test(s) ? decks()[1] : null)) : lastDeck;
       if (L.ask === "deck" && !dk) { const mn = clean(q.replace(/^(use|in|put it in|the)\s+/i, "")); return sayIt(`You don't have a deck called "${mn}". Your decks: ${deckList()}.`, Object.assign({}, L)); }
       const pend = L.pending || qa(q.replace(new RegExp(`^\\s*(?:${dk ? dk.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "xx"}|[a-z ]{2,20}?)\\s*[.:,]\\s*`, "i"), "")) || (L.ask === "deck" ? qa(q) : null);
@@ -76823,8 +76861,14 @@ window.SBCARDS = (() => {
     // going to a page ("take me to flashcards", "open my decks"), not a card
     if (/^\s*(?:(?:can|could) you\s+|please\s+)?(?:take me|go|bring me|switch|navigate|jump|open|show me|show)\b/.test(s) && !/\b(add|put|new card|front|back)\b/.test(s)) return null;
     // not about one card: making a set from material, a quiz, cards from a quiz, counts and lists ("how many cards")
-    if (/^\s*(how many|what|which|what's|whats|show|list|study|review|quiz|drill)\b|\b(from (?:my |the )?(?:quiz|test|notes?|file|slides)|turn .* into|into flashcards|make (?:me )?(?:some )?flash ?cards (?:on|about|for|from)|flash ?cards (?:on|about|for|from))\b/.test(s) && !/\badd\b/.test(s)) return null;
-    const follow = /^\s*(?:and\s+|now\s+)?(?:add\s+)?(?:another|one more|more)\b|\bto it\b|^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same\b/.test(s);
+    if (/^\s*(how many|what|which|what's|whats|show|list|study|review|quiz|drill)\b|\b(from (?:my |the )?(?:quiz|test|notes?|file|slides)|turn .* into|into flashcards|make (?:me )?(?:some |a )?(?:flash ?)?cards? (?:on|about|for|from)|(?:flash ?)?cards (?:on|about|for|from))\b/.test(s) && !/\badd\b/.test(s)) return null;
+    // studying, quizzing, settings, how-to and checking cards ("lets do psych cards", "start a flashcard session", "notifications off for
+    // flashcard reminders", "how do i make a deck", "are my heart flashcards correct", "sum up my flashcards"): not a card to add
+    const pend0 = qa(q);
+    if (!pend0 && !lead && (/\b(session|study|studying|review|reviewing|quiz|quizzes|test me|go over|practi[cs]e|drill|notifications?|reminders?|remind|settings?|correct|accurate|right\?|sum up|summari[sz]e|section|backwards|shuffle)\b|^\s*(?:ok\s+|okay\s+|fine,?\s+)?(?:let'?s|lets)\b|\b(?:do|doing|start|starting)\s+(?:some |the |my |a |more )?(?:[\w]+ )?(?:flash ?)?cards?\b|^\s*(?:how|is|are|does|do|did|can i|could i|should i|which|why)\b|\bflash ?cards? (?:it is|then)\b/.test(s))) return null;
+    // a card only when one is asked for: added, put, made, written, or given as front and back
+    if (!pend0 && !lead && !/\b(add|adding|put|new|make|create|write|stick|throw|insert|include|another|one more)\b/.test(s)) return null;
+    const follow =/^\s*(?:and\s+|now\s+)?(?:add\s+)?(?:another|one more|more)\b|\bto it\b|^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same\b/.test(s);
     let dk = deckIn(q.replace(/\b(?:front|back)\b.*$/i, "")) || deckIn(q) || (follow || /\b(it|that deck|the deck|this deck)\b/.test(s) ? lastDeck : null);
     // "the deck I just made" when none was
     if (!dk && /\b(i just made|i just created|the new one|my new deck)\b/.test(s)) { const nw = decks().slice().sort((a, b) => (b.created || 0) - (a.created || 0))[0]; dk = L.deck && state.decks[L.deck] ? state.decks[L.deck] : null; if (!dk) return sayIt(`Which deck? I don't see one you just made. Your decks: ${deckList()}.`, {ask: "deck", pending: qa(q)}); }
@@ -77209,7 +77253,7 @@ window.SBCARDS = (() => {
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
-          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? `${ch[0].label}: ${ch[0].what.toLowerCase()} changed` : `Made ${ch.length} changes`;
+          const adds = ch.filter(c => c.t.kind === "newtask"), lab = adds.length === ch.length ? (adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`) : ch.length === 1 ? (ch[0].field === "delete" ? `Deleted ${ch[0].label}` : `${ch[0].label}: ${ch[0].what.toLowerCase()} changed`) : `Made ${ch.length} changes`;
           applyChanges(built, lab);
           const say1 = c => c.t.kind === "newtask" ? `Added ${c.label}${c.to ? `, ${c.to}` : ""}` : c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`;
           return {answer: ch.map(say1).join(". ") + ". Say \"undo\" to take it back.", sources: [], followUps: [], actions: []};
@@ -77361,6 +77405,8 @@ Examples:
     if (!date) { const MO = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/i.exec(q) || null, n = /\b(\d{1,2})\/(\d{1,2})\b/.exec(q);
       let mo = -1, day = 0; if (m) { mo = MO.indexOf(m[1].slice(0, 3).toLowerCase()); day = Number(m[2]); } else if (n) { mo = Number(n[1]) - 1; day = Number(n[2]); }
       if (mo >= 0 && day >= 1 && day <= 31) { const now = new Date(), y = now.getFullYear(), cand = `${y}-${pad2(mo + 1)}-${pad2(day)}`; date = cand < todayISO() ? `${y + 1}-${pad2(mo + 1)}-${pad2(day)}` : cand; } }
+    // "in 3 days", "in a week", "in two weeks"
+    if (!date) { const m = /\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven)\s+(days?|weeks?)\b/i.exec(q); if (m) { const n = ({a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7})[m[1].toLowerCase()] || Number(m[1]); date = addDays(todayISO(), n * (/^w/i.test(m[2]) ? 7 : 1)); } }
     // "the 30th", "on the 3rd": that day this month, or next month once it's past
     if (!date) { const m = /\b(?:the|on)\s+(\d{1,2})(?:st|nd|rd|th)\b/i.exec(q); if (m) { const day = Number(m[1]), now = new Date(); if (day >= 1 && day <= 31) { let y = now.getFullYear(), mo = now.getMonth(); if (day < now.getDate()) { mo++; if (mo > 11) { mo = 0; y++; } } date = `${y}-${pad2(mo + 1)}-${pad2(day)}`; } } }
     if (!time) { const t = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/i.exec(q); if (t) { let h = Number(t[1]) % 12; if (/^p/i.test(t[3])) h += 12; time = pad2(h) + ":" + (t[2] || "00"); } }
@@ -77755,6 +77801,24 @@ Careful, these are easy to mix up:
       }
       // deleting only when their words say so ("leave the heart squad group" isn't "delete the Heart deck")
       if (/^(delete_item|delete_task)$/.test(d.intent) && !/\b(delete|remove|get rid|trash|erase|cancel(l?ed)?|scratch|drop(ped)?|clear|wipe|toss|ditch|bin|not happening|called off|no longer|nvm|never mind)\b/.test(w)) d.intent = "question";
+      // a plan, a feeling or a thank-you that names a task changes nothing ("ok i'll review before quiz 4", "i'm gonna write it this
+      // weekend", "fine help me with the lab report"): only words that say to change it, or that it's started, do
+      if (!preset && d.intent === "mark_in_progress" && !(/\b(mark|set|put|move|change|status|in progress|in-progress)\b/.test(w) || (/\b(i'?ve started|i started|i'?m (now )?working on|i am working on|i began|i'?ve begun)\b/.test(w) && !/\b(i'?ll|i will|gonna|going to|plan(ning)? to|try(ing)? to|want to|should|might|maybe)\b/.test(w)))) d.intent = /\b(help|how|what|outline|explain|start with)\b/.test(w) ? "question" : "chat";
+      // "im done for today", "ok back to studying": about them, not a task
+      if (!preset && d.intent === "mark_done" && /^\s*(?:ok(?:ay)?\s+|well\s+|alright\s+)?(?:i'?m|im|i am)\s+(?:so\s+|finally\s+|officially\s+)?(?:done|finished)(?:\s+(?:for (?:today|tonight|the day|the night|now|the week)|studying|here))?\s*[.!]*\s*$/.test(w)) d.intent = "chat";
+      if (!preset && d.intent === "mark_not_done" && !/\b(not done|undone|unmark|re-?open|un-?check|untick|isn'?t (done|finished)|wasn'?t (done|finished)|not finished|didn'?t (finish|do|submit)|haven'?t|to ?do|back to (?:to ?do|not done|open))\b/.test(w)) d.intent = "chat";
+      // a date only moves when their words ask for it or say it changed ("but care plan 2 is due tomorrow" just says when it is)
+      if (!preset && d.intent === "move_task" && !/\b(move|moved|push|pushed|bump|bumped|extend|extended|postpone|postponed|delay|delayed|reschedul\w*|change|changed|make it|put it|set it|shift|shifted|now|instead|till|until|give me|got moved|later|earlier|sooner|back|up|forward|to (?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|next|the|dec|nov|jan|\d))/.test(w)) d.intent = "question";
+      // something they'd like to do, or are going to, isn't a calendar entry unless they ask for one ("i want to do a 5k next month",
+      // "going to my cousins wedding"); one already on the calendar isn't added again ("i have clinical wednesday")
+      if (!preset && /^add_(event|task)$/.test(d.intent) && !/\b(add|put|schedule|create|make|remind|book|log|track|calendar|planner|new|set up|pencil|save|enter|jot)\b/.test(w)) {
+        if (/\b(want to|wanna|would like to|i'?d like to|thinking (about|of)|might|maybe|hope to|planning to|gonna|going to|i'?ll|lol|haha|was|were)\b/.test(w)) d.intent = "chat";
+        else { const ex = itemNamed("", d.title || q); if (ex) d.intent = "question"; } }
+      // a plan or a schedule to write ("make me a study plan for the psych midterm", "make a study schedule", "split it up for me") is an
+      // answer, not a task called "Study schedule"
+      if (!preset && d.intent === "add_task" && /\b(study plan|study schedule|schedule|plan (?:my|for|out|the)|a plan|pomodoro plan|split (?:it|that|this) up|break (?:it|that|this) (?:up|down|into)|lighter|heavier)\b/.test(w) && !/\b(add|put)\b[^.?!]*\b(task|to-?do|planner|list)\b/.test(w)) d.intent = "question";
+      // when-words left in a new title ("Hist reading ch 12 in 3 days", ": study for psych midterm")
+      if (/^add_(task|event)$/.test(d.intent) && d.title) d.title = String(d.title).replace(/\s+in\s+(?:\d{1,2}|a|an|one|two|three|four|five|six|seven)\s+(?:days?|weeks?)\b.*$/i, "").replace(/^[\s:;,.-]+|[\s:;,-]+$/g, "") || d.title;
       // "it's actually for psych", "that one goes under history": the task's course, not its date
       { const cn = window.SBTRUTH && SBTRUTH.courseIn ? SBTRUTH.courseIn(q) : null;
         if (cn && !preset && /\b(?:is|it'?s|that'?s|goes|belongs|should be|actually|put it|move it|file it)\b[^.?!]{0,25}\b(?:for|in|under|to|with|part of)\s+(?:my\s+|the\s+)?[\w&]/.test(w) && !/\b(due|deadline|monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|next week|\d{1,2}(st|nd|rd|th)|am|pm)\b/.test(w)) { d.intent = "task_course"; d.course = cn.code || cn.name; if (!d.task || !taskOf(d.task, chat)) d.task = "it"; } }
@@ -78045,8 +78109,10 @@ Careful, these are easy to mix up:
       }
       // maths, worked out exactly by the app (98-math.js), with follow-ups on the last maths answer ("divide that by 3", "what's the median?", "in a week?")
       const MT = window.SBMATH; let mathR = null;
-      if (MT && !att.length && !ctl && !slot && !mapMore) { try { const own = (q.match(/\d+(?:\.\d+)?/g) || []).length >= 2 ? MT.solve(q) : null; mathR = own || (last && last.a.math && MT.follow(q, last.a.math)) || MT.solve(q); } catch (e) { console.warn("math", e); } }
-      const MATHQ = !mathR && !!MT && MT.mathy(q);
+      // a mark they got ("got 17/20 on a&p quiz 4", "journal 3: 9/10 :)", "its 36/50") is saved, not worked out
+      const MARKSAID = x => /\d\s*(?:\/|out of)\s*\d/.test(x) && /\b(?:got|get|scored?|mark|marks|grade|graded|regraded|bonus|it'?s|was|is)\b|:/i.test(x) && !/\b(?:what|calculate|how much|percent|percentage|average|mean|need|convert|simplify|divide|times)\b|[=+*%^]/i.test(x);
+      if (MT && !att.length && !ctl && !slot && !mapMore && !MARKSAID(q)) { try { const own = (q.match(/\d+(?:\.\d+)?/g) || []).length >= 2 ? MT.solve(q) : null; mathR = own || (last && last.a.math && MT.follow(q, last.a.math)) || MT.solve(q); } catch (e) { console.warn("math", e); } }
+      const MATHQ = !mathR && !!MT && !MARKSAID(q) && MT.mathy(q);
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !mathR && !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       // common misspellings of the words that say what to do ("finsihed", "compelted", "submited", "resechedule")
@@ -78074,7 +78140,9 @@ Careful, these are easy to mix up:
       // words about not wanting to live, or someone in danger: a caring reply with crisis lines, written in code (98-chatcare.js);
       // the next few turns keep a gentle voice. Something outside Studyboard (email, Brightspace, booking, printing): said plainly
       const CARE = window.SBCARE, careMode = !!CARE && !att.length && (CARE.distress(q) || (c.msgs || []).slice(-4).some(x => x.a && x.a.care));
-      if (!made && CARE && !att.length && !ctl && CARE.risk(q)) made = {answer: CARE.riskReply(q), sources: [], followUps: [], actions: [], care: true};
+      if (!made && CARE && !att.length && !ctl && CARE.risk(q)) made = {answer: CARE.riskReply(q), sources: [], followUps: [], actions: [], care: true, risk: /their safety comes first/i.test(CARE.riskReply(q)) ? "other" : "self"};
+      // the messages just after a crisis reply
+      if (!made && CARE && CARE.riskFollow && !att.length && !ctl) { const rk = (c.msgs || []).slice(-4).reverse().find(x => x.a && x.a.risk); if (rk) { const a = CARE.riskFollow(q, rk.a.risk === "other"); if (a) made = {answer: a, sources: [], followUps: [], actions: [], care: true, risk: rk.a.risk}; } }
       if (!made && !slot && CARE && !att.length && !ctl && !careMode) { const no = CARE.cantDo(q); if (no) { made = {answer: no, sources: [], followUps: [], actions: []};
         // "check brightspace for my care plan grade": the next message ("it's 46/50") is that mark
         const gm = /\bfor\s+(?:my\s+|the\s+)?(.{2,60}?)\s+(?:grade|mark|score|result)s?\b/i.exec(q); if (gm && /brightspace|canvas|moodle|blackboard|school site/i.test(no)) made.awaiting = {d: {intent: "add_mark", task: gm[1]}, q: "I got a mark on " + gm[1]}; } }
@@ -78092,7 +78160,7 @@ Careful, these are easy to mix up:
       if (!made && !slot && !careMode && !att.length && !ctl && window.SBCARDS) { try { const r = await SBCARDS.request(q, last && last.a.card ? last.a.card : null); if (r) { made = r; if (r.card && r.card.deck && !r.ref) r.ref = {kind: "deck", id: r.card.deck}; } } catch (e) { if (stopsHere(e)) throw e; } }
       // maths the app can't work out itself (word problems it doesn't know): the AI writes the working, the app does every sum (98-math-ai.js)
       const MAI = window.SBMATHAI, lastM = last && last.a.math ? {q: last.ask || last.q, answer: last.a.answer, math: last.a.math} : null;
-      if (!made && !slot && !careMode && !multi && !ctl && !me0 && !att.length && MAI && !ACTX(q) && (MATHQ || !!lastM) && (MAI.isMath(q) || MAI.isFollow(q, lastM))) {
+      if (!made && !slot && !careMode && !multi && !ctl && !me0 && !att.length && MAI && !ACTX(q) && !MARKSAID(q) && (MATHQ || !!lastM) && (MAI.isMath(q) || MAI.isFollow(q, lastM))) {
         T.status = "Working it out…"; draw();
         const a = await MAI.ask(q, lastM, {onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined}).catch(e => { if (stopsHere(e)) throw e; return null; });
         if (a) made = {answer: a, sources: [], followUps: [], actions: [], math: {ai: true}};
@@ -78197,7 +78265,10 @@ Careful, these are easy to mix up:
       const system0 = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${me.kind ? `You are ${me.kind.toLowerCase()} yourself (you don't wear or carry one). ` : ""}${(SBCOMP.wornNames ? SBCOMP.wornNames() : []).length ? `You're wearing: ${SBCOMP.wornNames().join(", ")}. ` : "You're wearing no accessories. "}Speak warmly and briefly, like a supportive study buddy. No emojis. Answer from the student's own data below whenever the question is about their work, courses, deadlines, grades, notes, flashcards or files. Only the parts of the planner this question needs are sent, and each part that is sent is complete: MARKED WORK lists every mark entered (each assignment, quiz and exam, with its percentage), OPEN TASKS lists every open task, and TODAY'S PLAN is Studyboard's own priority order. Read the answer straight from it: for "best" or "lowest" marks compare the percentages in MARKED WORK, for "what should I do now/next" answer with DO THIS NEXT; for "what after today's plan" or "once I finish today's tasks" answer with item 1 under THEN, AFTER TODAY'S PLAN IS DONE; for "what comes after X" find X in that list and give the next item (and so on down the list), never a task that is already on today's plan, and never your own ranking. Think about what the student is really asking before answering, and answer exactly that question first, in one clear sentence, before anything else. Give exact titles, numbers and dates from the data. You are a real AI helper for anything about their courses, their course materials or Studyboard itself: use everything below (their planner, the search results from their own files, notes and cards, the file text, what's on their screen, and HOW STUDYBOARD WORKS for questions about the app), and your own knowledge for subject matter. Always give a real, useful answer: if their data doesn't have something, say briefly what you checked, then help anyway (explain the topic, say where in the app it would be, or ask one short question). Never invent their facts, dates, marks or file contents. When you use their course materials, say which file or note it came from. Match the length to the question: a sentence for a quick fact, a clear explanation with short paragraphs, steps or '- ' bullets when they want to understand, learn, plan or do something. For questions about their work, suggest a concrete next step when it helps. Reply to exactly what the student said, nothing they didn't ask for. Add more only when it clearly helps with what they asked (like what it takes to keep a grade when they ask about that grade, or a deadline that clashes with the plan they're asking about), never as filler. When the student is just chatting, answer that and only that, in character and briefly, like a friend: a hello gets a short friendly hello back (and, at most, a few words offering help), not news about you or a question back; only say how you are or what you've been up to when they ask; thanks gets a short "you're welcome". Don't steer small talk to tasks, deadlines or studying, and don't add a next step, unless they bring up school or sound stressed about it, and then be kind first.${actOn ? `
 You can also DO things in Studyboard, but only when the student asks or what they attached clearly calls for it, and only by offering actions they tap to confirm (never say it is already done). Actions: flashcards, quiz or case_study (made from the attached files, or from the material you put in "text"; set "deck" to add to an existing deck; they are saved straight to the student's decks); note (a clean typed note from a photo, slides or anything else, optionally onto a named note board and course); tasks (due dates you find in what they attached or told you); quick_add (open Quick Add with a sentence to turn into tasks); syllabus (read an attached syllabus into a course and its deadlines); breakdown (split a big task into milestones; "target" is the task title); estimate (estimate times for tasks with none); exam_plan (build an exam prep plan; "target" is the exam title); ask_materials (open Ask Your Course Materials for a course); summarize_file ("target" is a file name from FILES); save_file (store the attached files in the course's Files). Things you can simply answer in chat, do that instead of an action: explaining a task or topic, summarizing what was attached or their notes, a weekly review, quizzing them one question at a time, checking an answer they wrote, listing exam topics, rewriting or tidying text. Photos of whiteboards, slides or handwriting: read them fully and offer a note. Slides, PDFs or readings: offer flashcards, and a quiz if they want to practice. Say in your answer what you are offering, in a sentence or two. If they attached something and gave no instructions, say what you see and offer the most useful one or two actions.` : ""}${cat && window.SBASSIST ? "\n" + SBASSIST.RULES + "\nThe refs are in ITEMS YOU CAN SHOW OR CHANGE. Changing existing things always goes in \"changes\", never in actions. Tasks the student asks you to add go in \"newTasks\"; keep the tasks action for due dates found in files they attached." : ""}${MATHQ ? "\n\nThis is a maths question. Work it out carefully, one short step per line, checking each step, then give the final answer on its own last line. If it can't be solved as written, say exactly what is missing." : ""}`;
       const integ = !!CARE && [q].concat((c.msgs || []).slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
-      const system = system0 + (careMode ? CARE.CARE_RULE : "") + (integ ? CARE.INTEGRITY_RULE : "");
+      // talk that carries on from the chat ("hehe", "backpack" in a knock-knock joke, "ok better", "one more"): the reply follows on from
+      // the last message instead of starting over with how you are
+      const CONVO = hist ? `\n\nThis is a conversation: reply to what the student just said as the next line of the CONVERSATION SO FAR (play along with a joke or game in progress, answer the question you just asked them about). Don't say how you are unless they ask how you are. Tell jokes when asked (short, kind, school or nursing puns are fine). You are ${me.name || "their companion"}, part of Studyboard on their device, not a chatbot on a server; stay in character.` : "";
+      const system = system0 + CONVO + (careMode ? CARE.CARE_RULE : "") + (integ ? CARE.INTEGRITY_RULE : "");
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
       const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan ? "\n\nFirst list the key points in points, then write the answer covering each one in order, with a short concrete example where it helps." : ""}`}])});

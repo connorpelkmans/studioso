@@ -501,7 +501,15 @@ function aiParseJson(text){
   try { return JSON.parse(t); } catch(e) {}
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch(e) {} }
-  return aiRepairJson(t);
+  return aiRepairJson(t) || aiCutAnswer(t);
+}
+// A written answer the AI ran out of room in the middle of ({"answer": "…cut off): what it wrote, up to its last full sentence
+function aiCutAnswer(t){
+  const m = /^\s*(\{[\s\S]*?"(?:answer|reply|text|summary|explanation)"\s*:\s*")((?:[^"\\]|\\.)*)\\?$/.exec(String(t || ""));
+  if (!m) return null;
+  let v = m[2], s = v.search(/[.!?)](?=[^.!?)]*$)/);
+  if (s > 40) v = v.slice(0, s + 1);
+  try { const o = JSON.parse(m[1] + v + '"}'); return o && typeof o === "object" ? o : null; } catch(e) { return null; }
 }
 /* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
 // Cut-off or slightly broken JSON

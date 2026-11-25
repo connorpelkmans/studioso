@@ -1165,8 +1165,11 @@
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false;
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(); hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+    let hit = false, lift = 0;
+    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
+    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
+      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
+    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
     box.classList.toggle("cp-duck", hit);
   }
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
