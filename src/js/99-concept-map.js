@@ -2030,38 +2030,43 @@ function mapPeek(x){
 }
 function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p.links} : null; }
 // opt.label: the map's name, drawn over the central idea at a readable size whatever the map's spread (the card's own title)
+// a card's map is drawn on a fixed 600 x 300 px picture centred on the card (cropped by it), at CARD_K px per map pixel: the size the
+// central idea's name is shown at, so the ideas keep their size and distance next to it
+const CARD_W = 600, CARD_H = 300, CARD_K = 0.9;
 const peekName = (label, x, y) => `<span class="cm-pkname" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="cm-ctitle">${esc(label)}</span></span>`;
 function peekSvg(p, col, opt){
-  const lab = opt && opt.label;
-  if (lab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(lab, 50, 50);
+  const pkLab = opt && opt.label;
+  if (pkLab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(pkLab, 50, 50);
   if (!p || p.g.nodes.length < 2) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g><rect class="pk-root" x="-48" y="-16" width="96" height="32" rx="16" fill="${esc(col)}"/></svg>`;
   const ns = p.g.nodes.slice(0, 40), keep = new Set(ns.map(n => n.id)), P = p.pos;
   const xs = ns.map(n => (P[n.id] || [0])[0]);
   // text grows with the map's spread, so a big map's labels stay readable at card size
-  const fs = Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
+  // with the name drawn on it (a card), the map is drawn at its own scale: the ideas' real sizes and distances from the central idea,
+  // cropped by the card, rather than shrunk until every one fits
+  const fs = pkLab ? 13 : Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
   const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
   // each box's outline (the same sizes the boxes are drawn with), so the lines stop at the edges instead of running under the boxes
   const geo = {};
-  ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
+  ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : pkLab ? 28 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
     const w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     geo[n.id] = n.root ? ["rounded", w, h] : sh === "text" ? ["box", w * 0.7, 10] : n.img || n.emb ? ["box", w, fs * 5.2] : sh === "circle" || sh === "cloud" ? ["circle", w, h + 12] : sh === "diamond" ? ["diamond", w, h + 16] : ["box", w, h]; });
   // the picture holds every box whole: their outer edges, plus room for the outline and a little air
   const pad = fs * 0.6, ext = (n, i, s) => { const g = geo[n.id] || ["box", 0, 0], [x, y] = P[n.id] || [0, 0]; return i ? y + s * (g[2] / 2 + pad) : x + s * (g[1] / 2 + pad); };
   let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
   // with the name drawn on it, the picture is centred on the central idea, so the name always sits in the middle of the card
-  if (lab && P.root) { const [rx, ry] = P.root, hx = Math.max(rx - x0, x1 - rx), hy = Math.max(ry - y0, y1 - ry); x0 = rx - hx; x1 = rx + hx; y0 = ry - hy; y1 = ry + hy; }
+  if (pkLab) { const [rx, ry] = P.root || [0, 0]; x0 = rx - CARD_W / 2 / CARD_K; x1 = rx + CARD_W / 2 / CARD_K; y0 = ry - CARD_H / 2 / CARD_K; y1 = ry + CARD_H / 2 / CARD_K; }
   // keep a wide card shape: pad the short side so nodes aren't squashed
-  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
-  const cut = (id, dx, dy) => { const g = lab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
+  const wantH = (x1 - x0) * 0.42; if (pkLab) {} else if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
+  const cut = (id, dx, dy) => { const g = pkLab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
   const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";
     return `<line x1="${a[0] + dx / L * ra}" y1="${a[1] + dy / L * ra}" x2="${b[0] - dx / L * rb}" y2="${b[1] - dy / L * rb}"${e.line && e.line !== "solid" ? ` class="ln-${esc(e.line)}"` : ""}/>`; }).join("");
   const nodes = ns.map(n => {
-    const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1).trimEnd() + "…" : lab, f = n.root ? fs * 1.12 : fs;
+    const lab = String(n.label || ""), max = n.root ? 18 : pkLab ? 28 : 16, t = lab.length > max ? lab.slice(0, max - 1).trimEnd() + "…" : lab, f = n.root ? fs * 1.12 : fs;
     const [x, y] = P[n.id] || [0, 0], sh = CMAP.shapeOf(n), w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     const txt = sh === "text" || n.img || n.emb ? "" : `<text x="${x}" y="${y}" class="${n.root ? "pk-rt" : "pk-t"}" style="font-size:${f.toFixed(1)}px"${!n.root && ok(n.text) ? ` fill="${ok(n.text)}"` : ""}>${esc(t)}</text>`;
     const st = ok(n.stroke) || ok(n.color) || "", fl = ok(n.fill) || "", attr = `${st ? ` stroke="${st}"` : ""}${fl ? ` style="fill:color-mix(in srgb,${fl.slice(0, 7)} 100%,var(--surface))"` : st ? ` style="fill:color-mix(in srgb,${st.slice(0, 7)} 20%,var(--surface))"` : ""}`; // solid fills: the lines meet in the middle, under the boxes
-    if (n.root && lab) return "";
+    if (n.root && pkLab) return "";
     if (n.root) return `<rect class="pk-root" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${esc(col)}"/>` + txt;
     if (sh === "text") return `<rect class="pk-txt" x="${x - w * 0.35}" y="${y - 5}" width="${w * 0.7}" height="10" rx="5"/>`;
     if (sh === "circle" || sh === "cloud") return `<ellipse class="pk-n" cx="${x}" cy="${y}" rx="${w / 2}" ry="${h / 2 + 6}"${attr}/>` + txt;
@@ -2069,10 +2074,8 @@ function peekSvg(p, col, opt){
     if (n.img || n.emb) return `<rect class="pk-n pk-pic" x="${x - w / 2}" y="${y - fs * 2.6}" width="${w}" height="${fs * 5.2}" rx="10"${attr}/>`;
     return `<rect class="pk-n" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${sh === "box" ? 4 : sh === "rounded" ? 10 : h / 2}"${attr}/>` + txt;
   }).join("");
-  const svg = `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
-  if (!lab) return svg;
-  const r = P.root || [0, 0];
-  return svg + peekName(lab, (r[0] - x0) / (x1 - x0) * 100, (r[1] - y0) / (y1 - y0) * 100);
+  const svg = `<svg class="cm-peek${pkLab ? " pk-fixed" : ""}" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
+  return pkLab ? svg + peekName(pkLab, 50, 50) : svg;
 }
 // Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
 const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
@@ -2628,6 +2631,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
 .cm-cfoot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
 /* the map's name on its central idea: always big enough to read, however large the map */
+.cm-peekb{overflow:hidden}
+.cm-peek.pk-fixed{inset:auto;left:50%;top:50%;width:600px;height:300px;translate:-50% -50%}
 .cm-pkname{position:absolute;z-index:2;max-width:56%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;padding:5px 12px;border-radius:14px;background:var(--c);color:#fff;font:800 .86rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
 .cm-mapcard:hover .cm-pkname{transform:scale(1.04)}
