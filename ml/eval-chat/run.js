@@ -25,21 +25,31 @@ async function askClaude(j){
   if (!claudeClient) { const Anthropic = require("@anthropic-ai/sdk"), key = process.env.ANTHROPIC_API_KEY;
     // a key that isn't tied to one workspace needs the workspace named: ANTHROPIC_WORKSPACE_ID
     const ws = process.env.ANTHROPIC_WORKSPACE_ID;
-    claudeClient = new (Anthropic.default || Anthropic)(Object.assign({maxRetries: 6}, key ? {apiKey: key, authToken: null} : {}, ws ? {defaultHeaders: {"anthropic-workspace-id": ws}} : {})); }
+    claudeClient = new (Anthropic.default || Anthropic)(Object.assign({maxRetries: 0}, key ? {apiKey: key, authToken: null} : {}, ws ? {defaultHeaders: {"anthropic-workspace-id": ws}} : {})); }
   const base = {model: CLAUDE, max_tokens: Math.max(j.max || 700, 1200), system: j.system || undefined, thinking: {type: "disabled"}};
   const ask = fmt => claudeClient.messages.create(Object.assign({}, base, {messages: [{role: "user", content: j.text + (j.schema && !fmt ? "\n\nRespond with JSON that matches this JSON Schema: " + JSON.stringify(j.schema) : "")}],
     output_config: Object.assign({effort: "low"}, fmt ? {format: {type: "json_schema", schema: claudeSchema(j.schema)}} : {})}));
-  let m;
-  try { m = await ask(!!j.schema); }
+  // retries done here (not silently in the SDK), so a rate limit shows: "rate limited (429), waiting 20s"
+  const askR = async fmt => { const A0 = require("@anthropic-ai/sdk"), A = A0.default || A0;
+    for (let i = 0; ; i++) { try { return await ask(fmt); } catch (e) {
+      const again = e instanceof A.RateLimitError || e instanceof A.InternalServerError || e instanceof A.APIConnectionError || e.status === 529;
+      if (!again || i >= 8) throw e;
+      const ra = Number(e.headers && (e.headers.get ? e.headers.get("retry-after") : e.headers["retry-after"])) || 0, wait = Math.min(90, Math.max(ra, 2 * 2 ** i));
+      CLAUDE_USE.waits++; CLAUDE_USE.waited += wait;
+      console.log(`  Claude ${e.status || "connection"}${e.status === 429 ? " rate limited" : e.status === 529 ? " overloaded" : ""}, waiting ${wait}s (try ${i + 2})${e.status === 429 ? ": " + String(e.message).slice(0, 140) : ""}`);
+      await new Promise(r => setTimeout(r, wait * 1000)); } } };
+  let m, t0 = Date.now();
+  try { m = await askR(!!j.schema); }
   catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic;
     // a key problem fails every request: stop at once rather than record a whole run of "the AI isn't answering"
     if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key, delete ${OUTF}, and start again.`); process.exit(2); }
-    if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await ask(false); }
+    if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await askR(false); }
+  if (Date.now() - t0 > 30000) console.log(`  Claude took ${Math.round((Date.now() - t0) / 1000)}s for one request (${m.usage.input_tokens} tokens in, ${m.usage.output_tokens} out)`);
   CLAUDE_USE.inp += m.usage.input_tokens; CLAUDE_USE.out += m.usage.output_tokens; CLAUDE_USE.n++;
   if (m.stop_reason === "refusal") return "";
   return m.content.filter(b => b.type === "text").map(b => b.text).join("");
 }
-const CLAUDE_USE = {inp: 0, out: 0, n: 0};
+const CLAUDE_USE = {inp: 0, out: 0, n: 0, waits: 0, waited: 0};
 // a Claude API key from the Claude Console (sk-ant-api...), checked before anything runs: without one the SDK falls back to any
 // other sign-in on the computer (a Claude subscription's token is sent as a bearer token and refused: "Invalid bearer token")
 if (CLAUDE) { const k = process.env.ANTHROPIC_API_KEY || "";
@@ -152,5 +162,5 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     console.log(`${cv.id} [${cv.cat}] ${rec.turns.map(t => (t.stateOk === false ? "✗" : "·") + t.secs + "s").join(" ")} ${rec.turns.length ? rec.turns[0].q.slice(0, 50) + " -> " + rec.turns[rec.turns.length - 1].ans.replace(/\n/g, " ").slice(0, 80) : rec.err}`);
     await p.close().catch(() => {});
   }
-  console.log(`done ${n}`); if (CLAUDE) console.log(`${CLAUDE}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens`); await b.close(); server.close();
+  console.log(`done ${n}`); if (CLAUDE) console.log(`${CLAUDE}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens, ${CLAUDE_USE.waits} waits for rate limits or busy servers (${CLAUDE_USE.waited}s)`); await b.close(); server.close();
 })().catch(e => { console.error(e); process.exit(1); });
