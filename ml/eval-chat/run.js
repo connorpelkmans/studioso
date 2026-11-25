@@ -188,6 +188,10 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
           await p.waitForTimeout(800);
           left = await p.evaluate(() => !document.querySelector("#cptIn"));
           ans = await p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.replace(/\s*(Save This Reply|Report Response)\s*/g, " ").trim() : ""; });
+          // the chat left for another page (a study session, Flashcards, a deck): the reply it gave is read from the saved chat, and where it went is said
+          if (left || !ans) { const sv = await p.evaluate(() => { try { const cs = JSON.parse(localStorage.getItem("studyboard:comp:chats") || "[]").sort((a, b) => (b.at || 0) - (a.at || 0)), m = cs[0] && cs[0].msgs[cs[0].msgs.length - 1];
+              return m ? (m.a ? m.a.answer : m.err || "") + (document.querySelector('[data-act="fc-flip"]') ? " [the app opened a flashcard study session]" : "") : ""; } catch (e) { return ""; } }).catch(() => "");
+            if (sv && !ans) ans = sv + (left ? " [the app left the chat to show it]" : ""); }
           dlg = await p.evaluate(() => { const d = document.querySelector("dialog[open]"); return d ? (d.getAttribute("aria-label") || (d.querySelector("h2,h3") || {}).textContent || "dialog") : ""; });
         } catch (e) { why = "ERR " + String(e.message).slice(0, 100); }
         const A = await snap(p).catch(() => B);

@@ -385,10 +385,11 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     await cx.addInitScript(seed => { window.__SB_TEST = true; window.__SB_OWN_KEYS = true;
       localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
       localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: "sk-ant-TESTTESTTESTTESTTEST"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: 1}})); }, SEEDC);
-    const pc = await cx.newPage(); pc.on("pageerror", e => errs.push(e.message));
+    const pc = await cx.newPage(); pc.on("pageerror", e => errs.push(e.message)); pc.on("console", m => { if (/claude step/.test(m.text())) errs.push(m.text().slice(0, 300)); });
     await pc.goto(`http://127.0.0.1:${server.address().port}/index.html`); await pc.waitForFunction(() => window.SBCOMPTAB && window.__sbSync, null, {timeout: 30000}); await pc.waitForTimeout(500);
     await pc.evaluate(() => SBCOMPTAB.open()); await pc.waitForSelector("#cptIn");
-    const say = async q => { const n0 = await pc.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
+    const say = async q => { await pc.evaluate(() => { if (!document.querySelector("#cptIn")) SBCOMPTAB.open(); }); await pc.waitForSelector("#cptIn");
+      const n0 = await pc.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
       await pc.fill("#cptIn", q); await pc.click("#cptGo");
       await pc.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled, n0, {timeout: 120000}); // (Claude allows 20 requests a minute; these turns come faster than a student types, so some wait their turn)
       return pc.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.replace(/\s+/g, " ") : ""; }); };
@@ -470,6 +471,23 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     replyFor = (m, R) => ({answer: "Opening Heart to study.", study: R("Heart")});
     a = await say("study my heart deck");
     ok(/Opening Heart/.test(a) && await pc.waitForFunction(() => !!document.querySelector(`[data-act="fc-flip"], [data-act="fc-exit"]`), null, {timeout: 5000}).then(() => true, () => false), "\"study my heart deck\" starts a session: " + a);
+    // the refs are Claude's, never shown to the student
+    replyFor = () => ({answer: "Your Freud note (N1) and the Heart deck (D1) cover it."});
+    a = await say("what covers the id?");
+    ok(!/\(N1\)|\(D1\)|\bN1\b/.test(a) && /Freud note and the Heart deck/.test(a), "ref codes are taken out of the reply: " + a);
+    // small talk isn't sent today's plan (it was brought into "hi" and "bye"); a question about the day is
+    replyFor = () => ({answer: "Hi!"});
+    await say("hey there"); await say("lol you're funny");
+    const smallT = sent[sent.length - 1].text;
+    await say("what should i do today");
+    ok(!/TODAY'S PLAN|DO THIS NEXT/.test(smallT) && /HOW STUDYBOARD WORKS/.test(smallT), "small talk gets no plan to push (and the app guide always goes)");
+    // an empty or placeholder reply is asked again, and never answered by the small models' steps
+    replyFor = (m, R, k, sys) => /IMPORTANT: reply with one JSON object/.test(sys) ? {answer: "Here's your Wednesday."} : {answer: "placeholder"};
+    a = await say("what does my wednesday look like");
+    ok(/Here's your Wednesday/.test(a), "a placeholder reply is asked again: " + a);
+    replyFor = () => ({answer: ""});
+    a = await say("and thursday?");
+    ok(/couldn't get a proper answer/.test(a) && !/add a card to Heart/.test(a), "no reply at all is said honestly, not answered by another step: " + a);
     ok(sent.every(x => /DOING THINGS/.test(x.sys) || /IMPORTANT/.test(x.sys)), "every chat request with Claude is the one step (no small-model intent step)");
     await cx.close();
   }

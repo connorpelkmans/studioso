@@ -73615,6 +73615,10 @@ window.SBLOCALANS = (() => {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // days off from the school calendar (no classes meet then, so the list above has none that day): named, so an answer says why
+    try { if (window.SBSCHOOL && SBSCHOOL.off && typeof schoolCfg === "function") { const sc = schoolCfg(), offs = [];
+      for (let d = addDays(today, -7); d <= addDays(today, 35); d = addDays(d, 1)) { const x = SBSCHOOL.off(sc, d); if (x) offs.push(`${wd(d)} ${d}: ${x.name || "day off"}`); }
+      if (offs.length) L.push("SCHOOL DAYS OFF (no classes meet these days; events and due dates still happen):\n" + offs.map(x => "- " + x).join("\n")); } } catch (e) {}
     // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
@@ -78404,6 +78408,15 @@ Studyboard makes every change you put in the JSON the moment you reply, then sho
 - Follow-ups belong to the conversation: "it", "that one", "the a&p one", "same for chapter 7", "and the quiz too", "actually one more day", "make it 30 min", "do the same for thursday and saturday", or a bare "thursday" / "blue" / "the care plan, out of 20" answering what you just asked. The [Studyboard changed: ...] lines show what each earlier reply really changed (old → new).
 - "undo", "undo that", "never mind, leave it", "put it back" right after a change: "undo": true reverses the whole last change. To reverse only part of it ("undo just the lab report part", "no just the care plan, not the midterm"), set those fields back to their old values from the [Studyboard changed] line instead. "I meant X" right after a change to the wrong item: put the wrong one back and make the change to X.
 - Dates: use CALENDAR for weekdays ("friday" is the next Friday from today, "next tuesday" the Tuesday of next week). A change counted from something ("push it back a week", "extended by 2 days", "moved up a day", "one more day", "2 days before the history essay", "the day after the study group") is counted from that item's current date in the data, not from today. A date that doesn't exist (Nov 31) or a day you can't tell: ask, change nothing.
+- When you asked a question and they answer it ("thursday", "sunday", "the cardiac lab", "diastole"), do it now, filling in anything else with what you suggested; never ask the same question twice. But "i finished it" with nothing in the conversation saying what: ask which task.
+- Ask first before deleting several things at once or anything that has a mark ("clear all my done tasks").
+- "Push", "move back", "extend" mean later: "push it to wednesday" is the next Wednesday after its current due date, never earlier.
+- Marks are numbers ("17/20", "85%"). A letter grade ("I got an A on the essay"): mark it done if they finished it and ask for the score; don't save a letter.
+- A deck given just a name ("make me a deck" then "Cardiology", "call it Psych Meds") is an empty deck: write cards only when they ask for cards on something. A card whose topic doesn't fit the deck they named ("add sublimation card to heart"): ask which deck.
+- "The study group" when there's a calendar event called Study group is that event (rename it with its title), not a Study Groups group.
+- "Add those to my calendar" after a plan you wrote: newEvents on the plan's days and times, titled plainly (no time estimates in titles).
+- A timer started while one task is being talked about ("ok start a timer", "let's do 25 min" for the essay) is for that task: give its ref.
+- Something you can't do ("call the clinical coordinator"): say so and offer a reminder, but add nothing unless they ask for one.
 - Change only what they asked for: nothing extra (no notes, weights or priorities they didn't mention). Numbers they give you for a calculation or a what-if ("the midterm is worth 40%, A is 90") change nothing unless they ask you to save them.
 - A new due date or event day in the past ("move the essay to yesterday"): say it's in the past and ask if they're sure; change nothing yet.
 - Deleting: only when the words name the item clearly. "Delete the quiz" when they have several quizzes (open or done): ask which. Dropping a course: ask first.
@@ -78446,6 +78459,13 @@ ANSWERING
 - Subject questions (science, history, maths, words, anything): answer from your own knowledge, correctly, directly and at the depth asked. Start with the answer itself. Don't mention their planner, notes or files unless they help with this question, and never say what you checked or that a topic "isn't in your notes" or "isn't in your planner".
 - Something to write (a study plan, a schedule, a timeline, a mnemonic, a rhyme, a summary, an email draft, practice questions): write it in the answer. If they say "quiz me" or "ask me ...", ask one question at a time (the question only, never its answer) and mark their answer next turn: check it carefully against the facts (an order of steps must be the right order), say right or wrong plainly, give the correct answer when it's wrong, then ask the next question. A quiz on a deck uses that deck's cards (under CARDS IN).
 - Just chatting (hello, how are you, feelings, jokes, questions about you): reply like a friend, briefly, to exactly what they said, and follow the conversation; play along with games and jokes. Don't bring up their tasks, deadlines, today's plan, the timer or what to work on unless they bring up school themselves, and never end a chat reply with "want to start on X?". When they do bring up school (stress about an exam, "I still have a lab report"), mention only what they brought up, kindly. When they mention a plan or event on a day ("my cousin's wedding saturday", "I have clinical wednesday"), match it to the planner: say kindly if something is due that day or if their planner has it on another day (clinical orientation is Friday). A mark they mention while venting that's already saved ("my quiz 1 was 11/20 too") is a feeling to answer kindly, not something to save. When they ask you for something to write or say (a motto, a pep talk, a joke "about nursing"), write it. Never repeat a suggestion you already made. Don't start a timer or change anything because of a feeling or a plan they mention ("ok 25 min then sleep"): just encourage them, unless they ask you to start one.
+- Plans and schedules: never put work on a task after its due date, keep a task's parts in order, fit the time they said ("after dinner" is the evening, "2 hours tonight" is two hours), and stick to the plan you already gave when they ask "what after that".
+- Write dates like "Wed, Nov 25" (never "Wednesday Wed"). Say only facts you're sure of: no made-up firsts, awards, dates or numbers; count items carefully (a course's decks are the ones with that course).
+- Mnemonics, rhymes, jokes, mottos: write only the final version (no drafts or "no, better:"), check that a mnemonic's letters really spell the word, and "shorter" means one or two lines. "Another one" means another of the same thing you just gave.
+- "Ask me ..." / "quiz me": give the question only, never its answer; "I give up" or "skip": give that question's answer, then the next question.
+- In nursing talk "pt" means the patient. "Switching subjects" in study talk means another course or topic.
+- Crisis lines only when they say something about hurting themselves, not wanting to live, or being in danger. "Please I need help" about a text message isn't that; and when they say never mind or move on, follow them without repeating it.
+- Your own colour can't be changed, only your accessories' colours ("make packy purple": they mean you; say so kindly and offer an accessory colour). Say you're wearing only what's listed as worn.
 - Plain text, no emojis; short paragraphs or "- " bullets; **bold** sparingly. Be brief unless they want detail.`;
   // today and the weeks around it, so "friday", "next tuesday" and "the 1st" are read off, not worked out
   function agCalendar(){ const t = todayISO(), L = []; for (let i = -7; i <= 28; i++) { const d = addDays(t, i); L.push(`${AG_DAYS[parse(d).getDay()]} ${d}${i === 0 ? " (today)" : i === 1 ? " (tomorrow)" : ""}`); } return "CALENDAR: " + L.join(", "); }
@@ -78470,23 +78490,32 @@ ANSWERING
     decksArr().forEach(d => { const n = String(d.name || "").toLowerCase(); if (n && (ql.includes(n) || n.split(/\s+/).filter(w => w.length > 3).some(w => ql.includes(w)))) dk.add(d.id); });
     const cat = await A.catalog(q, {max: 90000, decks: [...dk], full: true});
     const me = info() || {}, worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [], owned = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [];
-    let facts = ""; try { facts = aiPlannerFacts({grades: false, plan: true}) || ""; } catch (e) {}
+    // today's plan (its order and time blocks) only when the talk is about time or work: sent with every message, it was brought into
+    // greetings, feelings and a question about opportunity cost ("Reflection Journal 3 is still waiting for you")
+    const recent = [q].concat(past.slice(-2).map(x => x.q || "")).join(" ");
+    const planTalk = /\b(plan|next|now|today|tonight|tomorrow|this week|weekend|should i|first|priorit\w*|focus|free|time|hours?|minutes?|schedule|busy|study|studying|work on|do now|due|behind|catch up|overdue|late|deadline|start|finish|timer|pomodoro|session|after (that|this|dinner|class))\b/i.test(recent);
+    let facts = ""; if (planTalk) try { facts = aiPlannerFacts({grades: false, plan: true}) || ""; } catch (e) {}
     let skins = []; try { skins = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 12); } catch (e) {}
     // the other companions they have (a student calls them by those names too: "evening packy", "who's bramble?")
     const pals = (() => { try { return (SBCOMP.all ? SBCOMP.all() : []).filter(x => x.owned && x.name !== me.name).slice(0, 30).map(x => `${x.name}${x.kind ? " (" + x.kind + ")" : ""}`); } catch (e) { return []; } })();
     const boards = (() => { try { return ["My Notes"].concat(noteBoards().map(b => b.name)).join("; "); } catch (e) { return "My Notes"; } })();
-    const guide = A.appQ && A.appQ(q) && A.GUIDE ? "\n\nHOW STUDYBOARD WORKS:\n" + A.GUIDE : "";
+    // how the app works, always (a question about the app doesn't always look like one: "does it connect to brightspace")
+    const guide = A.GUIDE ? "\n\n" + A.GUIDE : "";
     const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
-    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner (part of Studyboard on their device, not a chatbot on a server; stay in character, never say you're an AI or a language model). ${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `You're wearing: ${worn.join(", ")}. ` : "You're wearing no accessories. "}${owned.length ? `Accessories you have: ${owned.join(", ")}. ` : ""}${pals.length ? `The student can switch to the other study companions they have in Studyboard (in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
-    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}`;
+    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `You're wearing: ${worn.join(", ")}. ` : "You're wearing no accessories. "}${owned.length ? `Accessories you have: ${owned.join(", ")}. ` : ""}${pals.length ? `The student can switch to the other study companions they have in Studyboard (in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
+    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. Never write ref codes like T3 or N1 in the answer.)`;
     const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
-    let r = await call().catch(async e => { if (stopsHere(e) || usedUp(e)) throw e; await new Promise(res => setTimeout(res, 1500)); return call(); }), d = r && r.data && typeof r.data === "object" ? r.data : null;
+    // (too many requests this minute: waited for a free slot, a few times, rather than given up)
+    const tryCall = async () => { for (let i = 0; ; i++) { try { return await call(); } catch (e) { if (stopsHere(e) || usedUp(e) || i >= 3) throw e; const rate = !!(e && (e.rate || e.code === "limit" || /requests already|too many|a minute/i.test(String(e.message || "")))); if (rate) { T.status = "Lots of questions at once. One moment…"; drawStatus(); } await new Promise(res => setTimeout(res, rate ? 8000 : 1500)); } } };
+    let r = await tryCall(), d = r && r.data && typeof r.data === "object" ? r.data : null;
     const asked = x => !!x && ["changes", "newTasks", "newEvents", "newCourses", "newClasses", "newNotes", "newDecks", "newCards", "show", "wear"].some(k => Array.isArray(x[k]) && x[k].length) || !!(x && (x.undo || x.study || x.page || x.theme || (x.timer && x.timer.do && x.timer.do !== "none") || (x.group && x.group.do)));
     // a reply that says it did something with nothing listed to do: asked once more
     if (d && !asked(d) && A.CLAIMS.test(String(d.answer || ""))) { try { const r2 = await call(`\n\nIMPORTANT: your last reply said "${clip(d.answer, 200)}" but listed no change. If the student asked for a change, list it in the JSON. If not, don't say anything was done.`); if (r2 && r2.data && r2.data.answer) d = r2.data; } catch (e) { if (stopsHere(e)) throw e; } }
-    if (!d || !String(d.answer || "").trim()) return null;
+    // no reply, or a placeholder ("placeholder", "...") where the reply should be: asked once more
+    if (!d || junk(d.answer) || /^\s*placeholder\s*$/i.test(String(d.answer || ""))) { try { const r3 = await call(`\n\nIMPORTANT: reply with one JSON object whose "answer" is your real reply to the student.`); const d3 = r3 && r3.data; if (d3 && !junk(d3.answer) && !/^\s*placeholder\s*$/i.test(String(d3.answer))) d = d3; else d = null; } catch (e) { if (stopsHere(e)) throw e; d = null; } }
+    if (!d) return null;
     return agApply(d, cat.refs, q);
   }
   // Each change checked against the planner, the valid ones made in one step, and the reply put right about what wasn't
@@ -78512,7 +78541,11 @@ ANSWERING
           const pick = best.length === 1 ? best[0] : same.length === 1 ? same[0] : null; if (pick) { cc.ref = pick[0]; t = pick[1]; } } }
       // a mark on a graded item (a G ref) is the task's mark
       if (t && t.kind === "grade" && cc.field === "mark") { const k = ("TG_" + t.id).toUpperCase(); refs.set(k, {kind: "task", id: t.id}); cc.ref = k; t = refs.get(k); }
-      if (t && t.kind === "course" && cc.field === "color") cc.value = agHex(cc.value) || cc.value;
+      // a colour: the exact one with Pro's any-colour, else the nearest of the course colours (said, so "hot pink #FF3E9A" isn't claimed)
+      if (t && t.kind === "course" && cc.field === "color") { const want = String(cc.value || ""), hx = agHex(want), asked = (/#[0-9a-f]{6}\b/i.exec(want) || [])[0] || (NAMED[want.toLowerCase().trim()] || "");
+        cc.value = hx || want; const cur = String((state.courses[t.id] || {}).color || "").toUpperCase();
+        if (hx && cur === hx) { extra.push(`${courseLabel(state.courses[t.id])} is already that colour.`); return; }
+        if (hx && asked && asked.toUpperCase() !== hx) extra.push(`(Your course colours don't include that exact shade, so I used the closest one, ${hx}. Pro can use any colour exactly.)`); }
       const x = A.check(cc, refs);
       if (x) checked.push(x); else failK.push({k: t ? `${t.kind === "grade" ? "task" : t.kind}:${t.id}:${cc.field}` : "", s: `change ${t ? A.labelOf(t) || "that" : "that"}'s ${String(cc.field || "").toLowerCase() || "details"}${cc.value ? ` to ${clip(cc.value, 40)}` : ""}`});
     });
@@ -78591,13 +78624,16 @@ ANSWERING
       if (/^(settings?|preferences|options)$/.test(k)) setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200);
       else if (PAGES[k]) setTimeout(() => { try { ui.tab = PAGES[k]; if (PAGES[k] !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200); }
     let answer = String(d.answer || "").trim();
-    // nothing made although the reply says it was: said plainly
-    if (!log.length && fails.length && A.CLAIMS.test(answer)) answer = "";
+    // a reply that says it did what couldn't be done ("Done, notifications are muted" when the setting wasn't found): what really
+    // happened instead, so it never says both
+    if (fails.length && (A.CLAIMS.test(answer) || /^\s*(done|got it|all set)\b/i.test(answer))) answer = log.length ? `Done: ${log.join("; ")}.` : "";
     if (fails.length) answer = `${answer}${answer ? "\n\n" : ""}I couldn't ${fails.slice(0, 4).join("; ")}, so ${fails.length === 1 ? "that part wasn't" : "those weren't"} changed.`;
     // ("nothing to undo" only when nothing else was done either: "undo the dark mode" set the theme back and said both)
     if (undoMiss && !log.length) extra.unshift(undoMiss);
     if (extra.length) answer =`${answer}${answer ? "\n\n" : ""}${extra.join(" ")}`;
     answer = answer.replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})?)*/gu, "").trim();
+    // the refs are for Claude, never the student ("your Freud notes (N1)", "Transference (F3)")
+    answer = answer.replace(/\s*\((?:\s*(?:refs?\s+)?[A-Z]{1,2}\d{1,3}\s*,?)+\)/g, "").replace(/\b[A-Z]{1,2}\d{1,3}\b/g, x => refs.has(x) ? "" : x).replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
     const out = {answer: answer || "Done.", sources: [], followUps: [], actions: [], log, decks, agent: true};
     if (shown) out.show = [shown];
     return out;
@@ -78685,7 +78721,9 @@ ANSWERING
         const ids1 = snapIds();
         // concept maps are made by their own step (98-concept-map.js), from here as from anywhere: left to the steps below
         const mapQ = (MAP_Q.test(q) && MAP_ASK.test(q)) || (!!last && !!last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q));
-        if (!early && !mapQ) { T.status = "Thinking…"; draw(); early = await claudeTurn(q, c).catch(e => { if (stopsHere(e)) throw e; console.warn("claude step", e); return null; }); }
+        if (!early && !mapQ) { T.status = "Thinking…"; draw(); early = await claudeTurn(q, c).catch(e => { if (stopsHere(e)) throw e; console.warn("claude step", e); return null; });
+          // (never the small models' steps instead: they answered "what does my wednesday look like" with "I couldn't make that change")
+          if (!early) early = {answer: "Sorry, I couldn't get a proper answer just now, so I didn't change anything. Could you say that again?", sources: [], followUps: [], actions: []}; }
         if (early) { m.a = early; const nw = newSince(ids1); if (nw && !m.a.ref) m.a.ref = nw; if (CARE0 && (CARE0.distress(q) || (c.msgs || []).slice(-4).some(x => x.a && x.a.care))) m.a.care = true; return; }
       }
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !mathR && !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;

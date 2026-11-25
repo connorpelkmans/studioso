@@ -88,6 +88,10 @@ window.SBLOCALANS = (() => {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // days off from the school calendar (no classes meet then, so the list above has none that day): named, so an answer says why
+    try { if (window.SBSCHOOL && SBSCHOOL.off && typeof schoolCfg === "function") { const sc = schoolCfg(), offs = [];
+      for (let d = addDays(today, -7); d <= addDays(today, 35); d = addDays(d, 1)) { const x = SBSCHOOL.off(sc, d); if (x) offs.push(`${wd(d)} ${d}: ${x.name || "day off"}`); }
+      if (offs.length) L.push("SCHOOL DAYS OFF (no classes meet these days; events and due dates still happen):\n" + offs.map(x => "- " + x).join("\n")); } } catch (e) {}
     // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
