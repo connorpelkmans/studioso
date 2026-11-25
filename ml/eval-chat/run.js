@@ -7,9 +7,36 @@ const path = require("path"), fs = require("fs"), http = require("http");
 const REPO = process.env.REPO || require("path").join(__dirname, "..", ".."), OUT = path.join(__dirname, process.argv[2] || "acts.out.json"), ONLY = process.argv[3] || "";
 const {chromium, executablePath} = require(path.join(REPO, "tests", "pw"));
 const LLM = process.env.LLM || (process.env.ENGINE === "e4b" ? "http://127.0.0.1:8089" : "http://127.0.0.1:8088");
+// CLAUDE=claude-haiku-5-5: the same harness, app path and prompts (ENGINE still picks E4B's or the smaller models' instructions),
+// with every request the app makes answered by that Claude model instead of a llama.cpp server. Needs ANTHROPIC_API_KEY (or an
+// \`ant auth login\` profile) and the SDK (npm install --no-save @anthropic-ai/sdk). Like the on-device models it doesn't think
+// (thinking off, effort low), and a schema is enforced with structured outputs, as llama.cpp enforces it with a grammar.
+const CLAUDE = process.env.CLAUDE || "";
+let claudeClient = null;
+// The app's schemas, made acceptable to structured outputs: every object closed, constraints it doesn't take left out
+const claudeSchema = s => { if (Array.isArray(s)) return s.map(claudeSchema); if (!s || typeof s !== "object") return s;
+  const o = {}; for (const [k, v] of Object.entries(s)) { if (/^(minimum|maximum|minLength|maxLength|minItems|maxItems|pattern|format|multipleOf|exclusiveMinimum|exclusiveMaximum|nullable|propertyOrdering)$/.test(k)) continue; o[k] = claudeSchema(v); }
+  if (typeof o.type === "string") o.type = o.type.toLowerCase();
+  if (o.type === "object" || o.properties) { o.type = "object"; o.properties = o.properties || {}; o.additionalProperties = false; }
+  return o; };
+async function askClaude(j){
+  if (!claudeClient) { const Anthropic = require("@anthropic-ai/sdk"); claudeClient = new (Anthropic.default || Anthropic)({maxRetries: 6}); }
+  const base = {model: CLAUDE, max_tokens: Math.max(j.max || 700, 1200), system: j.system || undefined, thinking: {type: "disabled"}};
+  const ask = fmt => claudeClient.messages.create(Object.assign({}, base, {messages: [{role: "user", content: j.text + (j.schema && !fmt ? "\n\nRespond with JSON that matches this JSON Schema: " + JSON.stringify(j.schema) : "")}],
+    output_config: Object.assign({effort: "low"}, fmt ? {format: {type: "json_schema", schema: claudeSchema(j.schema)}} : {})}));
+  let m;
+  try { m = await ask(!!j.schema); }
+  catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic; if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await ask(false); }
+  CLAUDE_USE.inp += m.usage.input_tokens; CLAUDE_USE.out += m.usage.output_tokens; CLAUDE_USE.n++;
+  if (m.stop_reason === "refusal") return "";
+  return m.content.filter(b => b.type === "text").map(b => b.text).join("");
+}
+const CLAUDE_USE = {inp: 0, out: 0, n: 0};
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".wasm": "application/wasm"};
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x");
+  if (u.pathname === "/__llm" && CLAUDE) { let b = ""; req.on("data", c => b += c); req.on("end", async () => { try { const j = JSON.parse(b), t = await askClaude(j);
+    res.writeHead(200, {"content-type": "text/plain"}); res.end(t); if (process.env.LOGLLM) console.log("\n--- PROMPT:", j.text.slice(-600), "\n--- REPLY:", t); } catch (e) { console.warn("claude", e.message); res.writeHead(500); res.end(String(e)); } }); return; }
   if (u.pathname === "/__llm") { let b = ""; req.on("data", c => b += c); req.on("end", async () => { try { const j = JSON.parse(b);
     const r = await fetch(LLM + "/v1/chat/completions", {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({messages: [{role: "system", content: j.system}, {role: "user", content: j.text + (j.schema ? "\n\nRespond with JSON that matches this JSON Schema: " + JSON.stringify(j.schema) : "")}], temperature: 0.3, max_tokens: j.max || 700, response_format: j.schema ? {type: "json_object", schema: j.schema} : undefined})});
     const k = await r.json(); res.writeHead(200, {"content-type": "text/plain"}); res.end(k.choices ? k.choices[0].message.content : JSON.stringify(k)); if (process.env.LOGLLM) console.log("\n--- LLM SYSTEM:", j.system.slice(0, 300), "\n--- PROMPT:", j.text.slice(-900), "\n--- REPLY:", k.choices ? k.choices[0].message.content : ""); } catch (e) { res.writeHead(500); res.end(String(e)); } }); return; }
@@ -101,5 +128,5 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     console.log(`${cv.id} [${cv.cat}] ${rec.turns.map(t => (t.stateOk === false ? "✗" : "·") + t.secs + "s").join(" ")} ${rec.turns.length ? rec.turns[0].q.slice(0, 50) + " -> " + rec.turns[rec.turns.length - 1].ans.replace(/\n/g, " ").slice(0, 80) : rec.err}`);
     await p.close();
   }
-  console.log(`done ${n}`); await b.close(); server.close();
+  console.log(`done ${n}`); if (CLAUDE) console.log(`${CLAUDE}: ${CLAUDE_USE.n} requests, ${CLAUDE_USE.inp} input and ${CLAUDE_USE.out} output tokens`); await b.close(); server.close();
 })().catch(e => { console.error(e); process.exit(1); });
