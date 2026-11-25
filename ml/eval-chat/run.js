@@ -42,7 +42,7 @@ async function askClaude(j){
   try { m = await askR(!!j.schema); }
   catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic;
     // a key problem fails every request: stop at once rather than record a whole run of "the AI isn't answering"
-    if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key, delete ${OUTF}, and start again.`); process.exit(2); }
+    if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key and start again: it carries on from here (nothing from this conversation was saved, and what's in ${OUTF} is kept).`); process.exit(2); }
     if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await askR(false); }
   if (Date.now() - t0 > 30000) console.log(`  Claude took ${Math.round((Date.now() - t0) / 1000)}s for one request (${m.usage.input_tokens} tokens in, ${m.usage.output_tokens} out)`);
   CLAUDE_USE.inp += m.usage.input_tokens; CLAUDE_USE.out += m.usage.output_tokens; CLAUDE_USE.n++;
