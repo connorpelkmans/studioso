@@ -23,7 +23,9 @@ async function askClaude(j){
   // (an API key in ANTHROPIC_API_KEY is used as it is: without authToken: null, an ANTHROPIC_AUTH_TOKEN or saved sign-in on the
   // computer was sent as well, and every request came back 401 "Invalid bearer token")
   if (!claudeClient) { const Anthropic = require("@anthropic-ai/sdk"), key = process.env.ANTHROPIC_API_KEY;
-    claudeClient = new (Anthropic.default || Anthropic)(Object.assign({maxRetries: 6}, key ? {apiKey: key, authToken: null} : {})); }
+    // a key that isn't tied to one workspace needs the workspace named: ANTHROPIC_WORKSPACE_ID
+    const ws = process.env.ANTHROPIC_WORKSPACE_ID;
+    claudeClient = new (Anthropic.default || Anthropic)(Object.assign({maxRetries: 6}, key ? {apiKey: key, authToken: null} : {}, ws ? {defaultHeaders: {"anthropic-workspace-id": ws}} : {})); }
   const base = {model: CLAUDE, max_tokens: Math.max(j.max || 700, 1200), system: j.system || undefined, thinking: {type: "disabled"}};
   const ask = fmt => claudeClient.messages.create(Object.assign({}, base, {messages: [{role: "user", content: j.text + (j.schema && !fmt ? "\n\nRespond with JSON that matches this JSON Schema: " + JSON.stringify(j.schema) : "")}],
     output_config: Object.assign({effort: "low"}, fmt ? {format: {type: "json_schema", schema: claudeSchema(j.schema)}} : {})}));
@@ -31,7 +33,7 @@ async function askClaude(j){
   try { m = await ask(!!j.schema); }
   catch (e) { const Anthropic = require("@anthropic-ai/sdk"), A = Anthropic.default || Anthropic;
     // a key problem fails every request: stop at once rather than record a whole run of "the AI isn't answering"
-    if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key, delete ${OUTF}, and start again.`); process.exit(2); }
+    if (e instanceof A.AuthenticationError || e instanceof A.PermissionDeniedError || (e instanceof A.BadRequestError && /workspace|credit balance/i.test(e.message))) { console.error(`\nClaude API sign-in failed (${e.status}): ${e.message}\nSet ANTHROPIC_API_KEY to a valid key, delete ${OUTF}, and start again.`); process.exit(2); }
     if (!(j.schema && e instanceof A.BadRequestError)) throw e; if (process.env.LOGLLM) console.log("schema refused, asking without it:", e.message); m = await ask(false); }
   CLAUDE_USE.inp += m.usage.input_tokens; CLAUDE_USE.out += m.usage.output_tokens; CLAUDE_USE.n++;
   if (m.stop_reason === "refusal") return "";
@@ -42,7 +44,8 @@ const CLAUDE_USE = {inp: 0, out: 0, n: 0};
 // other sign-in on the computer (a Claude subscription's token is sent as a bearer token and refused: "Invalid bearer token")
 if (CLAUDE) { const k = process.env.ANTHROPIC_API_KEY || "";
   if (!k) { console.error("CLAUDE is set but ANTHROPIC_API_KEY isn't. Set it (in the same window) to a Claude API key from console.anthropic.com, API Keys."); process.exit(2); }
-  if (!/^sk-ant-api/.test(k.trim())) { console.error(`ANTHROPIC_API_KEY doesn't look like a Claude API key (those start sk-ant-api; this starts ${k.trim().slice(0, 10)}...). A Claude subscription or Claude Code token won't work: make an API key at console.anthropic.com, API Keys.`); process.exit(2); }
+  // (Console keys come as sk-ant-api... and, for personal keys, sk-ant-usr...; only a subscription's OAuth token is refused here)
+  if (/^sk-ant-oat/.test(k.trim())) { console.error("ANTHROPIC_API_KEY is a Claude subscription or Claude Code token (sk-ant-oat...), which the API doesn't take as a key. Make an API key at console.anthropic.com, API Keys."); process.exit(2); }
   if (k !== k.trim()) process.env.ANTHROPIC_API_KEY = k.trim(); }
 const MIME = {".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".wasm": "application/wasm"};
 const server = http.createServer(async (req, res) => {
