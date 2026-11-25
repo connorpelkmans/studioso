@@ -320,6 +320,43 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   a = await chat("backpack");
   ok(/^Backpack who\?/.test(a), "the next word gets \"<word> who?\": " + a);
   await p.evaluate(() => { window.__stubIntent = null; });
+  // after a crisis reply: brushing it off gets one more gentle check-in, and reaching out to someone is affirmed; 988 stays in view
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat", answer: "Okay!", found: true, followUps: [], actions: []}; });
+  a = await chat("sometimes i feel like everyone would be better off without me");
+  ok(/988/.test(a) && /safe/i.test(a), "a crisis message gets 988 and \"are you safe\": " + a);
+  a = await chat("im fine forget it");
+  ok(/safe/i.test(a) && /988/.test(a), "\"im fine forget it\" checks in once more, with 988: " + a);
+  a = await chat("maybe i'll text my sister about it");
+  ok(/good idea|good step/i.test(a) && /988/.test(a), "\"text my sister\" is affirmed and 988 stays open: " + a);
+  // what the companion is, and where chats go: said honestly, not by a model guessing
+  await fresh();
+  a = await chat("are you chatgpt");
+  ok(/not ChatGPT/.test(a), "\"are you chatgpt\" is answered honestly: " + a);
+  a = await chat("so do my notes get sent anywhere");
+  ok(/AI service|on your device|this device/i.test(a) && !/Make flashcards/.test(a), "\"do my notes get sent anywhere\" says where chats go: " + a);
+  // a mark for something not in the planner ("my quiz 1"): never saved on another task
+  await fresh();
+  { const m0 = await p.evaluate(() => JSON.stringify(Object.values(window.__sbSync.state.tasks).map(t => t.mark || null)));
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_mark", task: "quiz 1", value: "11/20"}; });
+    a = await chat("my quiz 1 was 11/20 too");
+    const m1 = await p.evaluate(() => JSON.stringify(Object.values(window.__sbSync.state.tasks).map(t => t.mark || null)));
+    ok(m0 === m1 && /didn't save/.test(a), "a mark for an item that isn't in the planner isn't saved on another task: " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
+  // a quick task: "in 3 days" is the due date, not part of the title
+  await fresh();
+  a = await chat("add hist reading ch 12 in 3 days");
+  { const r = await p.evaluate(() => { const t = Object.values(window.__sbSync.state.tasks).find(x => /hist reading/i.test(x.title)), d = new Date(Date.now() + 3 * 864e5); return t ? {title: t.title, due: t.due, want: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`} : null; });
+    ok(r && !/in 3 days/i.test(r.title) && r.due === r.want, "\"in 3 days\" sets the due date: " + JSON.stringify(r) + " " + a); }
+  // a note the chat added can be undone
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "add_note", text: "Email Prof Ruiz about lab report"}; });
+  a = await chat("sticky note: email Prof Ruiz about lab report");
+  await p.evaluate(() => { window.__stubIntent = null; });
+  { const had = await p.evaluate(() => Object.values(window.__sbSync.state.notes).some(n => n && /Prof Ruiz/.test(n.text || "")));
+    a = await chat("undo that");
+    const has = await p.evaluate(() => Object.values(window.__sbSync.state.notes).some(n => n && /Prof Ruiz/.test(n.text || "")));
+    ok(had && !has && /Undone/.test(a), "\"undo that\" removes the note the chat just added: " + a); }
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);

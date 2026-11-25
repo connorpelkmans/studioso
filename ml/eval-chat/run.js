@@ -143,7 +143,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   };
   await boot();
   const snap = p => p.evaluate(() => { const s = window.__sbSync.state, m = x => Array.isArray(x) ? Object.fromEntries(x.map(i => [i.id, i])) : (x || {});
-    return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: m(s.courses), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
+    return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: Object.fromEntries(Object.entries(m(s.courses)).filter(([, c]) => !(c && c.gen))), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
   let n = 0;
   const LIST = ALL.slice(FROM, TO); let crashes = 0;
   // every 30s while a turn runs long: what it's waiting on (Claude, a web page, or the app itself, with the app's own status line)
