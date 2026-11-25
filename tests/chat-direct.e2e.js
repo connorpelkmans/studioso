@@ -24,6 +24,8 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     await p.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled && !/Thinking…|Looking|Working/.test([...document.querySelectorAll(".cpt-a, .cpt-err")].pop().innerText), n0, {timeout: 30000}).catch(() => {});
     return p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.split("\n").slice(0, 8).join(" ") : ""; }); };
   const notes = () => p.evaluate(() => JSON.stringify(window.__sbSync.state.notes || {}));
+  // (CLAUDE_ONLY=1: only the checks of the Claude step at the end)
+  if (!process.env.CLAUDE_ONLY) {
 
   let a = await chat("Add flashcard with front hi and back hello to deck Connor Pelkmans");
   const cards = await p.evaluate(() => window.__sbSync.state.decks.d1.cards.map(c => c.front + "/" + c.back));
@@ -362,6 +364,145 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   a = await chat("backpack");
   ok(/^Backpack who\?/.test(a), "the next word gets \"<word> who?\": " + a);
   await p.evaluate(() => { window.__stubIntent = null; });
+  }
+  // ---- With Claude (a Claude key in Studyboard AI Mode): one step reads the whole planner and lists the changes; the app makes them
+  {
+    const SEEDC = {v: 2, updated: 1, files: [], notes: [{id: "n1", x: 0, y: 0, created: 1, text: "Freud\nId: wants it now\nEgo: reality\nSuperego: conscience"}], events: [], settings: {ai: {provider: "anthropic", model: "studyboard"}},
+      courses: [{id: "c1", name: "Anatomy and Physiology", code: "BIOS 230", color: "#3B6FE0"}, {id: "c2", name: "World History", code: "HIST 1010", color: "#DC2626"}],
+      decks: [{id: "d1", name: "Heart", created: 1, cards: [{id: "h1", front: "SA node", back: "pacemaker", box: 0, due: "", seen: 0, right: 0, wrong: 0}]}],
+      tasks: [{id: "t1", title: "Care Plan 2", courseId: "c1", type: "Assignment", due: "2030-01-10", status: "todo", priority: "med"}, {id: "t2", title: "Lab Report", courseId: "c1", type: "Lab", due: "2030-01-12", status: "todo", priority: "med"}, {id: "t3", title: "Psych Quiz 1", courseId: "c1", type: "Quiz", due: "2020-01-05", status: "done", priority: "med", mark: {got: 17, outOf: 20}}]};
+    const sent = []; let replyFor = () => ({answer: "Hi!"});
+    const cx = await b.newContext({viewport: {width: 1100, height: 850}, serviceWorkers: "block"});
+    await cx.route(/api\.anthropic\.com/, route => {
+      if (/count_tokens/.test(route.request().url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 2000})}); return; }
+      const body = JSON.parse(route.request().postData() || "{}"), sys = typeof body.system === "string" ? body.system : (body.system || []).map(x => x.text).join("\n"), text = JSON.stringify(body.messages || []);
+      const ptxt = (((body.messages || [])[0] || {}).content || []).filter(x => x.type === "text").map(x => x.text).join("\n");
+      sent.push({sys, text: ptxt}); const msg = (/THE STUDENT'S NEW MESSAGE: (.*)$/.exec(ptxt) || [])[1] || "";
+      const refOf = title => (new RegExp("\\b([A-Z]\\d+) \\| " + title).exec(ptxt) || [])[1] || "";
+      let out; try { out = replyFor(msg, refOf, sent.length, sys); } catch (e) { console.log("stub error:", e.message); out = {answer: "stub error"}; }
+      route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({content: [{type: "text", text: typeof out === "string" ? out : JSON.stringify(out)}], stop_reason: "end_turn", usage: {input_tokens: 100, output_tokens: 50}})});
+    });
+    await cx.addInitScript(seed => { window.__SB_TEST = true; window.__SB_OWN_KEYS = true;
+      localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
+      localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: "sk-ant-TESTTESTTESTTESTTEST"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: 1}})); }, SEEDC);
+    const pc = await cx.newPage(); pc.on("pageerror", e => errs.push(e.message)); pc.on("console", m => { if (/claude step/.test(m.text())) errs.push(m.text().slice(0, 300)); });
+    await pc.goto(`http://127.0.0.1:${server.address().port}/index.html`); await pc.waitForFunction(() => window.SBCOMPTAB && window.__sbSync, null, {timeout: 30000}); await pc.waitForTimeout(500);
+    await pc.evaluate(() => SBCOMPTAB.open()); await pc.waitForSelector("#cptIn");
+    const say = async q => { await pc.evaluate(() => { if (!document.querySelector("#cptIn")) SBCOMPTAB.open(); }); await pc.waitForSelector("#cptIn");
+      const n0 = await pc.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
+      await pc.fill("#cptIn", q); await pc.click("#cptGo");
+      await pc.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled, n0, {timeout: 120000}); // (Claude allows 20 requests a minute; these turns come faster than a student types, so some wait their turn)
+      return pc.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.replace(/\s+/g, " ") : ""; }); };
+    const task = id => pc.evaluate(i => window.__sbSync.state.tasks[i], id);
+    // the data Claude needs goes with the message: due dates, status, marks and the calendar
+    replyFor = (m, R) => ({answer: "Moved Care Plan 2 to Fri, Jan 11 2030.", changes: [{ref: R("Care Plan 2"), field: "due", value: "2030-01-11"}]});
+    let a = await say("care plan 2 got extended by a day");
+    const s0 = sent[sent.length - 1];
+    ok(/due 2030-01-10/.test(s0.text) && /CALENDAR: /.test(s0.text) && /17\/20|Psych Quiz 1/.test(s0.text), "Claude is sent the whole planner (due dates, marks, a calendar)");
+    ok((await task("t1")).due === "2030-01-11" && !(await pc.evaluate(() => !!document.querySelector("#asDlg[open]"))), "a change Claude lists is made at once, with no confirm box: " + a);
+    // several changes in one message: all of them, one undo step
+    replyFor = (m, R) => ({answer: "Marked both done.", changes: [{ref: R("Care Plan 2"), field: "status", value: "done"}, {ref: R("Lab Report"), field: "status", value: "done"}]});
+    a = await say("tick off the care plan and the lab report");
+    ok((await task("t1")).status === "done" && (await task("t2")).status === "done", "two changes in one message are both made: " + a);
+    // the next request carries what really changed (old -> new), so "undo just the lab report part" can be done
+    replyFor = (m, R, k) => ({answer: "Put Lab Report back.", changes: [{ref: R("Lab Report"), field: "status", value: "todo"}]});
+    a = await say("undo just the lab report part");
+    ok(/\[Studyboard changed: [^\]]*Lab Report[^\]]*Done/.test(sent[sent.length - 1].text) && (await task("t2")).status === "todo" && (await task("t1")).status === "done", "what each reply changed is in the conversation sent next, and part of it can be put back: " + a);
+    replyFor = () => ({answer: "Undone.", undo: true});
+    a = await say("never mind, undo that");
+    ok((await task("t2")).status === "done", "\"undo\" reverses the last change: " + a);
+    // a mark, a new event, a deck of cards Claude wrote
+    replyFor = (m, R) => ({answer: "Saved 9/10.", changes: [{ref: R("Lab Report"), field: "mark", value: "9/10"}]});
+    a = await say("lab report: 9/10 :)");
+    ok(JSON.stringify((await task("t2")).mark || {}).includes('"got":9') && (await task("t2")).mark.outOf === 10, "a mark is saved on the task: " + a);
+    replyFor = () => ({answer: "Added gym.", newEvents: [{title: "Gym", date: "2030-01-09", from: "07:00", to: "08:00"}]});
+    a = await say("gym jan 9 7am");
+    ok(await pc.evaluate(() => Object.values(window.__sbSync.state.events).some(e => e.title === "Gym" && e.date === "2030-01-09" && e.start === "07:00")), "an event is added with its time: " + a);
+    // an event right after another the same day: "make it 30 min" changes the one named, not the one before it
+    const D3 = (d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`)(new Date(Date.now() + 3 * 864e5));
+    replyFor = () => ({answer: "Added.", newEvents: [{title: "Clinical orientation", date: D3, from: "08:00", to: "12:00"}, {title: "Meeting with Dr. Chen", date: D3, from: "12:00", to: "13:00"}]});
+    await say("add clinical orientation 8-12 and a meeting with dr chen at noon on jan 11");
+    replyFor = () => { const k = (new RegExp(`\\b(K\\d+) \\| \\w+ \\| ${D3} \\| 12:00-13:00 \\| Meeting with Dr\\. Chen`).exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Made it 30 minutes.", changes: [{ref: k, item: "Meeting with Dr. Chen", field: "to", value: "12:30"}]}; };
+    a = await say("make it 30 min");
+    { const ev = await pc.evaluate(() => Object.values(window.__sbSync.state.events).map(e => `${e.title} ${e.start}-${e.end}`).join("; "));
+      ok(/Meeting with Dr\. Chen 12:00-12:30/.test(ev) && /Clinical orientation 08:00-12:00/.test(ev), "an event's ref changes that event, not the one before it: " + ev + " " + a); }
+    replyFor = () => ({answer: "Made Freud with 3 cards.", newDecks: [{name: "Freud", cards: [{front: "What does the id want?", back: "Everything now"}, {front: "What is the ego?", back: "Reality"}, {front: "What is the superego?", back: "Conscience"}]}]});
+    a = await say("flashcards from my freud note");
+    ok(await pc.evaluate(() => Object.values(window.__sbSync.state.decks).some(d => d.name === "Freud" && d.cards.length === 3)), "a deck of the cards Claude wrote is made: " + a);
+    ok(/CARDS IN "Freud"/.test((replyFor = (m, R) => ({answer: "Kept 2.", changes: [{ref: R("What is the superego\\?"), field: "delete", value: "yes"}]}), await say("keep only 2"), sent[sent.length - 1].text)) && await pc.evaluate(() => Object.values(window.__sbSync.state.decks).find(d => d.name === "Freud").cards.length === 2), "the deck it just made is sent with its cards, so \"keep only 2\" works");
+    // a change to something that isn't there is said plainly, never claimed
+    replyFor = () => ({answer: "Moved it.", changes: [{ref: "T99", field: "due", value: "2030-02-01"}]});
+    a = await say("move the thing to feb 1");
+    ok(/couldn't/i.test(a), "a change that can't be made is said: " + a);
+    // "done" with nothing listed: asked once more, and the answer that comes back is used
+    replyFor = (m, R, k, sys) => /IMPORTANT: your last reply/.test(sys) ? {answer: "Set Care Plan 2 to high priority.", changes: [{ref: R("Care Plan 2"), field: "priority", value: "high"}]} : {answer: "I've set it to high priority."};
+    a = await say("make the care plan high priority");
+    ok((await task("t1")).priority === "high", "a reply claiming a change with none listed is asked again: " + a);
+    // a question changes nothing (Claude lists nothing for it)
+    replyFor = () => ({answer: "Yes, Psych Quiz 1 has 17/20."});
+    const before = await pc.evaluate(() => JSON.stringify(window.__sbSync.state.tasks));
+    a = await say("psych quiz 1 was 17/20 right?");
+    ok(before === await pc.evaluate(() => JSON.stringify(window.__sbSync.state.tasks)), "a question changes nothing: " + a);
+    // "undo that, I meant the lab report": the undo first, then the new change (the other way round the undo took back the new one)
+    replyFor = (m, R) => ({answer: "Marked Care Plan 2 not done.", changes: [{ref: R("Care Plan 2"), field: "status", value: "todo"}]});
+    await say("care plan 2 isn't done");
+    replyFor = (m, R) => ({answer: "Put Care Plan 2 back and set Lab Report to in progress.", undo: true, changes: [{ref: R("Lab Report"), field: "status", value: "doing"}]});
+    a = await say("oops I meant the lab report, undo that");
+    ok((await task("t1")).status === "done" && (await task("t2")).status === "doing", "undo and a new change in one reply: the undo first: " + a);
+    // a note Claude adds goes in the same undo step
+    replyFor = () => ({answer: "Saved the note.", newNotes: [{text: "buy scrubs", board: ""}]});
+    await say("sticky note: buy scrubs");
+    replyFor = () => ({answer: "Took it off.", undo: true});
+    a = await say("undo that");
+    ok(!(await pc.evaluate(() => Object.values(window.__sbSync.state.notes).some(n => n.text === "buy scrubs"))) && !/nothing recent to undo/i.test(a), "\"undo\" takes back a note it added: " + a);
+    // the same mark listed twice (on the task and on its grade row): made once, no "couldn't" for the other
+    replyFor = (m, R) => ({answer: "Changed it to 18/20.", changes: [{ref: R("Psych Quiz 1"), field: "mark", value: "18/20"}, {ref: "G99", field: "mark", value: "18/20"}]});
+    a = await say("psych quiz 1 is 18 now, they gave me a point back");
+    ok((await task("t3")).mark.got === 18 && /couldn't/i.test(a), "a mark on a done task is changed (an unknown ref is still said): " + a);
+    // a course's class times
+    replyFor = (m, R) => ({answer: "Added the times.", newClasses: [{course: R("World History"), kind: "Lecture", days: "Mon, Wed", from: "10:00", to: "12:00"}]});
+    a = await say("add history mondays and wednesdays 10-12");
+    ok(await pc.evaluate(() => (window.__sbSync.state.courses.c2.meetings || []).some(m => m.start === "10:00" && m.end === "12:00" && m.days.join() === "1,3")), "a course's weekly class times are added: " + a);
+    // an accessory it doesn't have isn't swapped for one it does
+    replyFor = () => ({answer: "Putting it on!", wear: [{item: "festive beanie", on: true}]});
+    a = await say("put the festive beanie on");
+    ok(/haven't (unlocked|earned)/i.test(a) && !/Tiny Hat is on/i.test(a), "an accessory it doesn't have is said, not swapped: " + a);
+    // a study session on a deck
+    replyFor = (m, R) => ({answer: "Opening Heart to study.", study: R("Heart")});
+    a = await say("study my heart deck");
+    ok(/Opening Heart/.test(a) && await pc.waitForFunction(() => !!document.querySelector(`[data-act="fc-flip"], [data-act="fc-exit"]`), null, {timeout: 5000}).then(() => true, () => false), "\"study my heart deck\" starts a session: " + a);
+    // the refs are Claude's, never shown to the student
+    replyFor = () => ({answer: "Your Freud note (N1) and the Heart deck (D1) cover it."});
+    a = await say("what covers the id?");
+    ok(!/\(N1\)|\(D1\)|\bN1\b/.test(a) && /Freud note and the Heart deck/.test(a), "ref codes are taken out of the reply: " + a);
+    // small talk isn't sent today's plan (it was brought into "hi" and "bye"); a question about the day is
+    replyFor = () => ({answer: "Hi!"});
+    await say("hey there"); await say("lol you're funny");
+    const smallT = sent[sent.length - 1].text;
+    await say("what should i do today");
+    ok(!/TODAY'S PLAN|DO THIS NEXT/.test(smallT) && /HOW STUDYBOARD WORKS/.test(smallT), "small talk gets no plan to push (and the app guide always goes)");
+    // an empty or placeholder reply is asked again, and never answered by the small models' steps
+    replyFor = (m, R, k, sys) => /IMPORTANT: reply with one JSON object/.test(sys) ? {answer: "Here's your Wednesday."} : {answer: "placeholder"};
+    a = await say("what does my wednesday look like");
+    ok(/Here's your Wednesday/.test(a), "a placeholder reply is asked again: " + a);
+    // a deleted task can be brought back and changed in one reply ("don't delete it, mark it done instead")
+    replyFor = (m, R) => ({answer: "Deleted Lab Report.", changes: [{ref: R("Lab Report"), field: "delete", value: "yes"}]});
+    await say("delete the lab report");
+    replyFor = () => { const k = (/\b(X\d+) \| Lab Report/.exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Brought it back and marked it done.", undo: true, changes: [{ref: k, item: "Lab Report", field: "status", value: "done"}]}; };
+    a = await say("wait don't delete it, mark it done instead");
+    ok((await task("t2") || {}).status === "done", "a task just deleted is sent with a ref, so undo plus \"mark it done\" works: " + a);
+    // a reply written as plain words instead of the JSON is the answer (it was thrown away and asked for again)
+    replyFor = () => "Friday has clinical orientation from 8 to 12.";
+    a = await say("and the day after?");
+    ok(/Friday has clinical orientation/.test(a), "a plain-words reply is used as the answer: " + a);
+    replyFor = () => ({answer: ""});
+    a = await say("and thursday?");
+    ok(/couldn't get a proper answer/.test(a) && !/add a card to Heart/.test(a), "no reply at all is said honestly, not answered by another step: " + a);
+    ok(sent.every(x => /DOING THINGS/.test(x.sys) || /IMPORTANT/.test(x.sys)), "every chat request with Claude is the one step (no small-model intent step)");
+    await cx.close();
+  }
+  // the on-device path never gets Claude's step
+  ok(!(await p.evaluate(() => (window.__prompts || []).concat(window.__creates || []).some(x => /DOING THINGS/.test(x)))), "the on-device models never get Claude's step");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); server.close();
   console.log(`\n${n - fails}/${n} passed`); process.exit(fails ? 1 : 0);
