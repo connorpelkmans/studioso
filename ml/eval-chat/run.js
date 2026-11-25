@@ -123,6 +123,12 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     // the app's own Claude calls, passed straight through and counted (tokens, rate limits, time)
     await ctx.route(/api\.anthropic\.com/, async route => { const t0 = Date.now(); LIVE.claude++;
       try { const r = await route.fetch({timeout: 300000}), body = await r.text(), st = r.status(); let j = null; try { j = JSON.parse(body); } catch (e) {}
+        // CLOUDLOG=1: each request the app sends Claude (its instructions' first and last lines, the message) and Claude's reply, to see
+        // why the app's Claude path did what it did. CLOUDLOG=full writes them whole to cloud-log.jsonl.
+        if (process.env.CLOUDLOG) { let rq = null; try { rq = JSON.parse(route.request().postData() || "null"); } catch (e) {}
+          const sys = rq ? (typeof rq.system === "string" ? rq.system : (rq.system || []).map(x => x.text || "").join("\n")) : "", msg = rq ? JSON.stringify((rq.messages || []).slice(-1)[0] || {}).slice(0, 4000) : "", rep = j && j.content ? j.content.filter(b => b.type === "text").map(b => b.text).join("") : body.slice(0, 500);
+          if (process.env.CLOUDLOG === "full") fs.appendFileSync(path.join(__dirname, "cloud-log.jsonl"), JSON.stringify({cv: LIVE.cv, q: LIVE.q, system: sys, request: rq && Object.assign({}, rq, {system: undefined}), reply: rep, status: st}) + "\n");
+          else console.log(`\n--- ${LIVE.cv} "${LIVE.q}" → Claude (${st})\n  instructions: ${sys.slice(0, 160).replace(/\n/g, " ")} … ${sys.slice(-200).replace(/\n/g, " ")}\n  message: ${msg.slice(-600)}\n  reply: ${rep.slice(0, 600)}`); }
         if (j && j.usage) { CLAUDE_USE.n++; CLAUDE_USE.inp += (j.usage.input_tokens || 0) + (j.usage.cache_read_input_tokens || 0) + (j.usage.cache_creation_input_tokens || 0); CLAUDE_USE.out += j.usage.output_tokens || 0; }
         if (st === 401 || st === 403) { console.error(`\nClaude API sign-in failed (${st}): ${body.slice(0, 200)}\nSet ANTHROPIC_API_KEY to a valid key and start again (the results so far are kept).`); process.exit(2); }
         if (st === 429 || st === 529) { CLAUDE_USE.waits++; console.log(`  Claude ${st}${st === 429 ? " rate limited" : " overloaded"} (the app retries): ${body.slice(0, 140)}`); }
