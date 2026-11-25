@@ -116,6 +116,9 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   if (CLOUD) {
     // the student's own Claude key, chosen in Settings (Claude Haiku 5.5, Studyboard AI Mode)
     await ctx.addInitScript(k => { localStorage.setItem("studyboard:aiKeys", JSON.stringify({anthropic: k})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({anthropic: {v: 1, at: Date.now()}}));
+      // each conversation is a student with their full allowance: the own-key meter ($0.52 a week, thinking less past $0.40) would
+      // otherwise add up across all 1,100 conversations and stop the run a fifth of the way through ("Your Claude Key's Limit Is Reached")
+      localStorage.removeItem("studyboard:ownAI");
       const c = JSON.parse(localStorage.getItem("coursework:v2")); c.settings = Object.assign({}, c.settings, {ai: {provider: "anthropic", model: "studyboard", ownKey: true}}); localStorage.setItem("coursework:v2", JSON.stringify(c)); }, (process.env.ANTHROPIC_API_KEY || "").trim());
     // the app's own Claude calls, passed straight through and counted (tokens, rate limits, time)
     await ctx.route(/api\.anthropic\.com/, async route => { const t0 = Date.now(); LIVE.claude++;
