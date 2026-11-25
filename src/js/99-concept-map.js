@@ -2633,6 +2633,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 /* the map's name on its central idea: always big enough to read, however large the map */
 .cm-peekb{overflow:hidden}
 .cm-peek.pk-fixed{inset:auto;left:50%;top:50%;width:600px;height:300px;translate:-50% -50%}
+/* the name and the map sit a little below the middle, so they look centred under the course chip */
+.cm-mapcard .cm-peek,.cm-mapcard .cm-pkname{margin-top:10px}
 .cm-pkname{position:absolute;z-index:2;max-width:56%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;padding:5px 12px;border-radius:14px;background:var(--c);color:#fff;font:800 .86rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
 .cm-mapcard:hover .cm-pkname{transform:scale(1.04)}
