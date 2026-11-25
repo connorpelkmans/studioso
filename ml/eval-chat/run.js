@@ -115,6 +115,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   const e4b = process.env.ENGINE === "e4b";
   await ctx.addInitScript({content: (CLOUD ? "" : e4b ? `(${e4bStub})();` : `(${stub})(6144);`) + (CLOUD ? " window.__SB_OWN_KEYS = true;" : "") + ` window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; window.__CHAT_MAX = 400000;`});
   await ctx.addInitScript({content: `localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"})); localStorage.setItem("studyboard:devAIOk", "1");
+    localStorage.removeItem("studioso:pomo"); // (a focus timer from the last conversation would carry on into this one)
     localStorage.setItem("coursework:v2", JSON.stringify(${fs.readFileSync(path.join(__dirname, "planner.js"), "utf8")}));`});
   if (CLOUD) {
     // the student's own Claude key, chosen in Settings (Claude Haiku 5.5, Studyboard AI Mode)
@@ -137,7 +138,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
         if (st === 429 || st === 529) { CLAUDE_USE.waits++; console.log(`  Claude ${st}${st === 429 ? " rate limited" : " overloaded"} (the app retries): ${body.slice(0, 140)}`); }
         if (Date.now() - t0 > 30000) console.log(`  Claude took ${Math.round((Date.now() - t0) / 1000)}s for one request${j && j.usage ? ` (${j.usage.input_tokens} tokens in, ${j.usage.output_tokens} out)` : ""}`);
         await route.fulfill({response: r, body}); }
-      catch (e) { route.abort().catch(() => {}); } finally { LIVE.claude--; } });
+      catch (e) { console.log(`  Claude request failed after ${Math.round((Date.now() - t0) / 1000)}s: ${String(e && e.message || e).slice(0, 200)}`); route.abort().catch(() => {}); } finally { LIVE.claude--; } });
   }
   // Wikipedia through the disk cache (shared with the other runs), one at a time
   const WC = path.join(__dirname, "webcache"); fs.mkdirSync(WC, {recursive: true}); let wq = Promise.resolve();
@@ -167,7 +168,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
     if (doneIds.has(cv.id)) continue;
     if (Date.now() > DEADLINE) { console.log("deadline: stopping"); break; }
     let p; try { p = await ctx.newPage(); } catch (e) { if (++crashes > 20) throw e; console.log("browser closed: starting it again"); await boot(); p = await ctx.newPage(); }
-    const errs = []; p.on("pageerror", e => errs.push(e.message)); p.on("dialog", d => d.dismiss().catch(() => {}));
+    const errs = []; p.on("pageerror", e => errs.push(e.message)); if (process.env.CONSOLE) p.on("console", m => { if (/warn|error/.test(m.type())) console.log("  [page " + m.type() + "]", m.text().slice(0, 400)); }); p.on("dialog", d => d.dismiss().catch(() => {}));
     const rec = {id: cv.id, cat: cv.cat, turns: []}; LIVE.cv = cv.id; LIVE.page = p;
     try {
       await p.goto(`http://127.0.0.1:${server.address().port}/index.html`);
@@ -181,7 +182,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
           await p.waitForSelector("#cptIn", {timeout: 10000});
           const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length);
           await p.fill("#cptIn", t.q); await p.click("#cptGo");
-          await p.waitForFunction(n0 => { if (!document.querySelector("#cptIn") || document.querySelector("dialog[open]")) return true; // (and the last reply is a reply, not the status line still showing: "Working out what to do…" was saved as an answer)
+          await p.waitForFunction(n0 => { const go = document.querySelector("#cptGo"); if (!document.querySelector("#cptIn") || (document.querySelector("dialog[open]") && !(go && go.disabled))) return true; // (a sheet the chat opens while still working, like Settings for a setting it changes, isn't the reply) // (and the last reply is a reply, not the status line still showing: "Working out what to do…" was saved as an answer)
             const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop();
             return document.querySelectorAll(".cpt-a, .cpt-err").length > n0 && !document.querySelector(".cpt-wait") && !document.querySelector("#cptStatus") && !(l && /^(Working out what to do|Thinking|Still thinking|Looking through|Doing those one at a time|Making your map|Adding to your map)/.test(l.innerText.trim())); }, n0, {timeout: 420000});
           await p.waitForTimeout(800);
@@ -199,7 +200,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
         const diff = []; ["tasks", "events", "courses", "decks"].forEach(k => { const a = A[k] || {}, bb = B[k] || {}; Object.keys(a).forEach(id => { if (!bb[id]) diff.push(`new ${k.slice(0, -1)} "${a[id].title || a[id].name}"`); else if (JSON.stringify(a[id]) !== JSON.stringify(bb[id])) diff.push(`changed ${k.slice(0, -1)} "${a[id].title || a[id].name}"`); }); Object.keys(bb).forEach(id => { if (!a[id]) diff.push(`removed ${k.slice(0, -1)} "${bb[id].title || bb[id].name}"`); }); });
         if (JSON.stringify(A.notes) !== JSON.stringify(B.notes)) diff.push("notes changed");
         LIVE.t0 = 0;
-        rec.turns.push({q: t.q, expect: t.expect, ans: ans.slice(0, 1500), dlg, left, stateOk, state: t.state || "", diff: diff.slice(0, 6), secs: Math.round((Date.now() - t0) / 100) / 10, why});
+        rec.turns.push({q: t.q, expect: t.expect, ans: ans.slice(0, 6000), dlg, left, stateOk, state: t.state || "", diff: diff.slice(0, 6), secs: Math.round((Date.now() - t0) / 100) / 10, why});
       }
     } catch (e) { rec.err = String(e.message).slice(0, 150); }
     // the browser died under this conversation: not recorded, the browser starts again and the conversation is run again

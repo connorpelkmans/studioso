@@ -36,6 +36,9 @@ const SBPOLICY = (() => {
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
     // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
     assist: {effort: "medium", out: 6000, routine: true},
+    // The Companion tab with Claude: one step that reads the message against the whole planner, answers it and says what to change
+    // (the app checks and makes each change). Low thinking: it is the reply the student waits on in a conversation
+    agent: {effort: "low", out: 8000, routine: true},
     // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
     plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
