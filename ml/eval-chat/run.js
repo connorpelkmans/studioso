@@ -153,7 +153,7 @@ const DEADLINE = Date.now() + (+(process.env.MINS || 100)) * 60000;
   };
   await boot();
   const snap = p => p.evaluate(() => { const s = window.__sbSync.state, m = x => Array.isArray(x) ? Object.fromEntries(x.map(i => [i.id, i])) : (x || {});
-    return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: m(s.courses), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
+    return JSON.parse(JSON.stringify({tasks: m(s.tasks), events: m(s.events), courses: Object.fromEntries(Object.entries(m(s.courses)).filter(([, c]) => !(c && c.gen))), decks: m(s.decks), notes: s.notes, settings: s.settings})); });
   let n = 0;
   // IDS=file.txt (or "p1-001,p2-015"): only those conversations, e.g. the ones that failed, to check a fix
   const IDS = process.env.IDS ? new Set((fs.existsSync(process.env.IDS) ? fs.readFileSync(process.env.IDS, "utf8") : process.env.IDS).split(/[\s,]+/).filter(Boolean)) : null;

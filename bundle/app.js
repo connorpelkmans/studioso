@@ -3617,6 +3617,7 @@ const SBPK = window.SBPK = (() => {
 /* Changes and undo */
 // Ctrl/Cmd+Z steps back through recent changes, newest first
 const undoStack = [];
+if (window.__SB_TEST) window.__sbUndo = undoStack; // (tests read the steps)
 function undoLast(){
   while (undoStack.length) {
     const s = undoStack.pop();
@@ -17155,7 +17156,11 @@ function viewScheduleMonth(){
     <button class="btn small" data-act="sch-mtoday" ${isNow ? 'disabled aria-pressed="true" title="You are viewing this month"' : 'aria-pressed="false"'}>This Month</button>${schModeCtl(true)}
     <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
-  return nav + `
+  // Notices, as on the week: the month's summary and any course still without class times
+  const withEv = new Set(eventsArr().map(e => e.courseId).filter(Boolean)), missingM = coursesArr().filter(c => !courseMeetings(c).length && !withEv.has(c.id));
+  schNoticeHtml = `<p style="margin:0">${nMonth} event${nMonth === 1 ? "" : "s"} and classes in ${esc(m.toLocaleDateString(undefined, {month: "long"}))}. Tap a day to see it, or See Week to change a class.</p>${missingM.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missingM.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
+  const ntcBtnM = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This month's summary${missingM.length ? " and courses missing class times" : ""}">Notices${missingM.length ? `<span class="sch-ntc-n">${missingM.length}</span>` : ""}</button>`;
+  return nav.replace(/<\/div><\/div>$/, ntcBtnM + "</div></div>") + `
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
     ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
@@ -21801,6 +21806,29 @@ function viewFlashcards(){
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
+/* Titles on the Review cards' covers (a deck's front card, a quiz's sheet, a presentation's screen, a paper's page) shrink to fit their
+   three lines rather than being cut off: after each render, each one too long for its box gets the largest size that fits (down to 55%;
+   past that the "…" stays, for a title that long) */
+const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pane b, .wsr-page .wsr-t";
+function rvFit(root){
+  const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    el.style.fontSize = "";
+    if (!el.clientHeight || fits(el)) return;
+    const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
+    el.style.fontSize = lo + "px"; if (!fits(el)) return;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; el.style.fontSize = mid + "px"; if (fits(el)) lo = mid; else hi = mid; }
+    el.style.fontSize = lo.toFixed(2) + "px";
+  });
+}
+(() => {
+  if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
+  let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  addEventListener("resize", go);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+})();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
@@ -70948,7 +70976,7 @@ var COMP_EXTRA = [];
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
   /* Where it can stand */
-  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront");
+  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,#toast");
   const INTERACTIVE = /^(BUTTON|A|INPUT|SELECT|TEXTAREA|LABEL|IMG|VIDEO|CANVAS|IFRAME|DIALOG)$/;
   function contentAt(x, y){
     let surface = false;
@@ -70976,7 +71004,7 @@ var COMP_EXTRA = [];
   const BAND_PAD = 48;
   function contentRects(band){
     const out = [], W = innerWidth, H = innerHeight, T = band ? Math.max(0, band.t) : 0, B = band ? Math.min(H, band.b) : H;
-    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab");
+    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab,#toast");
     const vis = r => r.width > 1 && r.height > 1 && r.bottom > T && r.right > 0 && r.top < B && r.left < W;
     const els = [], svgs = [];
     const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode: n => {
@@ -71014,8 +71042,7 @@ var COMP_EXTRA = [];
     const rg = range(px);
     if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
-    const t = document.getElementById("toast");
-    if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
+    // (a toast isn't a reason to find a new spot: it's there a moment, and duck() steps it aside just far enough)
     // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
     const e = vext || measureArt() || DEF_ART;
     const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
@@ -71410,17 +71437,44 @@ var COMP_EXTRA = [];
     // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
     clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
-  // A toast that overlaps it
+  // A toast that overlaps it: it steps sideways, left or right (whichever is the shorter step that stays on screen and clear of
+  // the Add Task button), and only hops up over it where neither side has room
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false, lift = 0;
-    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
-      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
-    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
+    let hit = false, dx = 0, lift = 0;
+    // (measured where it stands, without the step: the step itself would make it stop overlapping)
+    if (on) {
+      // where it rests: its place in its layer, without the step (mid-step, its drawn box is somewhere along the way)
+      const a = t.getBoundingClientRect(), fr = front.getBoundingClientRect(), z0 = zf(), l0 = fr.left + box.offsetLeft * z0, t0 = fr.top + box.offsetTop * z0;
+      const b = {left: l0, right: l0 + box.offsetWidth * z0, top: t0, bottom: t0 + box.offsetHeight * z0};
+      hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      if (hit) {
+        // never onto the Add Task button or the tab bar (the sidebar on a computer)
+        const W = document.documentElement.clientWidth || innerWidth, rect = el => el && el.getClientRects().length ? el.getBoundingClientRect() : null;
+        const walls = [rect(document.getElementById("fab")), rect(document.querySelector("nav.tabs"))].filter(r => r && r.width && r.height);
+        const clear = d => b.left + d >= 6 && b.right + d <= W - 6 && !walls.some(r => b.left + d < r.right && b.right + d > r.left && b.top < r.bottom && b.bottom > r.top);
+        const opts = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(clear).sort((x, y) => Math.abs(x) - Math.abs(y));
+        if (opts.length) dx = opts[0]; else lift = Math.ceil(b.bottom - a.top + 8);
+      }
+    }
+    // (the companion's layer can be zoomed, so the step is set in its own pixels)
+    const z = zf();
+    if (hit) { box.style.setProperty("--cp-dx", (dx / z).toFixed(1) + "px"); box.style.setProperty("--cp-lift", (-lift / z).toFixed(1) + "px"); box.dataset.dx = String(dx); box.dataset.lift = String(lift); }
+    // when the toast goes, it stays where it stepped to (its step becomes its place) and carries on as usual from there
+    if (!hit && box.classList.contains("cp-duck")) {
+      const z = zf(), dx0 = Number(box.dataset.dx || 0) / z, dy0 = -Number(box.dataset.lift || 0) / z;
+      const l = parseFloat(box.style.left) + dx0, tp = parseFloat(box.style.top) + dy0;
+      box.style.transition = "none"; box.classList.remove("cp-duck", "cp-h-fab");
+      if (Number.isFinite(l) && Number.isFinite(tp)) { box.style.left = l.toFixed(1) + "px"; box.style.top = tp.toFixed(1) + "px"; box.dataset.x = String(Math.round(l)); box.dataset.y = String(Math.round(tp)); }
+      void box.offsetWidth; box.style.transition = "";
+      return;
+    }
     box.classList.toggle("cp-duck", hit);
+    // when it's moved to a new place (it finds its own spot clear of a toast too), the step is worked out again from there
+    if (box !== duckSeen) { duckSeen = box; let at = ""; new MutationObserver(() => { const k = box && box.style.left + "," + box.style.top; if (k !== at) { at = k; requestAnimationFrame(duck); } }).observe(box, {attributes: true, attributeFilter: ["style"]}); }
   }
+  let duckSeen = null;
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
   { const f = document.getElementById("fab"); if (f) new MutationObserver(() => placeSoon(60)).observe(f, {attributes: true, attributeFilter: ["class", "style", "hidden"]}); }
 
@@ -74282,7 +74336,17 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // (so is anything from one time to another: "study session wednesday 7-9pm")
     if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
     if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
+    // an edit said about a task they have ("put the lab report in progress too", "make the map test high", "a&p final a week
+    // earlier", "add a grade to the lab report"), with no word asking for a new one: the AI step edits it, never a task titled with it
+    { const ex = taskFor(q);
+      if (ex && !/\b(new|another|separate|second|also add|add (a|an) (new )?(task|reminder|to-?do))\b/i.test(q) && /\b(in[- ]progress|started|priority|urgent|important|high|low|earlier|later|sooner|push|move|bump|postpone|delay|reschedul\w*|grades?|marks?|scored?|got|rename|done|finished|complete[d]?|too|as well)\b|\d+\s*\/\s*\d+|\d+\s*%/i.test(q)) {
+        const tw = String(ex.title).toLowerCase().split(/[^a-z0-9&]+/).filter(w => w.length > 2), qw = String(q).toLowerCase();
+        if (tw.filter(w => qw.includes(w.replace(/s$/, ""))).length >= Math.min(2, tw.length)) return null; } }
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    // "in 3 days", "in a week", "in two weeks": the due date, not part of the title
+    { const N = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10};
+      const m = /\s*\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|ten)\s+(days?|weeks?)\b/i.exec(lt.title);
+      if (m) { const n = (/^\d+$/.test(m[1]) ? +m[1] : N[m[1].toLowerCase()]) * (/^w/i.test(m[2]) ? 7 : 1); lt.title = lt.title.replace(m[0], "").trim(); if (!lt.due) lt.due = addDays(todayISO(), n); } }
     { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }
     const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
     // the course's name in the title is said by the course, not repeated in the title
@@ -76163,7 +76227,7 @@ window.SBTRUTH = (() => {
   async function own(q, o, level){
     // never about their own things ("who wrote my bio syllabus?", "what's in my notes"): only their data can answer that
     if (/\b(my|mine|our|i|i'm|i've)\b/i.test(q) && !/\b(how (do|can|should) i|can i|should i|i don'?t (get|understand)|explain)\b/i.test(q)) return null;
-    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
+    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
     const r = await aiCall({task: "assist", fast: true, maxTokens: 600, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
       system: "You answer a student's school question from your own knowledge, like a good teacher. The first sentence answers exactly what they asked. Then add 1 to 3 sentences with the most useful detail, or list every item when they ask for several things (types, stages, examples, each one). Only state facts you are certain of. If you are not sure, set sure to false. Plain text, no markdown." + (level || ""),
       parts: [{text: `${prevTxt}THE STUDENT ASKS: ${q}`}]});
@@ -76196,11 +76260,15 @@ window.SBTRUTH = (() => {
   async function knowledge(q, o){
     o = o || {};
     { const fn = fromNotes(q); if (fn) return fn; }
+    // pointed at their own notes ("the ABC thing in my notes", "what do my notes say about projection", "from my lecture notes"):
+    // answered from their notes only, and searched without those words, so a web page about another meaning never answers it
+    { const NQ = /\s*\b(?:(?:that|the) (?:\w+ )?(?:thing|stuff|part|bit) )?(?:(?:in|from|on|of|according to) (?:my|the|our) (?:\w+ )?(?:notes?|lecture|slides)|(?:my|the) (?:class |lecture )?notes? (?:say|said|says|on|about|for))\b/i;
+      if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/\b(thing|stuff)\b/gi, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 2 ? s : o.search}); } }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
-    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
+    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
@@ -76806,9 +76874,37 @@ If they ask you to write or do graded work for them (an essay, a care plan, home
       return "That's okay. Not being sure is a lot to sit with. Because you're not sure, please reach out to someone now: call or text 988 (the Suicide & Crisis Lifeline in the US and Canada), or your local emergency number if you might act on these feelings. You could also tell someone you trust that you're having a hard time. I'm right here with you.";
     if (!other && /\b(talk about something else|change the subject|something else|distract me|talk about anything)\b/.test(w))
       return "Of course, we can talk about something else. What's something small that made you smile lately, or a show or song you've had on repeat? And if those heavy feelings come back, 988 is there any time, by call or text.";
+    // brushing it off ("im fine forget it", "nvm", "it's nothing", "don't worry about it")
+    if (!other && /^(i'?m|im|i am)\s+(fine|ok(ay)?|good|alright)\b|\b(forget (it|i said|that|about it)|never ?mind|nvm|it'?s nothing|it was nothing|don'?t worry( about (it|me))?|just kidding|jk|ignore (that|it|me)|doesn'?t matter|not a big deal)\b/.test(w))
+      return "Okay. I'm still really glad you told me, and I won't push. Just checking once more: are you safe right now? If those feelings come back, even a little, you can call or text 988 any time, day or night. I'm here whenever you want to talk.";
+    // reaching out to someone ("maybe i'll text my sister", "i could talk to my mom", "i'll call my therapist")
+    if (/\b(text|call|talk to|tell|reach out to|message|go to|see|visit|book|email)\b[^.?!]{0,25}\b(sister|brother|mom|mum|dad|mother|father|parents?|family|friend|roommate|partner|boyfriend|girlfriend|counsel(?:l)?or|counsel(?:l)?ing|therapist|doctor|ra|someone|somebody|988|cousin|aunt|uncle|grandma|grandpa)\b/.test(w))
+      return (other ? "That's a really good step. Telling someone who can help is the right call. " : "That sounds like a really good idea. Reaching out to someone who cares about you is a brave step, and you don't have to explain it perfectly. ") + "If things get worse or anyone might be in danger, call or text 988 (or your local emergency number) any time. I'm here too.";
+    // the answer to "are you safe right now?"
+    if (!other && /^(yes|yeah|yep|ya|yea|i am|i'?m safe|im safe)\b[\s,.!]*(i'?m|im|i am)?\s*(safe)?[\s.!]*$/.test(w))
+      return "I'm glad you're safe. Thank you for telling me. Feelings like that are heavy to carry, so please think about telling someone you trust or campus counseling. If it ever changes, call or text 988 any time. Do you want to talk about what's been going on?";
+    if (!other && /^(no|nope|not really|i'?m not|im not|not safe)\b/.test(w))
+      return "Thank you for being honest with me. Please call or text 988 right now (the Suicide & Crisis Lifeline in the US and Canada), or call your local emergency number, or go to someone near you and tell them. You deserve support right now, and you don't have to get through this alone. I'm right here.";
     return null;
   }
-  return {cantDo, risk, distress, riskReply, riskFollow, CARE_RULE, integrity, INTEGRITY_RULE};
+  // what the companion is and where the chat goes ("are you chatgpt", "what ai is this", "do my notes get sent anywhere",
+  // "is this private"): said honestly, for the engine in use, never left to a model that guesses
+  const WHO = /\b(are you|r u|is this|is it|you'?re)\s+(really\s+)?(chat ?gpt|gpt|open ?ai|gemini|bard|claude|siri|alexa|copilot|a (real )?(person|human)|an? (ai|a\.i\.|bot|robot|chat ?bot|real person|llm))\b|\bwhat (ai|a\.i\.|model|llm|engine)\b[^.?!]{0,20}\b(are you|is this|do you (use|run)|powers? you)\b|\bwho (made|built|created|programmed) you\b/;
+  const PRIV = /\b(private|privacy|sent anywhere|send(ing)? (it|them|this|my \w+) (anywhere|away|to)|get(ting)? sent|go(es)? anywhere|leave (my|this) (device|phone|computer|laptop)|uploaded|upload(ing)? (my|it|them)|who (else )?can (see|read)|(does|can) any(one|body) (else )?(see|read)|stored|saved (online|anywhere|in the cloud)|on (a|your|the) server|in the cloud|is (this|it|my \w+) (safe|secure|private)|track(ing)? me|sell my)\b/;
+  const PRIV_OBJ = /\b(notes?|data|chats?|messages?|info|information|stuff|conversations?|what i (say|type|tell you|write)|questions?|this|it|planner|grades?|marks?|tasks?|files?)\b/;
+  function aboutMe(q, onDevice, name){
+    const w = low(q), me = name || "your study companion";
+    if (PRIV.test(w) && PRIV_OBJ.test(w))
+      return onDevice
+        ? "Your chats with me are answered by an AI model that runs right here on your device, so what you type and your notes aren't sent to an AI company to answer you. If you ask me to look something up, only the search words go to Wikipedia. Your planner is saved on this device, and synced to your Studyboard account if you use one."
+        : "To answer you, your message and the planner details it needs (like the tasks or notes you ask about) are sent to the AI service set up in Studyboard, and it isn't posted anywhere else. Your planner is saved on this device, and synced to your Studyboard account if you use one. You can switch to on-device AI in AI settings if you'd rather keep chats on this device.";
+    if (WHO.test(w))
+      return onDevice
+        ? `I'm ${me}, your Studyboard companion, not ChatGPT. I think with an AI model built into this device, so I can chat and help with your planner without sending your chats away.`
+        : `I'm ${me}, your Studyboard companion, not ChatGPT. I think with the AI service set up in Studyboard, and I'm here to help with your classes, tasks and studying.`;
+    return null;
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, aboutMe, CARE_RULE, integrity, INTEGRITY_RULE};
 })();
 /* Flashcards and decks in the chat, read in code (the Companion tab asks this before the AI step). A small model reached for "add a
    task" or "I can't do that" on most card wordings; here every wording in the tests is read the same way:
@@ -77358,7 +77454,8 @@ window.SBCARDS = (() => {
       if (!text) return null;
       return {answer: "Done. I put the note on your board.", sources: [], followUps: [], actions: [{type: "note", label: "Save Note", auto: true, deckName: "", deck: "", target: "", style: "", count: 0, course: "", board: "", noteTitle: "", text: text.slice(0, 12000)}]};
     }
-    if (CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) {
+    // (taking a mark off isn't deleting the task: "remove the grade from a&p lab 1" goes to the step that says so)
+    if ((CHANGE_Q.test(q) || (A.timerMins && A.timerMins(q))) && !(/\b(remove|delete|clear|take off|erase|get rid of)\b/i.test(q) && /\b(grades?|marks?|scores?|results?|percent|points)\b/i.test(q) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/i.test(q))) {
       const res = await A.ask(q, {screen: false});
       if (!res || (!(res.changes || []).length && !res.timer && !forced && A.CLAIMS.test(res.answer || ""))) return null;
       // a change to their tasks asked for in so many words: done now (Undo, or "undo", takes it back), not left to confirm
@@ -77647,7 +77744,10 @@ Examples:
   function themeAct(d){
     const say = answer => ({answer, sources: [], followUps: [], actions: []});
     const v = String(d.value || d.item || d.title || "").toLowerCase().replace(/\b(theme|the|mode|style|skin|look)\b/g, " ").replace(/\s+/g, " ").trim(), f = String(d.field || "").toLowerCase();
-    if (/^(dark|light|system|auto|automatic)$/.test(v)) { const m = v === "auto" || v === "automatic" ? "system" : v; if (typeof setTheme === "function") setTheme(m); render(); return say(m === "system" ? "Studyboard now follows your device's light or dark setting." : `Switched to ${m} mode.`); }
+    if (/^(dark|light|system|auto|automatic)$/.test(v)) { const m = v === "auto" || v === "automatic" ? "system" : v;
+      // ("undo the dark mode" puts the mode it was on back)
+      let prev = "system"; try { prev = localStorage.getItem(THEME_KEY) || "system"; } catch (e) {}
+      if (typeof setTheme === "function") { setTheme(m); if (typeof undoStack !== "undefined" && prev !== m) undoStack.push({label: `Switched to ${m} mode`, at: Date.now(), done: false, quiet: true, undo: () => { setTheme(prev); render(); return 0; }}); } render(); return say(m === "system" ? "Studyboard now follows your device's light or dark setting." : `Switched to ${m} mode.`); }
     // "change my theme": which one is asked, with the ones they have
     if (!v || /^(my|a|the|your|new|different|another|some|it|this|that|me)$/.test(v)) { let have = []; try { have = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 8); } catch (e) {}
       return Object.assign(say(`Which theme?${have.length ? ` You have: ${have.join(", ")}.` : ""} The Style Shop has them all.`), {awaiting: {d: {intent: "set_theme"}, q: "change the theme to"}}); }
@@ -78096,7 +78196,8 @@ Careful, these are easy to mix up:
         const pro = v => /^(it|that|this|them|(?:the |that |this )?(deck|note|event|task|board|set|one|course))?$/i.test(String(v || "").trim());
         // (a name the model filled in that their words never say is "it" too: "rename it to History Essay Prep" right after making the
         // WWI deck isn't the WWI essay task)
-        const said = v => (String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []).some(x => w.replace(/\bto\b.*$/, "").includes(x));
+        // (every word of the name: "for psych, call it Psych Pals" says "psych", not the Psych Midterm)
+        const said = v => { const ws = String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || [], h = w.replace(/\bto\b.*$/, "").replace(/\bcall(ed)? it\b.*$/, ""); return ws.length > 0 && ws.every(x => h.includes(x.replace(/s$/, ""))); };
         if (R && refName(R) && /^(rename_item|delete_item|open_item|edit_item|study_deck|rename_task|delete_task)$/.test(d.intent) && (pro(d.item || d.task || d.deck) || !said(d.item || d.task || d.deck)) && /\b(it|that|this|them|the (deck|note|event|task|board))\b/.test(w)) {
           if (R.kind === "task") { d.intent = {rename_item: "rename_task", delete_item: "delete_task"}[d.intent] || d.intent; d.task = refName(R); }
           else { d.intent = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent] || d.intent; d.kind = R.kind; d.item = refName(R); if (R.kind === "deck") d.deck = refName(R); } }
@@ -78224,7 +78325,10 @@ Careful, these are easy to mix up:
     if (it === "add_card") { const p = cardParse(q) || []; return addCardTo(d.front || p[1], d.back || p[2], d.deck || d.item || d.title || p[3]); }
     if (it === "make_deck" && att && att.length) return null;
     if (it === "make_deck") {
-      const name = String(d.title || d.item || d.topic || "").trim(); if (!name) return say("What should the deck be called?");
+      let name = String(d.title || d.item || d.topic || "").trim().replace(/\s+(flash ?cards?|cards?|deck)$/i, "").trim();
+      // a name made of the request's own words ("Lets Do A Card", "I Just Made", "Lets Just Do Flashcards") isn't a name
+      if (/^(let'?s|lets|i|just|do|can|could|please|make|made|want|wanna|some|a|an|the)\b/i.test(name) && !/\b(called|named|titled|name it)\b/i.test(q)) name = "";
+      if (!name) return say("Sure. What should the deck be called, or which topic or note should the cards come from?");
       const ex = deckNamed(name); if (ex && ex.name.toLowerCase() === name.toLowerCase()) return say(`You already have a deck called ${ex.name}. What should the new one be called instead?`);
       const c0 = d.course ? (window.SBTRUTH && SBTRUTH.courseNamed ? SBTRUTH.courseNamed(d.course) : null) : null, id = uid();
       const nd = normDeck({id, name: name.slice(0, 120), courseId: c0 ? c0.id : "", created: Date.now(), updated: Date.now()});
@@ -78238,7 +78342,10 @@ Careful, these are easy to mix up:
       return say(`Opening ${dk.name} to study (${dk.cards.length} card${dk.cards.length === 1 ? "" : "s"}).`);
     }
     if (it === "add_mark") {
-      let t = taskOf(d.task || d.item || d.title, chat, true); if (!t) return say("Which assignment was the mark for?");
+      const nm0 = String(d.task || d.item || d.title || "").trim();
+      let t = taskOf(nm0, chat, true);
+      // named, but not in the planner ("my quiz 1 was 11/20"): said, and nothing saved anywhere
+      if (!t) return say(nm0 && !/^(it|that|this|the (one|grade|mark))$/i.test(nm0) ? `I don't see "${nm0}" in your planner, so I didn't save that mark anywhere. Say "add ${nm0} as a task" and I'll save the mark on it.` : "Which assignment was the mark for?");
       // the task their own words name best wins over the model's pick ("i got 88 on my psych paper" is Psych Paper 1, not Psych Midterm)
       { const ws = (String(q).toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(x => !/^(got|get|the|and|for|out|mark|marks|grade|score|scored|on|my|was|just|back|came|percent|points|actually|regraded)$/.test(x));
         const sc = x => ws.filter(w2 => String(x.title).toLowerCase().includes(w2)).length, all = tasksArr().filter(x => x && x.title);
@@ -78247,6 +78354,16 @@ Careful, these are easy to mix up:
       const v = String(d.value || "").trim(), fr = /^(\d+(?:\.\d+)?)\s*(?:\/|out of)\s*(\d+(?:\.\d+)?)$/i.exec(v), pc = /^(\d+(?:\.\d+)?)\s*%?$/.exec(v);
       let mark = fr ? {got: Number(fr[1]), outOf: Number(fr[2])} : pc ? {got: Number(pc[1]), outOf: 100} : null;
       if (!mark || !(mark.outOf > 0) || mark.got < 0) return say(`What mark did you get on ${t.title}? For example: 85%, or 17/20.`);
+      // the thing they named has to be this task: "my quiz 1 was 11/20" is not Psych Paper 1, "that foundations quiz" is not
+      // A&P Quiz 4 (a number or a word of theirs the task and its course don't have means it's something else)
+      { const lc = s => String(s || "").toLowerCase().replace(/[^a-z0-9& ]+/g, " "), cs = courseOf(t.courseId), have = lc(`${t.title} ${t.type || ""} ${cs ? `${cs.name} ${cs.code || ""}` : ""}`);
+        const named = lc(d.task || d.item || d.title).replace(/\b(my|the|that|this|it|on|for|in|was|is|a|an|grade|mark|score|result|too|also|got|i)\b/g, " ");
+        const odd = (named.match(/[a-z0-9&]+/g) || []).filter(w => (/^\d+$/.test(w) ? !new RegExp(`\\b${w}\\b`).test(have) : w.length >= 4 && !have.includes(w.replace(/s$/, "").slice(0, 6))));
+        // (a name that is one of their tasks is real: the task their own words name was picked above)
+        const real = tasksArr().some(x => { const tt = lc(x.title); return (named.match(/[a-z0-9&]+/g) || []).every(w => tt.includes(w.replace(/s$/, ""))); });
+        if (odd.length && !real) {
+          const like = tasksArr ? tasksArr().filter(x => x.type && t.type && x.type === t.type).slice(0, 4).map(x => x.title) : [];
+          return say(`I don't see "${String(d.task || d.item || d.title).trim()}" in your planner, so I didn't save that mark anywhere.${like.length ? ` Is it one of these: ${like.join(", ")}?` : ""} Or say "add ${String(d.task || d.item || d.title).trim()} as a task" and I'll save the mark on it.`); } }
       const had = t.mark && t.mark.got != null && t.mark.outOf > 0 ? t.mark : null;
       // a bare number on a task already marked out of something else is out of that ("got 17 on the quiz" when it's marked out of 20)
       if (had && !fr && !/%|percent/.test(String(q)) && had.outOf !== 100 && mark.got <= had.outOf) mark = {got: mark.got, outOf: had.outOf};
@@ -78302,7 +78419,9 @@ Careful, these are easy to mix up:
     if (it === "change_setting") {
       const what = clip(String(d.field || "").trim(), 80), val = clip(String(d.value || "").trim(), 80); if (!what) return null;
       const ch = A && A.check ? A.check({ref: "SETTINGS", field: "setting", setting: what, value: val || "on"}, new Map()) : null; if (!ch) return null;
-      await A.propose([ch]); return say(`I opened ${what} in Settings for you${val ? ` to set it to ${val}` : ""}.`);
+      // (not awaited: the Settings sheet waits for their tap, and the chat answers now instead of sitting on "Working out what to do…")
+      A.propose([ch]).catch(e => console.warn("setting", e));
+      return say(`I opened ${what} in Settings for you${val ? ` to set it to ${val}` : ""}. Check it there and confirm, and nothing changes until you do.`);
     }
     if (it === "make_map") return mapAct(`make a concept map ${d.topic ? "about " + d.topic : q}`);
     if (it === "find_notes" && A && A.findNotes) { const fn = await A.findNotes(`find my notes on ${d.topic || q}`).catch(() => null); return fn ? say(fn.answer, {sources: fn.show && fn.show.length ? ["Your notes"] : [], show: fn.show && fn.show.length ? A.pack(fn).show : undefined}) : null; }
@@ -78832,6 +78951,8 @@ ANSWERING
       if (!made && CARE && !att.length && !ctl && CARE.risk(q)) made = {answer: CARE.riskReply(q), sources: [], followUps: [], actions: [], care: true, risk: /their safety comes first/i.test(CARE.riskReply(q)) ? "other" : "self"};
       // the messages just after a crisis reply
       if (!made && CARE && CARE.riskFollow && !att.length && !ctl) { const rk = (c.msgs || []).slice(-4).reverse().find(x => x.a && x.a.risk); if (rk) { const a = CARE.riskFollow(q, rk.a.risk === "other"); if (a) made = {answer: a, sources: [], followUps: [], actions: [], care: true, risk: rk.a.risk}; } }
+      // "are you chatgpt", "do my notes get sent anywhere": what the companion is and where chats go, honestly, for this engine
+      if (!made && CARE && CARE.aboutMe && !att.length && !ctl && !careMode) { const a = CARE.aboutMe(q, dev, (info() || {}).name); if (a) made = {answer: a, sources: [], followUps: [], actions: []}; }
       if (!made && !slot && CARE && !att.length && !ctl && !careMode) { const no = CARE.cantDo(q); if (no) { made = {answer: no, sources: [], followUps: [], actions: []};
         // "check brightspace for my care plan grade": the next message ("it's 46/50") is that mark
         const gm = /\bfor\s+(?:my\s+|the\s+)?(.{2,60}?)\s+(?:grade|mark|score|result)s?\b/i.exec(q); if (gm && /brightspace|canvas|moodle|blackboard|school site/i.test(no)) made.awaiting = {d: {intent: "add_mark", task: gm[1]}, q: "I got a mark on " + gm[1]}; } }
@@ -78939,7 +79060,9 @@ ANSWERING
       // a follow-up to a subject question ("in feet?", "who wrote it?", "give an example of each", "are you sure?", "what else is she
       // known for?"): answered with the last question and answer in view, and looked up with its topic, not the follow-up's own words
       const lastKnow = !!last && !!TR && (!!last.a.know || (!last.a.math && !lastPlan && TR.general(String(last.ask || last.q))));
-      const kFollow = !made && !noKnow && lastKnow && !planA && q.split(/\s+/).length <= 12 && !ACTX(q) && (shortFollow || /\b(it|its|that|this|they|them|their|those|these|he|him|his|she|her|each|one|ones|there|then|else|next|after that|before that)\b/i.test(q) || /^\s*(and|so|but|in|on|at|for|with|by|not|than|or|vs|versus|compared|what about|how about|what happened|why|how|which|who|where|when|give|example|are you sure|really|wait|more|explain|simpler|translate)\b/i.test(q));
+      const kFollow = !made && !noKnow && lastKnow && !planA && q.split(/\s+/).length <= 12 && !ACTX(q) && (shortFollow || /\b(it|its|that|this|they|them|their|those|these|he|him|his|she|her|each|one|ones|there|then|else|next|after that|before that)\b/i.test(q)
+        // "what are the types", "list the symptoms", "main causes?": the types of what was just explained, not of clouds
+        || (q.split(/\s+/).length <= 6 && /^\s*(?:(?:what|which|how many|name|list|tell me)\b[^?]{0,15}\b)?(?:the\s+|its\s+|their\s+)?(?:main\s+|different\s+|common\s+|key\s+)?(types?|kinds?|stages?|phases?|steps?|causes?|symptoms?|signs?|parts?|treatments?|side effects?|risks?|benefits?|functions?|complications?|examples?|differences?|uses?|effects?)\b\s*\??\s*$/i.test(q)) || /^\s*(and|so|but|in|on|at|for|with|by|not|than|or|vs|versus|compared|what about|how about|what happened|why|how|which|who|where|when|give|example|are you sure|really|wait|more|explain|simpler|translate)\b/i.test(q));
       if (!quick && !late && !made && !noKnow && !MATHQ && dev && !att.length && TR && (TR.general(q2) || kFollow) && !(window.SBASSIST && SBASSIST.appQ(q2) && !kFollow)) {
         T.status = "Looking through your notes…"; draw();
         const lq = String(last && (last.ask || last.q) || ""), prev = kFollow ? {q: lq, a: String(last.a.answer || "")} : null;
@@ -79143,10 +79266,16 @@ You can also DO things in Studyboard, but only when the student asks or what the
   }
   function addNoteTo(boardId, text, courseId, made){
     const all = notesArr().filter(n => !n.archived && noteBoardOf(n) === boardId);
+    // the same note made again by the same message (the reply's own save and the action step): the one already there
+    { const tx = String(text).slice(0, 8000).trim(), dup = all.find(n => String(n.text || "").trim() === tx && Date.now() - (n.created || 0) < 8000); if (dup) return dup; }
     const z = all.reduce((m, n) => Math.max(m, n.z || 0), 0) + 1, col = all.length % 5, row = Math.floor(all.length / 5) % 4;
     const n = normNote({id: uid(), board: boardId, text: text.slice(0, 8000), color: "yellow", x: 40 + col * (NOTE_W() + 30) + Math.round(Math.random() * 20), y: 40 + row * 240 + Math.round(Math.random() * 20), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: courseId || "", created: Date.now()});
-    // (made: only made, for a step that saves it with its other changes)
-    if (!made) applyChanges([{kind: "note", id: n.id, after: n}], null); return n;
+    if (!made) {
+      applyChanges([{kind: "note", id: n.id, after: n}], null);
+      // "undo that" takes the note away, even after the board has placed it (an ordinary undo step keeps an item changed since)
+      if (typeof undoStack !== "undefined") undoStack.push({label: "Added a note", at: Date.now(), done: false, quiet: true, undo: () => { if (state.notes[n.id]) applyChanges([{kind: "note", id: n.id, after: null}], null); return 0; }});
+    }
+    return n;
   }
   // photos attached in the chat with "add this to my note board": a new note on the board holding them (photos in notes are Pro)
   async function photoNote(q, att, board){
@@ -116031,7 +116160,7 @@ function reviewHtml(){
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
     // the assignment's title heads the page, in the app's own type so it reads as the card's name, not the paper's text
-    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 90))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 160))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot wsr-foot-bar">
@@ -119310,38 +119439,43 @@ function mapPeek(x){
 }
 function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p.links} : null; }
 // opt.label: the map's name, drawn over the central idea at a readable size whatever the map's spread (the card's own title)
+// a card's map is drawn on a fixed 600 x 300 px picture centred on the card (cropped by it), at CARD_K px per map pixel: the size the
+// central idea's name is shown at, so the ideas keep their size and distance next to it
+const CARD_W = 600, CARD_H = 300, CARD_K = 0.9;
 const peekName = (label, x, y) => `<span class="cm-pkname" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%"><span class="cm-ctitle">${esc(label)}</span></span>`;
 function peekSvg(p, col, opt){
-  const lab = opt && opt.label;
-  if (lab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(lab, 50, 50);
+  const pkLab = opt && opt.label;
+  if (pkLab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(pkLab, 50, 50);
   if (!p || p.g.nodes.length < 2) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g><rect class="pk-root" x="-48" y="-16" width="96" height="32" rx="16" fill="${esc(col)}"/></svg>`;
   const ns = p.g.nodes.slice(0, 40), keep = new Set(ns.map(n => n.id)), P = p.pos;
   const xs = ns.map(n => (P[n.id] || [0])[0]);
   // text grows with the map's spread, so a big map's labels stay readable at card size
-  const fs = Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
+  // with the name drawn on it (a card), the map is drawn at its own scale: the ideas' real sizes and distances from the central idea,
+  // cropped by the card, rather than shrunk until every one fits
+  const fs = pkLab ? 13 : Math.max(17, Math.min(44, (Math.max(...xs) - Math.min(...xs) + 220) / 34));
   const ok = c => /^#[0-9a-f]{3,8}$/i.test(String(c || "")) ? c : "";
   // each box's outline (the same sizes the boxes are drawn with), so the lines stop at the edges instead of running under the boxes
   const geo = {};
-  ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
+  ns.forEach(n => { const lab = String(n.label || ""), max = n.root ? 18 : pkLab ? 28 : 16, t = lab.length > max ? lab.slice(0, max - 1) + "…" : lab, f = n.root ? fs * 1.12 : fs, sh = CMAP.shapeOf(n);
     const w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     geo[n.id] = n.root ? ["rounded", w, h] : sh === "text" ? ["box", w * 0.7, 10] : n.img || n.emb ? ["box", w, fs * 5.2] : sh === "circle" || sh === "cloud" ? ["circle", w, h + 12] : sh === "diamond" ? ["diamond", w, h + 16] : ["box", w, h]; });
   // the picture holds every box whole: their outer edges, plus room for the outline and a little air
   const pad = fs * 0.6, ext = (n, i, s) => { const g = geo[n.id] || ["box", 0, 0], [x, y] = P[n.id] || [0, 0]; return i ? y + s * (g[2] / 2 + pad) : x + s * (g[1] / 2 + pad); };
   let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
   // with the name drawn on it, the picture is centred on the central idea, so the name always sits in the middle of the card
-  if (lab && P.root) { const [rx, ry] = P.root, hx = Math.max(rx - x0, x1 - rx), hy = Math.max(ry - y0, y1 - ry); x0 = rx - hx; x1 = rx + hx; y0 = ry - hy; y1 = ry + hy; }
+  if (pkLab) { const [rx, ry] = P.root || [0, 0]; x0 = rx - CARD_W / 2 / CARD_K; x1 = rx + CARD_W / 2 / CARD_K; y0 = ry - CARD_H / 2 / CARD_K; y1 = ry + CARD_H / 2 / CARD_K; }
   // keep a wide card shape: pad the short side so nodes aren't squashed
-  const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
-  const cut = (id, dx, dy) => { const g = lab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
+  const wantH = (x1 - x0) * 0.42; if (pkLab) {} else if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
+  const cut = (id, dx, dy) => { const g = pkLab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
   const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";
     return `<line x1="${a[0] + dx / L * ra}" y1="${a[1] + dy / L * ra}" x2="${b[0] - dx / L * rb}" y2="${b[1] - dy / L * rb}"${e.line && e.line !== "solid" ? ` class="ln-${esc(e.line)}"` : ""}/>`; }).join("");
   const nodes = ns.map(n => {
-    const lab = String(n.label || ""), max = n.root ? 18 : 16, t = lab.length > max ? lab.slice(0, max - 1).trimEnd() + "…" : lab, f = n.root ? fs * 1.12 : fs;
+    const lab = String(n.label || ""), max = n.root ? 18 : pkLab ? 28 : 16, t = lab.length > max ? lab.slice(0, max - 1).trimEnd() + "…" : lab, f = n.root ? fs * 1.12 : fs;
     const [x, y] = P[n.id] || [0, 0], sh = CMAP.shapeOf(n), w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     const txt = sh === "text" || n.img || n.emb ? "" : `<text x="${x}" y="${y}" class="${n.root ? "pk-rt" : "pk-t"}" style="font-size:${f.toFixed(1)}px"${!n.root && ok(n.text) ? ` fill="${ok(n.text)}"` : ""}>${esc(t)}</text>`;
     const st = ok(n.stroke) || ok(n.color) || "", fl = ok(n.fill) || "", attr = `${st ? ` stroke="${st}"` : ""}${fl ? ` style="fill:color-mix(in srgb,${fl.slice(0, 7)} 100%,var(--surface))"` : st ? ` style="fill:color-mix(in srgb,${st.slice(0, 7)} 20%,var(--surface))"` : ""}`; // solid fills: the lines meet in the middle, under the boxes
-    if (n.root && lab) return "";
+    if (n.root && pkLab) return "";
     if (n.root) return `<rect class="pk-root" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${esc(col)}"/>` + txt;
     if (sh === "text") return `<rect class="pk-txt" x="${x - w * 0.35}" y="${y - 5}" width="${w * 0.7}" height="10" rx="5"/>`;
     if (sh === "circle" || sh === "cloud") return `<ellipse class="pk-n" cx="${x}" cy="${y}" rx="${w / 2}" ry="${h / 2 + 6}"${attr}/>` + txt;
@@ -119349,10 +119483,8 @@ function peekSvg(p, col, opt){
     if (n.img || n.emb) return `<rect class="pk-n pk-pic" x="${x - w / 2}" y="${y - fs * 2.6}" width="${w}" height="${fs * 5.2}" rx="10"${attr}/>`;
     return `<rect class="pk-n" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${sh === "box" ? 4 : sh === "rounded" ? 10 : h / 2}"${attr}/>` + txt;
   }).join("");
-  const svg = `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
-  if (!lab) return svg;
-  const r = P.root || [0, 0];
-  return svg + peekName(lab, (r[0] - x0) / (x1 - x0) * 100, (r[1] - y0) / (y1 - y0) * 100);
+  const svg = `<svg class="cm-peek${pkLab ? " pk-fixed" : ""}" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
+  return pkLab ? svg + peekName(pkLab, 50, 50) : svg;
 }
 // Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
 const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
@@ -119908,6 +120040,10 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
 .cm-cfoot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
 /* the map's name on its central idea: always big enough to read, however large the map */
+.cm-peekb{overflow:hidden}
+.cm-peek.pk-fixed{inset:auto;left:50%;top:50%;width:600px;height:300px;translate:-50% -50%}
+/* the name and the map sit a little below the middle, so they look centred under the course chip */
+.cm-mapcard .cm-peek,.cm-mapcard .cm-pkname{margin-top:10px}
 .cm-pkname{position:absolute;z-index:2;max-width:56%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word;padding:5px 12px;border-radius:14px;background:var(--c);color:#fff;font:800 .86rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
 .cm-mapcard:hover .cm-pkname{transform:scale(1.04)}
@@ -126173,14 +126309,20 @@ ui._day = todayISO();
   ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
   const recent = () => performance.now() - userAt < 600;
   const view = () => document.getElementById("view");
+  // When the whole page is redrawn (a tab tapped, even the one already open), the pieces other parts of the app add to it straight
+  // after (Today's Plan's Free Time and Flashcards menus, My Group Tasks...) are part of that page, not something just opened:
+  // they show at once with it, rather than blinking out and fading back in
+  let viewAt = -1e9;
+  const inFreshView = t => performance.now() - viewAt < 700 && t instanceof Element && !!t.closest("#view");
   const mo = new MutationObserver(list => {
+    if (list.some(m => m.type === "childList" && m.target.id === "view")) viewAt = performance.now();
     if (!recent() || !on()) return;
     let n = 0;
     for (const m of list) {
       if (n > 6) break;
       const t = m.target;
       if (m.type === "attributes") {
-        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip")) continue;
+        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip") || inFreshView(t)) continue;
         const a = m.attributeName;
         // a page's own section tabs (a group's Chat, Members...) switch at once, like the app's tabs: no fade-up each time
         if (a === "hidden" && t.matches("#view [role=tabpanel]")) continue;
@@ -126191,7 +126333,7 @@ ui._day = todayISO();
           if ((was.includes("shut") && !now.includes("shut")) || (was.includes("collapsed") && !now.includes("collapsed"))) { const b = t.querySelector(":scope > .ui-sec-b, :scope > .body, :scope > .sec-b") || t; play(b, "sm-in"); n++; }
           else if (!was.includes("open") && now.includes("open") && /\b(ui-col|acc|drop|more|panel)/.test(t.className)) { play(t, "sm-in"); n++; }
         }
-      } else if (m.type === "childList" && t !== view() && t.id !== "view") {
+      } else if (m.type === "childList" && t !== view() && t.id !== "view" && !inFreshView(t)) {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
         // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
         // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)

@@ -750,7 +750,17 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // (so is anything from one time to another: "study session wednesday 7-9pm")
     if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
     if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
+    // an edit said about a task they have ("put the lab report in progress too", "make the map test high", "a&p final a week
+    // earlier", "add a grade to the lab report"), with no word asking for a new one: the AI step edits it, never a task titled with it
+    { const ex = taskFor(q);
+      if (ex && !/\b(new|another|separate|second|also add|add (a|an) (new )?(task|reminder|to-?do))\b/i.test(q) && /\b(in[- ]progress|started|priority|urgent|important|high|low|earlier|later|sooner|push|move|bump|postpone|delay|reschedul\w*|grades?|marks?|scored?|got|rename|done|finished|complete[d]?|too|as well)\b|\d+\s*\/\s*\d+|\d+\s*%/i.test(q)) {
+        const tw = String(ex.title).toLowerCase().split(/[^a-z0-9&]+/).filter(w => w.length > 2), qw = String(q).toLowerCase();
+        if (tw.filter(w => qw.includes(w.replace(/s$/, ""))).length >= Math.min(2, tw.length)) return null; } }
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    // "in 3 days", "in a week", "in two weeks": the due date, not part of the title
+    { const N = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10};
+      const m = /\s*\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|ten)\s+(days?|weeks?)\b/i.exec(lt.title);
+      if (m) { const n = (/^\d+$/.test(m[1]) ? +m[1] : N[m[1].toLowerCase()]) * (/^w/i.test(m[2]) ? 7 : 1); lt.title = lt.title.replace(m[0], "").trim(); if (!lt.due) lt.due = addDays(todayISO(), n); } }
     { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }
     const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
     // the course's name in the title is said by the course, not repeated in the title
