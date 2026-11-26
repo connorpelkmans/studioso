@@ -1,0 +1,8 @@
+base_model: Qwen/Qwen3-4B
+output_dir: ml/out/qwen3-4b-sft
+load_4bit: true
+lora: {r: 32, alpha: 64, dropout: 0.05, targets: all-linear}
+data: {train: ml/data/train/sft.jsonl, eval: ml/data/train/sft_dev.jsonl}
+train: {epochs: 2, batch: 2, grad_accum: 8, lr: 1.5e-4, max_length: 5400}
+dpo: {train: ml/data/train/dpo.jsonl, beta: 0.1, lr: 5.0e-6, epochs: 1, batch: 1, grad_accum: 16}
+webllm: {base_id: Qwen3-4B-q4f16_1-MLC, conv_template: qwen2, quant: q4f16_1, context: 4096, lib: Qwen3-4B-q4f16_1-ctx4k_cs1k-webgpu.wasm}

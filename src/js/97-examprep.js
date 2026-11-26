@@ -639,7 +639,10 @@ async function aiWords(ex, out, P, status){
     parts: [{text: `Course: ${c ? c.name : "not given"}\nExam: ${ex.title}\nFormat: ${[P.style.join(", "), P.styleText].filter(Boolean).join("; ") || "not given"}\nWhat it covers (student's notes): ${ex.notes || "not given"}\nSessions (id | kind | topic | minutes | material):\n${list.map(s => `${s.id} | ${s.kind} | ${s.topic || "all topics"} | ${s.min}m | ${s.mat ? s.mat.title : "none"}`).join("\n")}`}],
     system: "You word one-line instructions for a student's exam study sessions. The app already chose every date, length and material; never change them. For each session id, write one concrete active-learning instruction (draw it from memory, work problems, teach it aloud, compare similar ideas; never just 'reread'), specific to the topic and the named material when there is one, under 160 characters, plain text. Use only the topics given. Return JSON only."});
   const ok = new Map(list.map(s => [s.id, s])); let n = 0;
-  ((r.data || {}).sessions || []).forEach(x => { const s = ok.get(String(x.id)); if (!s) return; const t = AINS.clean(x.text, 170); if (t.length < 15 || AINS.generic(t) || /^(re-?read|review|study|go over|look over)\b[^,.;:]{0,30}$/i.test(t)) return; s.text = t; n++; });
+  // the AI on this device: an instruction naming something that isn't in the exam's material (a topic it made up) is left out
+  const known = aiOnDevice() ? [ex.title, ex.notes, (c || {}).name, P.styleText].concat(list.map(s => JSON.stringify(s))).join(" ").toLowerCase() : "";
+  ((r.data || {}).sessions || []).forEach(x => { const s = ok.get(String(x.id)); if (!s) return; const t = AINS.clean(x.text, 170);
+    if (known && (t.match(/(?<=[a-z,;:] )[A-Z][\p{L}'-]{3,}/gu) || []).some(nm => !known.includes(nm.toLowerCase().slice(0, 5)))) return; if (t.length < 15 || AINS.generic(t) || /^(re-?read|review|study|go over|look over)\b[^,.;:]{0,30}$/i.test(t)) return; s.text = t; n++; });
   return n;
 }
 

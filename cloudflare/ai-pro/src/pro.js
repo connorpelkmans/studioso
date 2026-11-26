@@ -4,6 +4,7 @@
 // src/js/01-ai-policy.js, which the app also uses for a student's own Claude key in Studyboard AI mode. This file adds
 // what only the server does: who is signed in, who has paid Pro, and the Cloudflare-only jobs (Whisper, embeddings, YouTube).
 import "../../../src/js/01-ai-policy.js";
+import { firstDeck, neuronsOf } from "./first-deck.js";
 const P = globalThis.SBPOLICY;
 export const { MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,
   TASKS, DEFAULT_TASK, HARD, taskOf, limits, micro, monthOf, dayOf, nextMonth, weekOf, nextWeek, costOf, worstCost, webWorst, textBytes, Meter, Totals,
@@ -103,6 +104,31 @@ export async function planOf(token, uid, env, fetchFn = fetch, now = Date.now())
   seen.set("p:" + token, { v, until: now + 2 * 60000 });
   return v;
 }
+// The student's age in years, from the birthday Studyboard asks for at sign-up (my_age, read with their own sign-in); null when
+// there's no birthday or it can't be read. Remembered for 10 minutes.
+export async function ageOf(token, env, fetchFn = fetch, now = Date.now()) {
+  const hit = seen.get("a:" + token); if (hit && hit.until > now) return hit.v;
+  let v = null;
+  try {
+    const res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + "/rest/v1/rpc/my_age",
+      { method: "POST", headers: { apikey: env.SUPABASE_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "application/json" }, body: "{}" });
+    if (res.ok) { const a = await res.json().catch(() => null); v = Number.isInteger(a) && a >= 0 && a < 130 ? a : null; }
+  } catch (e) { v = null; }
+  if (seen.size > 4000) seen.clear();
+  seen.set("a:" + token, { v, until: now + 10 * 60000 });
+  return v;
+}
+// Under 18 (or no birthday on record, to be safe): these rules come first in every Studyboard AI request, as Anthropic asks of
+// products used by minors (support.claude.com, "Responsible use of Anthropic's models: guidelines for organizations serving minors").
+// Schoolwork is unchanged: biology, health, history and literature are taught as they would be in class.
+export const MINOR_SAFETY = "Safety rules for this student, who may be under 18. These come before anything else below. " +
+  "Keep everything age-appropriate. Never produce sexual content, and never describe violence, injury or drug use in graphic or glorifying detail. " +
+  "School topics (reproduction and health, history, literature, medicine, chemistry) are fine when taught as a teacher would teach them. " +
+  "Never give instructions that could cause serious harm: self-harm, weapons, dangerous chemicals or drugs, or getting around safety rules. " +
+  "If the student mentions self-harm, suicide, abuse or being in danger, stop the task, respond with care, encourage them to talk to a trusted adult, " +
+  "and point them to a crisis line (in the US, call or text 988; elsewhere, local emergency services). " +
+  "Don't ask for personal information such as their address, phone number or photos of themselves. Don't flirt or role-play romance. " +
+  "If asked to do something against these rules, say kindly that you can't help with that and offer help with their studies instead.";
 // paid: a Pro plan someone pays for (or lifetime). Everything else gets no Studyboard AI: the free week, Pro from a grant or a
 // promo code, a lapsed plan, a free account, and Studyboard Plus (ai_included false: Pro without Studyboard AI). A grant or code sets
 // its own columns (grant_*, promo_*), never plan and pro_until; ai_included is written only by the billing webhook.
@@ -137,14 +163,16 @@ export async function ownerUsage(request, env, deps) {
   const show = t => ({ ...t, cost: usd(t.cost), kinds: Object.fromEntries(Object.entries(t.kinds || {}).map(([k, v]) => [k, { ...v, cost: usd(v.cost) }])), tasks: t.tasks ? Object.fromEntries(Object.entries(t.tasks).map(([k, v]) => [k, { jobs: v.jobs, cost: usd(v.cost) }])) : undefined });
   return json({ days: days.map(show), total: show(sum), note: "Costs are what Studyboard AI computed from each provider's usage report, in US dollars; compare with your Anthropic Console (or Cloudflare) bill. unreported: jobs that came back without a usage report (charged at their worst case)." });
 }
-const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return; const p = deps.totals(dayOf(deps.now ? deps.now() : Date.now())).add(kind, task, usage, cost).catch(() => {}); if (deps.defer) deps.defer(p); };
+const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return Promise.resolve(); const p = deps.totals(dayOf(deps.now ? deps.now() : Date.now())).add(kind, task, usage, cost).catch(() => {}); if (deps.defer) deps.defer(p); return p; };
 
-// deps: {user(token), plan(token, uid), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
+// deps: {ai(model, input), allowance(name), user(token), plan(token, uid), age(token), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
 export async function handle(request, env, deps) {
   const url = new URL(request.url), cfg = config(env), lim = cfg.lim;
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === "/" && request.method === "GET") return new Response("Studyboard AI\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (url.pathname === "/v1/owner/usage" && request.method === "GET") return ownerUsage(request, env, deps);
+  // A new student's free first deck (no account needed; never past Workers AI's free daily allowance: see first-deck.js)
+  if (url.pathname === "/v1/first-deck") return firstDeck(request, env, { ai: deps.ai, allowance: deps.allowance, now: deps.now, record: (kind, usage, cost) => record(deps, kind, "", usage, cost) }, json);
   if (!["/v1/status", "/v1/ai", "/v1/transcribe", "/v1/embed", "/v1/youtube", "/v1/me"].includes(url.pathname)) return json({ error: "not_found" }, 404);
   const token = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   const user = await deps.user(token);
@@ -166,7 +194,10 @@ export async function handle(request, env, deps) {
   if (url.pathname === "/v1/youtube") return youtubeJob(request, cfg, deps, meter, lim);
   let body;
   try { const raw = await request.text(); if (raw.length > MAX_BODY_BYTES) return json({ error: "too_long" }, 413); body = JSON.parse(raw); } catch (e) { return json({ error: "bad" }, 400); }
-  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer, autoEffort: cfg.autoEffort });
+  // under 18, or no birthday on record: the safety rules go first (adults' requests are exactly as before)
+  const age = deps.age ? await deps.age(token) : null;
+  const safety = age == null || age < 18 ? MINOR_SAFETY : "";
+  const r = await runJob(body, { meter, lim, claude: deps.claude, defer: deps.defer, autoEffort: cfg.autoEffort, safety });
   if (r.spent) record(deps, "claude", r.spent.task, r.spent.usage, r.spent.cost);
   return json(r.body, r.status);
 }
@@ -175,7 +206,10 @@ export async function handle(request, env, deps) {
 async function charged(meter, lim, reserve, deps, run, kind) {
   const got = await meter.reserve(reserve, lim);
   if (!got.ok) return { refused: json({ error: got.reason, ...(await meter.status(lim)) }, got.reason === "rate" ? 429 : 402) };
-  const work = (async () => { let out = null, cost = reserve, usage = null; try { const x = await run(); out = x.out; usage = x.usage || null; if (Number.isFinite(x.cost)) cost = x.cost; } catch (e) { out = null; } await meter.settle(got.id, cost); record(deps, kind, "", usage, cost); return out; })();
+  // Workers AI jobs are held in the day's ledger while they run, so a free first deck never counts on room they're about to use
+  const ledger = deps.allowance ? deps.allowance("t:" + dayOf(deps.now ? deps.now() : Date.now())) : null, hid = kind + "-" + got.id;
+  if (ledger) await ledger.hold(hid, neuronsOf(reserve)).catch(() => {});
+  const work = (async () => { let out = null, cost = reserve, usage = null; try { const x = await run(); out = x.out; usage = x.usage || null; if (Number.isFinite(x.cost)) cost = x.cost; } catch (e) { out = null; } await meter.settle(got.id, cost); try { await record(deps, kind, "", usage, cost); } finally { if (ledger) await ledger.release(hid).catch(() => {}); } return out; })();
   if (deps.defer) deps.defer(work);
   return { out: await work, after: await meter.status(lim) };
 }

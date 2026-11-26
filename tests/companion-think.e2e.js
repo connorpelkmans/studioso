@@ -45,6 +45,16 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(await call, `${motion}: the answer arrives`);
       await page.waitForTimeout(1500);
       ok(!(await dots()), `${motion}: and the bubble goes`);
+      // a tap on the companion while it waits: it says something, then the dots come back (they used to vanish for good)
+      delay = 16000;
+      const slow = page.evaluate(() => window.__sbSync.aiCall({task: "chat", maxTokens: 500, system: "x", parts: [{text: "hi"}], schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}}}).then(() => true, () => false));
+      await page.waitForFunction(() => !!document.querySelector(".cp-bubble.cp-think.on .cp-dots"), null, {timeout: 9000}).catch(() => {});
+      const box = await page.evaluate(() => { const r = SBCOMP.el().getBoundingClientRect(); return {x: r.left + r.width / 2, y: r.top + r.height / 2}; });
+      await page.mouse.click(box.x, box.y); await page.waitForTimeout(400);
+      const spoke = await page.evaluate(() => !document.querySelector(".cp-bubble.cp-think.on") && !!document.querySelector(".cp-bubble.on"));
+      await page.waitForFunction(() => !!document.querySelector(".cp-bubble.cp-think.on .cp-dots"), null, {timeout: 11000}).catch(() => {});
+      ok(spoke && !!(await dots()), `${motion}: a tap while it waits gets a line, then the thinking dots come back (spoke: ${spoke})`);
+      await slow; await page.waitForTimeout(1500);
       delay = 100;
       const quick = page.evaluate(() => window.__sbSync.aiCall({task: "chat", maxTokens: 500, system: "x", parts: [{text: "hi"}], schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}}}));
       await quick; await page.waitForTimeout(1200);

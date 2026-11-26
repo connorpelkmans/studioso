@@ -1,0 +1,16 @@
+# Big or regenerable: kept out of git (scripts rebuild them; see README)
+data/cache/
+data/raw/
+data/gen/
+data/gen-onpolicy/
+data/inputs/
+data/train/
+data/train-onpolicy/
+data/splits/*.noisy.jsonl
+out/
+dist/
+eval/out/
+eval/reports/*/details.json
+__pycache__/
+data/splits/train.jsonl
+prune/work/

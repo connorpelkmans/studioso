@@ -57,6 +57,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!(await pill()), "× hides it");
     await page.evaluate(() => { const T = window.__sbNotecards; T.render(); }); await page.waitForTimeout(100);
     ok(!(await pill()), "and it stays hidden across redraws");
+    // the sync icon at the top right stays while signed out, even with the message hidden
+    const ico = () => page.evaluate(() => { const e = document.querySelector("#lmsSyncIco"); if (!e) return null; const r = e.getBoundingClientRect(); return {right: innerWidth - r.right, top: r.top, label: e.getAttribute("aria-label")}; });
+    { const i = await ico(); ok(i && i.right < 60 && i.top < 70 && /Brightspace signed you out/.test(i.label), "a sync icon stays at the top right while signed out: " + JSON.stringify(i)); }
     await page.evaluate(() => { window.__pingR = {ok: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(200);
     ok(!(await page.evaluate(() => SBLMS.brightspace.local().needLogin)), "a check that finds the sign-in good again clears it");
     await page.evaluate(() => { window.__pingR = {needLogin: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(300);
@@ -64,7 +67,43 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await page.click("#lmsRelog .lr-go");
     await page.waitForFunction(() => !document.querySelector("#lmsRelog"), null, {timeout: 8000});
     ok(await page.evaluate(() => window.__connects === 1 && !SBLMS.brightspace.local().needLogin), "Sign In Again opens the sign-in and the button goes away");
+    ok(!(await ico()), "the sync icon goes once signed in again");
+    await page.evaluate(() => { window.__pingR = {needLogin: true}; return window.__sbRelog.keepAlive(); }); await page.waitForTimeout(300);
+    await page.click("#lmsSyncIco");
+    await page.waitForFunction(() => !document.querySelector("#lmsSyncIco"), null, {timeout: 8000}).catch(() => {});
+    ok(await page.evaluate(() => window.__connects === 2 && !SBLMS.brightspace.local().needLogin && !document.querySelector("#lmsSyncIco")), "pressing the sync icon signs in again");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
+
+    // Through the browser extension (no desktop app): the extension reports the site as "login", and the sync icon shows, but only
+    // for a site you've synced before and haven't disconnected; pressing it opens the school site to sign in there
+    { const c2 = await browser.newContext({serviceWorkers: "block", viewport: {width: 1280, height: 800}}); await c2.addInitScript(require("./consent-ok")); await c2.routeWebSocket(/supabase\.co/, ws => ws.close()); await c2.route(/supabase\.co/, r => r.abort());
+      await c2.addInitScript(() => {
+        localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [], tasks: [], settings: {}}));
+        localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done");
+        window.__opened = []; window.open = u => { window.__opened.push(String(u)); return null; };
+      });
+      const q = await c2.newPage(); const e2 = []; q.on("pageerror", e => e2.push(e.message));
+      await q.goto(base); await q.waitForFunction(() => window.SBLMS && SBLMS.brightspace && window.__sbRelog, null, {timeout: 40000});
+      const ext = st => q.evaluate(st => window.postMessage({source: "studyboard-ext", type: "data", version: "1.0.11", schools: [{id: "brightspace", origin: "https://learn.example.edu", state: st, at: Date.now() - 864e5, tried: Date.now()}], list: []}, location.origin), st);
+      const ico = () => q.evaluate(() => !!document.querySelector("#lmsSyncIco"));
+      await ext("login"); await q.waitForTimeout(300);
+      ok(!(await ico()), "extension: no icon for a school site you never connected");
+      await q.evaluate(() => SBLMS.brightspace.save({mode: "api", host: "learn.example.edu", lastSrc: "grab", last: Date.now() - 3600e3})); await ext("login"); await q.waitForTimeout(300);
+      ok(await ico(), "extension: a site you synced before that signed you out shows the sync icon");
+      await ext("ok"); await q.waitForTimeout(300);
+      ok(!(await ico()), "extension: it goes once the extension reads the site again");
+      await ext("login"); await q.waitForTimeout(300); await q.click("#lmsSyncIco"); await q.waitForTimeout(200);
+      ok(await q.evaluate(() => window.__opened.some(u => /learn\.example\.edu/.test(u))), "extension: pressing it opens the school site to sign in");
+      // not synced for days, with nothing to say why (on a site the extension doesn't run on, it can't be heard from): the icon shows too
+      await q.evaluate(() => { SBLMS.brightspace.save({last: Date.now() - 4 * 864e5}); window.__opened = []; }); await ext("ok"); await q.waitForTimeout(300);
+      { const lab = await q.evaluate(() => { const e = document.querySelector("#lmsSyncIco"); return e && e.getAttribute("aria-label"); });
+        ok(/Brightspace hasn't synced in 4 days/.test(lab || ""), "out of sync for days: the sync icon says so: " + lab); }
+      await q.click("#lmsSyncIco"); await q.waitForTimeout(200);
+      ok(await q.evaluate(() => window.__opened.some(u => /^https:\/\/learn\.example\.edu/.test(u))), "and pressing it opens the school site to sign in");
+      await q.evaluate(() => SBLMS.brightspace.save({mode: "", host: "", last: 0, lastSrc: ""})); await ext("login"); await q.waitForTimeout(300);
+      ok(!(await ico()), "extension: no icon once you've disconnected the site");
+      ok(!e2.length, "extension: no page errors: " + e2.join(" | "));
+      await c2.close(); }
   } finally { await browser.close(); server.close(); }
   console.log(`\nlms-relog.e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

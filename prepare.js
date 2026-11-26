@@ -28,6 +28,17 @@ fs.mkdirSync(path.join(vendor, "pdfjs"), { recursive: true });
 copy("pdfjs-dist/legacy/build/pdf.min.mjs", "pdfjs/pdf.min.mjs");
 copy("pdfjs-dist/legacy/build/pdf.worker.min.mjs", "pdfjs/pdf.worker.min.mjs");
 copy("pdfjs-dist/LICENSE", "pdfjs/LICENSE");
+// WebLLM (Apache 2.0): the AI on the device where Chrome's built-in AI isn't there, which in the desktop app is always. Loaded only when used
+fs.cpSync(path.join(root, "vendor", "webllm-0.2.89"), path.join(vendor, "webllm-0.2.89"), { recursive: true });
+fs.cpSync(path.join(root, "vendor", "embed-4.3.2"), path.join(vendor, "embed-4.3.2"), { recursive: true });
+// Gemma 4 E4B's engine (LiteRT-LM, src/js/01-ai-device.js): its worker and library, and its WebAssembly (too big for the website,
+// which loads it from jsDelivr instead; here it ships with the app so the AI works offline). Only the two non-asyncify builds:
+// the app's Chromium has the features they need
+fs.cpSync(path.join(root, "vendor", "litertlm-0.19.0"), path.join(vendor, "litertlm-0.19.0"), { recursive: true });
+fs.mkdirSync(path.join(vendor, "litertlm-0.19.0", "wasm"), { recursive: true });
+for (const f of ["litertlm_wasm_internal.js", "litertlm_wasm_internal.wasm", "litertlm_wasm_compat_internal.js", "litertlm_wasm_compat_internal.wasm"]) {
+  try { fs.copyFileSync(nm("@litert-lm/core/wasm/" + f), path.join(vendor, "litertlm-0.19.0", "wasm", f)); } catch (e) { console.warn("LiteRT-LM WebAssembly missing (npm install): " + f); }
+}
 // pdf-lib writes edited PDFs (the reader's Edit mode), loaded from vendor/pdflib/ the first time someone edits
 fs.mkdirSync(path.join(vendor, "pdflib"), { recursive: true });
 for (const f of ["pdf-lib.min.js", "fontkit.umd.min.js", "pdf-lib-crypt.min.js", "LICENSE.md", "LICENSE-pdf-lib-crypt.md", "NOTICE.txt"]) fs.copyFileSync(path.join(root, "vendor", "pdflib", f), path.join(vendor, "pdflib", f));

@@ -699,7 +699,7 @@
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
   /* Where it can stand */
-  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront");
+  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,#toast");
   const INTERACTIVE = /^(BUTTON|A|INPUT|SELECT|TEXTAREA|LABEL|IMG|VIDEO|CANVAS|IFRAME|DIALOG)$/;
   function contentAt(x, y){
     let surface = false;
@@ -727,7 +727,7 @@
   const BAND_PAD = 48;
   function contentRects(band){
     const out = [], W = innerWidth, H = innerHeight, T = band ? Math.max(0, band.t) : 0, B = band ? Math.min(H, band.b) : H;
-    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab");
+    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab,#toast");
     const vis = r => r.width > 1 && r.height > 1 && r.bottom > T && r.right > 0 && r.top < B && r.left < W;
     const els = [], svgs = [];
     const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode: n => {
@@ -765,8 +765,7 @@
     const rg = range(px);
     if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
-    const t = document.getElementById("toast");
-    if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
+    // (a toast isn't a reason to find a new spot: it's there a moment, and duck() steps it aside just far enough)
     // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
     const e = vext || measureArt() || DEF_ART;
     const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
@@ -1161,14 +1160,44 @@
     // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
     clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
-  // A toast that overlaps it
+  // A toast that overlaps it: it steps sideways, left or right (whichever is the shorter step that stays on screen and clear of
+  // the Add Task button), and only hops up over it where neither side has room
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false;
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(); hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+    let hit = false, dx = 0, lift = 0;
+    // (measured where it stands, without the step: the step itself would make it stop overlapping)
+    if (on) {
+      // where it rests: its place in its layer, without the step (mid-step, its drawn box is somewhere along the way)
+      const a = t.getBoundingClientRect(), fr = front.getBoundingClientRect(), z0 = zf(), l0 = fr.left + box.offsetLeft * z0, t0 = fr.top + box.offsetTop * z0;
+      const b = {left: l0, right: l0 + box.offsetWidth * z0, top: t0, bottom: t0 + box.offsetHeight * z0};
+      hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      if (hit) {
+        // never onto the Add Task button or the tab bar (the sidebar on a computer)
+        const W = document.documentElement.clientWidth || innerWidth, rect = el => el && el.getClientRects().length ? el.getBoundingClientRect() : null;
+        const walls = [rect(document.getElementById("fab")), rect(document.querySelector("nav.tabs"))].filter(r => r && r.width && r.height);
+        const clear = d => b.left + d >= 6 && b.right + d <= W - 6 && !walls.some(r => b.left + d < r.right && b.right + d > r.left && b.top < r.bottom && b.bottom > r.top);
+        const opts = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(clear).sort((x, y) => Math.abs(x) - Math.abs(y));
+        if (opts.length) dx = opts[0]; else lift = Math.ceil(b.bottom - a.top + 8);
+      }
+    }
+    // (the companion's layer can be zoomed, so the step is set in its own pixels)
+    const z = zf();
+    if (hit) { box.style.setProperty("--cp-dx", (dx / z).toFixed(1) + "px"); box.style.setProperty("--cp-lift", (-lift / z).toFixed(1) + "px"); box.dataset.dx = String(dx); box.dataset.lift = String(lift); }
+    // when the toast goes, it stays where it stepped to (its step becomes its place) and carries on as usual from there
+    if (!hit && box.classList.contains("cp-duck")) {
+      const z = zf(), dx0 = Number(box.dataset.dx || 0) / z, dy0 = -Number(box.dataset.lift || 0) / z;
+      const l = parseFloat(box.style.left) + dx0, tp = parseFloat(box.style.top) + dy0;
+      box.style.transition = "none"; box.classList.remove("cp-duck", "cp-h-fab");
+      if (Number.isFinite(l) && Number.isFinite(tp)) { box.style.left = l.toFixed(1) + "px"; box.style.top = tp.toFixed(1) + "px"; box.dataset.x = String(Math.round(l)); box.dataset.y = String(Math.round(tp)); }
+      void box.offsetWidth; box.style.transition = "";
+      return;
+    }
     box.classList.toggle("cp-duck", hit);
+    // when it's moved to a new place (it finds its own spot clear of a toast too), the step is worked out again from there
+    if (box !== duckSeen) { duckSeen = box; let at = ""; new MutationObserver(() => { const k = box && box.style.left + "," + box.style.top; if (k !== at) { at = k; requestAnimationFrame(duck); } }).observe(box, {attributes: true, attributeFilter: ["style"]}); }
   }
+  let duckSeen = null;
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
   { const f = document.getElementById("fab"); if (f) new MutationObserver(() => placeSoon(60)).observe(f, {attributes: true, attributeFilter: ["class", "style", "hidden"]}); }
 
@@ -1235,7 +1264,9 @@
   }
   const ownLines = kind => cur && Array.isArray(cur.lines[kind]) && cur.lines[kind].length ? cur.lines[kind] : GENERIC[kind] || GENERIC.tap;
   const bubbleOpen = () => !!(front && front.querySelector(".cp-bubble.on"));
-  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300); }
+  function hideBubble(){ clearTimeout(bubbleT); bubbleIdea = null; bubbleAsk = false; askFlow = false; if (front) { const b = front.querySelector(".cp-bubble"); if (b) b.classList.remove("on", "has-idea", "asking", "cp-think"); } guardSoon("bubble", 300);
+    // still waiting on the AI (a tap said something over the dots): the dots come back
+    try { if (thinkWant) aiThinkingAgain(); } catch (e) {} }
   let bRects = null, bRectsAt = 0;
   const bubbleRects = () => { const n = performance.now(); if (!bRects || n - bRectsAt > 700) { try { bRects = contentRects({t: 0, b: innerHeight}); } catch (e) { bRects = []; } bRectsAt = n; } return bRects; };
   // Where the bubble goes
@@ -1335,6 +1366,7 @@
   }
   /* Thinking: three dots in a bubble while the student waits on the AI (after any "On it!" line has had its moment) */
   let thinkT = 0, thinkWant = false;
+  function aiThinkingAgain(){ clearTimeout(thinkT); thinkT = setTimeout(() => { if (thinkWant) aiThinking(true); }, 700); }
   function aiThinking(on){
     clearTimeout(thinkT); thinkWant = on;
     const b = front && front.querySelector(".cp-bubble");
@@ -1347,6 +1379,8 @@
       if (!thinkWant) return;
       const bb = front && front.querySelector(".cp-bubble");
       if (!bb || !cur || !box || box.hidden || document.hidden) { thinkT = setTimeout(show, 800); return; }
+      // the chat tab shows its own "working" line, and the floating dots would slide under Mochi as the chat scrolls
+      if (ui.tab === "companion") { if (bb.classList.contains("cp-think")) bb.classList.remove("on", "cp-think"); thinkT = setTimeout(show, 800); return; }
       if (bb.classList.contains("cp-think")) { bb.classList.add("on"); return; }
       if (bb.classList.contains("cp-think") && bb.classList.contains("on")) return;
       // something else is being said or asked: wait for it
@@ -2135,7 +2169,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return SPEECH.ok(pickL.text) ? pickL.text : "";
   }
   // Ask Me
-  // Ask Me works with any AI: free Gemini and Studyboard AI share the daily allowance for lines; with another key (Claude, ChatGPT, or
+  // Ask Me works with any AI: free Gemini and Studyboard AI Pro share the daily allowance for lines; with another key (Claude, ChatGPT, or
   // Gemini with automatic AI off) each question is an ordinary request the student makes, on their own key
   const askMode = () => { const m = aiMode(); if (m === "lite" || m === "studyboard") return m; try { return smartOn() && aiReady() ? "manual" : ""; } catch (e) { return ""; } };
   const linesAsk = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
@@ -2157,7 +2191,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // (98-assist.js). The task sheet's own Ask box stays a plain answer, so it never leaves the task.
     if (viaAssist) {
       try {
-        const res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        const t0 = Date.now(), res = await SBASSIST.ask(clean, {extra: sc && sc.text ? `${sc.kind}: ${sc.label}\n${sc.text}` : ""});
+        // (an answer the app had at once still takes a moment, like someone reading the question first)
+        { const w = 1000 + Math.random() * 800 - (Date.now() - t0); if (w > 0 && !(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, w)); }
         const answer = cleanLine(res.answer, 650, BAD_ASK) || (res.changes.length ? "Here's the change. Check it, then tap Apply." : res.show.length ? "Here it is!" : "");
         if (!answer) return {why: ""};
         return {answer, idea: null, go: res.changes.length || res.show.length ? shown => SBASSIST.act(res, {shown}) : null};
@@ -2168,7 +2204,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     let found = ""; if (!screen) { try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(clean, {max: 4, chars: 800, readWait: 3}) : null; if (R && R.text) found = `\n\nFOUND IN THEIR FILES, NOTES AND CARDS:\n"""\n${R.text}\n"""`; } catch (e) {} }
     const d = await aiRun("ask", () => { sum = aiSummary(); return {system: screen ? ASK_SCREEN_SYSTEM : ASK_SYSTEM, text: `${sum.text}${screen}${found}\n\nThe student asks: ${clean}`, schema: screen ? ASK_SCREEN_SCHEMA : ASK_SCHEMA, maxTokens: screen ? 1400 : 600}; });
     if (!d) { const s = aiRead(); return {why: s.err === "limit" ? "I've used up my thinking for now. Ask me again later?" : s.err === "offline" ? "I need the internet for that one. Try again soon?" : ""}; }
-    const answer = cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK);
+    const answer = aiWholeSentence(cleanLine(d.answer, screen ? 650 : found ? 400 : 220, BAD_ASK));
     if (!answer) return {why: ""};
     const idea = cleanIdea({text: d.action === "focus" ? "Start a focus on it?" : "Review some flashcards?", action: d.action, ref: d.ref}, sum.refs);
     return {answer, idea: idea && ideaValid(idea) ? Object.assign(idea, {yes: d.action === "focus" ? "Start Focus" : "Review"}) : null};
@@ -2544,6 +2580,19 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     setTimeout(primeStills, 50);
     return `<img class="cp-still" data-still="${esc(c.id)}" src="${ready || stillUrl(c)}" width="${w}" height="${w}" style="margin:${-o}px" alt="" decoding="async" loading="lazy" draggable="false">`;
   };
+  // Trying an accessory on: pointing at (or tabbing to) a tile shows the companion wearing it, beside the list
+  let accPrevKey = "";
+  function accPreview(tile){
+    const box = tile && tile.closest(".cp-accs") && tile.closest("dialog, .cpt3, body").querySelector(".cp-acc-prev"); if (!box) return;
+    const c = current(); if (!c) return;
+    const id = tile.dataset.acc || "", now = wearOf(c), a = ACC.find(x => x.id === id);
+    const next = !id ? [] : now.includes(id) ? now : now.filter(x => slotOf(x) !== slotOf(id)).concat(id), key = c.id + ":" + next.join(",");
+    if (key === accPrevKey) return; accPrevKey = key;
+    const art = box.querySelector(".cp-acc-prev-art"), t = box.querySelector(".cp-acc-prev-t");
+    if (art) art.innerHTML = previewHtml(c, next, 110);
+    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : " (not earned yet)"}`;
+  }
+  ["mouseover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const t = e.target && e.target.closest && e.target.closest(".cp-acc-tile"); if (t) accPreview(t); }));
   function previewHtml(c, wear, px){
     return `<span class="cp-prev cp-${c.pose}" style="--px:${px}px;--cp-wear:${wearColor(c)}"><span class="cp-shadow"></span><span class="cp-move"><span class="cp-breathe">${rigSvg(c, {wear})}</span></span></span>`;
   }
@@ -2581,6 +2630,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec">Accessories</h3>
+      ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
@@ -2597,7 +2647,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
-      : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
+      : u.mode === "studyboard" ? `Studyboard AI Pro writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
       : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
@@ -3024,6 +3074,52 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
+    // Wearing or taking off an accessory by its name (the chat's "put on your scarf", "take off the glasses"): what happened, in words
+    wearByName: (name, on) => { try {
+      const c = current(); if (!c) return "There's no companion to dress right now.";
+      const n = String(name || "").toLowerCase().replace(/\b(your|the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), now = wearOf(c);
+      if (!on && /^(all|everything|it all|them all|accessories|all accessories)$/.test(n)) { setCfg({wear: {[c.id]: []}}); curSig = ""; build(); return "I took everything off."; }
+      // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
+      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"]], [/\b(cap)\b/, ["cap"]], [/\b(glasses|specs|spectacles|sunglasses)\b/, ["glasses"]],
+        [/\b(scarf|something (for|on) (your|my) neck)\b/, ["scarf"]], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(medal|necklace)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+      const kind = on ? KIND.find(([re]) => re.test(n)) : null;
+      if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
+        const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
+        if (!have.length) return `I haven't earned ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. The Wardrobe shows how to unlock ${kind[1].length > 1 ? "them" : "it"}.`;
+        const pick = have.find(x => !now.includes(x.id)) || have[0];
+        if (now.includes(pick.id)) return `I'm already wearing my ${pick.name}!`;
+        setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(pick.id)).concat(pick.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+        return `I put on my ${pick.name}!`;
+      }
+      const sc = a => { const m = a.name.toLowerCase(); return m === n ? 10 : m.includes(n) || n.includes(m) ? 6 : n.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
+      const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
+      if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
+      if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
+      if (!canWear(a)) return `I haven't earned the ${a.name} yet. The Wardrobe shows how to unlock it.`;
+      setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+      return `I put on my ${a.name}!`;
+    } catch (e) { return "I couldn't change my outfit just now."; } },
+    // an accessory's colour from words ("blue", "dark green", "#3366ff"): the exact colour with Pro, else the closest of the free tints
+    tintByName: (item, color) => { try {
+      const c = current(); if (!c) return "There's no companion to dress right now.";
+      const n = String(item || "").toLowerCase(), now = wearOf(c);
+      const KIND = {hat: ["hat", "beanie", "cap", "crown"], cap: ["cap"], glasses: ["glasses"], scarf: ["scarf"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
+      const k = Object.keys(KIND).find(x => new RegExp("\\b" + x + "s?\\b").test(n.replace(/bow ?tie/, "bowtie")));
+      const ids = k ? KIND[k] : ACC.filter(a => n.includes(a.name.toLowerCase())).map(a => a.id);
+      const a = ACC.find(x => ids.includes(x.id) && now.includes(x.id)) || ACC.find(x => ids.includes(x.id));
+      if (!a) return `I don't have a "${item}". Open the Wardrobe to see what I can wear.`;
+      const NAMED = {red: "#DC2626", pink: "#EC4899", purple: "#7C3AED", violet: "#8B5CF6", blue: "#3B6FE0", "light blue": "#60A5FA", "dark blue": "#1E3A8A", navy: "#1E3A8A", teal: "#0F766E", cyan: "#06B6D4", turquoise: "#14B8A6", green: "#16A34A", "dark green": "#166534", lime: "#84CC16", yellow: "#EAB308", gold: "#CA8A04", orange: "#EA580C", brown: "#92400E", black: "#111827", white: "#F9FAFB", gray: "#6B7280", grey: "#6B7280", rainbow: "#8E6BE0", maroon: "#7F1D1D", lavender: "#A78BFA", mint: "#6EE7B7", coral: "#F97362", peach: "#FDBA74"};
+      const w = String(color || "").toLowerCase().trim(), hex = /^#[0-9a-f]{6}$/i.test(w) ? w : NAMED[w] || NAMED[w.replace(/^(light|dark|bright|pale)\s+/, "")];
+      if (!hex) return `What colour should my ${a.name} be? For example: blue, red or green.`;
+      const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), d2 = (x, y) => { const p = rgb(x), q = rgb(y); return (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2; };
+      const pick = pro() ? hex : TINTS.slice().sort((x, y) => d2(x, hex) - d2(y, hex))[0];
+      setCfg({tint: {[a.id]: pick}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+      return `My ${a.name} is ${w.replace(/^#.*/, "that colour")} now!${now.includes(a.id) ? "" : ` (Put it on to see it: say "wear my ${a.name.toLowerCase()}".)`}`;
+    } catch (e) { return "I couldn't change that colour just now."; } },
+    // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
+    ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
+    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
@@ -3034,6 +3130,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
+    // The next accessory a kind of effort ("cards", "quizzes") is working toward: {id, name, n, v, left}, for the end of a session
+    nextFor: k => { try { const a = ACC.find(x => !isEarned(x) && (x.free || owns("prop", x.id)) && (x.paths || []).some(p => p[0] === k)); if (!a) return null;
+      const p = propProg(a).find(x => x.k === k); return p ? {id: a.id, name: a.name, n: p.n, v: p.v, left: Math.max(0, p.n - p.v)} : null; } catch (e) { return null; } },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker

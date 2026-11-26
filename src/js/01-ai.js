@@ -26,8 +26,8 @@ const AI_PROVIDERS = {
   gemini: {label: "Google Gemini", short: "Gemini", keyLabel: "Gemini API Key", keyUrl: "https://aistudio.google.com/apikey", keyHint: "Free from Google AI Studio",
     models: [["auto", "Gemini Auto (free, recommended)", "free"], ["gemini-3.8-flash", "Gemini 3.8 Flash (free)", "free"], ["gemini-3.7-flash", "Gemini 3.7 Flash (free)", "free"], ["gemini-3.6-flash", "Gemini 3.6 Flash (free)", "free"], ["gemini-3.5-flash", "Gemini 3.5 Flash (free)", "free"], ["gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite (free, fastest)", "free"], ["gemini-3.1-pro-preview", "Gemini 3.1 Pro (paid, needs billing)", "paid"], ["auto-pro", "Gemini, Smartest First (Pro for hard jobs, paid, needs billing)", "paid"]]},
   anthropic: {label: "Anthropic Claude", short: "Claude", keyLabel: "Claude API Key", keyUrl: "https://console.anthropic.com/settings/keys", keyHint: "Paid, billed per use by Anthropic",
-    // Claude runs only as Studyboard AI does: Haiku 5.5, thinking matched to each job, with its limits (src/js/01-ai-policy.js)
-    models: [["studyboard", "Claude Haiku 5.5, Studyboard AI Mode (paid)", "paid"]]},
+    // Claude runs only as Studyboard AI Pro does: Haiku 5.5, thinking matched to each job, with its limits (src/js/01-ai-policy.js)
+    models: [["studyboard", "Claude Haiku 5.5, Studyboard AI Pro Mode (paid)", "paid"]]},
   openai: {label: "OpenAI ChatGPT", short: "ChatGPT", keyLabel: "OpenAI API Key", keyUrl: "https://platform.openai.com/api-keys", keyHint: "Paid, billed per use by OpenAI",
     models: [["gpt-6-sol", "GPT-6 Sol (paid)", "paid"], ["gpt-6-luna", "GPT-6 Luna (paid, cheapest)", "paid"], ["gpt-6-astra", "GPT-6 Astra (paid, most capable)", "paid"]]}
 };
@@ -229,7 +229,7 @@ const KEY_RELAY = "https://studyboard-key-relay.connor-pelkmans.workers.dev";
 const CAPTURE_EMAIL_DOMAIN = "";
 // The signed-in student's access token, for Studyboard's own AI server
 async function aiSessionToken(){ try { const {data} = await sb.auth.getSession(); return (data && data.session && data.session.access_token) || ""; } catch(e) { return ""; } }
-/* Studyboard AI, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
+/* Studyboard AI Pro, included with Pro: cloudflare/ai-pro, a Worker that holds Studyboard's Anthropic key (Claude Haiku 5.5).
    The server checks the plan and keeps each student's allowance; this only shows what it last said. Until the Worker is deployed
    (cloudflare/ai-pro/README.md) the address doesn't answer and the app carries on without it; "" switches it off in the app. */
 const AI_PRO = "https://ai.studyboardapp.com";
@@ -249,7 +249,7 @@ function aiProSet(j){
   try { localStorage.setItem(AI_PRO_LS, JSON.stringify(next)); } catch(e) {}
 }
 const aiProUsedUp = () => { const t = aiProGet(); return !!t && (t.usedPct >= 100 || t.outDay === new Date().toISOString().slice(0, 10)); };
-// The student's own key to fall back on when Studyboard AI runs out: Gemini first, then any other key they added
+// The student's own key to fall back on when Studyboard AI Pro runs out: Gemini first, then any other key they added
 const aiProBackup = keys => keys.gemini ? "gemini" : keys.anthropic ? "anthropic" : keys.openai ? "openai" : "";
 // The student turned it off to use their own key instead (Settings, AI Features)
 const aiProDeclined = () => { try { return !!((state.settings && state.settings.ai) || {}).ownKey; } catch(e) { return false; } };
@@ -261,10 +261,10 @@ function aiProAvail(){
   if ((!t || Date.now() - (t.at || 0) > 30 * 60000) && !aiProChecking && Date.now() - aiProTried > 10 * 60000) aiProRefresh().then(() => { try { scheduleRender(); } catch(e) {} });
   return !!(t && t.on);
 }
-// A Pro student: everything Studyboard AI runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
+// A Pro student: everything Studyboard AI Pro runs (the built-in AI, or their own Claude key in its mode) is shown only as "Studyboard AI Pro" (a paid plan only counts with the paywall on: with it off, PLAN.isPro() is true for everyone)
 function aiProUser(){ try { return aiProAvail() || (typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall() && PLAN.isPro() && !(PLAN.plusNow && PLAN.plusNow())); } catch(e) { return false; } }
-// What to call a Claude key's AI on screen: "Studyboard AI" for Pro students, "Claude" otherwise
-const aiClaudeName = () => aiProUser() ? "Studyboard AI" : "Claude";
+// What to call a Claude key's AI on screen: "Studyboard AI Pro" for Pro students, "Claude" otherwise
+const aiClaudeName = () => aiProUser() ? "Studyboard AI Pro" : "Claude";
 async function aiProRefresh(){
   if (!AI_PRO || !sbUser || sbUser.is_anonymous) return null;
   if (aiProChecking) return aiProChecking;
@@ -283,7 +283,7 @@ async function aiProForget(){
   try { localStorage.removeItem(AI_PRO_LS); } catch(e) {}
 }
 /* Your own paid API key (Claude, ChatGPT): only for accounts Studyboard has allowed (supabase-own-keys.sql). Everyone else uses a free
-   Gemini key or Studyboard AI with Pro. Read when signed in and remembered on this device, so it holds offline; signed out or not
+   Gemini key or Studyboard AI Pro with Pro. Read when signed in and remembered on this device, so it holds offline; signed out or not
    allowed means no paid key of their own. A paid key saved before stays on the device but is never used. */
 const AI_PAID_OWN = ["anthropic", "openai"];
 const AI_OWNKEYS = (() => {
@@ -334,13 +334,13 @@ function aiBlockedKeys(){ if (aiOwnPaidOk()) return {}; const k = aiHeldKeys(), 
 function aiOwnGoneLine(){
   const b = Object.keys(aiBlockedKeys()); if (!b.length) return "";
   const names = b.map(p => AI_PROVIDERS[p].short).join(" and "), paywall = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.paywall(); } catch (e) { return false; } })();
-  return `<p class="ai-disclaimer mini" id="aiOwnGone" style="margin:0">Studyboard no longer uses your own ${esc(names)} key, so nothing more is charged to it (it's still saved on this device). AI now works with a free Gemini key, or with Studyboard AI in ${paywall ? `<button type="button" class="link-btn" data-act="plan-open" data-reason="Get Studyboard AI with Pro">Pro</button>` : "Pro"}.</p>`;
+  return `<p class="ai-disclaimer mini" id="aiOwnGone" style="margin:0">Studyboard no longer uses your own ${esc(names)} key, so nothing more is charged to it (it's still saved on this device). AI now works with a free Gemini key, or with Studyboard AI Pro in ${paywall ? `<button type="button" class="link-btn" data-act="plan-open" data-reason="Get Studyboard AI Pro with Pro">Pro</button>` : "Pro"}.</p>`;
 }
 // Test handle (only when a test page sets window.__SB_TEST)
 if (window.__SB_TEST) window.__sbAi = {cfg: () => aiCfg(), ownKeys: AI_OWNKEYS, proRefresh: () => aiProRefresh(), proGet: () => aiProGet(), useOwnMode: () => aiSaveCfg({provider: "anthropic", model: "studyboard"})};
-// Studyboard AI's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Mode
+// Studyboard AI Pro's rules (src/js/01-ai-policy.js): the built-in AI, or a student's own Claude key in Studyboard AI Pro Mode
 const aiSbMode = c => !!c && (c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard"));
-/* A student's own Claude key in Studyboard AI Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
+/* A student's own Claude key in Studyboard AI Pro Mode: the same rules as the built-in AI (SBPOLICY.runJob: model, thinking per job,
    output caps, the same 7-day and monthly, daily, per-minute and at-once limits), run on this device and paid by their key. The allowance
    is kept on this device, one change at a time across tabs. */
 const AI_OWN_LS = "studyboard:ownAI";
@@ -377,7 +377,7 @@ function ownClaude(key, signal, ms){
     count: async req => { const rest = Object.assign({}, req); delete rest.max_tokens; return (await call("/v1/messages/count_tokens", rest)).input_tokens; }
   };
 }
-// this device's own-key allowance, read the same way as Studyboard AI's (the last 7 days, and this month's cap)
+// this device's own-key allowance, read the same way as Studyboard AI Pro's (the last 7 days, and this month's cap)
 const ownView = () => { try { const now = Date.now(), d = SBPOLICY.dayOf(now), from = SBPOLICY.dayOf(now - 6 * 864e5), mon = SBPOLICY.monthOf(now), raw = (ownStore.all() || {}).days || {}, days = {};
   Object.keys(raw).forEach(k => { const n = Number(raw[k]); if ((k >= from || k.slice(0, 7) === mon) && k <= d && n > 0) days[k] = n; });
   const sum = f => Object.keys(days).filter(f).reduce((a, k) => a + days[k], 0);
@@ -399,10 +399,11 @@ const AI_WHO = {
   gemini: {company: "Google", product: "Gemini", host: "generativelanguage.googleapis.com", policy: "https://policies.google.com/privacy"},
   anthropic: {company: "Anthropic", product: "Claude", host: "api.anthropic.com", policy: "https://www.anthropic.com/legal/privacy"},
   openai: {company: "OpenAI", product: "ChatGPT", host: "api.openai.com", policy: "https://openai.com/policies/privacy-policy"},
-  studyboard: {company: "Anthropic", product: "Studyboard AI", host: (() => { try { return new URL(AI_PRO).host; } catch(e) { return "Studyboard's AI server"; } })(), policy: "https://www.anthropic.com/legal/privacy"},
+  studyboard: {company: "Anthropic", product: "Studyboard AI Pro", host: (() => { try { return new URL(AI_PRO).host; } catch(e) { return "Studyboard's AI server"; } })(), policy: "https://www.anthropic.com/legal/privacy"},
 };
+Object.defineProperty(AI_WHO, "device", {enumerable: false, get: () => ({company: devLabel(), product: "on this device", host: "this device", policy: ""})});
 const aiConsentMap = () => { try { const m = JSON.parse(localStorage.getItem(AI_CONSENT_LS) || "{}"); return m && typeof m === "object" && !Array.isArray(m) ? m : {}; } catch(e) { return {}; } };
-const aiConsented = provider => ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
+const aiConsented = provider => provider === "device" || ((aiConsentMap()[provider] || {}).v || 0) >= AI_CONSENT_V;
 function aiConsentSet(provider){ try { const m = aiConsentMap(); m[provider] = {v: AI_CONSENT_V, at: Date.now()}; localStorage.setItem(AI_CONSENT_LS, JSON.stringify(m)); } catch(e) {} }
 let aiAsking = null;
 function aiConsentAsk(provider){
@@ -412,7 +413,7 @@ function aiConsentAsk(provider){
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiConsentTitle");
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiConsentTitle">Send Your Content to ${esc(W.company)}?</h2></div>
     <div class="sheet-body">
-      ${provider === "studyboard" ? `<p style="margin:0">Studyboard AI comes with your Pro plan. It runs on <b>Anthropic's Claude</b>. To answer, the content of each request goes from this device to Studyboard's AI server (<b>${esc(W.host)}</b>, run on Cloudflare), which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store what you send or keep logs of it, and Anthropic doesn't use it to train its models.</p>`
+      ${provider === "studyboard" ? `<p style="margin:0">Studyboard AI Pro comes with your Pro plan. It runs on <b>Anthropic's Claude</b>. To answer, the content of each request goes from this device to Studyboard's AI server (<b>${esc(W.host)}</b>, run on Cloudflare), which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store what you send or keep logs of it, and Anthropic doesn't use it to train its models.</p>`
         : `<p style="margin:0">Studyboard's AI features use <b>${esc(W.company)} ${esc(W.product)}</b> with the API key you added. To answer, they send the content of each request directly from this device to <b>${esc(W.host)}</b>. Studyboard's own servers are not involved.</p>`}
       <p style="margin:0"><b>What is sent:</b> what you type into an AI window, plus the material for that job, such as the task, note, flashcards, file, slides or photo you choose, and your course names, deadlines and progress when you ask about your schedule or plan. If Automatic AI is on, short summaries of your tasks and deadlines are also sent in the background.</p>
       <p style="margin:0"><b>What is not sent:</b> your Studyboard password, your email address, or anything when you aren't using an AI feature.</p>
@@ -450,14 +451,16 @@ function aiCfg(){
   let model = raw.model || (provider === "gemini" ? "auto" : AI_PROVIDERS[provider].models[0][0]);
   if (!keys[provider]) { const p = ["gemini", "anthropic", "openai"].find(x => keys[x]); if (p) { provider = p; model = p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]; } }
   if (provider === "anthropic") model = "studyboard";
-  // Studyboard AI (Pro) unless the student chose their own key; once it's used up, their own key takes over if they have one
-  // Paid Pro: Studyboard AI first, always. The student's own key (Gemini first) only once the allowance (or today's, if there's a daily limit) is used up.
+  // Studyboard AI Pro (Pro) unless the student chose their own key; once it's used up, their own key takes over if they have one
+  // Paid Pro: Studyboard AI Pro first, always. The student's own key (Gemini first) only once the allowance (or today's, if there's a daily limit) is used up.
   if (aiProAvail() && !raw.ownKey) {
     if (!aiProUsedUp()) return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
     const b = aiProBackup(keys);
     if (b) return {provider: b, model: b === "gemini" ? (raw.provider === "gemini" && raw.model ? raw.model : "auto") : AI_PROVIDERS[b].models[0][0], keys, key: keys[b], backup: true};
     return {provider: "studyboard", model: "studyboard", keys, key: "studyboard"};
   }
+  // No key and no Studyboard AI Pro: the AI built into this device (Chrome, or Apple's in the iPhone app), when it has one (01-ai-device.js)
+  if (!keys[provider] && devUsable()) return {provider: "device", model: DEVAI.kind, keys, key: "device"};
   return {provider, model, keys, key: keys[provider]};
 }
 const aiReady = () => !inPreview() && !!aiCfg().key;
@@ -465,17 +468,18 @@ const aiErr = (code, message) => Object.assign(new Error(message), {code});
 // The technical part of an AI error (the provider's own words), folded away under the friendly message
 const aiDetailHtml = e => e && e.detail ? `<details class="cl-diag ai-detail"><summary>Details</summary><p class="mini" style="margin:0">${esc(e.detail)}</p></details>` : "";
 function aiModelName(provider, model){
-  if (provider === "studyboard" || (provider === "anthropic" && aiProUser())) return "Studyboard AI";
+  if (provider === "studyboard" || (provider === "anthropic" && aiProUser())) return "Studyboard AI Pro";
+  if (provider === "device") return devLabel();
   const P = AI_PROVIDERS[provider]; if (!P) return model;
   const m = P.models.find(x => x[0] === model);
   return m ? m[1].replace(/ \(.*$/, "").replace(/, Auto$/, "") : model;
 }
 // Who is working, in progress lines: "Gemini", not a picker label like "Gemini Auto"
-const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
-// One model's label in a picker: a Claude key runs as Studyboard AI does, so for Pro students it's just "Studyboard AI"
-const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI" : l;
+const aiBrandName = () => { const c = aiCfg(), p = c.provider; return p === "device" ? devLabel() : p === "studyboard" || (p === "anthropic" && aiProUser()) ? "Studyboard AI Pro" : (AI_WHO[p] || {}).product || aiModelName(p, c.model); };
+// One model's label in a picker: a Claude key runs as Studyboard AI Pro does, so for Pro students it's just "Studyboard AI Pro"
+const aiOptLabel = (p, m, l) => p === "anthropic" && m === "studyboard" && aiProUser() ? "Studyboard AI Pro" : l;
 /* The model choices for the keys given, grouped by company. For Pro students the Claude key's choice stands on its own as
-   "Studyboard AI", with no company group around it. sel: the chosen "provider|model"; extra(p, P): more options for a group */
+   "Studyboard AI Pro", with no company group around it. sel: the chosen "provider|model"; extra(p, P): more options for a group */
 function aiModelOpts(keys, sel, extra){
   const pro = aiProUser();
   return Object.entries(AI_PROVIDERS).filter(([p]) => keys[p]).map(([p, P]) => {
@@ -486,7 +490,7 @@ function aiModelOpts(keys, sel, extra){
 function aiSaveCfg(patch){
   const c = aiCfg(), raw = (state.settings && state.settings.ai) || {};
   const next = {provider: patch.provider || c.provider, model: patch.model || c.model, keys: Object.assign({}, raw.keys || {}, patch.keys || {})};
-  if (next.provider === "studyboard") { next.provider = raw.provider || "gemini"; next.model = raw.model || "auto"; }
+  if (next.provider === "studyboard" || next.provider === "device") { next.provider = raw.provider || "gemini"; next.model = raw.model || "auto"; }
   const own = patch.ownKey !== undefined ? patch.ownKey : raw.ownKey; if (own) next.ownKey = true;
   if (patch.provider && !patch.model) next.model = patch.provider === "gemini" ? "auto" : AI_PROVIDERS[patch.provider].models[0][0];
   state.settings = Object.assign({}, state.settings, {ai: next}); saveSettings();
@@ -497,7 +501,15 @@ function aiParseJson(text){
   try { return JSON.parse(t); } catch(e) {}
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch(e) {} }
-  return aiRepairJson(t);
+  return aiRepairJson(t) || aiCutAnswer(t);
+}
+// A written answer the AI ran out of room in the middle of ({"answer": "…cut off): what it wrote, up to its last full sentence
+function aiCutAnswer(t){
+  const m = /^\s*(\{[\s\S]*?"(?:answer|reply|text|summary|explanation)"\s*:\s*")((?:[^"\\]|\\.)*)\\?$/.exec(String(t || ""));
+  if (!m) return null;
+  let v = m[2], s = v.search(/[.!?)](?=[^.!?)]*$)/);
+  if (s > 40) v = v.slice(0, s + 1);
+  try { const o = JSON.parse(m[1] + v + '"}'); return o && typeof o === "object" ? o : null; } catch(e) { return null; }
 }
 /* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
 // Cut-off or slightly broken JSON
@@ -570,19 +582,32 @@ function aiCopied(text, idx){
 const aiCopiedCardsIndex = cards => aiCopyIndex((cards || []).filter(c => c && c.copied).map(c => `${c.front || ""}\n${c.back || ""}`));
 const aiDropCopiedQs = (qs, idx) => idx ? qs.filter(q => ![q.stem, q.answer, q.rationale].concat(q.options || [], q.notes || []).some(t => aiCopied(t, idx))) : qs;
 // Flashcard quality gate
+// A back that sends the student to the material instead of answering ("The notes explain this", "See slide 4", "As described in
+// the reading"): not a flashcard. Only a back that is mostly that pointer is caught; a real answer that also names its source stays.
+const AI_DEFERS = [/\b(see|refer to|check|consult|look at|review)\b.{0,30}\b(notes?|slides?|material|lecture|textbook|reading|page|section|part|chapter)\b/i,
+  /\b(the|your|these|this|that)\s+(notes?|slides?|material|lecture|reading|textbook|section|part|chapter)\b.{0,40}\b(explains?|describes?|covers?|says|discuss(es)?|mentions?|lists?|shows?|outlines?|details?)\b/i,
+  /\bas (described|explained|shown|discussed|mentioned|covered|outlined) (in|on|by|above|below|earlier)\b/i, /\b(described|explained|covered) (above|below|earlier|elsewhere)\b/i];
+function aiDefers(back){
+  const t = String(back || "").trim(); if (!t || !AI_DEFERS.some(r => r.test(t))) return false;
+  // what's left once the pointer is taken out: a real answer leaves several content words
+  const rest = AI_DEFERS.reduce((x, r) => x.replace(new RegExp(r.source, "gi"), " "), t).replace(/\b(the|a|an|of|for|this|that|it|is|in|on|and|to|stage|step|part|section|notes?|slides?|material|respiration)\b/gi, " ");
+  return (rest.match(/[\p{L}\p{N}]{3,}/gu) || []).length < 4;
+}
 function aiGateCards(list, opts){
-  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0};
+  opts = opts || {}; const max = opts.max > 0 ? opts.max : 60, seen = [], keys = new Set(), out = [], dropped = {dup: 0, long: 0, empty: 0, copied: 0, vague: 0};
   (Array.isArray(list) ? list : []).forEach(c => {
     if (!c || typeof c !== "object") { dropped.empty++; return; }
     const front = aiTidyText(c.front), back = aiTidyText(c.back), source = aiTidyText(c.source).slice(0, 60);
     const ft = aiKeyTokens(front), same = aiKeyTokens(front).join(" ") === aiKeyTokens(back).join(" ");
     if (front.length < 3 || !back || same) { dropped.empty++; return; }
     if (front.length > 300 || back.length > 700) { dropped.long++; return; }
+    if (aiDefers(back)) { dropped.vague++; return; }
     if (aiCopied(front, opts.copy) || aiCopied(back, opts.copy)) { dropped.copied++; return; }
     const key = ft.slice().sort().join(" ");
     if (keys.has(key) || seen.some(x => aiJaccard(ft, x.ft) >= 0.8 || (x.back === back.toLowerCase() && aiJaccard(ft, x.ft) >= 0.3))) { dropped.dup++; return; }
     keys.add(key); seen.push({ft, back: back.toLowerCase()});
-    out.push({front, back, source, check: opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
+    const hint = aiTidyText(c.hint || "").slice(0, 300);
+    out.push({front, back, source, hint, check: typeof c.check === "string" && c.check ? c.check : opts.corpus ? aiGroundNote(front + " " + back, opts.corpus) : ""});
   });
   return {cards: out.slice(0, max), dropped};
 }
@@ -616,7 +641,22 @@ function aiGateSyllabus(items, today){
   return {items: out, dups, fixed};
 }
 // Answers cite sources like [2]
-function aiCleanCites(text, n){ return String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "").trim(); }
+function aiCleanCites(text, n){ return aiNoFieldEcho(String(text || "").replace(/\s?\[(\d{1,2})\]/g, (m, k) => Number(k) >= 1 && Number(k) <= n ? m : "")).trim(); }
+// A small model sometimes writes another field of its answer into the text ("Found: false. There are no notes..."): taken out
+const aiNoFieldEcho = t => String(t || "").replace(/^\s*(found|answer|response|reply|status)\s*[:=]\s*(true|false|yes|no|ok)?\s*[.,;:-]?\s*/i, "");
+// A small model's answer that stops mid-phrase ("I found your sticky note about being grumpy on the"): trimmed back to the last
+// whole thought and ended properly ("...about being grumpy."). Left alone when there's too little left to make sense.
+const AI_DANGLE = /[\s,;:\u2013\u2014-]*\b(the|a|an|on|of|to|and|or|but|with|about|your|my|for|in|at|by|from|into|onto|that|this|these|those|is|are|was|were|be|as|than|so|if|when|because|their|its|our|his|her|which|who|like|over|under|after|before|during|between)\s*$/i;
+function aiWholeSentence(text){
+  const t = String(text == null ? "" : text).trim();
+  if (!t || /[.!?\u2026)"'\u201d\u2019\]:]$/.test(t)) return t;
+  if (!AI_DANGLE.test(t)) return t;
+  let s = t;
+  for (let i = 0; i < 5 && AI_DANGLE.test(s); i++) s = s.replace(AI_DANGLE, "");
+  s = s.replace(/[\s,;:\u2013\u2014-]+$/, "");
+  if (s.split(/\s+/).length < 3) return t;
+  return s + ".";
+}
 // Quick add: true when reading the sentence on this device is enough
 function qaConfident(text, t){
   const s = String(text || "");
@@ -678,7 +718,7 @@ function aiJobFailed(){ try { document.dispatchEvent(new CustomEvent("sb-ai-job"
 // The status line of a sheet scrolls into view when it changes, so a message is never hidden below the fold
 function aiShowStatus(el){ try { if (el && el.textContent.trim() && el.isConnected) el.scrollIntoView({block: "nearest", behavior: "smooth"}); } catch (e) {} }
 function aiWaiting(d){ AI_WAITING = Math.max(0, AI_WAITING + d); try { document.dispatchEvent(new CustomEvent("sb-ai-wait", {detail: AI_WAITING})); } catch (e) {} }
-async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
+async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0.4, onStatus, onPartial, fast = false, timeout, auto = false, task = "", signal, search = false, urlContext = false}){
   const arguments0 = arguments[0];
   let cfg = aiCfg();
   try { if (window.SBAREA) system = SBAREA.aiSystem(system); } catch (e) {}
@@ -687,9 +727,9 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
   if (inPreview()) throw aiErr("preview", "AI features work in the Studyboard app and on your website, not in this preview.");
   if (!cfg.key) throw aiErr("nokey", "Set up AI in Settings first.");
   if (aiSbMode(cfg)) {
-    // Studyboard AI reads text, photos and PDFs, and can look things up on the web; video (YouTube) needs a Gemini key
+    // Studyboard AI Pro reads text, photos and PDFs, and can look things up on the web; video (YouTube) needs a Gemini key
     const why = parts.some(x => x && x.text == null && !/^(image\/(png|jpeg|gif|webp)|application\/pdf)$/.test(((x.inline_data || {}).mime_type) || "")) ? "files" : "";
-    if (why) { if (!auto) aiProPrompt(why); throw aiErr("pro-" + why, AI_PRO_WORDS[why].err); }
+    if (why) { if (!auto) aiProPrompt(why); throw aiErr("pro-" + why, aiProWords()[why].err); }
   }
   if (!aiConsented(cfg.provider)) {
     if (auto) throw aiErr("no-consent", "Automatic AI is waiting for your OK.");
@@ -706,7 +746,9 @@ async function aiCall({system, parts, schema, maxTokens = 24000, temperature = 0
       try { return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, hasBackup: !!backup}); }
       catch (e) { if (e && e.out && backup && !(signal && signal.aborted) && aiProUsedUp()) { if (!auto) aiWaiting(-1); clearTimeout(slow); try { return await aiCall(arguments0); } finally { if (!auto) aiWaiting(1); } } throw e; }
     }
-    // Claude only ever runs as Studyboard AI does (Haiku 5.5, thinking per job, its limits), whatever model was saved
+    // The AI on this device: nothing is sent anywhere (01-ai-device.js)
+    if (cfg.provider === "device") return await devCall({system, parts, schema, maxTokens, temperature, signal, search, urlContext, onStatus, onPartial, auto});
+    // Claude only ever runs as Studyboard AI Pro does (Haiku 5.5, thinking per job, its limits), whatever model was saved
     if (cfg.provider === "anthropic") return await proCall({system, parts, schema, ms, task, signal, auto, search, urlContext, own: cfg.key});
     if (cfg.provider === "openai") return await openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, search, urlContext});
     return await geminiCall(cfg, {system, parts, schema, maxTokens, temperature, fast, ms, task, signal, search, urlContext});
@@ -817,23 +859,33 @@ async function geminiCall(cfg, {system, parts, schema, maxTokens, temperature, f
     launch();
   });
 }
-// Studyboard AI (AI_PRO)
-const AI_PRO_WORDS = {
-  used_up: {title: "You've Used Your Studyboard AI for Now", body: "Studyboard AI comes back as your recent use rolls off. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI. Add your free Gemini key to keep going, or wait for it to reset."},
-  today: {title: "You've Used Today's Studyboard AI", body: "Studyboard AI has a daily share so your allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI. More tomorrow, or add your free Gemini key."},
-  files: {title: "This Needs a Gemini Key", body: "Studyboard AI reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
-  search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
-  too_long: {title: "That's Too Much in One Go", body: "Studyboard AI handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
+// Studyboard AI Pro (AI_PRO)
+// (a Gemini key is suggested only to adults: Google's Gemini API terms are 18 and older; others are pointed to the free AI on
+// their computer, or another way to do it)
+const AI_PRO_KID = {
+  used_up: {title: "You've Used Your Studyboard AI Pro for Now", body: "Studyboard AI Pro comes back as your recent use rolls off. Until then, the free AI on your computer keeps working.", err: "You've used this month's Studyboard AI Pro. The free AI on your computer keeps going until it resets."},
+  today: {title: "You've Used Today's Studyboard AI Pro", body: "Studyboard AI Pro has a daily share so your allowance lasts. It's back tomorrow, and the free AI on your computer works in the meantime.", err: "That's today's Studyboard AI Pro. More tomorrow; the free AI on your computer works meanwhile."},
+  files: {title: "Videos Can't Be Watched Here", body: "Studyboard AI Pro reads text, photos and PDFs, but not videos. Paste the video's transcript instead, and it makes notes and cards from that.", err: "Videos can't be watched here. Paste the video's transcript instead."},
+  search: {title: "Web Lookups Use Wikipedia Here", body: "Searching the whole web isn't available with this AI, so Studyboard looks things up on Wikipedia instead.", err: "Searching the whole web isn't available here."},
+  too_long: {title: "That's Too Much in One Go", body: "Studyboard AI Pro handles up to about 250 pages of text at once. Use fewer or shorter files.", err: "That's too much for one go. Use fewer or shorter files."}
 };
-// own: the student's own Claude key in Studyboard AI Mode (the same job, run on this device), otherwise the built-in AI
+const aiProWords = () => typeof aiAdult === "function" && aiAdult() ? AI_PRO_WORDS : AI_PRO_KID;
+const AI_PRO_WORDS = {
+  used_up: {title: "You've Used Your Studyboard AI Pro for Now", body: "Studyboard AI Pro comes back as your recent use rolls off. Until then, AI keeps working with your own free Google Gemini key, which takes about a minute to set up.", err: "You've used this month's Studyboard AI Pro. Add your free Gemini key to keep going, or wait for it to reset."},
+  today: {title: "You've Used Today's Studyboard AI Pro", body: "Studyboard AI Pro has a daily share so your allowance lasts. It's back tomorrow. Your own free Google Gemini key works right away, if you'd like to keep going today.", err: "That's today's Studyboard AI Pro. More tomorrow, or add your free Gemini key."},
+  files: {title: "This Needs a Gemini Key", body: "Studyboard AI Pro reads text, photos and PDFs. Videos need Google's Gemini, the only AI that can watch them. A free Gemini key takes about a minute to set up.", err: "Videos need a free Gemini key."},
+  search: {title: "This Needs Your Own Key", body: "Looking things up on the web needs your own free Google Gemini key, which takes about a minute.", err: "This needs your own free Gemini key."},
+  too_long: {title: "That's Too Much in One Go", body: "Studyboard AI Pro handles up to about 250 pages of text at once. Use fewer or shorter files, or add your own free Google Gemini key for very big jobs.", err: "That's too much for one go. Use fewer or shorter files."}
+};
+// own: the student's own Claude key in Studyboard AI Pro Mode (the same job, run on this device), otherwise the built-in AI
 const AI_OWN_WORDS_PRO = {
-  used_up: {title: "Your Own Key's Limit Is Reached", body: "Studyboard AI keeps your own key to the same limits as Studyboard AI (over the last 7 days, and each month), so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI limit for this month is reached."},
-  today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI limit on your own key. More tomorrow."}
+  used_up: {title: "Your Own Key's Limit Is Reached", body: "Studyboard AI Pro keeps your own key to the same limits as Studyboard AI Pro (over the last 7 days, and each month), so AI pauses until it resets. Choose another model in Settings, AI Features to keep going.", err: "Your own key's Studyboard AI Pro limit for this month is reached."},
+  today: {title: "That's Today's Limit on Your Own Key", body: "Studyboard AI Pro keeps your own key to its daily limit. It's back tomorrow, or choose another model in Settings, AI Features.", err: "That's today's Studyboard AI Pro limit on your own key. More tomorrow."}
 };
 const aiOwnWords = () => aiProUser() ? AI_OWN_WORDS_PRO : AI_OWN_WORDS;
 const AI_OWN_WORDS = {
-  used_up: {title: "Your Claude Key's Limit Is Reached", body: "Studyboard AI Mode keeps your Claude key to the same limits as Studyboard AI, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Mode limit for this month is reached."},
-  today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Mode keeps your Claude key to the same daily limit as Studyboard AI. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Mode limit on your Claude key. More tomorrow."}
+  used_up: {title: "Your Claude Key's Limit Is Reached", body: "Studyboard AI Pro Mode keeps your Claude key to the same limits as Studyboard AI Pro, so AI pauses until it resets. Choose another Claude model in Settings, AI Features to keep going without the limit.", err: "Your Claude key's Studyboard AI Pro Mode limit for this month is reached."},
+  today: {title: "That's Today's Limit on Your Claude Key", body: "Studyboard AI Pro Mode keeps your Claude key to the same daily limit as Studyboard AI Pro. It's back tomorrow, or choose another Claude model in Settings, AI Features.", err: "That's today's Studyboard AI Pro Mode limit on your Claude key. More tomorrow."}
 };
 // A request the student made that meets "too many at once" waits a moment and tries again (up to 3 times) instead of failing
 async function proCall(o){
@@ -858,89 +910,89 @@ async function proCallOnce({system, parts, schema, ms, task, signal, auto, searc
     if (r.status === 503 && j.error === "ai_failed") throw offlineErr("Anthropic");
   } else {
     const tok = await aiSessionToken();
-    if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+    if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI Pro.");
     try { res = await fetchT(`${AI_PRO}/v1/ai`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify(job)}, Math.min(ms, 180000), signal); }
     catch(e) {
       if (signal && signal.aborted) throw aiErr("cancelled", "Canceled.");
       if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long to answer. Try again.");
-      throw offlineErr("Studyboard AI");
+      throw offlineErr("Studyboard AI Pro");
     }
     j = await res.json().catch(() => ({}));
     aiProSet(j);
   }
   if (res.ok && j.data && typeof j.data === "object") {
-    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of your Studyboard AI for now. Everyday jobs now think a little less so the rest lasts."), 600); }
-    return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
+    if (j.soft && !own && !(aiProGet() || {}).softTold) { try { const t = aiProGet(); t.softTold = true; localStorage.setItem(AI_PRO_LS, JSON.stringify(t)); } catch(e) {} if (!auto) setTimeout(() => toast("You've used most of your Studyboard AI Pro for now. Everyday jobs now think a little less so the rest lasts."), 600); }
+    return {data: j.data, model: own ? aiModelName("anthropic", "studyboard") : "Studyboard AI Pro", provider: own ? "anthropic" : "studyboard", truncated: !!j.truncated};
   }
-  const why = res.status === 413 ? "too_long" : AI_PRO_WORDS[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
+  const why = res.status === 413 ? "too_long" : aiProWords()[j.error] && j.error !== "files" && j.error !== "search" ? j.error : "";
   const out = why === "used_up" || why === "today";
   // Out of allowance with the student's own key to fall back on: no message, the job just moves to their key
-  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && aiOwnWords()[why] || AI_PRO_WORDS[why]).err), {out: out && !own}); }
-  if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI." : "Studyboard AI comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
-  if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
-  if (res.status === 429) throw Object.assign(aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute."), {rate: true});
+  if (why) { if (!auto && !(out && hasBackup)) aiProPrompt(why, !!own); try { scheduleRender(); } catch(e) {} throw Object.assign(aiErr(out ? "limit" : "pro-" + why, (own && aiOwnWords()[why] || aiProWords()[why]).err), {out: out && !own}); }
+  if (j.error === "not_pro" || j.error === "off" || j.error === "unconfirmed") { aiProSet({on: false}); try { scheduleRender(); } catch(e) {} throw aiErr("nokey", j.error === "unconfirmed" ? "Confirm your email to use Studyboard AI Pro." : "Studyboard AI Pro comes with Pro. Add your own free Gemini key in Settings to use AI without it."); }
+  if (res.status === 401) throw aiErr("nokey", "Sign in again to use Studyboard AI Pro.");
+  if (res.status === 429) throw Object.assign(aiErr("limit", "Studyboard AI Pro is handling a few requests already. Try again in a minute."), {rate: true});
   if (j.error === "refused") throw aiErr("blocked", "The AI wouldn't help with this one. Try asking another way.");
   if (res.status === 502) throw aiErr("bad", "The AI's answer came back garbled. Try again.");
   if (res.status === 400) throw aiErr("bad", "The AI couldn't read that. Try again, or with a different file.");
-  throw aiErr("busy", "Studyboard AI is very busy right now. Try again in a minute.");
+  throw aiErr("busy", "Studyboard AI Pro is very busy right now. Try again in a minute.");
 }
-// Speech to text for lecture recordings (Whisper on Cloudflare), for Pro students on Studyboard AI
+// Speech to text for lecture recordings (Whisper on Cloudflare), for Pro students on Studyboard AI Pro
 async function proTranscribe(blob, signal, ms){
   const tok = await aiSessionToken();
-  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI Pro.");
   const type = String(blob.type || "audio/webm").split(";")[0] || "audio/webm";
   let res;
   try { res = await fetchT(`${AI_PRO}/v1/transcribe`, {method: "POST", headers: {"Content-Type": /^(audio|video)\//.test(type) ? type : "audio/webm", Authorization: "Bearer " + tok}, body: blob}, ms || 120000, signal); }
-  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long on part of the recording."); throw offlineErr("Studyboard AI"); }
+  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "The AI took too long on part of the recording."); throw offlineErr("Studyboard AI Pro"); }
   const j = await res.json().catch(() => ({}));
   aiProSet(j);
   if (res.ok && typeof j.text === "string") return j.text;
-  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
+  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", aiProWords()[j.error].err); }
   if (res.status === 413) throw aiErr("long", "That part of the recording is too big. Split the recording into shorter parts.");
-  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI Pro is handling a few requests already. Try again in a minute.");
   throw aiErr("busy", "Couldn't transcribe that part right now. Try again in a minute.");
 }
-// Search by meaning on Studyboard AI: texts in, vectors out (one batch of up to 100)
+// Search by meaning on Studyboard AI Pro: texts in, vectors out (one batch of up to 100)
 async function proEmbed(texts, isQuery){
   const tok = await aiSessionToken();
-  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI Pro.");
   let res;
   try { res = await fetchT(`${AI_PRO}/v1/embed`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify({texts: texts.map(t => String(t || " ").slice(0, 8000) || " ")})}, isQuery ? 20000 : 60000); }
-  catch(e) { throw offlineErr("Studyboard AI"); }
+  catch(e) { throw offlineErr("Studyboard AI Pro"); }
   const j = await res.json().catch(() => ({}));
   aiProSet(j);
   if (res.ok && Array.isArray(j.vectors)) return j.vectors;
   if (res.status === 429 || j.error === "used_up" || j.error === "today") throw aiErr("limit", "Search by meaning is resting for now. It picks up again later.");
-  throw aiErr("busy", "Studyboard AI is very busy right now. Try again in a minute.");
+  throw aiErr("busy", "Studyboard AI Pro is very busy right now. Try again in a minute.");
 }
-// A YouTube video's transcript and on-screen text, from Studyboard AI (Google's Gemini watches it on the server)
+// A YouTube video's transcript and on-screen text, from Studyboard AI Pro (Google's Gemini watches it on the server)
 const aiProYoutube = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).youtube; } catch(e) { return false; } };
 async function proYoutube(url, signal){
   const tok = await aiSessionToken();
-  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI.");
+  if (!tok) throw aiErr("nokey", "Sign in again to use Studyboard AI Pro.");
   let res;
   try { res = await fetchT(`${AI_PRO}/v1/youtube`, {method: "POST", headers: {"Content-Type": "application/json", Authorization: "Bearer " + tok}, body: JSON.stringify({url})}, 300000, signal); }
-  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Watching the video took too long. Try a shorter one."); throw offlineErr("Studyboard AI"); }
+  catch(e) { if (signal && signal.aborted) throw aiErr("cancelled", "Canceled."); if (e && e.name === "AbortError") throw aiErr("slow", "Watching the video took too long. Try a shorter one."); throw offlineErr("Studyboard AI Pro"); }
   const j = await res.json().catch(() => ({}));
   aiProSet(j);
   if (res.ok && typeof j.transcript === "string" && j.transcript) return j;
-  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", AI_PRO_WORDS[j.error].err); }
-  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI.${(n => ` More on ${new Date(n).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"})}.`)(SBPOLICY.nextMonth(Date.now()))} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
+  if (j.error === "used_up" || j.error === "today") { aiProPrompt(j.error); throw aiErr("limit", aiProWords()[j.error].err); }
+  if (j.error === "video_limit") throw aiErr("video_limit", `You've used this month's ${j.youtubeMonthly || ""} YouTube videos with Studyboard AI Pro.${(n => ` More on ${new Date(n).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"})}.`)(SBPOLICY.nextMonth(Date.now()))} Paste the video's transcript instead (on YouTube, open the description and choose Show Transcript), or add your own free Gemini key.`.replace("month's  ", "month's "));
   if (j.error === "video") throw aiErr("video", "That video couldn't be watched. It may be private, unlisted, age-restricted, members-only or removed.");
-  if (res.status === 429) throw aiErr("limit", "Studyboard AI is handling a few requests already. Try again in a minute.");
-  throw aiErr("busy", "Studyboard AI couldn't watch that video right now. Try again in a minute.");
+  if (res.status === 429) throw aiErr("limit", "Studyboard AI Pro is handling a few requests already. Try again in a minute.");
+  throw aiErr("busy", "Studyboard AI Pro couldn't watch that video right now. Try again in a minute.");
 }
 const aiProAudio = () => { try { return aiCfg().provider === "studyboard" && !!(aiProGet() || {}).transcribe; } catch(e) { return false; } };
-// Why Studyboard AI stopped, with the way on
+// Why Studyboard AI Pro stopped, with the way on
 let aiProAsking = null;
 function aiProPrompt(why, own){
-  const W = (own && aiOwnWords()[why]) || AI_PRO_WORDS[why]; if (!W || aiProAsking) return;
+  const W = (own && aiOwnWords()[why]) || aiProWords()[why]; if (!W || aiProAsking) return;
   const d = document.createElement("dialog"); d.className = "ai-consent"; d.setAttribute("aria-labelledby", "aiProTitle");
   const when = why === "used_up" ? (own ? (r => { try { return new Date(r).toLocaleDateString(undefined, {month: "long", day: "numeric", timeZone: "UTC"}); } catch(e) { return ""; } })(ownView().resets) : aiProResets()) : "";
   d.innerHTML = `<div class="sheet"><div class="sheet-head"><h2 id="aiProTitle">${esc(W.title)}</h2></div>
-    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">More of your Studyboard AI comes back on ${esc(when)}.</p>` : ""}</div>
-    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
-  const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
+    <div class="sheet-body"><p style="margin:0">${esc(W.body)}</p>${when ? `<p class="mini" style="margin:0">More of your Studyboard AI Pro comes back on ${esc(when)}.</p>` : ""}</div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-no>Not Now</button><button type="button" class="btn primary" data-yes>${own || !aiAdult() ? "AI Settings" : "Add My Free Gemini Key"}</button></div></div>`;
+  const finish = go => { aiProAsking = null; try { d.close(); } catch(e) {} d.remove(); if (go) { aiSetupSheet(true); if (!own && aiAdult()) try { window.open("https://aistudio.google.com/apikey", "_blank", "noopener"); } catch(e) {} } };
   d.addEventListener("cancel", e => { e.preventDefault(); finish(false); });
   d.querySelector("[data-yes]").addEventListener("click", () => finish(true));
   d.querySelector("[data-no]").addEventListener("click", () => finish(false));
@@ -998,7 +1050,9 @@ async function openaiCall(cfg, {system, parts, schema, maxTokens, ms, signal, se
 // The model picker shown in every AI sheet
 function aiModelBar(){
   const c = aiCfg();
-  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
+  // The AI on this computer: no menu (there's nothing to pick), just what it is, and where to add a model of their own
+  if (c.provider === "device") return `<div class="ai-model-bar">${AI_ICON}<span class="mini">Free AI, runs on your computer: ${esc(devLabel())}</span><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></div>`;
+  if (c.provider === "studyboard") { const t = aiProGet() || {}; return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Studyboard AI Pro${t.usedPct ? `: ${t.usedPct}% used, last 7 days` : ""}</span><button type="button" class="link-btn" data-act="ai-setup">Settings</button></label>`; }
   const groups = aiModelOpts(c.keys, `${c.provider}|${c.model}`, (p, P) => p === c.provider && !P.models.some(x => x[0] === c.model) ? `<option value="${p}|${esc(c.model)}" selected>${esc(aiModelName(p, c.model))}</option>` : "");
   return `<label class="ai-model-bar">${AI_ICON}<span class="mini">Model</span><select data-ai-model aria-label="AI model">${groups}</select><button type="button" class="link-btn" data-act="ai-setup">Add Models</button></label>`;
 }
@@ -1073,8 +1127,16 @@ async function pptxText(buf){
   }).join("\n\n");
 }
 async function docxText(buf){
-  const files = await unzipText(buf, n => n === "word/document.xml");
-  return files["word/document.xml"] ? paraText(files["word/document.xml"], "w:p", "w:t").join("\n") : "";
+  const files = await unzipText(buf, n => n === "word/document.xml"), xml = files["word/document.xml"];
+  if (!xml) return "";
+  // headings stay headings ("# Title", "## Heading 1", ...), so long documents can be read in sections
+  const paras = xml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) || [];
+  if (!paras.length) return paraText(xml, "w:p", "w:t").join("\n");
+  return paras.map(p => {
+    const t = paraText(p, "w:p", "w:t").join(" ").trim(); if (!t) return "";
+    const st = (/<w:pStyle w:val="([^"]+)"/.exec(p) || [])[1] || "", m = /^Heading([1-6])$/i.exec(st);
+    return /^Title$/i.test(st) ? "# " + t : m ? "#".repeat(Math.min(6, Number(m[1]) + 1)) + " " + t : t;
+  }).filter(Boolean).join("\n");
 }
 const AI_IMG = {png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", heic: "image/heic", heif: "image/heif"};
 // Returns {name, kind, size, part} where part is a Gemini content part
@@ -1241,7 +1303,8 @@ function aiForgetStyle(text){ try { localStorage.setItem(AI_STYLE_MEM, JSON.stri
 const CARD_SCHEMA = {type: "OBJECT", properties: {
   deckTitle: {type: "STRING", description: "Short name for this set of cards, 2 to 6 words"},
   cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
-    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"}}, required: ["front", "back"]}}},
+    front: {type: "STRING"}, back: {type: "STRING"}, source: {type: "STRING", description: "Slide or page reference, like 'Slides 4-5' or 'p. 12'"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea (what it does, what it's part of, a comparison) that helps recall the back without using any of its words"}}, required: ["front", "back"]}}},
   required: ["cards"]};
 const QUIZ_SCHEMA = {type: "OBJECT", properties: {
   title: {type: "STRING", description: "Short quiz title"},
@@ -1254,6 +1317,7 @@ const QUIZ_SCHEMA = {type: "OBJECT", properties: {
     rationale: {type: "STRING"},
     optionNotes: {type: "ARRAY", items: {type: "STRING"}, description: "One short note per option saying why it is right or wrong"},
     topic: {type: "STRING"},
+    hint: {type: "STRING", description: "A one-sentence nudge about the idea behind the question that helps without giving the answer away, using none of its words and ruling out no option"},
     source: {type: "STRING"}}, required: ["type", "stem", "rationale"]}}},
   required: ["questions"]};
 // tidy: how each piece of text is cleaned (questions made from your own cards keep their text, math included)
@@ -1275,7 +1339,7 @@ function aiCleanQuestions(list, tidy){
     if (type === "order" && (correct.length !== options.length || new Set(correct).size !== options.length)) return;
     const notes = Array.isArray(q.optionNotes) && q.optionNotes.length === options.length ? q.optionNotes.map(s => tidy(s)) : [];
     out.push({id: uid(), type, stem, options: type === "short" ? [] : options, correct: type === "short" ? [] : (type === "multiple" ? [...new Set(correct)].sort((a, b) => a - b) : correct),
-      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim()});
+      answer: type === "short" ? (answer || options[correct[0]]) : "", rationale: tidy(q.rationale), notes, topic: String(q.topic || "").trim(), source: String(q.source || "").trim(), update: String(q.update || "").trim(), hint: tidy(q.hint || "").slice(0, 300)});
   });
   return out;
 }
@@ -1284,10 +1348,423 @@ const AI_QUIZ_SYSTEM = "You write high-quality practice exam questions. Question
 // One more try when the answer came back garbled or cut off to nothing
 async function aiRetry(fn){ try { return await fn(); } catch(e) { if (e && (e.code === "bad" || e.code === "long")) return await fn(); throw e; } }
 const AI_GROUND = "Ground every item in the facts of the material above, but write it in your own words: restate each fact or idea instead of copying the material's sentences or phrases (its technical terms, names, numbers and formulas are fine). Never add a fact, number, date, example or definition that is not in the material, and skip a topic rather than guess. Write in the same language as the material. Plain text only (no markdown or HTML). Write simple chemistry and math directly, like H₂O, CO₂, x², Δ, →; write anything harder (fractions, roots, integrals, sums, limits, vectors, matrices, reactions with conditions) in LaTeX between single dollar signs, like $\\frac{a}{b}$, $\\int_0^1 x\\,dx$ or $\\ce{2H2 + O2 -> 2H2O}$, because the app draws it as math. The 'source' field is required: the slide number or page (like 'Slide 12' or 'p. 4'), or the section heading when the material has no pages.";
+/* The study set pipeline (with 01-ai-sections.js). Material read on this device is split into sections; each section is its own
+   short request ("make 3 cards from this part"), at most 3 at a time; every card goes through the same gates as before
+   (aiGateCards / aiGateQuestions: copied, repeated, incomplete, unsupported by the section); a section that comes back thin is
+   asked once more. Then everything is gated once more together, which removes repeats across sections. */
+// Sections of the material, or null when it should go as one request: short material, or anything this device can't read as
+// text (photos, scanned PDFs), which the AI reads itself, as before
+async function aiSectionsOf(sources, kind){
+  if (!window.SBSECT || !sources.length) return null;
+  const list = [];
+  for (const s of sources) {
+    // a scan read on this device (aiDevReadSources): its pages, with line heights for font sizes
+    if (s.ocrPages) { const base = list.length * 1000; list.push({name: s.name, pdf: s.ocrPages.map(p => Object.assign({}, p, {n: base + p.n}))}); continue; }
+    if (s.part && typeof s.part.text === "string") { list.push({name: s.name, text: s.part.text}); continue; }
+    if (s.pdfBytes) { const pages = s.pdfPages && kind === "small" ? s.pdfPages : await aiPdfPages(s.pdfBytes, {figures: kind !== "small"}); const w = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+      // a scanned PDF (little or no text layer) is read by the AI itself
+      if (!pages.length || w < pages.length * 25) return null;
+      // page numbers made unique across files (file k's page n is k * 1000 + n), so each figure finds its own section
+      const base = list.length * 1000; list.push({name: s.name, pdf: pages.map(p => Object.assign({}, p, {n: base + p.n}))}); continue; }
+    return null;
+  }
+  const secs = SBSECT.fromSources(list, kind), total = secs.reduce((n, x) => n + x.words, 0);
+  // a small engine checks its work part by part, so short material with one part goes this way too
+  if (!SBSECT.worth(secs, total, kind) && !(kind === "small" && secs.length === 1)) return null;
+  // each figure page goes with its section (the clearest few per section), in page order
+  const figs = {}; list.forEach(src => (src.pdf || []).forEach(p => { if (p.figure && p.img) figs[p.n] = p; }));
+  SBSECT.figuresTo(secs, Object.keys(figs).map(Number)).forEach(([pg, k]) => { (secs[k].figs = secs[k].figs || []).push(figs[pg]); });
+  secs.forEach(x => { if (x.figs) x.figs = x.figs.sort((a, b) => b.score - a.score).slice(0, AI_FIG.perSection).sort((a, b) => a.n - b.n); });
+  return secs;
+}
+// Run jobs a few at a time, in order; a job that fails gives null (the others carry on); an abort stops what hasn't started
+async function aiPool(items, width, fn, signal){
+  const out = new Array(items.length).fill(null); let next = 0;
+  const lane = async () => { while (next < items.length) { const i = next++; if (signal && signal.aborted) return; try { out[i] = await fn(items[i], i); } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; out[i] = {error: e}; } } };
+  await Promise.all(Array.from({length: Math.min(width, items.length)}, lane));
+  return out;
+}
+const AI_PART = (x, i, n) => `Part ${i + 1} of ${n} of the material${SBSECT.label(x.section) ? `: ${SBSECT.label(x.section)}` : ""}\n\n${x.section.text}`;
+// The pictures of a section's figure pages, each named by its page, and a line asking the AI to use them
+const aiFigParts = x => (x.section.figs || []).flatMap(p => [{text: `Page ${p.n % 1000} of the material (a figure in this part):`}, {inline_data: {mime_type: "image/jpeg", data: p.img}}]);
+const aiFigAsk = x => (x.section.figs || []).length ? " Pictures of this part's pages with figures are attached: where they matter, include what the figures show (labels, parts, steps, trends), described in words so each card works without the picture." : "";
+/* Small on-device models (01-ai-device.js) write noticeably better cards with: a worked example to copy, short sections, the
+   sentence each card comes from written first (so the card stays tied to the notes, and a made-up one can be caught), and a second
+   pass where the model checks its own cards against the notes as a strict teacher. Quizzes: the model takes its own quiz from the
+   notes, and a question whose answer key it disagrees with is left out. */
+// Which extra steps small models get. check (a second pass judging each card) is off: on the stand-in model it called every card
+// "drop", good ones included, and cost a third of the time
+// facts: cards in two easy steps (list the facts, then one card per fact) instead of one hard one (aiDevFactCards)
+const DEV_STEPS = {check: false, solve: true, facts: true};
+const aiOnDevice = () => { try { return aiCfg().provider === "device"; } catch (e) { return false; } };
+const DEV_CARD_SCHEMA = {type: "OBJECT", properties: {
+  deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"},
+  cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
+    basis: {type: "STRING", description: "3 to 8 words copied exactly from the sentence in the notes this card is based on"},
+    front: {type: "STRING"}, back: {type: "STRING"},
+    hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["basis", "front", "back"]}}},
+  required: ["cards"]};
+// A small model's own instructions: short and concrete. The cloud models' longer ones (exam styles, formats, priorities) made the
+// stand-in model write fewer, vaguer cards
+/* The key terms in a part of the notes, found by plain code (no AI), so a small model can't leave the vocabulary out: a slide's short
+   term line followed by its definition ("Preconscious" / "Contains material that..."), "Term: definition" and "Term - definition"
+   lines, **bold** words, and "X is a/an/the..." sentences. The model is told to name each one on a card; any it skipped gets one
+   short follow-up request. The definitions still come from the model, in its own words. */
+const AI_TERM_SKIP = /^(objectives?|overview|summary|introduction|conclusion|review|questions?|case study|audience response questions?|implications?( for \w+)?|focus on|notes?|slide \d+|chapter \d+|example|examples|(the )?(cont\.?|continued)|key (points|terms)|learning outcomes?|agenda|references|foundations?|prioriti[sz]ing|best candidates?|(newer|older|main|other|more|new) [\w -]+)$/i;
+function aiKeyTerms(text, max){
+  const out = [], seen = new Set(), lines = String(text || "").split(/\n+/).map(l => l.replace(/^[\s•▪●◦*\-–—>]+/, "").trim()).filter(Boolean);
+  const add = t => { t = String(t || "").replace(/\*\*/g, "").replace(/\s*\((cont\.?|continued)\)\s*$/i, "").replace(/[.:;,]+$/, "").trim(); const k = t.toLowerCase();
+    if (/^(operate|operates|use|uses|using|focus|focuses|deny|ward|increased|decreased|have|has|are|is|include|includes|make|makes|help|helps|provide|provides|identify|recognize|reduce|lowering|emphasis|how|why|what|when|where)\b/i.test(t)) return;
+    if (t.length < 2 || t.length > 48 || t.split(/\s+/).length > 5 || AI_TERM_SKIP.test(t) || /^\d/.test(t) || seen.has(k)) return; seen.add(k); out.push(t); };
+  (String(text || "").match(/\*\*([^*\n]{3,48})\*\*/g) || []).forEach(m => add(m.slice(2, -2)));
+  lines.forEach((l, i) => {
+    let m;
+    if ((m = /^([A-Z][\w'’ -]{1,40}?)\s*[:–—-]\s+(.{12,})$/.exec(l)) && m[1].split(/\s+/).length <= 5) add(m[1]);
+    else if ((m = /^((?:(?:The|An?) )?[A-Z][\w'’-]*(?: [\w'’-]+){0,3}) (?:is|are|refers to|means|describes|measures|explains|shows) (?:a|an|the|when|how|any|all|what|whether|why)\b/.exec(l))) add(m[1].replace(/^(The|An?) /, ""));
+    else { const nx = lines[i + 1] || ""; if (/^[A-Z][\w'’ -]{1,40}$/.test(l) && l.split(/\s+/).length <= 4 && nx.split(/\s+/).length >= 5 && !/[.!?]$/.test(l)) add(l);
+      // a one-word term over two or more short points (slides: "Ego" / "Problem solver" / "Reality tester")
+      else if (/^[A-Z][a-z][\w'’-]{0,24}$/.test(l) && nx && nx.split(/\s+/).length <= 4 && (lines[i + 2] || "").split(/\s+/).length <= 4 && !/^\S+$/.test(nx)) add(l); }
+  });
+  return out.slice(0, max || 12);
+}
+const DEV_CARD_SYSTEM = "You make flashcards from a student's notes. Each card tests one fact from the notes. front: a short, specific question about that fact (at most 15 words) that names the term, theory or person it's about (\"What is the preconscious?\", not \"What information can be brought to mind?\"), never a vague one like 'What does the text say about X?'. Skip case-study details such as a patient's name or length of stay. back: only the answer, in one short sentence, in your own words. Every card is about a different fact: go through the notes in order and cover all of their facts. Use only facts that are in the notes.";
+const DEV_CARD_EXAMPLE = `
+
+Example. Notes: "Osmosis is the diffusion of water across a selectively permeable membrane. Water moves toward the side with the higher solute concentration. A red blood cell placed in a hypotonic solution gains water and can burst."
+Good cards:
+{"basis":"Osmosis is the diffusion of water across a selectively permeable membrane.","front":"What is osmosis?","back":"The movement of water by diffusion through a membrane that lets only some substances pass.","hint":"It's diffusion, but only for one very common molecule."}
+{"basis":"Water moves toward the side with the higher solute concentration.","front":"In osmosis, which way does water move?","back":"Toward the side with more dissolved solute.","hint":"Water flows to dilute the more crowded side."}
+{"basis":"A red blood cell placed in a hypotonic solution gains water and can burst.","front":"What happens to a red blood cell in a hypotonic solution?","back":"Water rushes in, so it swells and may burst.","hint":"Hypo- means the outside has less solute than the inside."}
+Bad cards (never write these): front "What does the text say about osmosis?" (vague); back "See the notes" (no answer); a front that already contains its answer; a card about the lecture title, date or instructor.`;
+// Is the card's "basis" really in the notes? (most of its longer words are, in a run of at least 3 that matches the notes' wording)
+// Is a fact (or a card's source sentence) really from the notes? Small models reword what they restate ("ended slavery" for
+// "abolished slavery"), so word overlap alone throws out true facts (on the stand-in model it dropped a third of them). What gives
+// an invented fact away is a new specific: a number, or a name, that the notes don't have. So: every number must be in the notes,
+// every name too (a capitalized word mid-sentence, matched on its first five letters), and at least a third of the longer words
+// must be (matched the same way, so "sharecropping" finds "sharecroppers").
+function aiBasisOk(basis, text){
+  const norm = s2 => String(s2 || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const b = norm(basis), t = norm(text).toLowerCase(), stem = w => w.toLowerCase().slice(0, 5);
+  const nums = s2 => (s2.replace(/(\d),(\d{3})/g, "$1$2").match(/\d+(?:\.\d+)?/g) || []);
+  const tn = new Set(nums(t)); if (nums(b).some(n => !tn.has(n))) return false;
+  const tw = new Set((t.match(/[\p{L}\p{N}]{4,}/gu) || []).map(stem));
+  const names = (b.match(/(?<=[a-z,;:] )[A-Z][\p{L}'-]{3,}/gu) || []); if (names.some(n => !tw.has(stem(n)))) return false;
+  const bw = (b.match(/[\p{L}\p{N}]{4,}/gu) || []).map(stem); if (!bw.length) return false;
+  return bw.filter(x => tw.has(x)).length / bw.length >= (bw.length < 4 ? 0.67 : 0.34);
+}
+const DEV_CHECK_SCHEMA = {type: "OBJECT", properties: {checks: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, verdict: {type: "STRING", enum: ["keep", "fix", "drop"]}, back: {type: "STRING", description: "The corrected answer, only when the verdict is fix"}}, required: ["n", "verdict"]}}}, required: ["checks"]};
+// The second pass for cards: keep, fix (a better answer from the notes) or drop. It may not drop more than half (a model that
+// rejects most of its own cards is more likely wrong about them than they are)
+async function aiDevCheckCards(section, cards, signal){
+  if (!cards.length) return {cards, fixed: 0, dropped: 0};
+  try {
+    const r = await aiCall({task: "check", signal, maxTokens: 1500, schema: DEV_CHECK_SCHEMA,
+      system: "You are a strict, fair teacher checking a student's flashcards against their notes. Judge only by the notes.",
+      parts: [{text: `Notes:\n${section.text}\n\nFlashcards:\n${cards.map((c, i) => `${i + 1}. Front: ${c.front}\n   Back: ${c.back}`).join("\n")}\n\nGive one verdict per card, by its number. keep: the back correctly and completely answers the front, according to the notes. fix: the back is wrong, incomplete or unclear; write the corrected back, 1 or 2 sentences in your own words, from the notes. drop: trivia, not answerable from the notes, or the front gives its own answer away.`}]});
+    const by = new Map((r.data.checks || []).map(x => [Number(x.n), x])), drops = cards.filter((c, i) => (by.get(i + 1) || {}).verdict === "drop").length, mayDrop = drops <= Math.floor(cards.length / 2);
+    let fixed = 0, dropped = 0;
+    const out = cards.flatMap((c, i) => { const v = by.get(i + 1); if (!v) return [c];
+      if (v.verdict === "drop" && mayDrop) { dropped++; return []; }
+      const nb = aiTidyText(v.back || "");
+      if (v.verdict === "fix" && nb.length > 2 && nb.length <= 700 && !aiDefers(nb) && aiKeyTokens(nb).join(" ") !== aiKeyTokens(c.front).join(" ")) { fixed++; return [Object.assign({}, c, {back: nb})]; }
+      return [c]; });
+    return {cards: out, fixed, dropped};
+  } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return {cards, fixed: 0, dropped: 0}; }
+}
+const DEV_SOLVE_SCHEMA = {type: "OBJECT", properties: {answers: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, letters: {type: "ARRAY", items: {type: "STRING"}, description: "The letters of the correct options"}}, required: ["n", "letters"]}}}, required: ["answers"]};
+// The second pass for quizzes: the model answers its own questions from the notes, without the answer key; a question it answers
+// differently is ambiguous or keyed wrong, so it's left out (again, never more than half)
+async function aiDevCheckQuiz(section, qs, signal){
+  const L = "ABCDEFGH", test = qs.map((q, i) => ({q, i})).filter(x => ["single", "multiple", "truefalse"].includes(x.q.type) && x.q.options.length <= L.length);
+  if (!test.length) return {questions: qs, dropped: 0};
+  try {
+    const r = await aiCall({task: "check", signal, maxTokens: 1200, schema: DEV_SOLVE_SCHEMA,
+      system: "You are a careful student taking a quiz. Answer only from the notes given.",
+      parts: [{text: `Notes:\n${section.text}\n\nQuestions:\n${test.map((x, k) => `${k + 1}. ${x.q.stem}${x.q.type === "multiple" ? " (choose all that apply)" : ""}\n${x.q.options.map((o, j) => `   ${L[j]}. ${o}`).join("\n")}`).join("\n")}\n\nFor each question, by its number, give the letter of the correct option (or every correct letter, where it says choose all that apply).`}]});
+    const by = new Map((r.data.answers || []).map(a => [Number(a.n), (a.letters || []).map(l => L.indexOf(String(l).trim().toUpperCase().charAt(0))).filter(j => j >= 0).sort((a2, b2) => a2 - b2)]));
+    const bad = new Set(test.filter((x, k) => { const got = by.get(k + 1); return got && got.length && got.join(",") !== x.q.correct.slice().sort((a2, b2) => a2 - b2).join(","); }).map(x => x.i));
+    if (bad.size > Math.floor(test.length / 2)) return {questions: qs, dropped: 0};
+    return {questions: qs.filter((q, i) => !bad.has(i)), dropped: bad.size};
+  } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return {questions: qs, dropped: 0}; }
+}
+/* Cards for a small model in two easy steps. 1) List the part's facts, one short standalone sentence each: small models extract well,
+   and every fact is checked against the notes (an invented one is dropped). 2) One card per fact: turning a given sentence into a
+   question and answer is nearly mechanical. Before this, asking a small model for "N cards" in one go covered about half of the key
+   facts on the stand-in model. */
+const DEV_FACTS_SCHEMA = {type: "OBJECT", properties: {facts: {type: "ARRAY", items: {type: "STRING"}}}, required: ["facts"]};
+const DEV_FACT_CARDS_SCHEMA = {type: "OBJECT", properties: {deckTitle: {type: "STRING", description: "Short name for these cards, 2 to 6 words"}, cards: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, front: {type: "STRING"}, back: {type: "STRING"}, hint: {type: "STRING", description: "A one-sentence nudge that helps recall the back without using its words"}}, required: ["n", "front", "back"]}}}, required: ["cards"]};
+const DEV_FACTS_SYSTEM = "You list the facts in a student's notes. Each fact is one short, complete sentence that makes sense on its own: name what it is about (never start with 'it' or 'this'). Include definitions, numbers, names, dates, causes and effects, steps, comparisons and examples. Keep the notes' order. Leave out filler such as titles, page numbers and 'in this lecture'. Use only what the notes say.";
+const DEV_FACT_CARDS_SYSTEM = "You turn facts into flashcards. For each numbered fact, write one card with the same number. front: a specific question that the fact answers, at most 15 words, that doesn't contain the answer. back: just the answer, short, in your own words. Example: fact \"Glycolysis takes place in the cytoplasm and does not need oxygen.\" gives front \"Where in the cell does glycolysis happen?\" and back \"In the cytoplasm (it doesn't need oxygen).\"";
+// The facts in one part of the notes, checked against it, without repeats, spread across the part. Listed once per part and
+// shared by its cards and its quiz questions
+function aiDevFacts(x, o, cap){
+  // (the request is shared: cards and quiz for the same part wait for the same list)
+  if (!x.section.factsP) x.section.factsP = (async () => {
+    const label = SBSECT.label(x.section);
+    const a = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 1500, schema: DEV_FACTS_SCHEMA, system: DEV_FACTS_SYSTEM,
+      parts: [{text: `Notes${label ? ` (${label})` : ""}:\n${x.section.text}\n\nList the facts in these notes, at most ${SBSECT.SIZES.small.perSection + 7}.`}]}));
+    let unsup = 0; const seen = [];
+    const facts = (a.data.facts || []).map(f => aiTidyText(f)).filter(f => f.length > 12 && f.length < 400).filter(f => { if (!aiBasisOk(f, x.section.text)) { unsup++; return false; } const t = aiKeyTokens(f); if (seen.some(s2 => aiJaccard(t, s2) >= 0.7)) return false; seen.push(t); return true; });
+    return {facts, unsup, truncated: a.truncated};
+  })().catch(e => { x.section.factsP = null; throw e; });
+  // as many as asked for, spread across the part (for "Auto", all of them up to the cap)
+  return x.section.factsP.then(F => { let facts = F.facts; if (facts.length > cap) { const k = facts.length / cap; facts = Array.from({length: cap}, (_, i) => facts[Math.floor(i * k)]); } return Object.assign({}, F, {facts}); });
+}
+async function aiDevFactCards(x, o, corpus){
+  // "Auto": every fact the part has (keeping 10 of 14 dropped core facts on the stand-in model); a set number: that many, spread out
+  const label = SBSECT.label(x.section), auto = !o.n, cap = auto ? SBSECT.SIZES.small.perSection + 7 : Math.max(x.count, 1);
+  const F = await aiDevFacts(x, o, cap), facts = F.facts, unsup = F.unsup, a = {truncated: F.truncated};
+  if (!facts.length) return null;
+  const b = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_CARDS_SCHEMA, system: DEV_FACT_CARDS_SYSTEM,
+    parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one card for each of the ${facts.length} facts, numbered the same.`}]}));
+  const list = (b.data.cards || []).filter(c => c && Number(c.n) >= 1 && Number(c.n) <= facts.length);
+  const g = aiGateCards(list, {max: cap + 2, corpus, copy: o.copy});
+  // Each card comes from a fact already checked against the notes, so only a new number or name is worth a "Check" mark: the word
+  // overlap test marked correct, reworded cards (14 of 29 on the stand-in model)
+  g.cards.forEach(c => { c.check = aiBasisOk(c.front + " " + c.back, x.section.text + " " + facts.join(" ")) || !/\d|(?<=[a-z,;:] )[A-Z]/.test(c.front + " " + c.back) ? "" : (aiGroundNote(c.front + " " + c.back, corpus) || "Check this against your material"); });
+  return {cards: g.cards, title: b.data.deckTitle, truncated: a.truncated || b.truncated, vague: g.dropped.vague, unsup};
+}
+/* Quiz questions for a small model, from the same facts: it writes the question, the right answer, three wrong ones and why; Studyboard
+   shuffles the options and records which one is right, so the answer key can't come out wrong (small models often mix up option
+   numbers). Then the model takes its own quiz (aiDevCheckQuiz) as before. */
+const DEV_FACT_QUIZ_SCHEMA = {type: "OBJECT", properties: {title: {type: "STRING"}, questions: {type: "ARRAY", items: {type: "OBJECT", properties: {
+  n: {type: "INTEGER"}, stem: {type: "STRING"}, answer: {type: "STRING"}, wrong: {type: "ARRAY", items: {type: "STRING"}}, why: {type: "STRING"}}, required: ["n", "stem", "answer", "wrong", "why"]}}}, required: ["questions"]};
+const DEV_FACT_QUIZ_SYSTEM = "You write multiple-choice practice questions from facts. For each numbered fact, write one question with the same number. stem: a clear question that the fact answers, without giving the answer away. answer: the correct answer, short. wrong: three wrong answers that a student who hasn't studied could believe: the same kind of thing and about the same length as the answer, but clearly wrong according to the facts. why: one sentence on why the answer is right. Example: fact \"Glycolysis takes place in the cytoplasm.\" gives stem \"Where in the cell does glycolysis take place?\", answer \"The cytoplasm\", wrong [\"The mitochondrial matrix\", \"The nucleus\", \"The inner mitochondrial membrane\"], why \"Glycolysis happens in the cytoplasm, before anything enters the mitochondria.\"";
+async function aiDevFactQuiz(x, o){
+  const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
+  if (!facts.length) return null;
+  const label = SBSECT.label(x.section);
+  if (o.onStep) o.onStep(`writing ${facts.length} question${facts.length === 1 ? "" : "s"}…`);
+  const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
+    parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
+  const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
+  const out = (b.data.questions || []).map(q => {
+    const n = Number(q.n), answer = aiTidyText(q.answer || ""), stem = aiTidyText(q.stem || "");
+    if (!stem || !answer || !(n >= 1 && n <= facts.length)) return null;
+    const wrong = []; (Array.isArray(q.wrong) ? q.wrong : []).map(w => aiTidyText(w || "")).forEach(w => { if (w && key(w) !== key(answer) && !wrong.some(v => key(v) === key(w))) wrong.push(w); });
+    if (wrong.length < 2) return null;
+    // the right answer's place, from the stem (stable, and different from question to question)
+    const options = wrong.slice(0, 3), at = [...stem].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % (options.length + 1);
+    options.splice(at, 0, answer);
+    return {type: "single", stem, options, correct: [at], rationale: aiTidyText(q.why || "") || facts[n - 1], source: x.section.title.slice(0, 60)};
+  }).filter(Boolean);
+  return {questions: out, title: b.data.title, truncated: F.truncated || b.truncated};
+}
+/* How fast the AI on THIS computer is, learned from the sets it made: seconds per card (or question) and per part, averaged over
+   the last few sets. It's what the "On this computer: about 2 minutes" estimate is made from. Kept on this device only. */
+const AI_SPEED_KEY = "studyboard:devSpeed";
+function aiDevSpeed(){ try { return JSON.parse(localStorage.getItem(AI_SPEED_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function aiDevSpeedNote(kind, secs, items, parts){
+  try { const S = aiDevSpeed(), per = Math.max(0.3, (secs - parts * 2) / items), old = S[kind];
+    S[kind] = {per: old ? old.per * 0.6 + per * 0.4 : per, part: 2, n: (old ? old.n : 0) + 1, engine: (DEVAI && DEVAI.kind) || ""};
+    localStorage.setItem(AI_SPEED_KEY, JSON.stringify(S)); } catch (e) {}
+}
+// Seconds for n cards and q questions on this computer, or null before it has made a set
+function aiDevEstimate(n, q, parts){
+  const S = aiDevSpeed(); if (!S.card && !S.question) return null;
+  const c = S.card ? S.card.per : S.question.per * 0.8, qq = S.question ? S.question.per : c * 1.6;
+  return Math.round((n || 0) * c + (q || 0) * qq + (parts || 4) * 2 * ((n ? 1 : 0) + (q ? 1 : 0)));
+}
+const aiDur = s => s < 50 ? `${Math.max(10, Math.round(s / 10) * 10)} seconds` : s < 90 ? "about a minute" : s < 150 ? "about 2 minutes" : `about ${Math.round(s / 60)} minutes`;
+async function aiCardsBySection(o){
+  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(); let done = 0, made = 0;
+  // On the device, "Auto" aims for the whole set in about a minute: after each part, the parts still to do get as many cards as
+  // the time left allows at the speed so far (at least 2 each, so every part is still covered)
+  const t0 = Date.now(), BUDGET = 60000;
+  const fit = x => { if (!dev || o.n || !made || !done) return x; const per = (Date.now() - t0) / made, left = n - done, room = Math.max(0, BUDGET - (Date.now() - t0));
+    return Object.assign({}, x, {count: Math.max(Math.min(2, x.count), Math.min(x.count, Math.floor(room / per / left)))}); };
+  const tell = () => { if (o.onStatus) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n}`); };
+  // on the device, the answer being written shows in the status line too
+  const live = dev && o.onStatus ? m => { const w = /writing… (\d+) words?/.exec(m); if (w) o.onStatus(`Making flashcards: ${made} card${made === 1 ? "" : "s"} so far, part ${Math.min(done + 1, n)} of ${n} (writing ${w[1]} words)`); } : undefined;
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 6000, schema: dev ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: dev ? DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE : o.system,
+    parts: dev ? [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from these notes, each about a different fact: the most important ones, spread across all of these notes.${(x.terms || []).length ? ` Key terms here (name each one on the front of a card): ${x.terms.join("; ")}.` : ""}${again ? " Your last answer had too few usable cards: give each card a real question and a complete answer." : ""}`}]
+      : [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Make exactly ${x.count} flashcard${x.count === 1 ? "" : "s"} from this part only: its most important ideas, one idea per card. Other parts of the material are covered separately, so stay within this one.${aiFigAsk(x)}${again ? " Your last answer had too few usable cards: write complete cards, each restating one fact from this part in your own words." : ""}`})}));
+  const res = await aiPool(plan, dev ? 1 : 3, async (x0, i) => {
+    let unsup = 0;
+    const x = fit(x0), corpus = aiCorpus([x.section.text]);
+    if (dev) x.terms = aiKeyTerms(x.section.text, Math.max(1, x.count));
+    if (dev && i === 0) tell();
+    if (dev && DEV_STEPS.facts && o.facts) { const f = await aiDevFactCards(x, o, corpus).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f && f.cards.length >= Math.min(2, x.count)) { done++; made += f.cards.length; if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`); f.cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); }); if (o.onCards) try { o.onCards(f.cards); } catch (e) {} return f; } }
+    const gate = r => { const list = (r.data.cards || []).filter(c => !dev || (c && aiBasisOk(c.basis, x.section.text)) || (unsup++, false)); return aiGateCards(list, {max: x.count + 2, corpus, copy: o.copy}); };
+    let r = await ask(x, i), g = gate(r);
+    if (g.cards.length < Math.ceil(x.count / 2) && x.count >= 2) { try { unsup = 0; const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.cards.length > g.cards.length) { r = r2; g = g2; } } catch (e) {} }
+    let cards = g.cards, checked = {fixed: 0, dropped: 0};
+    // key terms the cards left out: one short request for just those (while the minute allows)
+    if (dev && (x.terms || []).length && Date.now() - t0 < BUDGET) {
+      const has = t => cards.some(c => (c.front + " " + c.back).toLowerCase().includes(t.toLowerCase()));
+      const miss = x.terms.filter(t => !has(t)).slice(0, 4);
+      if (miss.length) { try {
+        const r3 = await aiRetry(() => aiCall({task: o.light ? "cards-light" : "cards", signal: o.signal, onStatus: live, maxTokens: 2000, schema: DEV_CARD_SCHEMA, system: DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE,
+          parts: [{text: `${o.devCtx || o.ctx}\n\nNotes${SBSECT.label(x.section) ? ` (${SBSECT.label(x.section)})` : ""}:\n${x.section.text}\n\nMake exactly ${miss.length} flashcard${miss.length === 1 ? "" : "s"}, one for each of these terms from the notes, naming the term on the front: ${miss.join("; ")}.`}]}));
+        const g3 = gate(r3), more = g3.cards.filter(c => !cards.some(k => aiJaccard(aiKeyTokens(k.front), aiKeyTokens(c.front)) >= 0.7));
+        cards = cards.concat(more);
+      } catch (e) { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; } }
+    }
+    if (dev && DEV_STEPS.check && cards.length) { checked = await aiDevCheckCards(x.section, cards, o.signal); cards = checked.cards.map(c => Object.assign(c, {check: aiGroundNote(c.front + " " + c.back, corpus)})); }
+    done++; made += cards.length;
+    if (dev) tell(); else if (o.onStatus) o.onStatus(`Making flashcards: ${done} of ${n} parts done`);
+    cards.forEach(c => { c.source = c.source || x.section.title.slice(0, 60); });
+    if (o.onCards && cards.length) try { o.onCards(cards); } catch (e) {}
+    return {cards, title: r.data.deckTitle, truncated: r.truncated, vague: g.dropped.vague, unsup: unsup + checked.dropped, fixed: checked.fixed};
+  }, o.signal);
+  const ok = res.filter(x => x && !x.error);
+  if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't make cards from that. Try again.");
+  if (dev && made >= 4) aiDevSpeedNote("card", (Date.now() - t0) / 1000, made, n);
+  const missed = res.length - ok.length;
+  return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
+}
+// On the device, a quiz in fewer, bigger parts: each part is three requests (facts, questions, check) and each re-reads its text
+// first, so 10 questions over 8 parts of a slide deck was 24 requests and minutes before the first question. Neighbouring parts
+// are joined until a part asks about 4 questions or its text would crowd the model's memory (E4B's is twice the smaller ones').
+function aiQuizJoin(plan){
+  const room = Math.max(700, Math.floor(((typeof DEVAI !== "undefined" && DEVAI.ctx) || 4096) * 0.28)), out = [];
+  plan.forEach(x => { const l = out[out.length - 1], w = s => s.words || SBSECT.words(s.text || "");
+    if (l && l.count + x.count <= 4 && w(l.section) + w(x.section) <= room) {
+      const a = l.section, b = x.section;
+      l.section = {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title && b.title !== a.title ? b.title + "\n" : "") + b.text,
+        words: w(a) + w(b), pages: (a.pages || []).concat(b.pages || []), figs: (a.figs || []).concat(b.figs || [])};
+      l.count += x.count;
+    } else out.push({section: x.section, count: x.count}); });
+  return out;
+}
+window.__sbQuizJoin = aiQuizJoin;
+async function aiQuizBySection(o){
+  const dev = aiOnDevice(), plan0 = SBSECT.plan(o.secs, o.n, o.kind), plan = dev && o.quizOnly ? aiQuizJoin(plan0) : plan0, n = plan.length, qt0 = Date.now(); let done = 0;
+  const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
+    parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
+  const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
+    const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
+    let r = null, g = null;
+    // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
+    // say which step it's on: a small model takes minutes per part, and one unchanging line looks stuck
+    const step = t => { if (o.onStatus) o.onStatus(n > 1 ? `Writing the quiz, part ${i + 1} of ${n}: ${t}` : `Writing the quiz: ${t}`); };
+    if (dev && DEV_STEPS.facts) { step("finding the key facts…"); const f = await aiDevFactQuiz(x, Object.assign({}, o, {onStep: step})).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+      if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
+    if (!r) { if (dev) step("writing the questions…"); r = await ask(x, i); g = gate(r); }
+    if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
+    let keep = g.questions, wrong = 0;
+    if (dev && DEV_STEPS.solve && keep.length) { step("checking the answers…"); const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
+    if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
+    return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
+  }, o.signal);
+  const ok = res.filter(x => x && !x.error);
+  if (!ok.length) throw (res.find(x => x && x.error) || {}).error || aiErr("empty", "Couldn't write a quiz from that. Try again.");
+  if (dev) { const nq = ok.reduce((m, x) => m + (x.questions || []).length, 0); if (nq >= 3) aiDevSpeedNote("question", (Date.now() - qt0) / 1000, nq, n); }
+  return {data: {questions: ok.flatMap(x => x.questions), title: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed: res.length - ok.length, wrong: ok.reduce((m, x) => m + (x.wrong || 0), 0)};
+}
+// A PDF read on this device, page by page: each page's lines with their font size (headings are bigger), and, when figures are
+// wanted (an engine that can see pictures), which pages hold a real figure (a diagram, chart or labelled picture), rendered as a
+// picture to send with that page's section. Only those pages are sent as pictures: text pages stay text.
+//   A figure: images covering 12%+ of the page (a picture-only page: 5%+), or a dense vector drawing (120+ shapes). Not a
+//   figure: a logo or background that sits in the same place on half the pages or more, or a small icon.
+const AI_FIG = {area: 0.12, areaBare: 0.05, paths: 120, perPdf: 16, perSection: 4, px: 1100, quality: 0.8};
+async function aiPdfPages(u8, opts){
+  opts = opts || {};
+  try {
+    if (typeof loadPdfJs !== "function") return [];
+    await loadPdfJs();
+    const lib = window.pdfjsLib, OPS = lib.OPS || {}, doc = await lib.getDocument({data: u8.slice(), ...PDF_OPTS}).promise, pages = [];
+    const mul = (m, t) => [t[0] * m[0] + t[1] * m[2], t[0] * m[1] + t[1] * m[3], t[2] * m[0] + t[3] * m[2], t[2] * m[1] + t[3] * m[3], t[4] * m[0] + t[5] * m[2] + m[4], t[4] * m[1] + t[5] * m[3] + m[5]];
+    const IMG = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject, OPS.paintImageXObjectRepeat].filter(x => x != null));
+    for (let i = 1; i <= Math.min(doc.numPages, 300); i++) {
+      const page = await doc.getPage(i), tc = await page.getTextContent(), lines = [];
+      let cur = null;
+      tc.items.forEach(it => {
+        const str = it.str || "", y = it.transform ? it.transform[5] : 0, size = it.transform ? Math.hypot(it.transform[2], it.transform[3]) || it.height || 0 : it.height || 0;
+        if (!cur || Math.abs(y - cur.y) > Math.max(2, size * 0.5)) { if (cur && cur.text.trim()) lines.push({text: cur.text.replace(/\s+/g, " ").trim(), size: cur.size}); cur = {y, text: "", size: 0}; }
+        cur.text += (cur.text && !/\s$/.test(cur.text) && str && !/^\s/.test(str) ? " " : "") + str;
+        if (str.trim()) cur.size = Math.max(cur.size, size);
+        if (it.hasEOL) { if (cur.text.trim()) lines.push({text: cur.text.replace(/\s+/g, " ").trim(), size: cur.size}); cur = null; }
+      });
+      if (cur && cur.text.trim()) lines.push({text: cur.text.replace(/\s+/g, " ").trim(), size: cur.size});
+      const pg = {n: i, lines, imgs: [], paths: 0};
+      if (opts.figures) {
+        // where each image lands on the page: the transform in force when it's painted, applied to the image's unit square
+        try {
+          const ol = await page.getOperatorList(), v = page.view || [0, 0, 612, 792], area = Math.abs((v[2] - v[0]) * (v[3] - v[1])) || 1;
+          let m = [1, 0, 0, 1, 0, 0]; const stack = [];
+          for (let k = 0; k < ol.fnArray.length; k++) {
+            const fn = ol.fnArray[k], a = ol.argsArray[k];
+            if (fn === OPS.save) stack.push(m);
+            else if (fn === OPS.restore) m = stack.pop() || m;
+            else if (fn === OPS.transform && a) m = mul(m, a);
+            else if (fn === OPS.paintFormXObjectBegin) { stack.push(m); if (a && Array.isArray(a[0]) && a[0].length === 6) m = mul(m, a[0]); }
+            else if (fn === OPS.paintFormXObjectEnd) m = stack.pop() || m;
+            else if (fn === OPS.constructPath) pg.paths++;
+            else if (IMG.has(fn)) { const f = Math.abs(m[0] * m[3] - m[1] * m[2]) / area; if (f > 0.002) pg.imgs.push({f: Math.min(1, f), at: Math.round(m[4] / 20) + "," + Math.round(m[5] / 20) + ":" + Math.round(f * 50)}); }
+          }
+        } catch (e) {}
+      }
+      pages.push(pg);
+      try { page.cleanup && page.cleanup(); } catch (e) {}
+    }
+    if (opts.figures) {
+      // the same picture in the same place on half the pages or more: a logo or a slide background, never a figure
+      const seen = {}; pages.forEach(p => new Set(p.imgs.map(x => x.at)).forEach(k => { seen[k] = (seen[k] || 0) + 1; }));
+      const rep = k => pages.length >= 3 && seen[k] >= pages.length * 0.5;
+      pages.forEach(p => {
+        const f = Math.min(1, p.imgs.filter(x => !rep(x.at)).reduce((n, x) => n + x.f, 0)), bare = p.lines.reduce((n, l) => n + SBSECT.words(l.text), 0) < 15;
+        p.score = f + Math.min(0.5, p.paths / 400);
+        p.figure = f >= AI_FIG.area || (bare && f >= AI_FIG.areaBare) || p.paths >= AI_FIG.paths;
+      });
+      // the clearest figures first, at most perPdf of them, rendered on this device
+      const pick = pages.filter(p => p.figure).sort((a, b) => b.score - a.score).slice(0, AI_FIG.perPdf);
+      for (const p of pick) {
+        try {
+          const page = await doc.getPage(p.n), v0 = page.getViewport({scale: 1}), sc = AI_FIG.px / Math.max(v0.width, v0.height), vp = page.getViewport({scale: sc});
+          const cv = document.createElement("canvas"); cv.width = Math.round(vp.width); cv.height = Math.round(vp.height);
+          const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height);
+          await page.render({canvasContext: cx, viewport: vp}).promise;
+          p.img = cv.toDataURL("image/jpeg", AI_FIG.quality).split(",")[1] || "";
+          cv.width = cv.height = 0;
+        } catch (e) { p.img = ""; }
+      }
+    }
+    try { doc.destroy(); } catch (e) {}
+    return pages.map(p => ({n: p.n, lines: p.lines, figure: !!p.figure, score: p.score || 0, img: p.img || ""}));
+  } catch (e) { return []; }
+}
+if (window.__SB_TEST) window.__sbPdfPages = aiPdfPages;
+/* The AI on this device reads text only, so photos and scanned PDFs have their words read on the device first (01-ocr.js): a photo
+   becomes a text source; a scanned PDF keeps its pages, with each line's height standing in for its font size, so its headings
+   still split it into sections. A PDF with real text is left as it is. Returns notes for the review screen. */
+async function aiDevReadSources(sources, onStatus, signal){
+  const notes = [];
+  for (const s of sources) {
+    const d = s.part && s.part.inline_data, mime = d && (d.mime_type || "");
+    if (d && /^image\//.test(mime)) {
+      if (onStatus) onStatus(`Reading the words in ${s.name || "your picture"} on this device…`);
+      const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in ${s.name || "your picture"} on this device… ${Math.round(x * 100)}%`)});
+      if (r.text.length < 15 || r.conf < OCR.unreadable) throw devUnreadable(r, "picture");
+      s.part = {text: `${s.name ? s.name + " (a photo)" : "A photo"}:\n\n${r.text}`}; s.copyText = r.text;
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your photo"} were hard to read, so check the cards against it.`);
+      continue;
+    }
+    if (s.pdfBytes) {
+      const pages = s.pdfPages = await aiPdfPages(s.pdfBytes, {});
+      const words = pages.reduce((n, p) => n + p.lines.reduce((m, l) => m + SBSECT.words(l.text), 0), 0);
+      if (pages.length && words >= pages.length * 25) continue;
+      const r = await SBOCR.readPdf(s.pdfBytes, {onStatus, signal, name: s.name});
+      if (r.text.length < 30 || r.conf < OCR.unreadable) throw devUnreadable(r, "file");
+      s.ocrPages = r.pages; s.part = {text: r.text}; s.copyText = r.text;
+      if (r.cut) notes.push(`${s.name || "Your PDF"} is long, so only its first ${r.pages.length} of ${r.total} pages were read on this device.`);
+      if (r.conf < OCR.hard) notes.push(`Parts of ${s.name || "your scan"} were hard to read, so check the cards against it.`);
+    }
+  }
+  return notes;
+}
 async function aiMakeStudySet(opts, onStatus){
   const {sources, style, difficulty, cards, quiz, cases, caseCount, caseStyle, cardCount, quizCount, courseName, signal} = opts;
+  const readNotes = aiOnDevice() ? await aiDevReadSources(sources, onStatus, signal) : [];
   const diff = difficulty === "easier" ? "Keep it approachable: core facts and main ideas." : difficulty === "harder" ? "Make it challenging: application, analysis and tricky distinctions." : "Mix easier recall with harder application.";
   const ctx = `Course: ${courseName || "not given"}. Student's style and instructions (follow them exactly; if they name an exam or describe a professor's format, match its structure and difficulty with new questions in your own words, never copying or closely imitating its actual questions; where they conflict with your defaults, they win): ${style || "Clear, exam-focused study material."} Difficulty: ${diff}`;
+  // the AI on this device gets only what changes its cards: the course, and the student's own style and difficulty if they set them
+  const devCtx = `Course: ${courseName || "not given"}.${style && style !== "Clear, exam-focused study material." ? ` The student asked for: ${String(style).slice(0, 400)}` : ""}${difficulty === "easier" ? " Keep it approachable." : difficulty === "harder" ? " Make it challenging: include how and why, not only what." : ""}`;
   const parts = sources.map(s => s.part);
   const corpus = sources.every(s => s.part && typeof s.part.text === "string") ? aiCorpus(sources.map(s => s.part.text)) : null;
   // The words of the material, to catch anything copied instead of restated (a PDF's text is read on this device)
@@ -1295,20 +1772,41 @@ async function aiMakeStudySet(opts, onStatus){
   const copy = aiCopyIndex(sources.map(s => (s.part && typeof s.part.text === "string" ? s.part.text : "") || s.copyText || "").filter(Boolean));
   const nCards = cardCount === "auto" ? 0 : Number(cardCount) || 0, nQuiz = Number(quizCount) || 10;
   const jobs = [];
-  if (cards) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, schema: CARD_SCHEMA, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
-    system: "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES})));
-  if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
+  const CARD_SYSTEM = "You write excellent flashcards for students. Each card tests exactly one idea. Fronts are short (a term, a question of at most 20 words, or a sentence with ____ for a cloze). Backs are accurate and concise (1 to 2 sentences). Favor high-yield, exam-relevant content: definitions, mechanisms, comparisons, steps, normal values, and key priorities where relevant. Every card must be answerable from the material alone. No two cards may ask the same thing, and skip trivia such as the lecture title, agenda, instructor names and logistics. " + AI_GROUND + " " + AI_RULES;
+  // Long material, read on this device: one section at a time (the pipeline, 01-ai-sections.js); short material: one request, as before
+  // a small engine (the AI on this device) always works in short sections
+  const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
+  const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
+  if (secs) onStatus && onStatus(secs.length === 1 ? "Reading your material…" : `Reading your material in ${secs.length} parts…`);
+  // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
+  const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
+  let fromCloud = false;
+  if (cards && opts.first && !(style && style !== "Clear, exam-focused study material.") && aiOnDevice() && aiFirstDeckOk()) jobs.push(aiFirstDeck({sources, courseName, count: nCards, signal, onStatus}).then(f => { if (!f) return cardsJob() || cardsOne(); fromCloud = true; return {data: {cards: f.cards, deckTitle: f.deckTitle}, truncated: false}; }));
+  else if (cards && secs) jobs.push(cardsJob());
+  else if (cards) jobs.push(cardsOne());
+  function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
+    schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, quizOnly: !cards, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
+  else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
   const settled = await Promise.allSettled(jobs);
   const failed = settled.filter(x => x.status === "rejected");
   if (failed.length === settled.length) throw failed[0].reason;
   const res = settled.map(x => x.status === "fulfilled" ? x.value : {data: {}, truncated: false});
-  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: []};
+  let k = 0, out = {cards: [], questions: [], cases: [], title: "", quizTitle: "", truncated: false, partial: failed.length ? failed[0].reason.message : "", notes: readNotes.slice()};
+  const missedParts = res.reduce((m, r) => m + (r && r.missed ? r.missed : 0), 0);
+  if (fromCloud) out.notes.push("Your flashcards were made free by Studyboard's cloud AI, as a first set. From now on, the AI on your computer makes them.");
+  if (missedParts) out.notes.push(`${missedParts} part${missedParts === 1 ? "" : "s"} of your material couldn't be turned into cards or questions this time.`);
   if (cards) { const r = res[k++], g = aiGateCards(r.data.cards, {max: nCards ? Math.ceil(nCards * 1.2) : 60, corpus, copy}); out.cards = g.cards; out.title = aiTidyText(r.data.deckTitle); out.truncated = out.truncated || r.truncated;
     const dr = []; if (g.dropped.dup) dr.push(g.dropped.dup + " repeated"); if (g.dropped.long) dr.push(g.dropped.long + " too long for one card"); if (g.dropped.empty) dr.push(g.dropped.empty + " incomplete"); if (dr.length) out.notes.push("Left out " + dr.join(", ") + " flashcard" + (g.dropped.dup + g.dropped.long + g.dropped.empty === 1 ? "" : "s") + ".");
+    const vague = g.dropped.vague + (r.vague || 0);
+    if (vague) out.notes.push(`Left out ${vague} flashcard${vague === 1 ? "" : "s"} that pointed to your notes instead of giving the answer.`);
+    if (r.unsup) out.notes.push(`Left out ${r.unsup} flashcard${r.unsup === 1 ? "" : "s"} that didn't hold up when checked against your material.`);
+    if (r.fixed) out.notes.push(`Corrected ${r.fixed} answer${r.fixed === 1 ? "" : "s"} after checking them against your material.`);
     if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} flashcard${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
   if (quiz) { const r = res[k++], g = aiGateQuestions(aiCleanQuestions(r.data.questions), {max: Math.ceil(nQuiz * 1.2), corpus, copy}); out.questions = g.questions; out.quizTitle = aiTidyText(r.data.title); out.truncated = out.truncated || r.truncated;
+    if (r.wrong) out.notes.push(`Left out ${r.wrong} question${r.wrong === 1 ? "" : "s"} whose answer didn't hold up when checked against your material.`);
     if (g.dropped.dup + g.dropped.bad) out.notes.push(`Left out ${g.dropped.dup + g.dropped.bad} repeated or malformed question${g.dropped.dup + g.dropped.bad === 1 ? "" : "s"}.`);
     if (g.dropped.copied) out.notes.push(`Left out ${g.dropped.copied} question${g.dropped.copied === 1 ? "" : "s"} that copied your material word for word instead of restating it.`); }
   if (cases) { const r = res[k++]; out.cases = aiCleanCases(r.data.cases).filter(c => !aiCopied(c.scenario, copy) && !(c.questions || []).some(q => [q.stem, q.answer, q.rationale].concat(q.options || []).some(t => aiCopied(t, copy)))); out.truncated = out.truncated || r.truncated; }
@@ -1337,6 +1835,7 @@ document.addEventListener("change", e => {
 });
 function aiStudySheet(deckId, mode){
   if (inPreview()) { toast("AI features work in the Studyboard app and on your website, not in this preview"); return; }
+  if (typeof aiReadyFirst === "function" && aiReadyFirst(() => aiStudySheet(deckId, mode))) return;
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
@@ -1359,6 +1858,7 @@ function aiStudySheet(deckId, mode){
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCards" checked> Flashcards</label>${seg("aiCardN", [["auto", "Auto"], ["10", "10"], ["20", "20"], ["30", "30"], ["50", "50"]], "auto")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiQuiz" checked> Practice quiz</label>${seg("aiQuizN", [["5", "5"], ["10", "10"], ["20", "20"], ["30", "30"]], "10")}</div>
         <div class="ai-make"><label class="mi-check"><input type="checkbox" id="aiCase"> Case studies</label>${seg("aiCaseN", [["1", "1"], ["2", "2"], ["3", "3"]], "1")}${caseStyleSelect("aiCaseStyle", (courseOf(courseId) || {}).name || "")}<span class="mini">Realistic scenarios from your field that unfold step by step and test how you apply the material.</span></div>
+      <p class="mini ai-est" id="aiEst" aria-live="polite" hidden></p>
       </fieldset>
       <fieldset><legend>Style</legend>
         <label class="f"><span class="lh">Your Own Style or Exam Format <span class="hint">optional, comes first</span></span><textarea id="aiStyle" rows="2" maxlength="1500" placeholder="e.g. AP-style multiple choice with rationales, or my professor's short case-study questions, or 60-minute midterm with 20 multiple choice and 5 short answers" data-noenter></textarea></label>
@@ -1368,12 +1868,32 @@ function aiStudySheet(deckId, mode){
       <fieldset><legend>Difficulty</legend>${seg("aiDiff", [["mixed", "Mixed"], ["easier", "Easier"], ["harder", "Harder"]], "mixed")}</fieldset>
       ${deck ? "" : `<label class="f">Course<select id="aiCourse">${courseSelectHtml(courseId)}</select></label>`}
       ${aiModelBar()}
-      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes; you can review everything before it's saved.</p>
+      ${aiFirstDeckNote()}
+      <p class="mini" style="margin:0">${aiCfg().provider === "gemini" ? "On Gemini's free tier, Google may use what you upload to improve its products, so leave out private or sensitive information. " : ""}AI can make mistakes: your set opens as it's written, so you can check, edit or delete anything.</p>
       <p class="status-msg" id="aiStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="button" class="btn primary" id="aiGo">${AI_ICON} Create</button></div>
   </form>`);
   const sheetEl = dlg.querySelector(".ai-sheet"), inS = q => sheetEl.querySelector(q);
+  // the AI on this computer loads (and reads its card instructions) while the student adds their material
+  devPrewarm(DEV_CARD_SYSTEM + DEV_CARD_EXAMPLE);
+  // On this computer: how long the set will take, from the speed of the sets it made before
+  const est = () => {
+    const el = inS("#aiEst"); if (!el) return;
+    if (!aiOnDevice()) { el.hidden = true; return; }
+    const pick = n => (sheetEl.querySelector(`input[name=${n}]:checked`) || {}).value;
+    const wc = inS("#aiCards") && inS("#aiCards").checked, wq = inS("#aiQuiz") && inS("#aiQuiz").checked, cv = pick("aiCardN") || "auto";
+    const nc = wc ? (cv === "auto" ? 30 : Number(cv) || 30) : 0, nq = wq ? Number(pick("aiQuizN")) || 10 : 0;
+    if (!nc && !nq) { el.hidden = true; return; }
+    let secs = aiDevEstimate(nc, nq, Math.max(2, Math.ceil(Math.max(nc, nq) / 8)));
+    if (secs == null) { el.hidden = false; el.textContent = "Your first set shows how fast the AI on this computer is, so Studyboard can tell you how long the next ones take."; return; }
+    if (wc && cv === "auto") secs = Math.min(secs, (wq ? secs - aiDevEstimate(nc, 0, 4) : 0) + 75);
+    const what = [nc && (cv === "auto" ? "Auto flashcards" : `${nc} flashcards`), nq && `${nq} quiz questions`].filter(Boolean).join(" and ");
+    el.hidden = false;
+    el.innerHTML = `On this computer: <b>${aiDur(secs)}</b> for ${esc(what)}.` + (secs > 180 ? ` That's a long wait here${wc && cv !== "auto" ? ": Auto (about 30 cards) is quicker" : ""}. You can tap outside this window and keep using Studyboard while it works; you'll be told when it's ready.` : "");
+  };
+  sheetEl.addEventListener("change", e => { if (/^(aiCardN|aiQuizN)$/.test(e.target.name || "") || /^(aiCards|aiQuiz)$/.test(e.target.id || "")) est(); });
+  est();
   sheetKeep(keyK, {name: aiWho("AI"), busy: () => job.busy, drop: () => { job.dropped = true; if (job.ac) try { job.ac.abort(); } catch (e) {} },
     dirty: () => job.busy || job.sources.length > 0 || !!(inS("#aiPaste") && inS("#aiPaste").value.trim()) || !!(inS("#aiLink") && inS("#aiLink").value.trim()) || !!(inS("#aiStyle") && inS("#aiStyle").value.trim() && !(deck && inS("#aiStyle").value.trim() === String(deck.aiStyle || "").trim()))});
   if (mode === "cards" || mode === "quiz") {
@@ -1446,23 +1966,122 @@ function aiStudySheet(deckId, mode){
     const brand = aiBrandName();
     status.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(brand)} is reading your material and writing ${[wantCards && "flashcards", wantQuiz && "a quiz", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")}. This usually takes 20 to 60 seconds…`;
     aiShowStatus(status);
+    // The set is built where it will live: its deck (or quiz) opens now and fills in as each part is finished
+    const quizOnly = !deck && !wantCards, isNew = !deck;
+    const firstName = (sources[0] && sources[0].name && sources[0].name !== "Pasted notes" ? String(sources[0].name).replace(/\.[^.]+$/, "") : "") || (quizOnly ? "Practice Quiz" : "AI Study Set");
+    const d0 = deck ? clone(state.decks[deck.id]) : normDeck(Object.assign({id: uid(), created: Date.now(), name: firstName.slice(0, 80), courseId: cId || ""}, quizOnly ? {quizOnly: true} : {}));
+    const qzId = wantQuiz ? uid() : "";
+    if (wantQuiz) d0.aiQuizzes = (d0.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(styleName || "Practice Quiz"), style: style || "", created: Date.now(), sources: sources.map(x => x.name), questions: [], results: []});
+    d0.updated = Date.now();
+    applyChanges([{kind: "deck", id: d0.id, after: d0}], null);
+    const L = aiLiveStart({deckId: d0.id, quizId: qzId, ac, isNew, name: d0.name, quizTitle: wantQuiz ? d0.aiQuizzes[d0.aiQuizzes.length - 1].title : "", maxCards: Number(val("aiCardN")) > 0 ? Math.ceil(Number(val("aiCardN")) * 1.2) : 60,
+      what: [wantCards && "flashcards", wantQuiz && "quiz questions", wantCase && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")});
+    // the sheet is done with: it closes, and the job carries on here
+    // (set aside with its files, not cleared: if nothing can be made, Try Again brings it back as it was, with the reason)
+    job.ac = null; job.busy = false; goBack(); go.disabled = false; go.classList.remove("busy"); status.textContent = ""; if (dlg.open) dlg.close();
+    ui.tab = "flashcards"; ui.fc = null; ui.qzOpen = null;
+    if (wantCards) { ui.deckId = d0.id; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); if (wantQuiz) ui.qzOpen = d0.id + ":" + qzId; }
+    render(); window.scrollTo(0, 0);
+    if (!wantCards && !wantQuiz) toast(`${aiWho("AI")} is writing your case studies. They'll appear in Quizzes when they're ready.`);
+    let r = null, err = null;
     try {
-      const r = await aiMakeStudySet({sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal}, m => { status.textContent = m; });
-      if (ac && ac.signal.aborted) return;
-      if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that material. Try adding more content, or a PDF version.");
-      aiRememberStyle(custom);
-      job.busy = false;
-      const ctx = {deck, courseId: cId, style, styleName, sources: sources.map(s => s.name), origins: sources.map(s => s.origin).filter(Boolean), mode, keepKey: keyK};
-      sheetReady(keyK, () => aiReviewSheet(r, ctx), aiReadyMsg(r));
-    } catch(e) {
-      if (e && e.code === "cancelled") return;
-      console.warn(e); status.innerHTML = esc(e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e);
-      aiJobFailed(); aiShowStatus(status);
-      job.busy = false; go.disabled = false; go.classList.remove("busy"); goBack();
-      if (sheetKept(keyK)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(keyK)}, {error: true});
-    }
+      r = await aiMakeStudySet({onCards: wantCards ? list => aiLiveCards(L, list) : null, onQuestions: wantQuiz ? list => aiLiveQuestions(L, list) : null, sources, style, difficulty: val("aiDiff"), cards: wantCards, quiz: wantQuiz, cases: wantCase, caseCount: val("aiCaseN") || "1", caseStyle: $("#aiCaseStyle") ? $("#aiCaseStyle").value : "auto", cardCount: val("aiCardN") || "auto", quizCount: val("aiQuizN") || "10", courseName: courseOf(cId) ? courseOf(cId).name : "", signal: ac && ac.signal, first: true}, m => aiLiveStatus(L, m));
+    } catch (e) { err = e; if (!(e && e.code === "cancelled") && !L.stopped) console.warn(e); }
+    aiLiveFinish(L, r, err, {style, custom, origins: sources.map(x => x.origin).filter(Boolean), kept: () => sheetDrop(keyK),
+      failed: e => { status.innerHTML = esc(e && e.code ? e.message : "Something went wrong. Try again.") + aiDetailHtml(e); aiShowStatus(status); return () => { if (!sheetResume(keyK)) aiStudySheet(deck ? deck.id : null, mode); }; }});
   });
 }
+
+/* Building a study set in place: the deck (or quiz) page shows a bar while the AI works, and each part's cards and questions are
+   added as soon as they're checked. Stop keeps what's made so far. Nothing here is saved twice: every batch is one quiet save. */
+const AI_LIVE = {}, AI_FRESH = new Map();
+// just added (the last second and a half): drawn with a short pop-in
+const aiFresh = id => { const t = AI_FRESH.get(id); if (t && Date.now() - t < 1500) return true; if (t) AI_FRESH.delete(id); return false; };
+const aiLiveOn = id => !!(AI_LIVE[id] && !AI_LIVE[id].done);
+function aiLiveStart(o){ const L = Object.assign({n: 0, nq: 0, status: "", ids: [], notes: [], t0: Date.now()}, o); AI_LIVE[o.deckId] = L; return L; }
+function aiLiveBar(id){
+  const L = AI_LIVE[id]; if (!L) return "";
+  if (L.done) return `<section class="ai-live-bar done" data-live-id="${esc(id)}"><div class="ai-callout">${AI_ICON}<span><b>${esc(L.summary)}</b>${L.notes.length ? " " + esc(L.notes.join(" ")) : ""}</span><button type="button" class="x-btn" data-live-ok="${esc(id)}" aria-label="Dismiss">${CLOSE}</button></div></section>`;
+  return `<section class="ai-live-bar" data-live-id="${esc(id)}" role="status"><div class="ai-callout"><span class="ai-spin" aria-hidden="true"></span><span><b>${esc(aiWho("AI"))} is writing ${esc(L.what)}.</b> <span class="ai-live-msg">${esc(aiLiveCount(L) || L.status || "Reading your material…")}</span> They appear here as each part is done; you can study or edit them right away.</span><button type="button" class="btn small" data-live-stop="${esc(id)}">Stop</button></div></section>`;
+}
+const aiLiveCount = L => [L.n && `${L.n} card${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} question${L.nq === 1 ? "" : "s"}`].filter(Boolean).join(" and ") + (L.n || L.nq ? " so far." + (L.status ? " " + L.status.replace(/^Making flashcards: \d+ cards? so far, /, "").replace(/^./, c => c.toUpperCase()) : "") : "");
+function aiLiveStatus(L, m){ L.status = String(m || ""); const el = document.querySelector(`[data-live-id="${CSS.escape(L.deckId)}"] .ai-live-msg`); if (el) el.textContent = aiLiveCount(L) || L.status; }
+// the deck was deleted while it was being made: stop
+const aiLiveDeck = L => { const d = state.decks[L.deckId]; if (!d && L.ac && !L.stopped) { L.stopped = L.gone = true; try { L.ac.abort(); } catch (e) {} } return d; };
+function aiLiveCards(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), have = d.cards.map(c => aiKeyTokens(c.front)), add = [];
+  (list || []).forEach(c => {
+    if (!c || L.n + add.length >= L.maxCards) return;
+    const front = aiTidyText(c.front), back = aiTidyText(c.back), ft = aiKeyTokens(front);
+    if (front.length < 3 || !back || have.some(h => aiJaccard(h, ft) >= 0.8)) return;
+    have.push(ft);
+    const card = {id: uid(), front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: aiTidyText(c.source || "").slice(0, 60)};
+    if (c.hint && !hintLeaks(c.hint, back)) card.hints = [aiTidyText(c.hint).slice(0, 300)];
+    if (typeof c.check === "string" && c.check) card.check = c.check;
+    add.push(card);
+  });
+  if (!add.length) return 0;
+  d.cards = d.cards.concat(add); d.updated = Date.now(); L.n += add.length; L.ids.push(...add.map(c => c.id)); const t = Date.now(); add.forEach(c => AI_FRESH.set(c.id, t));
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveQuestions(L, list){
+  const cur = aiLiveDeck(L); if (!cur || L.done) return 0;
+  const d = clone(cur), qz = (d.aiQuizzes || []).find(x => x.id === L.quizId); if (!qz) return 0;
+  const have = qz.questions.map(q => aiKeyTokens(q.stem)), add = [];
+  (list || []).forEach(q => { if (!q || !q.stem) return; const st = aiKeyTokens(q.stem); if (have.some(h => aiJaccard(h, st) >= 0.75)) return; have.push(st); add.push(Object.assign({}, q, {id: q.id || uid()})); });
+  if (!add.length) return 0;
+  qz.questions = qz.questions.concat(add); d.updated = Date.now(); L.nq += add.length; { const t = Date.now(); add.forEach(q => AI_FRESH.set(q.id, t)); }
+  applyChanges([{kind: "deck", id: d.id, after: d}], null); aiLiveStatus(L, L.status);
+  return add.length;
+}
+function aiLiveFinish(L, r, err, o){
+  // whatever came back all at once (one request, or the free first deck) goes in now; parts already added aren't added twice
+  if (r) { aiLiveCards(L, r.cards); aiLiveQuestions(L, r.questions); }
+  L.done = true;
+  const cur = state.decks[L.deckId];
+  if (!cur) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  const d = clone(cur), qz = L.quizId ? (d.aiQuizzes || []).find(x => x.id === L.quizId) : null;
+  const cases = r ? (r.cases || []) : [];
+  cases.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: o.style || "", created: Date.now(), sources: qz ? qz.sources : [], results: [], kind: "case"}, c)); });
+  if (r && r.title && L.isNew && d.name === L.name && L.n) d.name = aiTidyText(r.title).slice(0, 120) || d.name;
+  if (qz && r && r.quizTitle && qz.title === L.quizTitle) qz.title = uniqueQuizTitle(aiTidyText(r.quizTitle).slice(0, 120));
+  if (qz && !qz.questions.length) d.aiQuizzes = d.aiQuizzes.filter(x => x.id !== qz.id);
+  if (o.style) d.aiStyle = o.style;
+  const made = L.n || L.nq || cases.length;
+  if (made && window.SBLINKED && o.origins && o.origins.length && L.ids.length) SBLINKED.stamp(d, o.origins.map(x => SBLINKED.origin(x.k, x.id)), d.cards.filter(c => L.ids.includes(c.id)));
+  if (L.isNew && !d.cards.length && !(d.aiQuizzes || []).some(x => x.questions && x.questions.length)) {
+    // nothing was made: the empty deck goes too
+    applyChanges([{kind: "deck", id: d.id, after: null}], null);
+    if (ui.deckId === d.id) ui.deckId = null; if (String(ui.qzOpen || "").startsWith(d.id + ":")) ui.qzOpen = null;
+  } else { d.updated = Date.now(); applyChanges([{kind: "deck", id: d.id, after: d}], null); }
+  if (qz && !qz.questions.length && ui.qzOpen === L.deckId + ":" + L.quizId) { ui.qzOpen = null; if (made && L.n) ui.deckId = L.deckId; }
+  const bits = [L.n && `${L.n} flashcard${L.n === 1 ? "" : "s"}`, L.nq && `${L.nq} quiz question${L.nq === 1 ? "" : "s"}`, cases.length && `${cases.length} case stud${cases.length === 1 ? "y" : "ies"}`].filter(Boolean).join(" and ");
+  const open = () => { ui.tab = "flashcards"; ui.fc = null; if (L.n) { ui.deckId = L.deckId; ui.qzOpen = null; rvSet("cards"); } else { ui.deckId = null; rvSet("quizzes"); ui.qzOpen = L.quizId && state.decks[L.deckId] && (state.decks[L.deckId].aiQuizzes || []).some(x => x.id === L.quizId) ? L.deckId + ":" + L.quizId : null; } render(); window.scrollTo(0, 0); };
+  const here = ui.tab === "flashcards" && (ui.deckId === L.deckId || String(ui.qzOpen || "").startsWith(L.deckId + ":"));
+  if (L.gone) { o.kept(); delete AI_LIVE[L.deckId]; render(); return; }
+  if (!made) {
+    delete AI_LIVE[L.deckId]; render();
+    if (L.stopped) { o.kept(); toast("Stopped. Nothing was made yet."); return; }
+    aiJobFailed();
+    toast(err && err.code ? err.message : "Something went wrong making that set. Try again.", null, {label: "Try Again", fn: o.failed(err)}, {error: true});
+    return;
+  }
+  o.kept(); if (r) aiRememberStyle(o.custom);
+  const checks = d.cards.filter(c => L.ids.includes(c.id) && c.check).length + (qz ? qz.questions.filter(q => q.check).length : 0);
+  L.summary = L.stopped ? `Stopped. Kept ${bits}.` : err ? `Made ${bits}, but part of it couldn't be made${err.code ? ": " + err.message : "."}` : `Done: ${bits}.`;
+  L.notes = (r && r.notes ? r.notes.slice() : []).concat(r && r.partial ? [`Part of it couldn't be made: ${r.partial}`] : [], r && r.truncated ? ["The AI ran out of room, so the last few may be missing."] : [],
+    checks ? [`${checks} item${checks === 1 ? " is" : "s are"} marked Check: verify ${checks === 1 ? "it" : "them"} against your notes, and edit or delete as you like.`] : ["Edit or delete anything you like."]);
+  render();
+  if (!here) toast(`Your ${bits} ${/^1 /.test(bits) && !/ and /.test(bits) ? "is" : "are"} ready`, null, {label: "Open", fn: open});
+}
+document.addEventListener("click", e => {
+  const s = e.target.closest && e.target.closest("[data-live-stop]");
+  if (s) { const L = AI_LIVE[s.dataset.liveStop]; if (L && !L.done) { L.stopped = true; s.disabled = true; s.textContent = "Stopping…"; try { L.ac && L.ac.abort(); } catch (x) {} } return; }
+  const k = e.target.closest && e.target.closest("[data-live-ok]");
+  if (k) { const L = AI_LIVE[k.dataset.liveOk]; if (L && L.done) { delete AI_LIVE[k.dataset.liveOk]; render(); } }
+});
 // What a finished set is called in the toast when its sheet was set aside
 function aiReadyMsg(r){
   const n = (r.cards || []).length, q = (r.questions || []).length, c = (r.cases || []).length;
@@ -1521,7 +2140,7 @@ function aiReviewSheet(r, ctx){
     else if (quizOnly) { const qc = $("#arQzCourse"); d = normDeck({id: uid(), created: Date.now(), quizOnly: true, name: (($("#arQuizName") && $("#arQuizName").value.trim()) || (keepCs[0] && keepCs[0].title) || "Practice Quiz").slice(0, 120), courseId: qc ? qc.value : ctx.courseId || ""}); }
     else { const nm = $("#arName").value.trim(); if (!nm) { toast("Give the new deck a name"); $("#arName").focus(); return; } d = normDeck({id: uid(), created: Date.now(), name: nm, courseId: ctx.courseId || ""}); }
     if (!d) return;
-    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || ""})));
+    d.cards = d.cards.concat(keepC.map(c => ({id: uid(), front: c.front.trim(), back: c.back.trim(), box: 0, due: "", seen: 0, right: 0, wrong: 0, ai: true, src: c.source || "", hints: c.hint && !hintLeaks(c.hint, c.back) ? [c.hint] : undefined})));
     const qzId = uid();
     if (keepQ.length) d.aiQuizzes = (d.aiQuizzes || []).concat({id: qzId, title: uniqueQuizTitle(($("#arQuizName") && $("#arQuizName").value.trim()) || "Practice Quiz"), style: ctx.style || "", created: Date.now(), sources: ctx.sources, questions: keepQ, results: []});
     keepCs.forEach(c => { d.aiQuizzes = (d.aiQuizzes || []).concat(Object.assign({id: uid(), style: ctx.style || "", created: Date.now(), sources: ctx.sources, results: [], kind: "case"}, c)); });
@@ -1553,7 +2172,7 @@ function aiAnswer(given, pre){
   else if (q.type === "multiple") { const g = new Set(given); correct = g.size === q.correct.length && q.correct.every(i => g.has(i)); partial = {hit: q.correct.filter(i => g.has(i)).length, of: q.correct.length, extra: given.filter(i => !q.correct.includes(i)).length}; }
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
-  f.ans[f.i] = {given, correct, partial};
+  f.ans[f.i] = {given, correct, partial}; goalBump(1);
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -1577,6 +2196,8 @@ function aiFinish(){
   // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
   if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
+  // what you missed becomes cards in this deck, so the quiz ends with a next step (Undo on the results)
+  try { quizMissedToCards(f); } catch (e) { console.warn("missed to cards", e); }
 }
 function viewAiQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i], d = state.decks[f.deckId];
@@ -1592,6 +2213,7 @@ function viewAiQuiz(){
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
+        ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
       </section>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
@@ -1634,7 +2256,7 @@ function viewAiQuiz(){
       ${q.update ? `<div class="case-update"><span class="face-label">New Information</span><p>${esc(q.update)}</p></div>` : ""}
       <p class="q-prompt">${esc(q.stem)}</p>
       ${f.grading ? `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Checking your answer…</p>` : ""}
-      ${body}${fb}
+      ${body}${a ? "" : aiQuizHintHtml(f, q)}${fb}
     </section>`;
 }
 function aiQuizAction(act, el){
@@ -1735,6 +2357,25 @@ function aiSylRules(r){
   const b = Number(r.bonus), bonus = b > 0 && b <= 10 ? {pts: Math.round(b * 100) / 100, got: 0, src: "syllabus"} : null;
   return drops.length || bonus ? {drops, bonus} : null;
 }
+/* A small model reading a syllabus invents weights and works dates out wrongly (on the stand-in model: "next week" a week late, a
+   10% weight that wasn't there). On the device, every weight must be in the syllabus, or follow from one there ("Quizzes 20%"
+   over 10 quizzes is 2%), else it's left blank; every date not written in the syllabus is marked to double-check. */
+function aiDevCheckSyllabus(items, text){
+  if (!text || text.length < 40) return;
+  // the syllabus's percentages ("20%", "25 percent"), not every number in it ("10 quizzes" isn't a weight)
+  const t = text.toLowerCase(), nums = [...t.matchAll(/(\d+(?:\.\d+)?)\s*(?:%|percent\b|pct\b)/g)].map(m => Number(m[1]));
+  const pct = new Set(nums);
+  // a category's share split over a count the syllabus gives ("Quizzes 20% (10 quizzes)" is 2% each)
+  const counts = [...t.matchAll(/\b(\d{1,2})\b(?!\s*(?:%|percent|pct|\.\d|[/:-]\d))/g)].map(m => Number(m[1])).filter(k => k >= 2 && k <= 40);
+  const weightOk = w => pct.has(w) || nums.some(p => p > w && p <= 100 && counts.some(k => Math.abs(p / k - w) < 0.15));
+  const MON = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  const dateIn = iso => { const [y, m, d] = iso.split("-").map(Number); if (!m || !d) return false; const mn = MON[m - 1], ab = mn.slice(0, 3);
+    return new RegExp(`\\b(${mn}|${ab}\\.?)\\s+${d}(st|nd|rd|th)?\\b|\\b${d}(st|nd|rd|th)?\\s+(of\\s+)?(${mn}|${ab})\\b|\\b0?${m}[/.-]0?${d}\\b|\\b${y}-0?${m}-0?${d}\\b`, "i").test(t); };
+  items.forEach(i => {
+    if (i.weight != null && !weightOk(i.weight)) i.weight = null;
+    if (i.due && !dateIn(i.due) && i.source !== "ai-low") i.source = "ai-low";
+  });
+}
 async function aiReadSyllabus(parts, onStatus, signal){
   const today = todayISO();
   const res = await aiCall({task: "syllabus", maxTokens: 32000, temperature: 0.1, onStatus, signal, schema: SYL_SCHEMA, parts: parts.concat({text: `Today is ${today}. Read this course syllabus and extract the course details and every dated deliverable.`}),
@@ -1758,6 +2399,7 @@ Return JSON only.`});
   const items = (Array.isArray(d.items) ? d.items : []).map(i => ({title: String(i.title || "").trim(), type: TYPES.includes(i.type) ? i.type : "Other", due: isDate(i.due) ? i.due : "", start: isDate(i.start) ? i.start : "", time: isTime(i.time) ? i.time : "",
     weight: Number(i.weight) > 0 && Number(i.weight) <= 100 ? Math.round(Number(i.weight) * 10) / 10 : null, hours: Number(i.hours) > 0 && Number(i.hours) < 200 ? Math.round(Number(i.hours) * 4) / 4 : null, source: i.sure === false ? "ai-low" : "ai", note: String(i.note || i.title || "").slice(0, 300), hasDue: true,
     location: String(i.location || "").trim(), reading: String(i.reading || "").trim()})).filter(i => i.title);
+  if (aiOnDevice()) aiDevCheckSyllabus(items, parts.filter(p => p && typeof p.text === "string").map(p => p.text).join("\n"));
   const gate = aiGateSyllabus(items, today); items.length = 0; gate.items.forEach(i => items.push(i));
   items.sort((a, b) => (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0);
   const gateNote = [gate.fixed ? `${gate.fixed} date${gate.fixed === 1 ? " looked" : "s looked"} wrong (far from the rest) and ${gate.fixed === 1 ? "was" : "were"} left blank for you to fill in.` : "", gate.dups ? `${gate.dups} repeated item${gate.dups === 1 ? " was" : "s were"} merged.` : ""].filter(Boolean).join(" ");
@@ -1765,7 +2407,7 @@ Return JSON only.`});
 }
 
 /* Settings: turning AI on and choosing a model */
-// What Studyboard AI says about the last 7 days, for Settings
+// What Studyboard AI Pro says about the last 7 days, for Settings
 function aiProLine(){
   const t = aiProGet() || {}, when = aiProResets();
   return `Included with Pro${t.usedPct ? `: ${t.usedPct}% used over the last 7 days` : ""}${when && t.usedPct >= 100 ? `, more back ${when}` : ""}.${t.soft && t.usedPct < 100 ? " Everyday jobs think a little less now, so the rest lasts." : ""}`;
@@ -1788,32 +2430,102 @@ function aiUseCard(){
   const chip = monthOut ? "Used up" : dayOut ? back.replace(/^b/, "B") : `${m}%`;
   const bar = (label, pct, cls, extra) => `<div class="sbai-row${extra ? " " + extra : ""}"><span>${label}</span><span class="sbai-bar${cls ? " " + cls : ""}" role="img" aria-label="${pct}% of ${label === "Today" ? "today's share" : "the last 7 days"} used"><i style="width:${pct}%"></i></span><span>${pct}%</span></div>`;
   const note = monthOut ? `Back ${when ? `<b>${esc(when)}</b>` : "soon"}. Until then, AI keeps working with your backup key below.`
-    : dayOut ? `You've used today's share of Studyboard AI. It's ${esc(back)}, or keep going with your backup key below.`
+    : dayOut ? `You've used today's share of Studyboard AI Pro. It's ${esc(back)}, or keep going with your backup key below.`
     // the allowance is the last 7 days, rolling: what was used a week ago comes back day by day, so there's no single date to wait for
     : low ? `Everyday answers are a little shorter now, so the rest lasts. Big jobs work as usual. Use from over a week ago keeps coming back each day.`
     : `Included with Pro. Counts the last 7 days, so use from over a week ago comes back each day${d != null && dayEnds ? `; today's share resets at ${esc(dayEnds)}.` : "."}`;
   return `<div class="sbai-use${st ? " is-" + st : ""}" id="sbaiUse">
-    <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
+    <div class="sbai-head"><span class="sbai-ic">${SBAI_STAR}</span><b>Studyboard AI Pro</b><span class="sbai-chip"><svg class="sbai-ring" viewBox="0 0 24 24" aria-hidden="true"><circle class="t" cx="12" cy="12" r="9"/><circle class="v${ringCls ? " " + ringCls : ""}" cx="12" cy="12" r="9" stroke-dasharray="56.5" stroke-dashoffset="${(56.5 * (1 - ringPct / 100)).toFixed(1)}"/></svg>${esc(chip)}</span></div>
     <div class="sbai-num">${m}%<small>used, last 7 days</small></div>
     <div class="sbai-rows">${bar("Last 7 days", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
     <p class="sbai-note">${note}</p></div>`;
 }
+/* How much each Studyboard AI can answer: the share of common student questions each one gets right (AI Features). Each level
+   opens to say which model runs it, where what you send goes, and how it does in each part of Studyboard's 1,100-conversation
+   chat test (cats: one number per AI_CATS entry, filled in from the test's results; until then the line says they're coming).
+   The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
+const AI_CATS = ["Planner actions", "Questions about their notes", "Knowledge and maths", "Planner questions and study help", "Study material and the app", "Chatting with the companion"];
+const AI_LEVELS = [
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 65, cats: null},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 80, cats: null},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: null}];
+// the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
+function aiLevel8Model(){
+  const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
+  if (typeof DEVAI !== "undefined" && DEVAI.kind === "webllm") return "Google's Gemma 4 E2B";
+  if (edge) return "Edge's built-in AI (Microsoft's Phi-4-mini)";
+  if (/Chrome\//.test(ua) && !/OPR\/|Firefox|FxiOS|CriOS|SamsungBrowser/.test(ua) && !navigator.brave) return "Chrome's built-in AI (Google's Gemini Nano)";
+  return "Google's Gemma 4 E2B";
+}
+function aiTiersCard(){
+  const c = aiCfg(), now = c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard") ? "pro" : c.provider === "device" && typeof devTier === "function" ? devTier() : "";
+  const fact = (h, t) => `<div class="ai-tier-fact"><b>${h}</b><span>${t}</span></div>`;
+  const PRIVATE = fact("Private", "It runs entirely on your laptop. Your questions, notes and files stay on this device: nothing is sent to Studyboard or anyone else. If Look Things Up on the Web is on, only the search words go to Wikipedia, Wiktionary or OpenAlex.");
+  const hasPro = typeof aiProAvail === "function" && aiProAvail();
+  const more = t => {
+    const cats = t.cats && t.cats.length === AI_CATS.length ? `<div class="ai-tier-cats">${AI_CATS.map((n, i) => `<div class="ai-tier-cat"><span>${n}</span><span class="ai-tier-bar sm" role="img" aria-label="${t.cats[i]}%"><i style="width:${t.cats[i]}%"></i></span><b>${t.cats[i]}%</b></div>`).join("")}</div>`
+      : `<span class="ai-tier-soon">Results for each kind of question are coming soon.</span>`;
+    const byCat = `<div class="ai-tier-fact"><b>By Kind of Question</b>${cats}</div>`;
+    if (t.id === "8") return fact("Model", `${esc(aiLevel8Model())}. Chrome uses its built-in AI, Edge uses its own, and other browsers use Google's Gemma 4 E2B.`) + PRIVATE
+      + fact("Setup", "Nothing to set up in Chrome or Edge, which download their own AI. Gemma 4 E2B is a one-time download of about 2.8 GB, then it also works offline.") + byCat;
+    if (t.id === "16") return fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
+      + fact("Setup", "A one-time download of about 3.3 GB, then it also works offline. It needs 16 GB of memory and a graphics chip that supports WebGPU.") + byCat;
+    return fact("Model", "Claude, by Anthropic. It reads long files, photos and PDFs, and can search the web.")
+      + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
+      + fact("Not Used for Training", `Studyboard pays for Claude through Anthropic's API, and Anthropic doesn't use what's sent through its paid API to train its models. See <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.`)
+      + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
+      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
+  };
+  return `<div class="ai-tiers" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
+    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+      <div class="ai-tier-bar" role="img" aria-label="${t.pct}% of common student questions"><i style="width:${t.pct}%"></i></div><span class="mini ai-tier-where">${t.where}</span></summary>
+      <div class="ai-tier-more">${more(t)}</div></details>`).join("")}
+    <p class="mini ai-tiers-foot">Share of common student questions each one answers correctly. Tap one for more.</p></div>`;
+}
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest('[data-act="ai-level-pro"]'); if (!b || typeof PLAN === "undefined" || !PLAN || !PLAN.openSheetPick) return;
+  e.preventDefault(); const d = b.closest("dialog"); try { if (d) d.close(); } catch (x) {} PLAN.openSheetPick("Studyboard AI Pro answers 99% of common student questions, on any device."); });
 function aiRow(){
   const on = aiReady(), c = aiCfg();
-  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of the limit used over the last 7 days.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
-  if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
-  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : Object.keys(aiBlockedKeys()).length ? `Off. Studyboard no longer uses your own ${esc(Object.keys(aiBlockedKeys()).map(p => AI_PROVIDERS[p].short).join(" and "))} key. Add a free Gemini key, or get Studyboard AI with Pro.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
+  if (on && c.provider === "anthropic" && c.model === "studyboard") { const v = ownView(); return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${aiProUser() ? "On, using Studyboard AI Pro with your own key, matched to each job." : "On, using your Claude key in Studyboard AI Pro Mode: Claude Haiku 5.5, matched to each job."}${v.usedPct ? ` ${v.usedPct}% of the limit used over the last 7 days.` : ""}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`; }
+  if (on && c.provider === "studyboard") return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">On, using Studyboard AI Pro. ${esc(aiProLine())}${(a => a.on ? " Automatic AI is on." : " Automatic AI is off.")(autoState())}</span></span><button class="btn small" data-act="ai-setup">Manage</button></div>`;
+  return `<div class="cap-row" style="flex-wrap:wrap"><span style="flex:1;min-width:200px;font-weight:600">${AI_ICON} AI Features<span class="sub">${inPreview() ? "Available in the Studyboard app and on your website." : on ? c.provider === "device" ? `On, using ${typeof aiDevName === "function" ? aiDevName() : esc(aiModelName(c.provider, c.model))}: free, and it runs on this computer.` : `On, using ${esc(aiModelName(c.provider, c.model))}${c.provider === "gemini" && c.model !== "gemini-3.1-pro-preview" ? " (free)" : " (paid)"}.` : Object.keys(aiBlockedKeys()).length ? `Off. Studyboard no longer uses your own ${esc(Object.keys(aiBlockedKeys()).map(p => AI_PROVIDERS[p].short).join(" and "))} key. Add a free Gemini key, or get Studyboard AI Pro with Pro.` : "Off. Free with a Google Gemini key: study sets from your slides, quick add, explanations, exam plans and more."}${on && c.provider !== "device" ? (a => a.on ? " Automatic AI is on." : a.reason === "confirm" ? " Automatic AI is paused until you confirm paid use." : " Automatic AI is off.")(autoState()) : ""}</span></span>${inPreview() ? "" : `<button class="btn small ${on ? "" : "primary"}" data-act="ai-setup">${on ? "Manage" : "Set Up"}</button>`}</div>`;
 }
 // Which company a pasted key is from, by its format (Claude keys also start with sk-, so they're checked first)
 const aiKeyKind = k => /^sk-ant-/.test(k) ? "anthropic" : /^sk-/.test(k) ? "openai" : /^AIza/.test(k) ? "gemini" : "";
 // opts.code: a code from another device (a scanned link) to offer at the top
+/* A Gemini API key is for adults only: Google's Gemini API terms require users to be 18 or older. The option shows only for a
+   signed-in student whose birthday (asked at sign-up) makes them 18 or older, read from the server with their own sign-in
+   (my_age, supabase-usernames.sql); nobody else sees it, and the free AI on their computer is what they use. */
+const GEMINI_TERMS = "https://ai.google.dev/gemini-api/terms";
+let aiAge = {uid: "", age: null, at: 0};
+const aiAdult = () => !!(typeof sbUser !== "undefined" && sbUser && aiAge.uid === sbUser.id && aiAge.age != null && aiAge.age >= 18) || !!window.__SB_ADULT;
+async function aiAgeCheck(){
+  try {
+    if (typeof sbUser === "undefined" || !sbUser || typeof sb === "undefined" || !sb) return false;
+    if (aiAge.uid === sbUser.id && Date.now() - aiAge.at < 3600000) return false;
+    const {data, error} = await sb.rpc("my_age"); if (error) return false;
+    const before = aiAdult(); aiAge = {uid: sbUser.id, age: Number.isInteger(data) ? data : null, at: Date.now()};
+    return aiAdult() !== before;
+  } catch (e) { return false; }
+}
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
+  if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
+    const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
+    toast(`Your free AI is still getting ready${pct ? ` (${pct}%)` : ""}. It switches on by itself when it's done, so try again in a little while.`); return;
+  }
   const c = aiCfg(), held = aiHeldKeys(), hasKey = !!(held.gemini || held.anthropic || held.openai), pro = aiProAvail();
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
+  // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
+  const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
+  const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
+  // (the age is checked in the background the first time: an adult's option appears once it's known)
+  if (!gemOk && typeof sbUser !== "undefined" && sbUser) aiAgeCheck().then(ch => { if (ch && aiAdult() && dlg.open && dlg.querySelector(".ai-steps") == null && dlg.querySelector("#aiDefault")) { try { dlg.close(); } catch (e) {} aiSetupSheet(fromFeature, opts); } });
   const paidOk = aiOwnPaidOk(), kindOk = p => !!p && (p === "gemini" || paidOk), kindsSaid = paidOk ? "a Gemini, OpenAI or Claude key" : "a Gemini key";
   // Pro: one box for a backup key from any company, saved into the same per-company keys the separate boxes use
-  const backupHint = () => (aiProDeclined() ? "Used while Studyboard AI is off. " : "Used if your Studyboard AI runs out. ") + (paidOk ? "Paste your own AI API key." : "Paste a free Gemini API key.");
+  const backupHint = () => (aiProDeclined() ? "Used while Studyboard AI Pro is off. " : "Used if your Studyboard AI Pro runs out. ") + (paidOk ? "Paste your own AI API key." : "Paste a free Gemini API key.");
   const backupRow = () => { const b = aiProBackup(c.keys); return `<div class="ai-key" id="aiBackup">
       <label class="f"><span class="lh">Backup API Key <span class="hint" id="aiBackupHint">${esc(backupHint())}</span></span><span class="key-row"><input type="${KEY_MASK ? "text" : "password"}" class="${KEY_MASK ? "key-mask" : ""}" name="sb-ai-key-backup" id="aiBackupKey" value="${esc(b ? c.keys[b] : "")}" placeholder="Paste your key" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore data-form-type="other" data-noenter><button type="button" class="btn small" id="aiBackupShow">Show</button><button type="button" class="btn small" id="aiBackupTest">Test</button></span></label>
       <p class="mini" id="aiBackupKind" aria-live="polite" style="margin:0"></p>
@@ -1827,13 +2539,24 @@ function aiSetupSheet(fromFeature, opts){
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
     <div class="sheet-body">
-      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
-        <p class="mini" style="margin:0">Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare. YouTube videos are watched by Google's Gemini, and recordings are transcribed on Cloudflare.</p>
-        <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI</label>
-        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI runs out, your backup key takes over until it resets."}</p></div>` : ""}
-      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI">Get Studyboard AI</button></div>` : ""}
-      ${fromFeature && !pro ? `<p style="margin:0"><b>Set up AI first.</b> It takes about a minute and it's free.</p>` : ""}
-      ${pro ? "" : `<p style="margin:0">Studyboard uses <b>Google Gemini</b> by default for non-Pro users because it's free.</p>
+      ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
+        <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
+        <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
+        <p class="mini" style="margin:0">Turn it off to use your backup key below instead. ${aiProUsedUp() ? "It's used up for now, so your backup key is used until it resets." : "If Studyboard AI Pro runs out, your backup key takes over until it resets."}</p></div>` : ""}
+      ${!pro && typeof PLAN !== "undefined" && PLAN && PLAN.paywall() && PLAN.isPro() && PLAN.aiIncluded && !PLAN.aiIncluded() ? `<div class="ai-upai" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Studyboard AI Pro comes with paid Pro.</b> Your Pro doesn't include it. Subscribe to add it, no key needed.</p><button type="button" class="btn small primary" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI Pro">Get Studyboard AI Pro</button></div>` : ""}
+      ${!pro && c.provider === "device" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:6px"><p style="margin:0"><b>AI is ready on this ${DEVAI.kind === "apple" ? "device" : "computer"}, no setup needed.</b> <span id="aiDevName">${aiDevName()}</span> runs right here: it's free and private, and nothing you give it leaves this ${DEVAI.kind === "apple" ? "device" : "computer"}.${DEVAI.status === "available" ? "" : DEVAI.kind === "webllm" ? ` The first time you use it, Studyboard asks before downloading it once (about ${DEVAI.web ? DEVAI.web.gb : 3} GB).` : ` The first time you use it, ${devBrowser()} downloads it once.`}</p>
+        <label class="mi-check" style="margin:0"><input type="checkbox" id="aiWebLookup" ${(() => { try { return localStorage.getItem("studyboard:webLookupOff") === "1" ? "" : "checked"; } catch (e) { return "checked"; } })()}><span>Look Things Up on the Web<span class="sub">For general questions, and features that need the web: Wikipedia, Wiktionary and research papers (OpenAlex). Only the search words leave this device.</span></span></label>
+        <p class="mini" style="margin:0">A key below is optional: it's stronger with long files and photos, and can search the whole web.</p></div>` : ""}
+      ${!pro && typeof e4bRow === "function" ? e4bRow() : ""}
+      ${inPreview() ? "" : aiTiersCard()}
+      ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
+        <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
+      ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
+      <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">
         <li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a></li>
         <li>Click <b>Create API Key</b> (keep billing off)</li>
@@ -1841,9 +2564,9 @@ function aiSetupSheet(fromFeature, opts){
       </ol>`}
       ${opts.code && KEY_RELAY ? `<div class="ai-disclaimer" id="aiHoAsk" style="display:grid;gap:8px"><p style="margin:0"><b>Add AI from your other device?</b> This adds the AI keys you set up there to this device, using code <b>${esc(opts.code)}</b>.</p><div class="row" style="display:flex;gap:8px"><button type="button" class="btn primary small" id="aiHoYes">Add Keys</button><button type="button" class="btn small" id="aiHoNo">Not Now</button></div></div>` : ""}
       <p class="mini" id="aiPasteMsg" aria-live="polite" style="margin:0" hidden></p>
-      ${pro ? backupRow() : keyRow("gemini")}
+      ${pro ? (gemOk || paidOk ? backupRow() : "") : gemOk ? keyRow("gemini") + "</div></details>" : `<input type="hidden" data-key="gemini" value=""><p data-msg="gemini" hidden></p>`}
       ${aiOwnGoneLine()}
-      ${KEY_RELAY ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
+      ${KEY_RELAY && !noKeys ? `<details class="ai-paid" id="aiHoIn" ${opts.code ? "open" : ""}><summary>Already Set Up on Another Device?</summary>
         <div class="ai-handoff-in"><p class="mini" style="margin:0">On that device, open <b>Settings</b>, <b>AI Features</b> and tap <b>Add AI to Another Device</b>. Scan the code it shows with this device's camera, or type the code here.</p>
           <span class="key-row"><input type="text" class="ai-code-in" id="aiHoCode" value="${esc(opts.code || "")}" placeholder="XXXX-XXXX-XXXX" maxlength="16" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code from your other device" data-noenter><button type="button" class="btn small" id="aiHoGet">Add Keys</button></span>
           <p class="mini" id="aiHoMsg" aria-live="polite" style="margin:0"></p></div></details>` : ""}
@@ -1853,16 +2576,16 @@ function aiSetupSheet(fromFeature, opts){
           ${keyRow("anthropic")}
           ${keyRow("openai")}
         </div></details>`}
-      <label class="f"><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
+      <label class="f"${noKeys ? " hidden" : ""}><span class="lh">Default Model <span class="hint">you can also switch in any AI window</span></span><select id="aiDefault">${modelOpts()}</select></label>
       <fieldset class="ai-auto"><legend>Automatic AI</legend>
         <label class="mi-check"><input type="checkbox" id="aiAuto" ${(ai => ai.auto !== undefined ? ai.auto : isAutoFree(c.provider, c.model))((state.settings && state.settings.ai) || {}) ? "checked" : ""}> Improve Today's Plan and study sessions automatically</label>
         <p class="mini" style="margin:0">AI helps in the background, like picking <b>Do This Next</b> and estimating hours. It never changes anything without a tap. Choose the parts in <button type="button" class="link-btn" data-act="auto-panel">What Each Part Does</button>.</p>
-        <label class="f"><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
+        <label class="f"${noKeys ? " hidden" : ""}><span class="lh">Model for Automatic AI</span><select id="aiAutoModel"><option value="free" ${((state.settings.ai || {}).autoModel || "free") === "free" ? "selected" : ""}>Free Gemini (no cost)</option><option value="default" ${(state.settings.ai || {}).autoModel === "default" ? "selected" : ""}>My default model</option></select></label>
         <p class="ai-disclaimer mini" id="aiAutoWarn" hidden style="margin:0"></p>
         <button type="button" class="btn small" data-act="auto-panel">What Automatic AI Is Doing</button>
       </fieldset>
       ${KEY_RELAY && hasKey ? `<div class="ai-paste"><button type="button" class="btn" id="aiHoSend">Add AI to Another Device</button><p class="mini">Shows a code to scan on your phone or other computer, so you don't have to paste the key there.</p></div>` : ""}
-      <p class="mini" style="margin:0">Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
+      <p class="mini" style="margin:0"${noKeys ? " hidden" : ""}>Your keys stay on this device${DESK ? " (in your system keychain)" : ""}, never in your account or backups. AI requests go to the company you chose. Google's free tier may use them to improve its products, so avoid private info.</p>
       <div class="ai-paste"><button type="button" class="btn" data-ai-report="settings" data-ai-text="">Report an AI Response</button><p class="mini">AI can be wrong. Tell us if a response was wrong or harmful.</p></div>
     </div>
     <div class="sheet-foot">${hasKey ? `<button type="button" class="btn danger" id="aiRemove">Turn Off</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="aiSave">Save</button></div>
@@ -1893,7 +2616,7 @@ function aiSetupSheet(fromFeature, opts){
     const model = sel[0] === p ? sel[1] : (p === "gemini" ? "auto" : AI_PROVIDERS[p].models[0][0]);
     const prev = state.settings.ai, prevKeys = aiLocalKeys;
     aiLocalKeys = Object.assign({}, aiCfg().keys, {[p]: key});
-    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}, ownKey: true}}); // ownKey: test the key itself, not Studyboard AI
+    state.settings = Object.assign({}, state.settings, {ai: {provider: p, model, keys: {}, ownKey: true}}); // ownKey: test the key itself, not Studyboard AI Pro
     let out;
     try { const r = await aiCall({task: "ping", fast: true, maxTokens: 400, temperature: 0, parts: [{text: "Reply with {\"ok\": true}"}], system: "Reply with JSON only.", schema: {type: "OBJECT", properties: {ok: {type: "BOOLEAN"}}, required: ["ok"]}}); out = {ok: true, model: r.model}; }
     catch(e) { out = {ok: false, err: e.message}; }
@@ -1941,7 +2664,12 @@ function aiSetupSheet(fromFeature, opts){
   const save = okMsg => {
     const k = keysNow(), bx = $("#aiBackupKey");
     if (bx) { const v = bx.value.trim(); if (v && !kindOk(aiKeyKind(v))) { $("#aiBackupMsg").textContent = `That doesn't look like ${kindsSaid}.`; bx.focus(); return; } }
-    else if (!k.gemini && !k.anthropic && !k.openai) { const m = dlg.querySelector('[data-msg="gemini"]'); m.textContent = "Paste your Gemini key first."; dlg.querySelector('[data-key="gemini"]').focus(); return; }
+    // no key at all (the free on-device AI, or Studyboard AI Pro): the rest of the settings are saved, the AI in use stays
+    if (!bx && !k.gemini && !k.anthropic && !k.openai) {
+      const prev0 = state.settings.ai || {}, au = $("#aiAuto"), am = $("#aiAutoModel");
+      state.settings = Object.assign({}, state.settings, {ai: Object.assign({}, prev0, au ? {auto: au.checked} : {}, am ? {autoModel: am.value} : {})}); saveSettings(); autoSave();
+      if (dlg.open) dlg.close(); toast(okMsg || "AI settings saved"); scheduleRender(); return;
+    }
     if (k.gemini && /^(sk-|sb_)/.test(k.gemini)) { dlg.querySelector('[data-msg="gemini"]').textContent = "That doesn't look like a Gemini key. Gemini keys come from Google AI Studio."; return; }
     if (k.anthropic && !/^sk-ant-/.test(k.anthropic)) { dlg.querySelector('[data-msg="anthropic"]').textContent = "Claude API keys start with sk-ant-."; return; }
     const [p, m] = ($("#aiDefault").value || "gemini|auto").split("|");
@@ -2048,7 +2776,7 @@ function aiSetupSheet(fromFeature, opts){
     if (usePro.checked) delete raw.ownKey; else raw.ownKey = true;
     state.settings = Object.assign({}, state.settings, {ai: raw}); saveSettings();
     const bh = $("#aiBackupHint"); if (bh) bh.textContent = backupHint();
-    toast(usePro.checked ? "Studyboard AI is on." : "Using your own key. Turn Studyboard AI back on here any time."); try { scheduleRender(); } catch(e) {}
+    toast(usePro.checked ? "Studyboard AI Pro is on." : "Using your own key. Turn Studyboard AI Pro back on here any time."); try { scheduleRender(); } catch(e) {}
   });
   if (AI_PRO && sbUser) aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} });
   const rm = $("#aiRemove"); if (rm) rm.addEventListener("click", () => { aiWipeLocal(); state.settings = Object.assign({}, state.settings, {ai: null}); saveSettings(); dlg.close(); toast("AI features turned off. Your keys were removed."); scheduleRender(); });
@@ -2118,11 +2846,11 @@ function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settin
 // Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
 // ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
 const AI_NEED_RX = {
-  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback|what (?:did|do) i (?:get|got|score)|what i got|how (?:did|do) i do|how did (?:it|that|i) go|did i (?:pass|do (?:ok|well|good|bad))|(?:need|have) to get|out of)\b|%|\b\d+\s*\/\s*\d+\b/i,
   plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
   tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
   work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
-  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule|events?|study group|orientation|what do i have|what(?:'s| is) on|free|busy|my day|look like|tomorrow|tmrw|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|this week|next week|weekend)\b/i,
   cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
   notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
   files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i
@@ -2188,3 +2916,8 @@ function aiPlannerFacts(need){
   } catch (e) {}
   return L.join("\n\n");
 }
+// Tests and ml/ (the custom model's data generator and scorer) use the app's own quality checks, never a copy of them
+if (window.__SB_TEST) window.__sbAIGates = {parse: aiParseJson, corpus: aiCorpus, copyIndex: aiCopyIndex, copied: aiCopied, basis: aiBasisOk, defers: aiDefers,
+  cards: (list, o) => aiGateCards(list, o), questions: (list, o) => aiGateQuestions(aiCleanQuestions(list), o), cleanQuestions: aiCleanQuestions};
+
+document.addEventListener("change", e => { if (e.target && e.target.id === "aiWebLookup") { try { localStorage.setItem("studyboard:webLookupOff", e.target.checked ? "" : "1"); } catch (x) {} } });

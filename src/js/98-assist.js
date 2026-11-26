@@ -10,7 +10,11 @@
 /* Answers made on this device when the AI can't be reached (the Companion tab's chat and the bubble's Ask):
    a "what next" question gets Do This Next, and a task always comes with its course and when it's due */
 window.SBLOCALANS = (() => {
-  const NEXT_Q = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b/i;
+  const NEXT_RE = /\b(what|which)\b[^?]*\b(should|do|can|to)\b[^?]*\b(next|now|first|work on|start|focus on|study)\b|\bwhat('?s| is) next\b|\bmost (urgent|important|pressing)\b|\btop priority\b|\bwhere (do|should) i start\b/i;
+  // (not when the question is about one thing or a choice: "what should I study first for quiz 4", "which should I prep first, the lab
+  // or the quiz", "what topics should I start with", "what should we go over at study group", "and tomorrow after study group?")
+  const NEXT_NOT = /\b(for (?:the |my |a |an )?\w|topics?|chapters?|sections?|parts?|between|\bor\b|we|us|group|best way|how|after|before|tomorrow|tonight|weekend|exam|quiz|midterm|final|lab|essay|care plan|journal|reading|notes?|cards?|deck)\b|\bwhich should\b/i;
+  const NEXT_Q = {test: s => NEXT_RE.test(String(s || "")) && !NEXT_NOT.test(String(s || "")), source: NEXT_RE.source};
   const when = t => { try { return t.due ? `${MILESTONE(t.type) ? "" : "due "}${fmtDate(t.due)}${t.time ? ", " + fmtTime(t.time) : ""}` : "no due date"; } catch (e) { return t.due || ""; } };
   const taskLine = t => { const c = courseOf(t.courseId); return `**${t.title}**${c ? ", " + courseLabel(c) : ""}: ${t.status === "done" ? "done" : when(t)}${t.location ? ", " + t.location : ""}`; };
   function nextLine(){ try { if (dayIsOff(todayISO())) return ""; const n = nextUp(computeFocus()); return n && n.x && n.x.t ? `Today's Plan says to do this next: ${taskLine(n.x.t)}` : ""; } catch (e) { return ""; } }
@@ -66,7 +70,9 @@ window.SBLOCALANS = (() => {
   async function catalog(q, o){
     o = o || {};
     const refs = new Map(), byKey = new Map(), cnt = {}, L = [];
-    const ref = (p, t) => { const k = t.kind + ":" + (t.key || t.id) + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
+    // (the id and the key both: an event's key is its date, so a second event the same day was given the first one's ref, and
+    // "make the meeting 30 min" changed the clinical orientation before it)
+    const ref = (p, t) => { const k = t.kind + ":" + (t.id || "") + ":" + (t.key || "") + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
     const today = todayISO(), cl = id => { const c = id && state.courses[id]; return c ? courseLabel(c) : ""; };
     // courses and their weekly class times
     const cs = coursesArr();
@@ -74,14 +80,22 @@ window.SBLOCALANS = (() => {
     // tasks
     const all = tasksArr(), open = all.filter(t => t.status !== "done").sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 220);
     const done = all.filter(t => t.status === "done").sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 30);
-    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
+    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}${t.status !== "done" && t.due < today ? " OVERDUE" : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
     if (open.length) L.push("OPEN TASKS (ref | title | course | type | due | status | priority):\n" + open.map(tl).join("\n"));
-    if (done.length) L.push("RECENTLY FINISHED TASKS:\n" + done.map(tl).join("\n"));
+    // (how many there are in all, so "clear all my done tasks" names every one, not the two it noticed; and the ones finished a while
+    // ago, which Studyboard moves to the Archive on its own, are still theirs: three graded quizzes were missing)
+    const archived = typeof allTasks === "function" && typeof isArchived === "function" ? allTasks().filter(t => isArchived(t)).sort((a, b) => (b.due || "").localeCompare(a.due || "")).slice(0, 40) : [];
+    const doneN = all.filter(t => t.status === "done").length + archived.length;
+    if (done.length || archived.length) L.push(`FINISHED (DONE) TASKS (${doneN} in all${done.length + archived.length < doneN ? `, the latest listed` : ""}):\n` + done.map(tl).concat(archived.map(t => tl(t) + " | archived")).join("\n"));
     // classes and events, one line per day they happen (two weeks back, five ahead)
     try {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // days off from the school calendar (no classes meet then, so the list above has none that day): named, so an answer says why
+    try { if (window.SBSCHOOL && SBSCHOOL.off && typeof schoolCfg === "function") { const sc = schoolCfg(), offs = [];
+      for (let d = addDays(today, -7); d <= addDays(today, 35); d = addDays(d, 1)) { const x = SBSCHOOL.off(sc, d); if (x) offs.push(`${wd(d)} ${d}: ${x.name || "day off"}`); }
+      if (offs.length) L.push("SCHOOL DAYS OFF (no classes meet these days; events and due dates still happen):\n" + offs.map(x => "- " + x).join("\n")); } } catch (e) {}
     // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
@@ -91,12 +105,14 @@ window.SBLOCALANS = (() => {
     } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();
-    if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
+    if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards${typeof cardDue === "function" ? `, ${d.cards.filter(c => !c.draft && cardDue(c)).length} due for review today, ${d.cards.filter(c => !c.draft && cardNew(c)).length} never studied` : ""} | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
     const onDeck = ui.tab === "flashcards" && ui.deckId && state.decks[ui.deckId] ? state.decks[ui.deckId] : null;
+    // (o.decks: more decks whose cards are listed, for a step that changes cards in them: Claude's, in the Companion tab)
+    (o.decks || []).map(id => state.decks[id]).filter(d => d && d !== onDeck && d.cards.length).slice(0, 8).forEach(d => L.push(`CARDS IN "${clip(d.name, 60)}" (ref | front | back | times right / wrong in study):\n` + d.cards.slice(0, 120).map(c => `${ref("F", {kind: "card", deck: d.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)} | ${c.right || 0} right / ${c.wrong || 0} wrong${typeof cardDue === "function" ? (cardDue(c) ? " | due for review" : cardNew(c) ? " | new" : "") : ""}`).join("\n")));
     if (onDeck && onDeck.cards.length) L.push(`CARDS IN "${clip(onDeck.name, 60)}" (ref | front | back):\n` + onDeck.cards.slice(0, 200).map(c => `${ref("F", {kind: "card", deck: onDeck.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)}`).join("\n"));
     // notes and whiteboards
     const ns = notesArr().filter(n => !n.archived && String(n.text || "").trim()).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 150);
-    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, 160)}`).join("\n"));
+    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, o.full ? 1500 : 160)}`).join("\n"));
     const D = descs(), wbs = Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).slice(0, 80);
     if (wbs.length) L.push("WHITEBOARDS (ref | name | course | typed text | what's drawn, written or pictured on it):\n" + wbs.map(n => {
       const d = D[n.id] && D[n.id].d, typed = (n.wbItems || []).filter(i => i.k === "t").map(i => i.s).join(" / "), own = ref("W", {kind: "board", id: n.id});
@@ -139,8 +155,9 @@ window.SBLOCALANS = (() => {
 
   /* ---------- 3. What the AI may answer with ---------- */
   const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
-    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
+    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting", "mark", "color"];
   const SHOW_CHANGE = {
+    focusMinutes: {type: "INTEGER", description: "When the student asks to start a focus timer, focus session or pomodoro: its length in minutes (use 25 if they gave none). The app starts it right away. 0 otherwise."},
     show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
     changes: {type: "ARRAY", description: "Changes to make, ONLY when the student asked for a change. The app shows each one and asks them to confirm. Empty otherwise.", items: {type: "OBJECT", properties: {
       ref: {type: "STRING", description: "The ref of the thing to change, or SETTINGS for an app setting"},
@@ -172,13 +189,14 @@ CHANGING THINGS: when (and only when) the student asks to change something, add 
 - file (P): name (keep the file's extension); course (a C ref); delete yes
 - app settings: ref SETTINGS, field setting, "setting" = which setting in words, value = the new value in words or a number (like "off", "dark", "4", "Spanish").
 ADDING TASKS: when the student asks to add, create or remember something to do (homework, an exam, a reading, a reminder to study), put each one in "newTasks": a short clear title, its course ref when it's for a course, its type, the due date worked out from TODAY (like "next Friday"), a time only if they gave one, and priority high for exams. Several at once is fine ("add the readings for each week"). Never say they're added: the student confirms them first.
+FOCUS TIMER: when the student asks to start a focus timer, focus session or pomodoro ("start a 5 minute timer"), set "focusMinutes" to its length (25 if they didn't say) and say it's starting. The app starts it.
 Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
   const fieldOk = {
-    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete"],
-    course: ["name", "code", "instructor", "room"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
-    deck: ["name"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
+    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete", "mark"],
+    course: ["name", "code", "instructor", "room", "color", "delete"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
+    deck: ["name", "delete"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
     note: ["text", "delete"], board: ["name"], file: ["name", "course", "delete"]
   };
   const yes = v => /^(yes|true|1|on|delete|skip|cancel)$/i.test(String(v || "").trim());
@@ -243,10 +261,17 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "type") { if (!TYPES.includes(raw)) return null; return S(k.type, raw); }
         if (field === "hours") { const n = Number(raw); if (!(n >= 0 && n <= 500)) return null; out.value = n; return S(k.hours ? k.hours + "h" : "none", n + "h"); }
         if (field === "weight") { const n = Number(String(raw).replace("%", "")); if (!(n >= 0 && n <= 100)) return null; out.value = n; return S(k.weight ? k.weight + "%" : "none", n + "%"); }
+        // a mark: "17/20", "17 out of 20", "85%" or "85" (out of 100); empty takes it off
+        if (field === "mark") { const was = k.mark && k.mark.got != null && k.mark.outOf > 0 ? `${k.mark.got}/${k.mark.outOf}` : "none";
+          if (!raw || /^(none|clear|remove|delete)$/i.test(raw)) { if (was === "none") return null; out.value = null; return S(was, "no mark"); }
+          const fr = /^(\d+(?:\.\d+)?)\s*(?:\/|out of)\s*(\d+(?:\.\d+)?)$/i.exec(raw), pc = /^(\d+(?:\.\d+)?)\s*%?$/.exec(raw), mk = fr ? {got: Number(fr[1]), outOf: Number(fr[2])} : pc ? {got: Number(pc[1]), outOf: 100} : null;
+          if (!mk || !(mk.outOf > 0) || mk.got < 0 || mk.got > mk.outOf * 2) return null; out.value = mk; return S(was, `${mk.got}/${mk.outOf}`); }
         if (field === "course") { const ct = refs.get(raw.toUpperCase()); if (!ct || ct.kind !== "course" || !state.courses[ct.id]) return null; out.value = ct.id; return S(k.courseId && state.courses[k.courseId] ? courseLabel(state.courses[k.courseId]) : "none", courseLabel(state.courses[ct.id])); }
         if (!raw && field === "title") return null;
         return S(clip(k[field], 80) || "empty", clip(raw, 80) || "empty");
       }
+      if (t.kind === "course" && field === "delete") return yes(raw) ? S("", "Delete the course (its tasks stay)") : null;
+      if (t.kind === "course" && field === "color") { if (!/^#[0-9a-f]{6}$/i.test(raw)) return null; return S(state.courses[t.id].color || "none", raw.toUpperCase()); }
       if (t.kind === "course") { if (!raw && field === "name") return null; return S(clip(state.courses[t.id][field], 60) || "none", clip(raw, 60)); }
       if (t.kind === "class" || t.kind === "event") {
         if (field === "skip") return yes(raw) ? S(`${nice(t.date)}, ${tm(t.start)}`, "Cancelled that day") : null;
@@ -261,6 +286,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "title" || field === "notes") return raw || field === "notes" ? S(clip(state.events[t.id][field], 60) || "none", clip(raw, 60) || "none") : null;
         return null;
       }
+      if (t.kind === "deck" && field === "delete") return yes(raw) ? S("", "Delete the deck") : null;
       if (t.kind === "deck") return raw ? S(state.decks[t.id].name, clip(raw, 80)) : null;
       if (t.kind === "quiz") { const z = state.decks[t.deck].aiQuizzes.find(x => x.id === t.id); return z && raw ? S(z.title, clip(raw, 80)) : null; }
       if (t.kind === "card") { const k = state.decks[t.deck].cards.find(x => x.id === t.id); if (!k) return null; if (field === "delete") return yes(raw) ? S("", "Delete the card") : null; if (!raw) return null; return S(clip(k[field], 100), clip(raw, 100)); }
@@ -287,7 +313,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   function resolve(d, refs){
     d = d || {};
-    const show = (Array.isArray(d.show) ? d.show : []).map(r => refs.get(String(r || "").trim().toUpperCase())).filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
+    // (a reference as asked, else one written inside the text, "show N1", else the item named by its title: small models do all three)
+    const byLabel = r => { const q = String(r || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24); if (q.length < 4) return null; for (const t of refs.values()) { try { if (t && labelOf(t).toLowerCase().startsWith(q)) return t; } catch (e) {} } return null; };
+    const refOf = r => { const s2 = String(r || "").trim(), k = s2.toUpperCase(); if (refs.has(k)) return refs.get(k); const m = k.match(/\b[A-Z]{1,3}\d{1,4}\b/g) || []; for (const x of m) if (refs.has(x)) return refs.get(x); return byLabel(s2); };
+    const show = [...new Set((Array.isArray(d.show) ? d.show : []).concat(/^\s*(show|open|go to|see)\s+[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(String(d.answer || "")) ? [d.answer] : []).map(refOf))].filter(t => t && exists(t)).slice(0, 5).map(t => Object.assign({}, t, {label: labelOf(t)}));
     const seen = new Set(), changes = [];
     (Array.isArray(d.changes) ? d.changes : []).slice(0, 20).forEach(c => { const x = check(c, refs); if (!x) return; const k = JSON.stringify([x.t.kind, x.t.id, x.t.key, x.field, x.setting]); if (seen.has(k)) return; seen.add(k); changes.push(x); });
     (Array.isArray(d.newTasks) ? d.newTasks : []).slice(0, 25).forEach(x => {
@@ -411,9 +440,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (t.kind === "task") {
         if (c.field === "delete") { dead.add("task:" + t.id); continue; }
         const n = get("task", t.id); if (!n) continue;
+        if (c.field === "mark") { if (v) n.mark = Object.assign({}, n.mark || {}, v); else delete n.mark; continue; }
         const map = {startDate: "start", course: "courseId"}; n[map[c.field] || c.field] = v;
         if (c.field === "status") { if (v === "done" && !n.doneAt) n.doneAt = Date.now(); if (v !== "done") n.doneAt = null; }
-      } else if (t.kind === "course") { const n = get("course", t.id); if (n) n[c.field] = v; }
+      } else if (t.kind === "course") { if (c.field === "delete") { dead.add("course:" + t.id); continue; } const n = get("course", t.id); if (n) n[c.field] = v; }
       else if (t.kind === "class") {
         const n = get("course", t.id); if (!n) continue;
         if (c.scope === "once" || c.field === "skip" || c.field === "date") {
@@ -437,7 +467,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           else if (c.field === "date" || c.field === "from" || c.field === "to") { const mv = Object.assign({date: t.date, start: t.start, end: t.end}, n.moved[t.key] && !n.moved[t.key].skip ? n.moved[t.key] : {}); if (c.field === "date") mv.date = v; if (c.field === "from") mv.start = v; if (c.field === "to") mv.end = v; n.moved[t.key] = mv; }
           else n[c.field] = v;
         } else { const map = {from: "start", to: "end"}; n[map[c.field] || c.field] = v; }
-      } else if (t.kind === "deck") { const n = get("deck", t.id); if (n) n.name = v; }
+      } else if (t.kind === "deck") { if (c.field === "delete") { dead.add("deck:" + t.id); continue; } const n = get("deck", t.id); if (n) n.name = v; }
       else if (t.kind === "quiz" || t.kind === "card" || t.kind === "question") {
         const n = get("deck", t.deck); if (!n) continue;
         if (t.kind === "card") { if (c.field === "delete") n.cards = n.cards.filter(x => x.id !== t.id); else { const k = n.cards.find(x => x.id === t.id); if (k) k[c.field] = v; } }
@@ -451,6 +481,13 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     after.forEach((v, k) => { if (!v || dead.has(k)) return; const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: v}); });
     dead.forEach(k => { const [kind, id] = k.split(/:(.*)/s); out.push({kind, id, after: null}); });
     return out;
+  }
+  // new tasks the student asked for in so many words: added at once (they can undo), the chat says what was added
+  function addNow(changes){
+    const adds = (changes || []).filter(c => c && c.t && c.t.kind === "newtask"); if (!adds.length) return 0;
+    const ch = build(adds); if (!ch.length) return 0;
+    applyChanges(ch, adds.length === 1 ? `Added "${clip(adds[0].label, 40)}"` : `Added ${adds.length} tasks`);
+    return adds.length;
   }
   async function propose(changes, o){
     o = o || {};
@@ -474,7 +511,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       }
     }
     if (!rest.length && o.shown) try { o.shown(); } catch (e) {}
-    for (const s of sets) await settingChange(s);
+    for (const s of sets) { const r = await settingChange(s, o.direct); if (o.results) o.results.push(r); }
+    // (made from the chat: the Settings sheet it worked in is closed again, so the chat carries on)
+    if (o.direct && sets.length) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
     return true;
   }
 
@@ -506,7 +545,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const d = r && r.data; const i = d ? Number(d.i) : -1;
     return i >= 0 && i < list.length ? {c: list[i], value: String(d.value || "").trim()} : null;
   }
-  async function settingChange(s){
+  // direct: asked for in so many words in the chat (Claude's step): set at once, without the confirm box (it can be set back the same way)
+  async function settingChange(s, direct){
     try {
       if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
       menuSheet(); await frame(); await wait(120);
@@ -517,7 +557,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (found.c.type !== "open") break;
         found.c.el.click(); await frame(); await wait(250); found = null;
       }
-      if (!found) { toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
+      if (!found) { if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} return false; } toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
       const {c} = found; let v = found.value;
       const el = c.el || (c.type === "choice" && c.els ? c.els.find(b => clip(b.innerText, 30).toLowerCase() === v.toLowerCase()) : null);
       if (c.type === "choice" && c.els && !el) { toast("That setting doesn't have that option."); return false; }
@@ -526,13 +566,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       await wait(200); flash(target.closest(".menu-row, .cap-row, label, li") || target);
       if (c.type === "toggle") v = /^(on|yes|true|enable|enabled|show)$/i.test(v) ? "on" : "off";
       if (c.type === "toggle" && v === c.now) { toast(`${clip(c.title.split(/[.!]/)[0], 50)} is already ${v}.`); return true; }
-      const ok = await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
+      const ok = direct ? true : await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
       if (!ok) { toast("Nothing changed."); return false; }
       if (c.type === "toggle") c.el.click();
       else if (c.type === "choice" && c.els) el.click();
       else if (c.el.tagName === "SELECT") { const o = [...c.el.options].find(x => x.textContent.trim().toLowerCase() === v.toLowerCase()); if (!o) { toast("That setting doesn't have that option."); return false; } c.el.value = o.value; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
       else { c.el.value = v; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
-      return true;
+      if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
+      return {title: clip(c.title.split(/[.!]/)[0], 60), from: c.now || "", to: v};
     } catch (e) { console.warn("assist setting", e); toast((e && e.message) || "Couldn't change that setting."); return false; }
   }
 
@@ -574,18 +615,283 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   // a couple of boards at a time, once the app has been quiet a while
   setTimeout(function tick(){ try { if (!document.hidden) describeBoards(2); } catch (e) {} setTimeout(tick, 6 * 60000); }, 45000);
 
+  /* ---------- 7b. Requests done in code ---------- */
+  // A focus timer, and a new task when the AI didn't write one: done by the app itself, so they never depend on the AI getting the
+  // format right (small on-device models say "I've set a timer" or "I added it" without asking the app to)
+  const NUMW = {one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, fifteen: 15, twenty: 20, "twenty-five": 25, "twenty five": 25, thirty: 30, forty: 40, "forty-five": 45, "forty five": 45, fifty: 50, sixty: 60, ninety: 90};
+  function timerMins(q){
+    const s = String(q || "").toLowerCase();
+    if (!/\b(timer|focus|pomodoro|study session|focus session)\b/.test(s)) return null;
+    if (/^\s*(how|what|when|why|where|which|did|do|does|is|are)\b/.test(s) || /\b(stop|pause|end|cancel|reset|turn off)\b/.test(s)) return null;
+    let m = s.match(/(\d{1,3}(?:\.\d+)?)\s*-?\s*(minutes?|mins?|m|hours?|hrs?|h)\b/), mins = 0;
+    if (m) mins = Number(m[1]) * (/^h/.test(m[2]) ? 60 : 1);
+    else if ((m = s.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty[- ]five|twenty|thirty|forty[- ]five|forty|fifty|sixty|ninety)\s*-?\s*(minutes?|mins?|hours?)\b/))) mins = NUMW[m[1]] * (/^h/.test(m[2]) ? 60 : 1);
+    else if (/\bhalf an hour\b/.test(s)) mins = 30; else if (/\b(an|one) hour\b/.test(s)) mins = 60;
+    const start = /\b(start|begin|set|run|put on|give me|make|time me|let'?s|can you|could you|please|i want|i need|focus for)\b/.test(s);
+    if (!start && !mins) return null;
+    return {mins: Math.round(mins)};
+  }
+  /* The task a timer is for, from the words ("I'm working on my homework task", "for the bio lab"): the open task whose title (or
+     type) shares the most words with the request, soonest due on a tie; the task in progress for "the task I'm working on". */
+  const TSTOP = new Set("a an the my me i im i'm am is are on for to of and with task tasks timer focus minute minutes min mins hour hours start new set run working work doing do please can you could study session pomodoro now just".split(" "));
+  function taskFor(q){
+    const s = String(q || "").toLowerCase(), words = s.replace(/[^a-z0-9' ]+/g, " ").split(/\s+/).filter(w => w && !TSTOP.has(w) && !/^\d+$/.test(w));
+    const open = Object.values(state.tasks || {}).filter(t => t && t.status !== "done" && !t.archived);
+    if (!open.length) return null;
+    let best = null, bs = 0;
+    for (const t of open) {
+      const tw = String(t.title || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").split(/\s+/), type = String(t.type || "").toLowerCase();
+      let sc = 0; words.forEach(w => { if (tw.some(x => x === w || (w.length > 3 && x.startsWith(w.replace(/s$/, ""))))) sc += 2; else if (type && (type === w || (w === "homework" && /assign|homework/.test(type)) || type.startsWith(w.replace(/s$/, "")))) sc += 1; });
+      if (sc > bs || (sc === bs && sc > 0 && best && (t.due || "9") < (best.due || "9"))) { best = t; bs = sc; }
+    }
+    if (best && bs > 0) return best;
+    if (/\b(the|my) (task|thing|work|assignment) i'?m (working on|doing)\b|\bcurrent task\b/.test(s)) return open.find(t => t.status === "doing") || null;
+    return null;
+  }
+  /* Things done straight away, with no AI: stop, pause or resume the focus timer, say how long is left on it, and undo the last
+     change ("undo that", "reverse the change", "put it back"). Any wording that names the thing and the action counts. */
+  const TIMER_W = /\b(timer|pomodoro|focus( session| time)?|session|countdown|clock)\b/i;
+  function control(q){
+    const s = String(q || "").toLowerCase().replace(/[?!.]+$/, "").trim();
+    if (s.length > 120) return null;
+    const P = typeof pomo !== "undefined" ? pomo : null, live = P && (P.running || P.left > 0), name = () => { const t = P && P.taskId && state.tasks[P.taskId]; return t ? ` for ${t.title}` : ""; };
+    const left = () => { const ms = P.running ? P.endAt - Date.now() : P.left, m = Math.max(0, Math.round(ms / 60000)); return m >= 1 ? `${m} minute${m === 1 ? "" : "s"}` : "less than a minute"; };
+    // with a timer on (or paused), a short "pause it", "stop that", "resume", "keep going" is about the timer
+    if (P && TIMER_W.test(s) || P && live && /^\s*(ok(ay)?|please|now|can (you|u)|could you)?\s*(stop|pause|resume|unpause|cancel|end|continue|keep going|carry on)\b[\w\s']{0,18}$/.test(s)) {
+      if (/\b(stop|end|cancel|quit|kill|turn off|switch off|finish|done with|reset|clear|get rid of|no more)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        const was = name(); pomoReset(); return {answer: `Stopped your focus timer${was}.`, show: [], done: true};
+      }
+      if (/\b(pause|hold|break)\b/.test(s) && !/\b(take|start|give me) (a )?break\b/.test(s)) {
+        if (!P.running) return {answer: P.left > 0 ? "Your focus timer is already paused." : "There's no focus timer running.", show: []};
+        pomoPause(); return {answer: `Paused your focus timer${name()} with ${left()} left.`, show: [], done: true};
+      }
+      if (/\b(resume|unpause|continue|keep going|restart it|start (it )?again|carry on)\b/.test(s) && !P.running && P.left > 0) { pomoStart(); return {answer: `Resumed your focus timer${name()}: ${left()} left.`, show: [], done: true}; }
+      if (/\b(how (much|long)|time left|left on|remaining|is (my|the) (focus )?timer (running|on|going)|is it (still )?running)\b/.test(s)) {
+        if (!live) return {answer: "There's no focus timer running.", show: []};
+        return {answer: `${left()} left on your focus timer${name()}${P.running ? "" : " (paused)"}.`, show: []};
+      }
+    }
+    if (/\b(undo|reverse|revert|take (that|it) back|put (it|that|them) back|change (it|that) back|go back to how|unmark|cancel (that|the change|the last|what you did)|didn'?t mean (to|that))\b/.test(s) && !/\b(how (do|can) i|is there|can i)\b/.test(s)) {
+      if (typeof undoStack === "undefined") return null;
+      const st = undoStack.slice().reverse().find(x => !x.done && Date.now() - x.at < 30 * 60000);
+      if (!st) return {answer: "There's nothing recent to undo. Deleted things stay in Settings, Data and Backups, Recently Deleted for 30 days.", show: []};
+      undoStack.splice(undoStack.indexOf(st), 1); const kept = st.undo();
+      return {answer: `Undone${st.label ? `: ${st.label.replace(/\.$/, "")}` : ""}.${kept ? " Changes you made after it were kept." : ""}`, show: [], done: true};
+    }
+    return null;
+  }
+  function startTimer(mins, task){
+    if (typeof pomoStart !== "function") return false;
+    if (pomo.running || pomo.left > 0) pomoReset();
+    pomo.taskId = task ? task.id : ""; pomo.mode = "focus"; pomo.left = 0; pomo.len = 0; pomo.preset = mins > 0 ? mins : 0; pomoSave();
+    pomoStart();
+    return pomo.running;
+  }
+  const APPQ_HOW = /^\s*(how|where|can i|is there|what)\b/i;
+  // (a study plan, a schedule for the week, a summary, cards or a quiz are things to write or make, not a task to add)
+  const ADD_Q = /^(?![^?]*\b(study plan|plan (for|my|out)|schedule (for|my) (the |this |next )?week|(make|create|write|give) (me )?(a |an )?(summary|outline|study guide|flash ?cards?|quiz|practice|mnemonic|concept map|mind map|note)\b))\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
+  const ADD_WHAT = /\b(task|to-?do|reminder|assignment|homework|exam|quiz|test|midterm|final|reading|essay|paper|project|lab|study|remind me)\b/i;
+  // "add a task to email Dr. Lee tomorrow at 3pm" -> {title: "Email Dr. Lee", due, time}
+  function localTask(q){
+    const today = todayISO(), WD = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], MO = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    let t = " " + String(q || "").replace(/\s+/g, " ").trim() + " ", due = "", time = "", m;
+    const cut = re => { const x = t.match(re); if (x) t = t.replace(x[0], " "); return x; };
+    if ((m = cut(/\s(?:at|by|@)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)(?=\W)/i))) { let h = Number(m[1]) % 12; if (/^p/i.test(m[3])) h += 12; time = String(h).padStart(2, "0") + ":" + (m[2] || "00"); }
+    if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(today|tonight)(?=\W)/i))) due = today;
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(tomorrow)(?=\W)/i))) due = addDays(today, 1);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?next week(?=\W)/i))) due = addDays(today, 7);
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(?:(this|next)\s+)?(sun|mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?)(?:day)?(?=\W)/i))) {
+      const w = WD.findIndex(x => x.startsWith(m[2].toLowerCase().slice(0, 3))), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0) k = 7; due = addDays(today, k); }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?=\W)/i))) {
+      const mo = MO.indexOf(m[1].toLowerCase().slice(0, 3)) + 1; let y = Number(today.slice(0, 4)), s2 = `${y}-${String(mo).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(\d{1,2})\/(\d{1,2})(?=\W)/))) { let y = Number(today.slice(0, 4)), s2 = `${y}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
+    t = t.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up)(\s+me)?(\s+(a|an|the|my))?(\s+new)?(\s+(task|to-?do|reminder|item))?(\s+(to|called|named|for|that says|saying|:))?\s*/i, " ")
+      .replace(/^\s*remind me to\s*/i, " ").replace(/\s+(to|on|in)\s+my\s+(list|planner|tasks|to-?do list)\b/i, " ").replace(/\s+(please|thanks|thank you)\s*$/i, " ")
+      .replace(/\s+(due|by|on|at|for)\s*$/i, " ").replace(/\s+/g, " ").trim().replace(/[.?!,;:]+$/, "");
+    if (t.length < 2) return null;
+    const type = /^\s*remind me\b/i.test(q) ? "Other" : /\b(exam|midterm|final)\b/i.test(t) ? "Exam" : /\bquiz\b/i.test(t) ? "Quiz" : /\btest\b/i.test(t) ? "Exam" : /\b(read|reading|chapter)\b/i.test(t) ? "Reading" : /\blab\b/i.test(t) ? "Lab" : /\bproject\b/i.test(t) ? "Project" : /\b(study|review)\b/i.test(t) ? "Study" : /\b(homework|assignment|essay|paper|problem set|worksheet)\b/i.test(t) ? "Assignment" : "Other";
+    return {title: t.charAt(0).toUpperCase() + t.slice(1), due, time, type};
+  }
+  /* A change to a task, read from the words: "move my history essay to next monday", "mark care plan 2 as done", "push the lab
+     report back 2 days", "delete buy scrubs", "rename X to Y", "make the midterm high priority". A change to confirm; no model. */
+  const EDIT_Q = /^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(move|reschedule|push|postpone|delay|change|mark|set|check off|complete|finish|delete|remove|cancel|rename|make|bump|shift)\b|\b(i (finished|completed|did|turned in|submitted|handed in)|is (done|finished|complete))\b/i;
+  function quickEdit(q){
+    const s = String(q || "").toLowerCase().replace(/\s+/g, " ").trim(), today = todayISO();
+    if (!EDIT_Q.test(s)) return null;
+    const named = (typeof noteBoards === "function" && noteBoards().some(b => b.name && new RegExp("\\b" + b.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(s) && /\bboard\b/.test(s))) || coursesArr().some(c => (c.name && s.includes(c.name.toLowerCase())) || (c.code && s.includes(c.code.toLowerCase()))) || Object.values(state.events || {}).some(e => e.title && s.includes(e.title.toLowerCase())) || Object.values(state.decks || {}).some(d => d.name && s.includes(d.name.toLowerCase()));
+    if (named && !Object.values(state.tasks || {}).some(t => t.title && s.includes(t.title.toLowerCase()))) return null;
+    // the task it names: the open (or, for "undo done", any) task whose title shares the most words with the request
+    const STOPW = new Set("a an the my me i to as for on by of it is be and move reschedule push postpone delay change mark set check off complete finish finished completed delete remove cancel rename make bump shift done back due date next this week day days monday tuesday wednesday thursday friday saturday sunday today tomorrow priority high low urgent medium task please can could would you in progress did turned submitted handed".split(" "));
+    const qw = s.replace(/[^a-z0-9&' ]+/g, " ").split(" ").filter(w => w && !STOPW.has(w) && !/^\d+$/.test(w));
+    let best = null, bs = 0;
+    Object.values(state.tasks || {}).filter(t => t && !t.archived).forEach(t => { const tw = String(t.title || "").toLowerCase().replace(/[^a-z0-9&' ]+/g, " ").split(" ").filter(Boolean); let sc = 0; qw.forEach(w => { if (tw.some(x => x === w || (w.length > 3 && x.startsWith(w.replace(/s$/, ""))))) sc += 1; }); if (sc && t.status === "done" && !/\bnot done|undo|reopen|unmark\b/.test(s)) sc -= 0.5; if (sc > bs || (sc === bs && best && (t.due || "9") < (best.due || "9"))) { best = t; bs = sc; } });
+    if (!best || bs < 1) return null;
+    const refs = new Map([["T1", {kind: "task", id: best.id}]]), one = (field, value) => { const c = check({ref: "T1", field, value}, refs); return c ? [c] : null; };
+    if (/\b(delete|remove|cancel)\b/.test(s)) return one("delete", "yes");
+    let m;
+    if ((m = String(q).match(/\brename\b.*?\bto\s+["“']?(.+?)["”']?\s*$/i))) return one("title", m[1].trim().replace(/^\w/, ch => ch.toUpperCase()));
+    if (/\b(not done|undo|reopen|unmark|back to (to ?do|not done))\b/.test(s)) return one("status", "todo");
+    if (/\b(done|complete|completed|finished|finish|check off|turned in|submitted|handed in)\b/.test(s) && !/\b(by|due|to (monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow))\b/.test(s)) return one("status", "done");
+    if (/\b(in progress|started|working on|doing)\b/.test(s)) return one("status", "doing");
+    if ((m = s.match(/\b(urgent|high|medium|med|low)\b(?:\s+priority)?/)) && /\bpriority|urgent|important\b/.test(s)) return one("priority", {medium: "med"}[m[1]] || m[1]);
+    // a new due date: "to next monday", "to friday", "to dec 3"; or "back 2 days", "by a week"
+    if ((m = s.match(/\b(?:back|forward|out|by)\s+(?:by\s+)?(a|one|two|three|four|five|\d+)\s+(day|days|week|weeks)\b/)) && best.due) {
+      const n = ({a: 1, one: 1, two: 2, three: 3, four: 4, five: 5}[m[1]] || Number(m[1])) * (/week/.test(m[2]) ? 7 : 1), sign = /\bforward|earlier|sooner\b/.test(s) ? -1 : 1;
+      return one("due", addDays(best.due, sign * n));
+    }
+    const lt = localTask(" date " + s.replace(/^.*?\b(to|until|till|for|on)\b/, " ") + " ");
+    if (lt && lt.due) { const out = one("due", lt.due); if (out && lt.time) { const tc = check({ref: "T1", field: "time", value: lt.time}, refs); if (tc) out.push(tc); } return out; }
+    return null;
+  }
+  // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
+  function quickTask(q){
+    // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
+    // (so is anything from one time to another: "study session wednesday 7-9pm")
+    if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
+    if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
+    // an edit said about a task they have ("put the lab report in progress too", "make the map test high", "a&p final a week
+    // earlier", "add a grade to the lab report"), with no word asking for a new one: the AI step edits it, never a task titled with it
+    { const ex = taskFor(q);
+      if (ex && !/\b(new|another|separate|second|also add|add (a|an) (new )?(task|reminder|to-?do))\b/i.test(q) && /\b(in[- ]progress|started|priority|urgent|important|high|low|earlier|later|sooner|push|move|bump|postpone|delay|reschedul\w*|grades?|marks?|scored?|got|rename|done|finished|complete[d]?|too|as well)\b|\d+\s*\/\s*\d+|\d+\s*%/i.test(q)) {
+        const tw = String(ex.title).toLowerCase().split(/[^a-z0-9&]+/).filter(w => w.length > 2), qw = String(q).toLowerCase();
+        if (tw.filter(w => qw.includes(w.replace(/s$/, ""))).length >= Math.min(2, tw.length)) return null; } }
+    const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    // "in 3 days", "in a week", "in two weeks": the due date, not part of the title
+    { const N = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10};
+      const m = /\s*\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|ten)\s+(days?|weeks?)\b/i.exec(lt.title);
+      if (m) { const n = (/^\d+$/.test(m[1]) ? +m[1] : N[m[1].toLowerCase()]) * (/^w/i.test(m[2]) ? 7 : 1); lt.title = lt.title.replace(m[0], "").trim(); if (!lt.due) lt.due = addDays(todayISO(), n); } }
+    { const qt = /["“'‘]([^"”'’]{3,120})["”'’]/.exec(q); if (qt) lt.title = qt[1].trim(); lt.title = lt.title.replace(/\s+(on|to|in)\s+(my\s+)?(to-?\s?do\s+list|list|tasks?|planner|board)\b.*$/i, "").trim(); }
+    const c = window.SBTRUTH ? SBTRUTH.courseNamed(q) : null;
+    // the course's name in the title is said by the course, not repeated in the title
+    let title = lt.title; if (c) { [c.code, c.name].filter(Boolean).forEach(k => { const re = new RegExp("^(for |in )?" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b[:\\s-]*", "i"); if (re.test(title) && title.replace(re, "").length > 2) title = title.replace(re, ""); }); title = title.charAt(0).toUpperCase() + title.slice(1); }
+    const r = resolve({newTasks: [{title, type: lt.type, due: lt.due, time: lt.time, course: c ? "C_" + c.id : ""}]}, new Map(c ? [["C_" + c.id.toUpperCase(), {kind: "course", id: c.id}]] : []));
+    return r.changes[0] || null;
+  }
+  // An answer that says something was done when nothing was (no change, task, timer or place to show)
+  const CLAIMS = /\b(i('ve| have)?|we('ve| have)?)\s+(just\s+)?(added|created|started|set( up)?|scheduled|changed|updated|moved|deleted|removed|renamed)\b|\b(has|have) been (added|created|started|set|scheduled|changed|updated|moved|deleted|removed)\b|\b(is|are) (now )?(added|set|started|running|scheduled|on your list)\b|\b(i'?ll|i will|let'?s|we'?ll)\s+(go ahead and\s+)?(set|start|add|create|schedule)\b[^.!?]{0,40}\b(timer|focus|pomodoro|reminder|task|alarm|event)\b|\bthe app will start\b/i;
+
   /* ---------- 8. Asking ---------- */
   const VISUAL = /\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit|wrote|written|graph|chart|map)\b/i;
+  /* "Find my notes on the Krebs cycle", "which notes talk about WWI": the notes themselves, found by search (words and meaning),
+     listed with a button to each. Any AI, and no AI at all: a small model shouldn't be the one looking. */
+  const NOTES_FIND = /\b(find|show|which|where|search|look up|look for|pull up|open|get|any|do i have|did i (write|take|make))\b[^?]*\bnotes?\b|\bnotes? (on|about|for|from|that (mention|mentions|talk about|talks about|cover|covers|say|says))\b/i;
+  async function findNotes(q){
+    if (!NOTES_FIND.test(q) || /\b(make|create|write|add|save|put|new)\b[^?]*\bnote\b/i.test(q) && !/\b(find|show|which|search|look)\b/i.test(q)) return null;
+    // a question about what the notes say ("what does my note say the ego uses", "is my WWI note accurate", "did my notes say who
+    // Peplau was", "is that example from my notes"): answered from them, not a list of notes
+    if (/^\s*(what|whats|what's|is|are|was|were|does|do|did|why|how|who|when|explain|summari[sz]e|list|according|can you (explain|summari[sz]e|tell))\b/i.test(q) && !/^\s*(do i have|did i (write|take|make|save)|is there|are there|what notes|which notes|where('?s| is| are| do| did)?\b)/i.test(q)) return null;
+    const topic = String((q.match(/\b(?:on|about|for|from|mention(?:s|ing)?|talk(?:s|ing)? about|cover(?:s|ing)?|say(?:s|ing)?|with|regarding)\s+(.+?)\s*[?.!]*$/i) || [])[1] || "")
+      .replace(/^(?:my|the|a|an)\s+/i, "").replace(/\s+notes?$/i, "").trim();
+    const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
+    if (!all.length) return {answer: "You don't have any notes yet. Make one from Notes, or ask me to make a note for you.", show: [], changes: [], local: true};
+    if (!topic) return null;
+    const found = new Map();
+    try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic, {max: 16, wait: 800, readWait: 1, semWait: 2500}) : null;
+      (R && R.rows || []).forEach(x => { if (x.doc && x.doc.type === "note" && state.notes[x.doc.id] && !state.notes[x.doc.id].archived) found.set(x.doc.id, state.notes[x.doc.id]); }); } catch (e) {}
+    // and plain word matches, so a note is never missed while search is still getting ready
+    const tw = topic.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+    all.forEach(n => { const t = String(n.text).toLowerCase(); if (tw.length && tw.every(w => t.includes(w.replace(/s$/, "")))) found.set(n.id, n); });
+    const list = [...found.values()].slice(0, 5);
+    // the note's heading and the line about the topic (not just its first words, which may stop before it)
+    const first = n => { const L = String(n.text).split(/\n+/).map(x => x.trim()).filter(Boolean), head = L[0] || "";
+      const hit = L.slice(1).find(l => tw.some(w => l.toLowerCase().includes(w.replace(/s$/, ""))));
+      return hit ? `${clip(head, 50)} · ${clip(hit, 160)}` : clip(L.join(" · "), 110); };
+    if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
+    return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
+      show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
+  }
+  // Whether the words ask for something to be done (not a question about the planner): "new task: …", "I have work saturday", "can X be due the 30th instead"
+  const isRequest = q => !!(/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(please\s+)?(add|put|make|create|delete|remove|move|push|reschedule|mark|rename|change|set|switch|turn|start|stop|pause|resume|open|take me|go to|jot|remind|schedule|book|cancel|undo|edit|update|scratch|drop|new|write|jot|note|sticky|put|wear|take off)\b/i.test(q) || /\b(move|push|reschedule|postpone|delay|instead|rename|delete|remove|cancel|change it|set it|make it|new (task|event|course|class|note))\b/i.test(q) || (/^\s*(i have|i've got|ive got|i got|i'm|im|i am|i need|i gotta|i'll|there'?s)\b/i.test(q) && !/\?\s*$/.test(q) && !/\b(what|which|how|when|where|should i|do i|can i|am i)\b/i.test(q)));
   async function ask(q, o){
     o = o || {};
+    { const c = control(q); if (c) return c; }
+    // about the companion itself ("what are you wearing", "who are you"): from its real settings (98-companion-tab.js)
+    { const me = window.SBCOMPTAB && SBCOMPTAB.self ? SBCOMPTAB.self(q) : ""; if (me) return {answer: me, show: []}; }
+    { const fn = await findNotes(q).catch(e => { console.warn(e); return null; }); if (fn) return fn; }
+    // The AI on the device (98-truth.js): a request with several things to do goes one at a time, and planner facts (what's due,
+    // grades, when something is) come from the app itself, exact, with no model involved
+    const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH;
+    if (dev && TR) {
+      // (each part of a two-in-one request goes through the same exact steps below)
+      const parts = o.oneStep ? [q] : TR.steps(q);
+      if (parts.length > 1) {
+        const outs = [];
+        for (const p of parts) { try { outs.push(await ask(p, Object.assign({}, o, {oneStep: true}))); } catch (e) { outs.push({answer: "", show: [], changes: []}); } }
+        const FAILED = /^\s*I (couldn't|could not|can't) (find|get)\b/i, good = outs.filter(x => x.answer && !FAILED.test(x.answer));
+        return {answer: (good.length ? good : outs).map(x => x.answer).filter(Boolean).join(" "), show: outs.flatMap(x => x.show || []).slice(0, 5), changes: outs.flatMap(x => x.changes || []), timer: Math.max(0, ...outs.map(x => x.timer || 0)), steps: parts.length};
+      }
+      // (a request is never answered as a question about the planner)
+      // (instant planner answers for questions; a statement goes to the AI first, and gets the planner's answer if it was a question after all)
+      const looksQ = /\?\s*$/.test(q) || /^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did|can i|could i|should i|am i|will|would|show|list|tell me|give me)\b/i.test(q);
+      const f = isRequest(q) || !looksQ ? null : TR.facts(q);
+      if (f) return {answer: f.answer, show: (f.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true};
+      // a timer, or a task with what it needs in the words: done by the app straight away (fast and exact), no model
+      const tm0 = timerMins(q);
+      if (tm0 && !(ADD_Q.test(q) && ADD_WHAT.test(q) && !/\b(timer|pomodoro|focus)\b/i.test(q.replace(/\bfocus\b/i, "")))) {
+        if (tm0.mins && (tm0.mins < 1 || tm0.mins > 180)) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: [], changes: [], local: true};
+        const tk = taskFor(q);
+        if (startTimer(tm0.mins, tk)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk ? ` for ${tk.title}` : ""}. You've got this!`, show: tk ? [{kind: "task", id: tk.id, label: labelOf({kind: "task", id: tk.id})}] : [], changes: [], timer: n2, local: true}; }
+      }
+      // making study material (cards, a quiz, a note, a concept map): the chat makes it, with the button to open it
+      if (/\b(make|create|generate|give me|build|write|draw)\b[^?]*\b(flash ?cards?|cards|quiz(zes)?|practice (questions|test)|concept map|mind map|note)\b|\bquiz me\b|\btest me\b/i.test(q) && !/\b(how (do|can) i)\b/i.test(q) && window.SBCOMPTAB && o.screen !== false) {
+        setTimeout(() => { try { SBCOMPTAB.open(q); } catch (e) {} }, 300);
+        return {answer: "On it: I'm making that in the chat.", show: [], changes: [], local: true};
+      }
+      // a change to a task they have ("make the midterm high priority", "move X to monday") before a new one
+      const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
+      const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
+      const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
+      const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
+      if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      // checks before anything is changed: taking a mark off never deletes the task; a rename of "it" whose task their words don't name
+      // ("for psych, call it Psych Pals" renamed Psych Midterm) is asked about
+      if (qe && qe.length) { const w = String(q).toLowerCase(), named = l => { const ws = (String(l || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); };
+        if (qe.some(c => c.field === "delete") && /\b(grades?|marks?|scores?|results?|percent|points)\b/.test(w) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/.test(w))
+          return {answer: `I can't take a mark off from the chat yet, so I didn't change anything (${qe.find(c => c.field === "delete").label} and its mark are as they were). Open the task and clear its mark, or tell me the right mark and I'll save that instead.`, show: [], changes: [], local: true};
+        if (qe.some(c => c.field === "title") && /\b(it|that|this|them)\b/.test(w) && !qe.filter(c => c.field === "title").every(c => named(c.label)))
+          return {answer: "Which one should I rename? Say its name, for example: rename Care Plan 2 to ...", show: [], changes: [], local: true}; }
+      if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
+        return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
+      if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
+    }
+    // a request the quick steps above didn't recognize, however it's worded: understood by the AI, done by the app (intentAct)
+    // (the AI decides for anything but a plain question: what it is and what to do, however it's worded)
+    if (!/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|does|do|did)\b[^]*\?\s*$/i.test(q) && window.SBCOMPTAB && SBCOMPTAB.intent) {
+      const r = await SBCOMPTAB.intent(q).catch(e => { console.warn("intent", e); return null; });
+      if (r) return {answer: r.answer, show: r.show || [], changes: [], local: true, awaiting: r.awaiting};
+    }
+    if (dev && TR) { const f2 = isRequest(q) ? null : TR.facts(q); if (f2) return {answer: f2.answer, show: (f2.show || []).filter(t => exists(t)).map(t => Object.assign({}, t, {label: labelOf(t)})), changes: [], local: true, facts: true}; }
+    // a question about the subject (on the device): answered from their own material first, then the web, in one focused call;
+    // the whole planner would only distract a small model from it
+    if (dev && TR && TR.general(q) && !/\b(white ?board|board|draw|drew|drawing|diagram|sketch|picture|photo|image|pic|handwrit)/i.test(q) && !appQ(q)) {
+      const k = await TR.knowledge(q, {signal: o.signal});
+      return {answer: k.answer, show: [], changes: [], sources: k.sources && k.sources.length ? k.sources : undefined, unsure: !k.found};
+    }
     if (VISUAL.test(q)) await Promise.race([describeBoards(3, null, true), wait(9000)]);
     const cur = o.screen === false ? null : current();
     const cat = await catalog(q);
+    // a general question ("what is osmosis?") on the device: their own notes first, then Wikipedia, as sources to answer from
+    let sources = "";
+    if (dev && TR && TR.general(q)) {
+      const [mine, R] = await Promise.all([window.SBSEARCH ? SBSEARCH.retrieve(q, {max: 4, chars: 700, wait: 600, readWait: 1, semWait: 2000}).catch(() => null) : null, TR.research(q).catch(() => ({list: []}))]);
+      const web = R.list || [];
+      if (mine && mine.text) sources += `\n\nFROM THE STUDENT'S OWN NOTES AND FILES (use these first):\n${mine.text}`;
+      if (web.length) sources += `\n\nFROM THE WEB (say where a fact comes from, like "according to Wikipedia" or "a 2019 study found"):\n${TR.webText(web)}`;
+      o.web = web;
+    }
     const me = window.SBCOMP && SBCOMP.tab && SBCOMP.tab.info ? (SBCOMP.tab.info() || {}) : {};
     const system = `You are ${me.name || "the student's study companion"}, living inside their Studyboard planner. Answer briefly and warmly in plain text (no markdown, no emojis, no links), at most 3 short sentences unless they asked for more. Reply to exactly what they said: add more only when it clearly helps with what they asked, never as filler, and a hello or thanks just gets a short friendly reply (no news about yourself and no question back unless they asked how you are). Use the student's own data below.\n${RULES}`;
-    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cat.text}${screenText(cur)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
-    const callAI = free => aiCall({task: "assist", maxTokens: 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
-      system: free ? system + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": []}. The answer is the reply itself, never a placeholder.` : system});
+    // Gemma 4 E4B on the laptop has 8K tokens for everything, and reads the prompt before it writes a word: about 3K tokens of
+    // context (planner, sources, screen) keeps the first word quick and leaves room for the answer
+    const lite = typeof DEVAI !== "undefined" && DEVAI.kind === "litert", cut = (t, n) => lite && String(t || "").length > n ? String(t).slice(0, n) : (t || "");
+    const prompt = [{text: `${appQ(q) ? GUIDE + "\n\n" : ""}THE STUDENT'S STUDYBOARD:\n${cut(cat.text, 4500)}${cut(screenText(cur), 1500)}${cut(sources, 5500)}${o.extra ? `\n\nMORE ABOUT WHAT'S ON SCREEN:\n"""\n${clip(o.extra, lite ? 2000 : 7000)}\n"""` : ""}\n\nTHE STUDENT ASKS: ${q}`}];
+    // a memory aid is made up, not looked up: built from the items in their notes (or the usual items for the topic)
+    const MEMQ = /\b(mnemonic|acronym|memory (trick|aid|device)|help me (remember|memori[sz]e)|way to remember|rhyme)\b/i.test(q);
+    const memo = MEMQ ? "\n\nThey want a memory aid. Make one up: take the items from their notes (or, if their notes don't list them, the standard items for the topic), in the right order, and write an acronym, sentence or rhyme where each word's first letter stands for one item. Then list each letter and what it stands for. Making it up is the point: never say you can't because it isn't in their Studyboard." : "";
+    const callAI = free => aiCall({task: "assist", maxTokens: lite ? 1500 : 6000, temperature: free ? 0.5 : 0.3, schema: free ? null : SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+      system: free ? system + memo + `\n\nReply with only a JSON object: {"answer": "your reply", "show": [refs], "changes": [], "newTasks": [], "focusMinutes": 0}. The answer is the reply itself, never a placeholder.` : system + memo});
     // Always a real answer: the format, the format again, then a free reply; a moment between tries after an error. If the
     // AI can't be reached at all, the best match search finds is offered (and shown), made on this device.
     const junk = x => { x = String(x == null ? "" : x).trim(); return x.length < 2 || /^(string|text|str|answer|reply|response|\.{2,}|…|n\/?a|null|undefined|none|<[^>]*>|\{[\s\S]*\}|\[[\s\S]*\])$/i.test(x); };
@@ -605,7 +911,44 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       return {answer: `I couldn't get an answer because ${why}. Ask me again in a moment?`, show: [], changes: [], local: true};
     }
     const d = r.data || {};
-    return Object.assign({answer: clip(d.answer, 1200)}, resolve(d, cat.refs));
+    // an answer that's only a command ("show N1") or a reference: said in words instead, naming what was found
+    // the check (on the device): every number, date and name in the answer must be in what the AI was given. One that isn't: asked
+    // once more, strictly; still there: the answer says it couldn't find it, instead of something made up
+    if (dev && TR && d.answer && !(Array.isArray(d.changes) && d.changes.length) && !(Array.isArray(d.newTasks) && d.newTasks.length)) {
+      // (Studyboard's own facts count too: the app guide, and this student's timer settings)
+      let mine = ""; try { const pc = pomoCfg(); mine = `focus ${pc.focus} minutes, short break ${pc.short} minutes, long break ${pc.long} minutes`; } catch (e) {}
+      const given = `${cat.text}${screenText(cur)}${o.extra || ""}${sources}\n${GUIDE}\n${mine}\n${q}`;
+      let bad = MEMQ ? [] : TR.unsupported(d.answer, given);  // (a made-up mnemonic is invented words by design)
+      if (bad.length) {
+        try {
+          const r2 = await aiCall({task: "assist", maxTokens: 3000, temperature: 0.1, schema: SCHEMA, signal: o.signal, quiet: true, parts: prompt,
+            system: system + `\n\nIMPORTANT: Use ONLY facts that appear above. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in what you were given. If the answer isn't there, say plainly that you couldn't find it in their Studyboard.`});
+          const d2 = (r2 && r2.data) || {};
+          if (d2.answer && !junk(d2.answer) && !TR.unsupported(d2.answer, given).length) { Object.assign(d, d2); bad = []; }
+        } catch (e) {}
+        if (bad.length) { d.answer = sources ? "I couldn't find a reliable answer to that in your notes or on Wikipedia." : "I couldn't find that in your Studyboard."; d.unsure = true; }
+      }
+    }
+    // a focus timer: the AI starts it with focusMinutes; if it only said so (small models often do), the app reads the request
+    const tm = timerMins(q), fm = Math.round(Number(d.focusMinutes) || 0);
+    let timer = 0;
+    if (fm >= 1 && fm <= 180 && (tm || /\b(timer|focus|pomodoro|session)\b/i.test(q))) timer = tm && tm.mins ? tm.mins : fm;
+    else if (tm && (!tm.mins || (tm.mins >= 1 && tm.mins <= 180))) timer = tm.mins || -1;
+    const tk2 = timer ? taskFor(q) : null;
+    if (timer && startTimer(timer > 0 ? timer : 0, tk2)) { const n2 = Math.round(pomoLen() / 60000); return {answer: `Your ${n2}-minute focus timer is running${tk2 ? ` for ${tk2.title}` : ""}. You've got this!`, show: [], changes: [], timer: n2}; }
+    // asked to add a task, and the AI didn't write one (small models often just say they did): the app reads it from the request
+    const asked = ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q);
+    if (asked && !(Array.isArray(d.newTasks) && d.newTasks.some(x => x && clip(x.title, 160)))) { const lt = localTask(q); if (lt) { d.newTasks = [lt]; d.answer = "Here's the new task. Check it, then tap Add Task."; } }
+    const out = Object.assign({answer: aiWholeSentence(clip(d.answer, 1200))}, resolve(d, cat.refs));
+    if (o.web && o.web.length && /wikipedia|wiktionary|stud(y|ies)|research|paper|according to/i.test(out.answer)) out.sources = o.web.map(x => ({title: x.title, url: x.url, src: x.src || "Wikipedia"}));
+    // never say something was done when the app wasn't asked to do it
+    if (!out.changes.length && !out.show.length && CLAIMS.test(out.answer)) out.answer = "I couldn't do that from here. Try asking another way, or do it in the app directly.";
+    // filler, or a reply that never mentions what was asked about: their material and the web instead, or an honest "couldn't find"
+    if (TR && TR.nonAnswer && !out.changes.length && !timer && TR.nonAnswer(q, out.answer)) {
+      try { const k = await TR.knowledge(q, {signal: o.signal, noWeb: !TR.general(q)}); out.answer = k.found || TR.general(q) ? k.answer : "I couldn't work that out from your Studyboard. Try asking it another way, with the course or task name."; if (k.sources && k.sources.length) out.sources = k.sources; } catch (e) { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; }
+    }
+    if (/^\s*((show|open|go to|see)\s+)?[A-Z]{1,3}\d{1,4}\s*\.?$/i.test(out.answer) || junk(out.answer)) out.answer = out.show && out.show.length ? `Here it is: ${out.show[0].label}.` : out.changes && out.changes.length ? "Here's what I'd change." : "I couldn't find that. Try asking another way?";
+    return out;
   }
   // Show what was found and offer the changes (the bubble does both at once)
   // o.shown: called once the app is there (the bubble speaks then, as going there redraws the page)
@@ -640,13 +983,13 @@ Settings, by section:
 - Notifications and Widgets: Reminders and Notifications; time zone; Quick Capture (share sheet, photos, Siri, Gemini, Bixby and Shortcuts); widgets; installing the app.
 - Data and Backups: automatic backups to Google Drive or OneDrive (with an account); export a backup file; restore; import from Anki, Quizlet, Knowt, Todoist or Notion; export my data; Start a New Term; Archive; Recently Deleted (kept 30 days); clear all data.
 - Help and About: replay the welcome setup; the app tour; page tips; keyboard shortcuts; report a bug or send feedback; crash reports; about, privacy and terms.
-AI: free with a Google Gemini key (Settings, AI and Tools, AI Features), or Studyboard AI, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
+AI: free with a Google Gemini key (Settings, AI and Tools, AI Features), or Studyboard AI Pro, included with paid Pro. AI makes flashcards and quizzes from slides and readings, reads syllabi and photos, explains, plans exam prep and grades practice answers.
 Ask (here or the companion's bubble) can itself find and open anything, change things and settings, and add tasks; the student confirms each change.
 If you're not sure a feature exists, say where in Settings to look rather than inventing steps.`;
-  const APPQ = /\b(how (do|can|to|would)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)/i;
+  const APPQ = /\b(how (do|can|to|would)\b(?!\s+(?:it|they|this|that|the|a|an|its|these|those|insulin|cells?|plants?|neurons?|hearts?|blood|body|people)\b)|where (is|are|do|can|did)|can (i|you|studyboard)|is there|does (it|studyboard|the app)|feature|setting|settings|studyboard|app|button|tab|page|turn (on|off)|set ?up|import|export|sync|share|widget|calculator|whiteboard|focus timer|pomodoro|streak|pro\b|subscription|backup|restore|theme|dark mode|shortcut|keyboard|notification|remind|canvas|brightspace|moodle|blackboard|syllabus|archive|delete|undo|companion|wardrobe|scrapbook|exam mode|autopilot|group)\b/i;
   const appQ = q => APPQ.test(String(q || ""));
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {isRequest, check, build, localTask, startTimer, control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

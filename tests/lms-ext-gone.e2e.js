@@ -14,10 +14,12 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   try {
-    const run = async (ext) => {
+    const run = async (ext, elsewhere) => {
       const ctx = await browser.newContext({serviceWorkers: "block"});
       await ctx.routeWebSocket(/supabase\.co/, ws => ws.close());   // route() does not cover WebSockets: keep the fake token off the real Realtime server
       await ctx.route(/supabase\.co/, r => r.abort());
+      // (the extension only runs on studyboardapp.com: this page stands in for it, except in the "elsewhere" run)
+      await ctx.addInitScript(here => { window.__SB_EXT_HERE = here; }, !elsewhere);
       await ctx.addInitScript(() => { try { if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 1200", color: "#1E9E74"}], tasks: [], settings: {}})); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("studyboard:tour", "done"); } catch (e) {} });
       if (ext) await ctx.addInitScript(ids => { window.addEventListener("message", ev => { const d = ev.data; if (!d || d.source !== "studyboard-app") return;
         if (d.type === "hello") window.postMessage({source: "studyboard-ext", type: "ready", version: "1.0.3"}, location.origin);
@@ -40,6 +42,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     r = await run([]);
     ok(/^Not Syncing/.test(r.head) && /isn't connected to Brightspace anymore/.test(r.line), "extension installed but Brightspace removed from it: Not Syncing: " + r.line);
     ok(/connect Brightspace again/.test(r.body), "and it says to connect it again in the extension");
+    // on a site the extension doesn't run on (a test site), it can't be heard from: not "isn't in this browser anymore"
+    { const r2 = await run(null, true);
+      ok(!/^Not Syncing/.test(r2.head) && !/isn't in this browser anymore/.test(r2.line) && /works on studyboardapp\.com only/.test(r2.line), "elsewhere: not called gone, and says where the extension works: " + r2.head + " | " + r2.line); }
     r = await run(["brightspace"]);
     ok(/^Connected/.test(r.head) && !r.warn && /Read from Brightspace in this browser/.test(r.line), "extension still connected: Connected: " + r.line);
     ok(!r.errs.length, "no page errors: " + r.errs.join(" | "));

@@ -223,7 +223,9 @@ declare
     ['group_suspended','user_id'], ['studyboard_founder_themes','user_id'], ['studyboard_early_codes','user_id'], ['studyboard_early_supporters','user_id'],
     ['studyboard_apple_signin','user_id'], ['studyboard_promo_redemptions','user_id'], ['studyboard_entitlements','user_id'], ['studyboard_theme_access','user_id'], ['studyboard_own_key_access','user_id'], ['bug_reports','user_id'], ['items','user_id'],
     -- Studyboard Credits (supabase-credits.sql): the balance, its history and the items kept with it go with the account
-    ['studyboard_owned_items','user_id'], ['studyboard_credit_ledger','user_id'], ['studyboard_credit_balances','user_id']];
+    ['studyboard_owned_items','user_id'], ['studyboard_credit_ledger','user_id'], ['studyboard_credit_balances','user_id'],
+    -- Launch tools (supabase-launch.sql): today's "was active" note, invite codes, who joined from whose invite, rewards earned
+    ['studyboard_active_days','user_id'], ['studyboard_referrals','referred'], ['studyboard_referrals','referrer'], ['studyboard_ref_rewards','user_id'], ['studyboard_ref_codes','user_id']];
 begin
   if p_uid is null then raise exception 'SB_NO_USER' using errcode = '22023'; end if;
   if to_regclass('public.study_groups') is not null and to_regclass('public.group_members') is not null then

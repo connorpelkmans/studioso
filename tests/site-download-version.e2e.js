@@ -47,7 +47,8 @@ const server = http.createServer((req, res) => { let p = decodeURIComponent(new 
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")).version;
   const cfg = fs.readFileSync(path.join(W, "config.js"), "utf8"), linked = (/releases\/download\/v([\d.]+)\//.exec(cfg) || [])[1];
   const r = cp.spawnSync(process.execPath, [path.join(root, "scripts", "check-release.js"), "web"], {encoding: "utf8"});
-  if (linked === pkg) ok(!/DOWNLOADS\./.test(r.stdout), "check:release is quiet when the links match package.json " + pkg);
+  if (!linked) ok(!/DOWNLOADS\./.test(r.stdout), "check:release is quiet when no installer link names a version (Windows is Store-only)");
+  else if (linked === pkg) ok(!/DOWNLOADS\./.test(r.stdout), "check:release is quiet when the links match package.json " + pkg);
   else ok(r.status === 1 && new RegExp("DOWNLOADS\\.windows: links to " + linked.replace(/\./g, "\\.") + ", but package\\.json is " + pkg.replace(/\./g, "\\.")).test(r.stdout), `check:release fails while the website links ${linked} and package.json is ${pkg}`);
   console.log(`\n${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

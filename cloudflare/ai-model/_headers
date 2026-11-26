@@ -1,0 +1,5 @@
+# Studyboard's copy of Gemma 4 E4B: readable from the app on any origin, and never changes at a given path
+/e4b/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+  X-Content-Type-Options: nosniff

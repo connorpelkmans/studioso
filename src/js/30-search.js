@@ -567,7 +567,7 @@
     if (gone.length) { gone.forEach(a => FT.recs.delete(a)); dbDelMany("text", gone); }
   }
 
-  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI (Pro), or their OpenAI key.
+  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI Pro (Pro), or their OpenAI key.
      Claude has no embeddings, so with a Claude key alone, Ask With AI widens word search with related terms the AI suggests. */
   const SEM = {vecs: new Map(), loaded: false, loading: null, running: false, err: "", timer: 0, left: 0, total: 0};
   const embState = () => { try { return JSON.parse(localStorage.getItem(LS_EMB) || "{}") || {}; } catch(e) { return {}; } };
@@ -576,19 +576,48 @@
   function embedder(){
     if (inPreview()) return null;
     let c; try { c = aiCfg(); } catch(e) { return null; }
-    // Paid Pro: Studyboard AI first (the student's own key is only the backup)
+    // Paid Pro: Studyboard AI Pro first (the student's own key is only the backup)
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
     if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
+    // No key and no Pro: a small search model on this device (bge-small, vendor/embed-4.3.2), free and private
+    if (devEmbedOk()) return {kind: "device"};
     return null;
+  }
+  /* The on-device search model: a worker (its own policy allows WebAssembly) that downloads bge-small once (about 34 MB, from
+     Hugging Face, kept in the browser's cache) and turns text into 384-number meaning vectors on the processor. Closed after two
+     minutes idle, so it holds no memory between searches. Tests use window.__SB_EMBED_STUB (texts, isQuery) -> vectors. */
+  const DEV_EMB = {w: null, n: 0, wait: new Map(), idle: 0, dl: null};
+  function devEmbedOk(){
+    if (window.__SB_TEST) return !!window.__SB_EMBED_STUB || !!window.__SB_EMBED_TEST;
+    try { if (typeof Worker !== "function" || typeof WebAssembly !== "object") return false; if (navigator.connection && navigator.connection.saveData) return false; } catch (e) { return false; }
+    try { if (localStorage.getItem("studyboard:devEmbedOff") === "1") return false; } catch (e) {}
+    return true;
+  }
+  function devEmbedWorker(){
+    clearTimeout(DEV_EMB.idle);
+    DEV_EMB.idle = setTimeout(() => { if (DEV_EMB.w && !DEV_EMB.wait.size) { try { DEV_EMB.w.terminate(); } catch (e) {} DEV_EMB.w = null; } }, 120000);
+    if (DEV_EMB.w) return DEV_EMB.w;
+    const w = DEV_EMB.w = new Worker(new URL("vendor/embed-4.3.2/embed-worker.js?v=2", location.href).href, {type: "module"});
+    w.onmessage = e => { const d = e.data || {};
+      if (d.progress != null) { DEV_EMB.dl = d.progress < 1 ? d.progress : null; drawFoot(); return; }
+      const h = DEV_EMB.wait.get(d.id); if (!h) return; DEV_EMB.wait.delete(d.id); DEV_EMB.dl = null;
+      if (d.error) { console.warn("search by meaning:", d.error); h.no(aiErr(/fetch|network|Failed to fetch/i.test(d.error) ? "offline" : "busy", /fetch|network/i.test(d.error) ? "Its small model couldn't download (check your connection)." : "It couldn't start on this device.")); } else h.ok(d.vecs); };
+    w.onerror = () => { DEV_EMB.wait.forEach(h => h.no(aiErr("busy", "It couldn't start on this device."))); DEV_EMB.wait.clear(); try { w.terminate(); } catch (e) {} DEV_EMB.w = null; };
+    return w;
+  }
+  async function devEmbed(texts, isQuery){
+    if (window.__SB_TEST && window.__SB_EMBED_STUB) return window.__SB_EMBED_STUB(texts, isQuery);
+    const w = devEmbedWorker(), id = ++DEV_EMB.n;
+    return new Promise((ok, no) => { DEV_EMB.wait.set(id, {ok, no}); w.postMessage({id, texts, query: !!isQuery}); });
   }
   const embKey = () => !!embedder();
   const semOn = () => !!embedder() && sxCfg().meaning !== false;
-  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : "oa-te3s"; };
-  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : "your OpenAI key (a few cents at most)"; };
+  const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : e.kind === "device" ? "dev-bge-small" : "oa-te3s"; };
+  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI Pro" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
   const fmtQuery = (m, q) => m === "gemini-embedding-001" ? q : `task: search result | query: ${q}`;
-  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI's (bge-m3, 1024) are kept whole
+  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI Pro's (bge-m3, 1024) are kept whole
   function quant(values, dims = DIMS){
     const D = Math.min(dims, values.length), v = values.length > D ? values.slice(0, D) : values;
     let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
@@ -602,9 +631,14 @@
   // texts: [{title, text}]
   async function embed(texts, isQuery){
     const E = embedder(); if (!E) throw aiErr("nokey", "Set up AI to search by meaning.");
+    if (E.kind === "device") {
+      const list = await devEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 2000) || "(empty)"), isQuery);
+      if (!Array.isArray(list) || list.length !== texts.length) throw aiErr("bad", "Search by meaning got an unexpected answer on this device. Try again.");
+      return list.map(v => quant(v, 384));
+    }
     if (E.kind === "studyboard") {
       const list = await proEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 8000) || "(empty)"), isQuery);
-      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI sent back an unexpected answer. Try again.");
+      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI Pro sent back an unexpected answer. Try again.");
       return list.map(v => quant(v, 1024));
     }
     if (E.kind === "openai") {
@@ -690,18 +724,19 @@
     try {
       await semLoad(); ensureItems();
       for (let loops = 0; loops < 5000; loops++) {
-        if (!semOn() || navigator.onLine === false) break;
+        if (!semOn() || (navigator.onLine === false && (embedder() || {}).kind !== "device")) break;
         const m = embModel(), list = semList(), todo = [], seen = new Set();
         let have = 0;
-        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < BATCH) todo.push(p); } }
+        const B = (embedder() || {}).kind === "device" ? 16 : BATCH;
+        for (const p of list) { const k = m + ":" + p.h; if (SEM.vecs.has(k)) { have++; continue; } if (!seen.has(p.h)) { seen.add(p.h); if (todo.length < B) todo.push(p); } }
         SEM.total = list.length; SEM.left = list.length - have; drawFoot();
         if (!todo.length) { semGc(); break; }
         const vecs = await embed(todo.map(p => ({title: p.title, text: p.text})), false);
         const m2 = embModel(), rows = [];
         todo.forEach((p, i) => { const v = {q: vecs[i].q, s: vecs[i].s}; SEM.vecs.set(m2 + ":" + p.h, v); rows.push([m2 + ":" + p.h, v]); });
         await dbPutMany("vec", rows);
-        // Studyboard AI allows 20 requests a minute, shared with everything else
-        await wait((embedder() || {}).kind === "studyboard" ? 4000 : 700); await idle();
+        // Studyboard AI Pro allows 20 requests a minute, shared with everything else
+        await wait((embedder() || {}).kind === "studyboard" ? 4000 : (embedder() || {}).kind === "device" ? 60 : 700); await idle();
       }
     } catch(e) {
       SEM.err = e && e.message || "Search by meaning isn't working right now.";
@@ -825,6 +860,8 @@
     return out;
   }
   // The same retrieval Ask With AI uses (tasks, cards, notes, files and what's inside them)
+  // a Studyboard backup (or a JSON export of it) they keep in Files
+  const appDataFile = f => !!f && (/\b(backup|export)\b/i.test(f.name || "") && /\.json$/i.test(f.name || "") || /^(studyboard|studioso|coursework)\b[^\n]*\.json$/i.test(f.name || ""));
   async function retrieve(q, o){
     o = o || {};
     const out = {rows: [], text: "", src: []};
@@ -848,7 +885,12 @@
           if (SEM.vecs.size) { const got = o.semWait ? await Promise.race([semQuery(q, all), wait(o.semWait).then(() => [])]) : await semQuery(q, all), top = got.length ? got[0].s : 0; sm = got.filter((x, i) => x.s > 0 && x.s >= top * (i < 3 ? 0.6 : 0.8)).slice(0, 20).map(x => ({key: docKey(x.p.doc), doc: x.p.doc, text: x.p.text, s: x.s})); }
         } catch(e) {}
       }
-      const rows = fuse(kw, sm).slice(0, o.max || 8), per = o.chars || 1500;
+      // (never a Studyboard backup or other app data file: it's the planner itself as raw JSON, not something they're studying)
+      const fileOf = x => state.files[x.doc.type === "chunk" ? x.doc.fid : x.doc.type === "file" ? x.doc.id : ""];
+      // (nor a reply the AI wrote and they saved, or a note that's the assistant talking about the app: those aren't what they're studying)
+      const noteOf = x => x.doc.type === "note" ? (Array.isArray(state.notes) ? state.notes.find(n => n.id === x.doc.id) : (state.notes || {})[x.doc.id]) : null;
+      const AIISH = /\b(i can (make|help|create|add|do)|i'?ll make|tap (open|make|add|review)|say "undo"|in studyboard for you|i couldn'?t (find|get)|i put the note|your notes say|from your notes:|from the web \(|save this reply)\b/i;
+      const rows = fuse(kw, sm).filter(x => !appDataFile(fileOf(x))).filter(x => { const n = noteOf(x); return !n || (n.src !== "chat" && !AIISH.test(String(n.text || ""))); }).slice(0, o.max || 8), per = o.chars || 1500;
       out.rows = rows;
       out.text = rows.map((x, i) => {
         const d = x.doc, body = x.text || (d.type === "chunk" ? d.text : [d.title, d.text].filter(Boolean).join("\n"));
@@ -858,7 +900,16 @@
     } catch(e) { console.warn("sx retrieve", e); }
     return out;
   }
-  window.SBSEARCH = {retrieve};
+  // Meaning vectors for any texts (98-truth.js ranks web passages with them); null when no search-by-meaning model is set up.
+  // The first text is the question (embedded as a query), the rest as passages
+  async function embedTexts(texts, firstIsQuery){
+    if (!embedder() || !texts.length) return null;
+    const [q, ...rest] = texts;
+    const qv = firstIsQuery ? await embed([{text: q}], true) : await embed([{text: q}], false);
+    const rv = rest.length ? await embed(rest.map(t => ({text: t})), false) : [];
+    return qv.concat(rv).map(v => v.f);
+  }
+  window.SBSEARCH = {retrieve, embedTexts};
   const docKey = d => d.type === "chunk" ? "c:" + d.assetId + ":" + d.page + ":" + d.part : d.type + ":" + d.id;
   function citeOf(x){
     const d = x.doc;
@@ -1124,6 +1175,8 @@ Return JSON only.`;
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
     let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
+    if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
     const A = {q, course: S.course, state: "search", rows: [], note: "", answer: detAns, det: detAns};
     S.thread.push(A); if (S.thread.length > 6) S.thread.shift();
@@ -1459,6 +1512,9 @@ Return JSON only.`;
       // only "Ask about…" or filter rows came back: say plainly that nothing matched
       if (r.groups.length && !r.groups.some(G => G.list.some(x => x.doc.type !== "filter" && x.doc.type !== "ask"))) html.push(`<p class="sx-none">No matches for “${esc(q)}”. Try other words, or ask below.</p>`);
       if (!r.groups.length) html.push(`<div class="sx-empty"><strong>No Matches</strong>Try fewer or different words${S.type !== "all" || S.course ? ", or show everything" : ""}.${S.type !== "all" || S.course ? ` <button type="button" class="link-btn" data-sx="reset">Show Everything</button>` : ""}</div>`);
+      // Related by meaning: what the words missed, found by meaning a moment after typing stops (semRelated)
+      const shown = new Set(); r.groups.forEach(G => G.list.forEach(x => { shown.add(x.doc.type + ":" + x.doc.id); (x.chunks || []).forEach(c => shown.add("f:" + c.doc.fid)); if (x.doc.type === "file") shown.add("f:" + x.doc.id); }));
+      semRelated(q, shown);
       r.groups.forEach(G => {
         const cap = S.type === "all" ? (G.g === "actions" ? 4 : G.g === "files" || G.g === "tasks" ? 5 : 4) : 120;
         const shown = G.list.slice(0, cap), realCount = G.list.filter(x => x.doc.type !== "filter" && x.doc.type !== "ask").length;
@@ -1471,8 +1527,37 @@ Return JSON only.`;
             return push(() => openDoc(d, x.byText ? x.chunks : null), i => rowHtml(i, d.g, hlTitle(d.title, r.P.hl), snip, metaFor(d, x.chunks), colorFor(d)));
           }).join("")));
       });
+      const rel = S.related && S.related.q === q.trim() ? S.related.rows : [];
+      if (rel.length) html.push(grpHtml("Related by Meaning", rel.length, `<span>Related by Meaning</span><span class="n">${rel.length}</span>`, rel.map(x => {
+        const d = x.d, snip = x.chunk ? snippet(x.chunk.doc.text, r.P.hl, 170) : d.text ? snippet(d.text, r.P.hl, 150) : "";
+        return push(() => openDoc(d, x.chunk ? [x.chunk] : null), i => rowHtml(i, d.g, esc(d.title || "Untitled"), snip, metaFor(d, x.chunk ? [x.chunk] : null), colorFor(d)));
+      }).join("")));
     }
     return {rows, html: html.join("")};
+  }
+  // Finds by meaning what the typed words didn't, once typing pauses (only where search by meaning is on and ready)
+  let relT = 0, relSeq = 0;
+  function semRelated(q, shown){
+    q = String(q || "").trim();
+    if (S.related && S.related.q !== q) S.related = null;
+    clearTimeout(relT);
+    if (q.length < 4 || !semOn() || !SEM.vecs.size || (S.related && S.related.q === q)) return;
+    const seq = ++relSeq;
+    relT = setTimeout(async () => {
+      if (seq !== relSeq || !S.open || S.mode !== "find" || S.q.trim() !== q) return;
+      let got = []; try { got = await semQuery(q, pass); } catch (e) { return; }
+      if (seq !== relSeq || S.q.trim() !== q) return;
+      const top = got.length ? got[0].s : 0, rows = [], seenF = new Set();
+      for (const x of got) {
+        if (rows.length >= 4 || x.s < top * 0.85 || top < 0.4) break;
+        const d0 = x.p.doc; if (!d0 || d0.type === "action") continue;
+        if (d0.type === "chunk") { const f = state.files[d0.fid]; if (!f || shown.has("f:" + d0.fid) || seenF.has(d0.fid)) continue; seenF.add(d0.fid);
+          rows.push({d: {g: "files", type: "file", id: d0.fid, cid: f.courseId || "", title: f.name || "File", text: ""}, chunk: {doc: d0, s: x.s}}); }
+        else { if (shown.has(d0.type + ":" + d0.id)) continue; rows.push({d: d0}); }
+      }
+      S.related = {q, rows};
+      if (rows.length) draw();
+    }, 350);
   }
   // [2] in an answer becomes a button that opens source 2 of that question
   const citeHtml = (T, text, ti) => esc(text).replace(/\[(\d+)\]/g, (m, n) => Number(n) >= 1 && Number(n) <= T.rows.length ? `<button type="button" class="sx-cite" data-sx="cite" data-turn="${ti}" data-id="${Number(n) - 1}" aria-label="Open source ${n}">${n}</button>` : m);
@@ -1658,7 +1743,8 @@ Return JSON only.`;
     else if (FT.loading && !FT.loaded) bits.push("Loading the text from your files…");
     // why search by meaning isn't working is said in full under Ask About (semLine), not squeezed in here
     if (semOn()) {
-      if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
+      if (DEV_EMB.dl != null) bits.push(`Downloading the search model to this device (one time, about 34 MB): ${Math.round(DEV_EMB.dl * 100)}%`);
+      else if (SEM.running && SEM.total) bits.push(`Getting search by meaning ready: ${Math.round((SEM.total - SEM.left) / SEM.total * 100)}%`);
     }
     return bits;
   }
@@ -1718,7 +1804,7 @@ Return JSON only.`;
     const c = sxCfg(), files = Object.values(state.files).filter(f => extKind(f));
     const read = files.filter(f => { const r = FT.recs.get(srcRev(f).assetId); return r && r.status === "ok"; }).length;
     const row = (key, title, sub, on) => `<div class="cap-row"><span style="flex:1;font-weight:600">${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-sxopt="${key}" ${on ? "checked" : ""}> On</label></div>`;
-    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
+    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI Pro (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
     openSheet(`<div class="sheet">${head("Search Settings")}<div class="sheet-body"><div class="menu-list">
       <button type="button" data-act="search"><span>Open Search<span class="sub">Press ${KEYS} anywhere, or the search button.</span></span></button>
       ${row("files", "Search Inside Files", `Reads the text of your PDFs, Word and PowerPoint files in the background and keeps it on this device. ${S.used ? `${read} of ${files.length} readable file${files.length === 1 ? "" : "s"} read.` : `${files.length} readable file${files.length === 1 ? "" : "s"}.`}`, c.files)}

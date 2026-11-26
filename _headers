@@ -67,3 +67,38 @@
 /.well-known/microsoft-identity-association
   Content-Type: application/json
   Cache-Control: max-age=3600
+
+# The text reader for photos and scans (Tesseract.js, vendor/tesseract-7.0.0, src/js/01-ocr.js). Its worker compiles WebAssembly,
+# which nothing else on the site may do, so only its own files get a policy that allows it. The worker is started from its own
+# address (not a blob), so this is the policy it runs under; the page's policy is unchanged.
+/vendor/tesseract-7.0.0/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'self'
+  Cache-Control: public, max-age=2592000, immutable
+
+# Search by meaning on the device (transformers.js and ONNX Runtime, vendor/embed-4.3.2, src/js/30-search.js). Its worker compiles
+# WebAssembly and fetches one small model (bge-small, from Hugging Face), so only this folder's files get a policy that allows that.
+/vendor/embed-4.3.2/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self'
+  Cache-Control: public, max-age=2592000, immutable
+  ! Referrer-Policy
+  Referrer-Policy: no-referrer
+
+# Gemma 4 E4B, the stronger on-device AI (LiteRT-LM, vendor/litertlm-0.19.0, src/js/01-ai-device.js). Its worker loads LiteRT-LM's
+# WebAssembly from jsDelivr (pinned to 0.19.0; at 23 to 36 MB it's too big to host here), and gets the model from the page as a file
+# already downloaded, so it fetches nothing else.
+/vendor/litertlm-0.19.0/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net blob:; worker-src 'self' blob:
+  Cache-Control: public, max-age=2592000, immutable
+
+# The AI on the device where Chrome's built-in AI isn't available (WebLLM, vendor/webllm-0.2.89, src/js/01-ai-device.js). Its worker
+# compiles WebAssembly and fetches the model files (from Hugging Face, only after the student agrees), so only this folder's files
+# get a policy that allows that. The worker runs from its own address, so this is the policy it runs under.
+/vendor/webllm-0.2.89/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self'
+  Cache-Control: public, max-age=2592000, immutable
+  ! Referrer-Policy
+  Referrer-Policy: no-referrer

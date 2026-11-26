@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blind Rating</title>
+<style>
+  :root { --bg: #f7f7f9; --card: #fff; --ink: #1d1d24; --mute: #666a75; --line: #dcdce3; --accent: #3b6fe0; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15161b; --card: #1f2128; --ink: #ececf1; --mute: #9a9cab; --line: #34363f; --accent: #7aa2ff; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; padding: 16px; }
+  main { max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.mute { color: var(--mute); margin: 0 0 12px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 55vh; overflow: auto; }
+  details.box { max-height: none; margin-bottom: 12px; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+  button { font: inherit; padding: 10px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; min-height: 44px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tag { font-weight: 700; margin-bottom: 6px; display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Blind Rating</h1>
+  <p class="mute">Load <code>to-rate.json</code> from <code>ml/eval/compare.js --export-rating</code>. For each pair, pick the better study material (or Tie). You don't see which is the custom model and which is Gemini. Keys: A, T, B. Then save your ratings and pass the file to <code>compare.js --ratings</code>.</p>
+  <div class="bar"><input type="file" id="file" accept=".json"><span id="pos" class="mute"></span></div>
+  <div id="view" hidden>
+    <details class="box"><summary>The material (<span id="job"></span>)</summary><div id="mat"></div></details>
+    <div class="grid"><div class="box"><span class="tag">A</span><div id="a"></div></div><div class="box"><span class="tag">B</span><div id="b"></div></div></div>
+    <div class="bar"><button data-v="A">A Is Better</button><button data-v="tie">Tie</button><button data-v="B">B Is Better</button><span style="flex:1"></span><button id="back">Back</button><button class="primary" id="save">Save Ratings</button></div>
+  </div>
+</main>
+<script>
+  let pairs = [], i = 0, ratings = {};
+  try { ratings = JSON.parse(localStorage.getItem("sb-ratings") || "{}"); } catch (e) {}
+  const $ = id => document.getElementById(id);
+  function show(){
+    if (!pairs.length) return;
+    $("view").hidden = false; i = Math.max(0, Math.min(i, pairs.length - 1));
+    const p = pairs[i]; $("job").textContent = p.job; $("mat").textContent = p.material || "(not available)"; $("a").textContent = p.A; $("b").textContent = p.B;
+    $("pos").textContent = `Pair ${i + 1} of ${pairs.length} · rated ${Object.keys(ratings).length}` + (ratings[p.id] ? ` · you chose ${ratings[p.id]}` : "");
+  }
+  function rate(v){ if (!pairs.length) return; ratings[pairs[i].id] = v; try { localStorage.setItem("sb-ratings", JSON.stringify(ratings)); } catch (e) {} i++; show(); }
+  $("file").addEventListener("change", async e => { const f = e.target.files[0]; if (!f) return; pairs = JSON.parse(await f.text()); i = pairs.findIndex(p => !ratings[p.id]); if (i < 0) i = 0; show(); });
+  document.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => rate(b.dataset.v)));
+  $("back").addEventListener("click", () => { i--; show(); });
+  $("save").addEventListener("click", () => { const out = Object.entries(ratings).map(([id, choice]) => ({id: Number(id), choice})); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], {type: "application/json"})); a.download = "ratings.json"; a.click(); });
+  document.addEventListener("keydown", e => { const k = e.key.toLowerCase(); if (k === "a") rate("A"); else if (k === "b") rate("B"); else if (k === "t") rate("tie"); });
+</script>
+</body>
+</html>

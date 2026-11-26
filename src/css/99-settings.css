@@ -78,12 +78,12 @@
 .pomo-ctl > .btn.pomo-rd svg,.pomo-ctl > .btn.pomo-go svg{display:block;margin:0}
 .pomo-read .pomo-mode-lbl{font-weight:700}
 .pr-chips.segb{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);overflow:visible;padding:3px!important;border-radius:999px}
-.pr-chips.segb > .pr-chip{min-height:0;border:0!important;border-radius:999px!important;padding:6px 8px!important;justify-items:center;text-align:center;box-shadow:none}
-.pr-chips.segb > .pr-chip:not(.on){background:transparent!important}
-.pr-chips.segb > .pr-chip b{justify-content:center;font-size:.86rem}
-.pr-chips.segb > .pr-chip span{font-size:.72rem}
-.pr-chips.segb > .pr-chip.pr-new{border:0!important}
-.pr-chips.segb > .pr-chip.pr-new b{color:var(--accent)}
+.pr-chips.segb > .rt-chip{min-height:0;border:0!important;border-radius:999px!important;padding:6px 8px!important;justify-items:center;text-align:center;box-shadow:none}
+.pr-chips.segb > .rt-chip:not(.on){background:transparent!important}
+.pr-chips.segb > .rt-chip b{justify-content:center;font-size:.86rem}
+.pr-chips.segb > .rt-chip span{font-size:.72rem}
+.pr-chips.segb > .rt-chip.pr-new{border:0!important}
+.pr-chips.segb > .rt-chip.pr-new b{color:var(--accent)}
 /* Reordering board tabs: the drop outline is the tab's own size, so the tab row doesn't grow while dragging */
 .nb-tlist > .sort-ph{min-height:0!important;margin:0;align-self:center}
 
@@ -96,3 +96,7 @@
 .ob-colpick:focus-within{outline:2px solid var(--accent);outline-offset:4px}
 .ob-code > label{font:600 14.08px/21.12px var(--body);margin-bottom:5px}
 .ob-code > label{padding-inline-start:38px}
+/* Trying an accessory on: the companion wearing the one pointed at */
+.cp-acc-prev{display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid var(--line);border-radius:16px;background:var(--surface-2,var(--surface));margin:4px 0}
+.cp-acc-prev-art{display:grid;place-items:center;width:110px;height:110px;flex:none;overflow:hidden}
+.cp-acc-prev-t{font-weight:600}

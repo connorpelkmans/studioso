@@ -432,7 +432,8 @@
   };
   const webBase = () => /^https?:$/.test(location.protocol) ? location.origin + location.pathname : ((state.settings || {}).webUrl || "");
   const myFirst = () => { const n = String(S.name || (() => { try { return localStorage.getItem(NAMEK()) || ""; } catch (e) { return ""; } })() || "").trim(); return n ? n.split(/\s+/)[0].slice(0, 24) : ""; };
-  const linkFor = (kind, code, from) => { const b = webBase(); return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}` : ""; };
+  // the sender's invite code (99-launch.js) rides along, so a friend who joins from it counts toward their free month of Pro
+  const linkFor = (kind, code, from) => { const b = webBase(), ref = window.SBINVITE ? SBINVITE.myCode() : ""; return b ? `${b}?${kind}=${encodeURIComponent(code)}${from ? "&from=" + encodeURIComponent(from) : ""}${ref ? "&ref=" + encodeURIComponent(ref) : ""}` : ""; };
   const fromParam = v => String(v || "").replace(/[<>"&\u0000-\u001f]/g, "").trim().slice(0, 24);
   // Remember the website address so links made in the desktop app point to it
   function rememberWebUrl(){
@@ -3507,6 +3508,17 @@ ${kindPreview("study")}${kindPreview("project")}`;
   }
 
   /* Actions */
+  // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
+  // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
+  window.SBGRPNEW = (name, project) => {
+    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+      setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
+        if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
+        const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
+      return true; } catch (e) { return false; }
+  };
+  // For the chat ("join group ABC123"): Join, with the code filled in
+  window.SBGRPJOIN = code => { try { if (typeof needOnline === "function" && !needOnline()) return false; codeSheet(String(code || ""), ""); return true; } catch (e) { return false; } };
   window.SBGRPFAB = () => {
     const g = ui.grp ? groupOf(ui.grp) : null; if (!g || !isProj(g) || !$("#grpDetail")) return null;
     const t = curTab(g);
@@ -4602,7 +4614,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};

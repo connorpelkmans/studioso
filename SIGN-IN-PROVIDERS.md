@@ -168,3 +168,26 @@ The Mac App Store build needs the `com.apple.security.network.server` entitlemen
   - Apple and Google in the Mac app
   - Microsoft on the web, iPhone, Android, Mac and Windows, with a personal account and with a school account (Part 4G)
   - Signing in with Apple, Google or Microsoft using the same email as an existing email-and-password account. Supabase links them when the email is confirmed by both.
+
+## 7. Passkeys (website only)
+
+Students can sign in with Face ID, a fingerprint or their device's PIN on studyboardapp.com. The code is `src/js/01-passkeys.js`.
+
+**Supabase:** Authentication > Passkeys:
+
+| Setting | Value |
+| --- | --- |
+| Enable Passkey authentication | On |
+| Relying Party Display Name | `Studyboard` |
+| Relying Party ID | `studyboardapp.com` (never change it once passkeys exist: every saved passkey stops working) |
+| Relying Party Origins | `https://studyboardapp.com`, plus `https://www.studyboardapp.com` if `www` shows the app instead of redirecting |
+
+**What students see:**
+
+- On the sign-in sheet, tapping the email field offers a saved passkey (the browser's own suggestion; nothing changes for anyone without one). A small **Sign In With a Passkey** link under the password does the same for browsers that don't suggest it.
+- After signing in with an email and password on a device that can make passkeys, a one-time **Sign In Faster Next Time** sheet offers to save one. It never shows during sign-up or the welcome setup, or to Google, Apple and Microsoft users.
+- Settings > Your Account > **Passkeys** lists, adds and removes them.
+
+**Not in the apps:** the desktop app (`app://studioso`) and the iPhone and Android apps (`capacitor://localhost`, `https://localhost`) aren't on studyboardapp.com, so passkeys are hidden there. The phone apps would need a native passkey plugin, `webcredentials:studyboardapp.com` (iOS) and `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` on the website, and the Android app's `android:apk-key-hash:` origin added above.
+
+**Test:** `node tests/passkeys.e2e.js` (a Chromium virtual authenticator and a stand-in Supabase).

@@ -38,8 +38,14 @@
     "PRO_AI_OFF": "",
     "WHISPER_OFF": "",
     // The owner's usage summary (GET /v1/owner/usage) needs the OWNER_TOKEN secret: at least 24 random characters
-    // YouTube links go to Google's Gemini through the same gateway; "1" turns them off
-    "YOUTUBE_OFF": "",
+    // YouTube links go to Google's Gemini through the same gateway; "1" turns them off. Off: Google's Gemini API terms don't allow
+    // it in an app that people under 18 use (paid or free). The app asks students to paste the video's transcript instead
+    "YOUTUBE_OFF": "1",
+    // The free first deck (src/first-deck.js): a new student's first flashcards, by Gemma 4 26B on Workers AI, only while ALL of this
+    // Worker's Workers AI use today, plus what's running, plus the deck's worst case, stays under FIRST_DECK_NEURONS of the 10,000
+    // free daily Neurons (at most 8,000, whatever this says), so it never costs anything. "1" in FIRST_DECK_OFF turns it off
+    "FIRST_DECK_NEURONS": "7000",
+    "FIRST_DECK_OFF": "",
     // YouTube videos each paid Pro student can turn into notes and cards a month (at most 100; "0" turns them off)
     "YOUTUBE_MONTHLY": "10"
   }

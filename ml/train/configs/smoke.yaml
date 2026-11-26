@@ -1,0 +1,8 @@
+# A tiny model on the CPU, only to check that the scripts and data work end to end (minutes, no GPU). Not a real model.
+base_model: HuggingFaceTB/SmolLM2-135M-Instruct
+output_dir: ml/out/smoke-sft
+load_4bit: false
+lora: {r: 8, alpha: 16, dropout: 0.0, targets: all-linear}
+data: {train: ml/data/train/sft.jsonl, eval: ml/data/train/sft_dev.jsonl}
+train: {epochs: 1, batch: 1, grad_accum: 1, lr: 1.0e-4, max_length: 2048, eval_every: 5, save_every: 50, log_every: 2, grad_ckpt: false}
+dpo: {train: ml/data/train/dpo.jsonl, start_from: ml/out/smoke-sft-merged, beta: 0.1, lr: 5.0e-6, epochs: 1, batch: 1, grad_accum: 1, max_length: 2048}

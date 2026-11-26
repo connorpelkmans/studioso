@@ -74,6 +74,8 @@ function paint(keep, focusHead, say){
 function open(o){
   o = o || {};
   if (window.SBTOUR && SBTOUR.active()) return false;
+  // first, the free AI starts getting ready in the background (once): the setup carries on right after
+  if (!o.afterAI && typeof aiReadyFirst === "function" && aiReadyFirst(() => open(Object.assign({}, o, {afterAI: true})))) return true;
   const fresh = !M.since || M.fin || !IDS.includes(M.step) || Date.now() - Number(M.since) > 45 * 864e5;
   // Courses are already there (from the welcome setup, or added by hand), so start at bringing in work
   const had = coursesArr().length > 0;
@@ -347,7 +349,7 @@ function vWeek(){
     ${soon.length ? `<ul class="sem-list">${soon.slice(0, 8).map(t => { const c = courseOf(t.courseId); return `<li class="sem-r1" style="--c:${esc(colorOf(t.courseId))}"><span class="sem-r1t"><b>${esc(t.title)}</b><span class="mini">${c ? esc(courseLabel(c)) + " · " : ""}${esc(t.type || "")}</span></span><span class="sem-est">${esc(relDue(t))}</span></li>`; }).join("")}</ul>${soon.length > 8 ? `<p class="mini">${esc(tr("sem.w.more", "And {n} more.", {n: soon.length - 8}))}</p>` : ""}`
       : `<p class="empty-note mini">${esc(tr("sem.w.quiet", "Nothing is due in the next 7 days. A calm start."))}</p>`}
     ${wk.length ? `<h4 class="sem-h4">${esc(tr("sem.w.fc", "The weeks ahead"))}</h4><ul class="sem-weeks">${wk.map(w => `<li class="lv${w.levelIdx || 0}"><b>${esc(tr("sem.w.of", "Week of {d}", {d: fmtShort(w.start)}))}</b> <span>${esc(LEVEL(w.level))}</span></li>`).join("")}</ul>` : ""}
-    ${tone ? `<p class="sem-lead">${esc(tone)}</p>` : ""}`;
+    ${tone ? `<p class="sem-lead">${esc(tone)}</p>` : ""}${typeof aiReadyLine === "function" ? aiReadyLine() : ""}`;
 }
 
 const VIEW = {courses: vCourses, work: vWork, review: vReview, times: vTimes, prep: vPrep, week: vWeek};
