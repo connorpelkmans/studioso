@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widgets (light). The dark versions are in values-night/sbw_colors.xml: the launcher picks them with the system's dark mode. -->
+<resources>
+    <color name="sbw_bg">#FFFFFFFF</color>
+    <color name="sbw_soft">#FFEEF2F8</color>
+    <color name="sbw_ink">#FF1B2333</color>
+    <color name="sbw_muted">#FF5F6B80</color>
+    <color name="sbw_accent">#FF2C55D6</color>
+    <color name="sbw_spare">#FF1F8A5B</color>
+    <color name="sbw_tight">#FFB26A00</color>
+    <color name="sbw_short">#FFC8352E</color>
+    <color name="sbw_done">#FF8A94A6</color>
+</resources>
