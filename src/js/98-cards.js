@@ -107,7 +107,7 @@ window.SBCARDS = (() => {
     }
     // the answer to its own question: which deck, or what the card says
     // (a new request or question isn't the answer: "create a study group called P3" after "which deck?")
-    if (L.ask && !/^\s*(no|nah|never ?mind|cancel|skip|stop)\b/.test(s) && !(!CARD.test(s) && /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:create|make|start|add|delete|remove|move|set|open|go|take|show|what|how|when|why|who|is|are|do|does|did|mark|change|rename)\b/.test(s) && !/^\s*(?:use|put it in)\b/.test(s))) {
+    if (L.ask && !/^\s*(no|nah|never ?mind|cancel|skip|stop)\b/.test(s) && !(!CARD.test(s) && /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:create|make|start|add|delete|remove|move|set|open|go|take|show|what|how|when|why|who|is|are|do|does|did|mark|change|rename|should|can|could|will|would|where|let'?s|lets|thanks|thank|ok|okay|lol|haha)\b/.test(s) && !/^\s*(?:use|put it in)\b/.test(s)) && !(!CARD.test(s) && /\?\s*$/.test(s) && !/\//.test(s))) {
       const dk = L.ask === "deck" ? (deckIn(q) || (/\b(the )?(first|1st)\b/.test(s) ? decks()[0] : /\b(the )?(second|2nd)\b/.test(s) ? decks()[1] : null)) : lastDeck;
       if (L.ask === "deck" && !dk) { const mn = clean(q.replace(/^(use|in|put it in|the)\s+/i, "")); return sayIt(`You don't have a deck called "${mn}". Your decks: ${deckList()}.`, Object.assign({}, L)); }
       const pend = L.pending || qa(q.replace(new RegExp(`^\\s*(?:${dk ? dk.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "xx"}|[a-z ]{2,20}?)\\s*[.:,]\\s*`, "i"), "")) || (L.ask === "deck" ? qa(q) : null);
@@ -129,8 +129,14 @@ window.SBCARDS = (() => {
     // going to a page ("take me to flashcards", "open my decks"), not a card
     if (/^\s*(?:(?:can|could) you\s+|please\s+)?(?:take me|go|bring me|switch|navigate|jump|open|show me|show)\b/.test(s) && !/\b(add|put|new card|front|back)\b/.test(s)) return null;
     // not about one card: making a set from material, a quiz, cards from a quiz, counts and lists ("how many cards")
-    if (/^\s*(how many|what|which|what's|whats|show|list|study|review|quiz|drill)\b|\b(from (?:my |the )?(?:quiz|test|notes?|file|slides)|turn .* into|into flashcards|make (?:me )?(?:some )?flash ?cards (?:on|about|for|from)|flash ?cards (?:on|about|for|from))\b/.test(s) && !/\badd\b/.test(s)) return null;
-    const follow = /^\s*(?:and\s+|now\s+)?(?:add\s+)?(?:another|one more|more)\b|\bto it\b|^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same\b/.test(s);
+    if (/^\s*(how many|what|which|what's|whats|show|list|study|review|quiz|drill)\b|\b(from (?:my |the )?(?:quiz|test|notes?|file|slides)|turn .* into|into flashcards|make (?:me )?(?:some |a )?(?:flash ?)?cards? (?:on|about|for|from)|(?:flash ?)?cards (?:on|about|for|from))\b/.test(s) && !/\badd\b/.test(s)) return null;
+    // studying, quizzing, settings, how-to and checking cards ("lets do psych cards", "start a flashcard session", "notifications off for
+    // flashcard reminders", "how do i make a deck", "are my heart flashcards correct", "sum up my flashcards"): not a card to add
+    const pend0 = qa(q);
+    if (!pend0 && !lead && (/\b(session|study|studying|review|reviewing|quiz|quizzes|test me|go over|practi[cs]e|drill|notifications?|reminders?|remind|settings?|correct|accurate|right\?|sum up|summari[sz]e|section|backwards|shuffle)\b|^\s*(?:ok\s+|okay\s+|fine,?\s+)?(?:let'?s|lets)\b|\b(?:do|doing|start|starting)\s+(?:some |the |my |a |more )?(?:[\w]+ )?(?:flash ?)?cards?\b|^\s*(?:how|is|are|does|do|did|can i|could i|should i|which|why)\b|\bflash ?cards? (?:it is|then)\b/.test(s))) return null;
+    // a card only when one is asked for: added, put, made, written, or given as front and back
+    if (!pend0 && !lead && !/\b(add|adding|put|new|make|create|write|stick|throw|insert|include|another|one more)\b/.test(s)) return null;
+    const follow =/^\s*(?:and\s+|now\s+)?(?:add\s+)?(?:another|one more|more)\b|\bto it\b|^\s*(?:and\s+)?[\w' -]{2,40}\s+too\s*[?.!]*$|\bdo the same\b/.test(s);
     let dk = deckIn(q.replace(/\b(?:front|back)\b.*$/i, "")) || deckIn(q) || (follow || /\b(it|that deck|the deck|this deck)\b/.test(s) ? lastDeck : null);
     // "the deck I just made" when none was
     if (!dk && /\b(i just made|i just created|the new one|my new deck)\b/.test(s)) { const nw = decks().slice().sort((a, b) => (b.created || 0) - (a.created || 0))[0]; dk = L.deck && state.decks[L.deck] ? state.decks[L.deck] : null; if (!dk) return sayIt(`Which deck? I don't see one you just made. Your decks: ${deckList()}.`, {ask: "deck", pending: qa(q)}); }

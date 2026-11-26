@@ -2,6 +2,7 @@
 /* Changes and undo */
 // Ctrl/Cmd+Z steps back through recent changes, newest first
 const undoStack = [];
+if (window.__SB_TEST) window.__sbUndo = undoStack; // (tests read the steps)
 function undoLast(){
   while (undoStack.length) {
     const s = undoStack.pop();

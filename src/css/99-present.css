@@ -483,6 +483,12 @@ button.pr-stat{cursor:pointer}
 .pr-fr-qr svg{width:140px;height:140px}
 /* hover: the screen lifts a little and the timer stamp grows, as the quiz card's clipboard does. Kept on their own layer
    (will-change, no backface) so the slide's text stays sharp, and one transition both ways so it settles back without a stutter */
+/* the title is the card's only name, so the screen is bigger and fits up to three lines */
+.rv-pres .pr-scr{width:46%;max-width:180px}
+.rv-pres .pr-pane{padding:7px 11px}
+.rv-pres .pr-pane{text-align:center;align-items:center}
+.rv-pres .pr-pane b{text-align:center;font:800 .8rem/1.2 var(--display);-webkit-line-clamp:3;overflow-wrap:anywhere}
+.rv-pres .pr-pane i{display:none}
 .rv-pres .pr-scr{transition:transform .32s cubic-bezier(.2,.8,.2,1);will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .rv-pres:hover .pr-scr{transform:translateY(-6px)}
 .rv-pres .pr-pane{transition:box-shadow .32s ease}

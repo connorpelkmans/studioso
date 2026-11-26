@@ -360,14 +360,14 @@
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
     return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
-        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
+        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b class="rv-title">${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="pr-open" data-id="${esc(p.id)}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
         <div class="rv-row"><span class="mini rv-sub">${meta}${runs.length ? ` · ${runs.length} run${runs.length === 1 ? "" : "s"}` : ""}</span>
         <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="pr-del" data-id="${esc(p.id)}" aria-label="Delete ${nm}" title="Delete">${IC.trash}</button>${runs.length ? `<button class="icon-btn rv-ib" data-act="pr-hist" data-id="${esc(p.id)}" aria-label="History of ${nm}" title="History">${IC.history}</button>` : ""}<button class="btn small primary rv-go" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div></div></div>
     </article>`;

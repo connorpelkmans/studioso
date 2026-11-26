@@ -62,6 +62,7 @@
   "01-data.js",
   "01-sync.js",
   "01-accounts.js",
+  "01-passkeys.js",
   "01-undo.js",
   "01-ai-policy.js",
   "01-ai.js",
