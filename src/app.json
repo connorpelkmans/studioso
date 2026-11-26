@@ -55,7 +55,8 @@
   "99-shop-home.css",
   "99-settings.css",
   "99-launch.css",
-  "01-study-rewards.css"
+  "01-study-rewards.css",
+  "99-focus-sprout.css"
  ],
  "js": [
   "00-core.js",
@@ -92,6 +93,7 @@
   "01-study-rewards.js",
   "01-ai-sections.js",
   "01-focus.js",
+  "01-focus-sprout.js",
   "01-files-io.js",
   "01-office.js",
   "01-pwa.js",

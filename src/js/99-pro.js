@@ -141,16 +141,18 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    // the week's Focus Garden (free, 01-focus-sprout.js) follows the first card
+    const garden = I.kind === "week" && typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml("ins") : "";
     if (preview) {
       // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
       const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
-      return sec("Study Time and Grades", study)
+      return sec("Study Time and Grades", study) + garden
         + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
         + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
         + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
         + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
     }
-    return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
+    return sec("Study Time and Grades", study) + garden + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
   const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
