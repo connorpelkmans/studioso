@@ -632,6 +632,8 @@ function computeFocusNow(){
     }
   }
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+  // Time Cushion (92-cushion.js): the study time left over, or missing, at the tightest deadline in the next 14 days, from the numbers above
+  let cushion = null; if (window.SBCUSH) { try { cushion = SBCUSH.fromPlan({byDue, info, today, th, thSet, doneToday, leftH, av, dh}); } catch(e) { console.warn("cushion", e); } }
   const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
     const t = x.t, r = [], sw = shownWeight(t), SW = sw && !(t.xs || t.prepFor) ? sw.w : 0;
@@ -690,7 +692,7 @@ function computeFocusNow(){
   });
   let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
-  FOCUS = {sd, info, ranked, blocked, later, today, over, overAll: !!(overF && overF.all), overEnded: overF ? overF.ended : [], th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  FOCUS = {sd, info, ranked, blocked, later, today, over, overAll: !!(overF && overF.all), overEnded: overF ? overF.ended : [], th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, cushion, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
