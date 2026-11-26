@@ -4,7 +4,8 @@
 //   node scripts/ios-school-safari.js      (the project at ios-wrapper/ios/App)
 //
 // What it does, and only where the pieces are there:
-//  - SBSchoolHandoff.swift goes into the App target whenever StudyboardLms.swift is in it (StudyboardLms.swift needs it to build).
+//  - SBSchoolHandoff.swift and StudyboardSchoolBackground.swift go into the App target whenever StudyboardLms.swift is in it
+//    (StudyboardLms.swift needs them to build).
 //  - With the Safari extension target added in Xcode (File > New > Target > Safari Extension, named StudyboardSafari), it gets
 //    SBSchoolHandoff.swift and Studyboard's SafariWebExtensionHandler.swift, the App Group and keychain group it shares with the
 //    app, and the SBKeychainAccessGroup key in its Info.plist. The extension's web files are ios-wrapper/ios-safari-extension/
@@ -14,7 +15,8 @@ const fs = require("fs"), path = require("path");
 
 const GROUP_ID = "group.com.studyboardapp.studyboard";
 const KEYCHAIN = "$(AppIdentifierPrefix)com.studyboardapp.studyboard.shared";
-const SHARED = "SBSchoolHandoff.swift", HANDLER = "SafariWebExtensionHandler.swift";
+const SHARED = "SBSchoolHandoff.swift", HANDLER = "SafariWebExtensionHandler.swift", BACKGROUND = "StudyboardSchoolBackground.swift";
+const APP_FILES = [SHARED, BACKGROUND];
 const unq = s => String(s || "").replace(/^"|"$/g, "");
 
 function setupSchoolSafari(wrap, log){
@@ -57,13 +59,16 @@ function setupSchoolSafari(wrap, log){
   const changed = [];
   const [appKey] = appT, appGroupKey = groupKeyByPath("App");
 
-  // 1. The App: StudyboardLms.swift needs SBSchoolHandoff.swift
-  if (anyInPhase(appKey, "StudyboardLms.swift") && !anyInPhase(appKey, SHARED)) {
-    if (!appGroupKey) { log("couldn't find the App folder's group, so " + SHARED + " wasn't added. Add it in Xcode (target App), or the app won't build."); return {ok: false}; }
-    copyIn(path.join(appDir, "App"), SHARED);
-    const ref = refOf(SHARED) || addRef(appGroupKey, SHARED, SHARED);
-    addToPhase(appKey, ref, SHARED);
-    changed.push(SHARED + " in the App (school site sign-in needs it)");
+  // 1. The App: StudyboardLms.swift needs SBSchoolHandoff.swift and StudyboardSchoolBackground.swift (school sites in the background)
+  if (anyInPhase(appKey, "StudyboardLms.swift")) {
+    for (const name of APP_FILES) {
+      if (anyInPhase(appKey, name)) continue;
+      if (!appGroupKey) { log("couldn't find the App folder's group, so " + name + " wasn't added. Add it in Xcode (target App), or the app won't build."); return {ok: false}; }
+      copyIn(path.join(appDir, "App"), name);
+      const ref = refOf(name) || addRef(appGroupKey, name, name);
+      addToPhase(appKey, ref, name);
+      changed.push(name + " in the App (school site sign-in needs it)");
+    }
   }
 
   // 2. The Safari extension target, if it's been made

@@ -3,6 +3,8 @@
 // Answers the two messages extension/src/background.js sends with browser.runtime.sendNativeMessage:
 //   {v: 1, op: "wanted", granted: ["https://school.edu/*", ...]}  -> {v: 1, wanted: [{id, origin, need}]}
 //   {v: 1, op: "handoff", id, origin, at, cookies: [...]}          -> {ok: true} or {error}
+//   {v: 1, op: "result", id, origin, at, h: {...}}                 -> {ok: true} or {error}   (what it read, for the app to use
+//                                                                       while the app's own sign-in has run out)
 // Only Studyboard's own extension can send these (Safari routes an extension's native messages to the app that carries it).
 import Foundation
 import SafariServices
@@ -30,6 +32,8 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                   let d = try? JSONSerialization.data(withJSONObject: m), d.count < 600_000,
                   let h = try? JSONDecoder().decode(SBSchoolHandoff.Handoff.self, from: d) else { return ["error": "bad-request"] }
             return SBSchoolHandoff.store(h) ? ["ok": true] : ["error": "refused"]
+        case "result":
+            return SBSchoolHandoff.storeResult(m) ? ["ok": true] : ["error": "refused"]
         default:
             return ["error": "bad-request"]
         }

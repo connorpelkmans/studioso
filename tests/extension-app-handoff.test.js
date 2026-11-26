@@ -19,7 +19,7 @@ function browser(target, opts) {
       sendNativeMessage: async (app, m) => {
         native.push([app, JSON.parse(JSON.stringify(m))]);
         if (m.op === "wanted") return {v: 1, wanted: o.wanted};
-        if (m.op === "handoff") return {ok: true};
+        if (m.op === "handoff" || m.op === "result") return {ok: true};
         return {error: "bad-request"};
       }},
     storage: {local: {
@@ -42,7 +42,8 @@ function browser(target, opts) {
   const ctx = vm.createContext({chrome, fetch, URL, AbortController, setTimeout, clearTimeout, setInterval, clearInterval, encodeURIComponent, console, Set});
   vm.runInContext(files(target)["background.js"], ctx, {filename: "background.js"});
   const loaded = async (url, tabId) => { (listeners.tabs || []).forEach(f => f(tabId || 7, {status: "complete"}, {id: tabId || 7, url})); await new Promise(r => setTimeout(r, 30)); };
-  return {loaded, native, ran, store, cookieAsks, granted, o};
+  const toAppResult = (id, origin, h) => vm.runInContext("resultToApp", ctx)(id, origin, Date.now(), h);
+  return {loaded, native, ran, store, cookieAsks, granted, o, toAppResult};
 }
 
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
@@ -85,6 +86,14 @@ const handoffs = b => b.native.filter(([, m]) => m.op === "handoff");
   { const b = browser("safari-inapp", {wanted: [{id: "canvas", origin: "https://school.instructure.com/../x", need: true}, {id: "nope", origin: ORIGIN, need: true}]});
     await b.loaded(ORIGIN + "/");
     ok(handoffs(b).length === 0, "a malformed answer from the app is ignored"); }
+
+  // what the extension reads goes to the app too, for a site the app asked about
+  { const b = browser("safari-inapp", {wanted: [{id: "canvas", origin: ORIGIN, need: false}]});
+    const ok1 = await b.toAppResult("canvas", ORIGIN, {ok: true, courses: [{id: "201", name: "History 200", items: []}]});
+    const sent = b.native.filter(([, m]) => m.op === "result");
+    ok(ok1 && sent.length === 1 && sent[0][1].id === "canvas" && sent[0][1].origin === ORIGIN && sent[0][1].h.courses[0].name === "History 200" && sent[0][1].at > 0, "a good read is sent to the app");
+    const ok2 = await b.toAppResult("brightspace", "https://d2l.other.edu", {ok: true});
+    ok(!ok2 && b.native.filter(([, m]) => m.op === "result").length === 1, "a read of a site the app didn't ask about isn't sent"); }
 
   // the store builds never talk to an app
   for (const t of ["chrome", "safari"]) {

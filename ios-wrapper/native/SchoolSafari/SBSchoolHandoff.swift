@@ -127,6 +127,54 @@ enum SBSchoolHandoff {
     }
     static func waiting(_ id: String) -> Bool { keychainGet(account: id) != nil }
 
+    // MARK: The app's own sign-in, copied for the background check (StudyboardSchoolBackground.swift reads school sites without a
+    // web view, which iOS may pause in the background). Keychain, this device only; the account isn't shared with the extension's.
+
+    struct Snapshot: Codable { var v: Int; var origin: String; var at: Double; var cookies: [Cookie] }
+    static func saveSnapshot(_ id: String, origin o: String, _ cookies: [Cookie]) {
+        guard platforms.contains(id), origin(of: o) != nil else { return }
+        let keep = Array(cookies.filter { cookieFits($0, host: host(of: o)) }.prefix(maxCookies))
+        guard !keep.isEmpty, let d = try? JSONEncoder().encode(Snapshot(v: 1, origin: o, at: nowMs, cookies: keep)) else { return }
+        _ = keychainSet(d, account: "snap-" + id)
+    }
+    static func snapshot(_ id: String, origin o: String) -> Snapshot? {
+        guard platforms.contains(id), let d = keychainGet(account: "snap-" + id),
+              let s = try? JSONDecoder().decode(Snapshot.self, from: d), s.v == 1, s.origin == o else { return nil }
+        return s
+    }
+
+    // MARK: What the extension last read from a school site in Safari (App Group file; used when the app's own sign-in has run out)
+
+    static let maxResultBytes = 6_000_000
+    private static func resultURL(_ id: String) -> URL? {
+        guard platforms.contains(id) else { return nil }
+        return FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID)?.appendingPathComponent("school-result-\(id).json")
+    }
+    // Extension side: {v: 1, id, origin, at, h}, only for a site the app asked for
+    static func storeResult(_ m: [String: Any]) -> Bool {
+        guard let id = m["id"] as? String, let o = m["origin"] as? String, origin(of: o) == o, isWanted(id, origin: o),
+              let at = (m["at"] as? NSNumber)?.doubleValue, abs(at - nowMs) < 3_600_000, m["h"] is [String: Any],
+              let url = resultURL(id) else { return false }
+        let keep: [String: Any] = ["v": 1, "id": id, "origin": o, "at": at, "h": m["h"]!]
+        guard JSONSerialization.isValidJSONObject(keep), let d = try? JSONSerialization.data(withJSONObject: keep), d.count <= maxResultBytes else { return false }
+        return (try? d.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])) != nil
+    }
+    // App side: the read (as JSON text) and when it was made, if it's for this site
+    static func result(_ id: String, origin o: String) -> (at: Double, json: String)? {
+        guard let url = resultURL(id), let d = try? Data(contentsOf: url), d.count <= maxResultBytes,
+              let m = try? JSONSerialization.jsonObject(with: d) as? [String: Any], (m["v"] as? NSNumber)?.intValue == 1,
+              m["id"] as? String == id, m["origin"] as? String == o, let at = (m["at"] as? NSNumber)?.doubleValue,
+              let h = m["h"], let hd = try? JSONSerialization.data(withJSONObject: h), let text = String(data: hd, encoding: .utf8) else { return nil }
+        return (at, text)
+    }
+
+    // Signing out of a school site on this iPhone: everything kept for it goes
+    static func forget(_ id: String) {
+        clear(id)
+        keychainDelete(account: "snap-" + id)
+        if let url = resultURL(id) { try? FileManager.default.removeItem(at: url) }
+    }
+
     // MARK: Keychain (shared access group, like SBCapture.swift)
 
     private static func baseQuery(account: String) -> [String: Any] {

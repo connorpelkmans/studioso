@@ -60,7 +60,7 @@ const logs = () => { const l = []; const f = m => l.push(m); f.lines = l; return
 {
   const wrap = makeWrap({lms: true}), log = logs(), r = setupSchoolSafari(wrap, log), m = membership(wrap);
   ok(r.ok && !r.ext, "no extension target: set up as far as it goes");
-  ok(JSON.stringify(m.files["SBSchoolHandoff.swift"]) === JSON.stringify(["App"]), "SBSchoolHandoff.swift is built by the App (StudyboardLms.swift needs it)");
+  ok(JSON.stringify(m.files["SBSchoolHandoff.swift"]) === JSON.stringify(["App"]) && JSON.stringify(m.files["StudyboardSchoolBackground.swift"]) === JSON.stringify(["App"]), "SBSchoolHandoff.swift and StudyboardSchoolBackground.swift are built by the App (StudyboardLms.swift needs them)");
   ok(fs.readFileSync(path.join(wrap, "ios", "App", "App", "SBSchoolHandoff.swift"), "utf8") === fs.readFileSync(path.join(ROOT, "ios-wrapper", "native", "SchoolSafari", "SBSchoolHandoff.swift"), "utf8"), "the copy in the App folder is the current file");
   ok(log.lines.some(x => /No Safari extension target yet/.test(x)), "it says the Safari extension target is missing");
   const r2 = setupSchoolSafari(wrap, () => {});
@@ -70,7 +70,7 @@ const logs = () => { const l = []; const f = m => l.push(m); f.lines = l; return
 // 2. no school sign-in in the app: nothing added
 {
   const wrap = makeWrap({}), r = setupSchoolSafari(wrap, () => {});
-  ok(r.ok && !membership(wrap).files["SBSchoolHandoff.swift"], "without StudyboardLms.swift nothing is added to the App");
+  ok(r.ok && !membership(wrap).files["SBSchoolHandoff.swift"] && !membership(wrap).files["StudyboardSchoolBackground.swift"], "without StudyboardLms.swift nothing is added to the App");
 }
 
 // 3. the Safari extension target, before and after its web files are added
@@ -78,7 +78,7 @@ const logs = () => { const l = []; const f = m => l.push(m); f.lines = l; return
   const wrap = makeWrap({lms: true, safari: true}), log = logs(), r = setupSchoolSafari(wrap, log), m = membership(wrap);
   const app = path.join(wrap, "ios", "App"), xdir = path.join(app, "StudyboardSafari");
   ok((m.files["SBSchoolHandoff.swift"] || []).sort().join() === "App,StudyboardSafari", "SBSchoolHandoff.swift is built by the App and the extension: " + m.files["SBSchoolHandoff.swift"]);
-  ok(JSON.stringify(m.files["SafariWebExtensionHandler.swift"]) === JSON.stringify(["StudyboardSafari"]), "the handler is built by the extension only");
+  ok(JSON.stringify(m.files["SafariWebExtensionHandler.swift"]) === JSON.stringify(["StudyboardSafari"]) && JSON.stringify(m.files["StudyboardSchoolBackground.swift"]) === JSON.stringify(["App"]), "the handler is built by the extension only, the background work by the App only");
   ok(fs.readFileSync(path.join(xdir, "SafariWebExtensionHandler.swift"), "utf8") === fs.readFileSync(path.join(ROOT, "ios-wrapper", "native", "SchoolSafari", "SafariWebExtensionHandler.swift"), "utf8"), "Xcode's template handler is replaced with Studyboard's");
   const ent = fs.readFileSync(path.join(app, m.ents.StudyboardSafari), "utf8");
   ok(m.ents.StudyboardSafari && /group\.com\.studyboardapp\.studyboard/.test(ent) && ent.includes(KEYCHAIN), "the extension has the App Group and keychain group: " + m.ents.StudyboardSafari);

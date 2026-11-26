@@ -15,13 +15,13 @@ private let sbStoreIds: [String: UUID] = [
     "moodle": UUID(uuidString: "5B7C2A10-8E0B-4C44-9D63-0A1D4F6E7B04")!
 ]
 
-private func sbOrigin(_ url: URL?) -> String {
+func sbOrigin(_ url: URL?) -> String {
     guard let u = url, u.scheme == "https", let h = u.host else { return "" }
     let port = (u.port != nil && u.port != 443) ? ":\(u.port!)" : ""
     return "https://\(h.lowercased())\(port)"
 }
 
-private func sbStore(_ id: String) -> WKWebsiteDataStore {
+func sbStore(_ id: String) -> WKWebsiteDataStore {
     if #available(iOS 17.0, *), let uid = sbStoreIds[id] { return WKWebsiteDataStore(forIdentifier: uid) }
     return WKWebsiteDataStore.default()
 }
@@ -42,10 +42,10 @@ private func sbIsGoogleSignIn(_ url: URL?) -> Bool {
     return h == "accounts.google.com" || h.hasSuffix(".accounts.google.com")
 }
 
-private let sbNames = ["brightspace": "Brightspace", "canvas": "Canvas", "blackboard": "Blackboard", "moodle": "Moodle"]
+let sbNames = ["brightspace": "Brightspace", "canvas": "Canvas", "blackboard": "Blackboard", "moodle": "Moodle"]
 
 // Put a sign-in Safari handed over into this platform's web view store
-private func sbImport(_ id: String, origin: String, _ cookies: [SBSchoolHandoff.Cookie], _ done: @escaping () -> Void) {
+func sbImport(_ id: String, origin: String, _ cookies: [SBSchoolHandoff.Cookie], _ done: @escaping () -> Void) {
     guard let originURL = URL(string: origin + "/") else { return done() }
     let store = sbStore(id).httpCookieStore, group = DispatchGroup()
     // Safari keeps a site's session cookies across restarts; here they'd be lost whenever iOS closes the app, so they're
@@ -70,14 +70,41 @@ private func sbImport(_ id: String, origin: String, _ cookies: [SBSchoolHandoff.
 }
 
 // A sign-in Safari handed over for this site, if one is waiting: put in place, then go on
-private func sbPullHandoff(_ id: String, origin: String, _ then: @escaping (Bool) -> Void) {
+let sbHandoffImported = Notification.Name("SBSchoolHandoffImported")
+func sbPullHandoff(_ id: String, origin: String, _ then: @escaping (Bool) -> Void) {
     guard let cookies = SBSchoolHandoff.take(id, origin: origin) else { return then(false) }
-    sbImport(id, origin: origin, cookies) { then(true) }
+    sbImport(id, origin: origin, cookies) {
+        // (the sign-in screen, if it's waiting for Safari, checks it straight away)
+        NotificationCenter.default.post(name: sbHandoffImported, object: nil, userInfo: ["id": id])
+        then(true)
+    }
+}
+
+// The background check's copy of the sign-in (SBSchoolHandoff.saveSnapshot): taken after each good sync here, and put back
+// before the next one if the background check got newer cookies from the school since
+private let sbSnapUsedKey = "sbSchoolSnapUsed."
+func sbSnapshotNow(_ id: String, origin: String) {
+    let host = URL(string: origin)?.host?.lowercased() ?? ""
+    DispatchQueue.main.async {
+        sbStore(id).httpCookieStore.getAllCookies { all in
+            let list = all.map { c in SBSchoolHandoff.Cookie(name: c.name, value: c.value, domain: c.domain, path: c.path, secure: c.isSecure,
+                                                           httpOnly: c.isHTTPOnly, hostOnly: !c.domain.hasPrefix("."), sameSite: c.sameSitePolicy?.rawValue,
+                                                           expirationDate: c.expiresDate?.timeIntervalSince1970) }
+                .filter { SBSchoolHandoff.cookieFits($0, host: host) }
+            SBSchoolHandoff.saveSnapshot(id, origin: origin, list)
+            if let s = SBSchoolHandoff.snapshot(id, origin: origin) { UserDefaults.standard.set(s.at, forKey: sbSnapUsedKey + id) }
+        }
+    }
+}
+func sbApplyNewerSnapshot(_ id: String, origin: String, _ then: @escaping () -> Void) {
+    guard let s = SBSchoolHandoff.snapshot(id, origin: origin), s.at > UserDefaults.standard.double(forKey: sbSnapUsedKey + id) else { return then() }
+    UserDefaults.standard.set(s.at, forKey: sbSnapUsedKey + id)
+    sbImport(id, origin: origin, s.cookies, then)
 }
 
 // Opens the school site in Safari, even when another browser is the default (x-safari-https opens Safari itself;
 // if iOS ever stops accepting it, the default browser opens and the steps on screen still say Safari)
-private func sbOpenInSafari(_ url: URL) {
+func sbOpenInSafari(_ url: URL) {
     var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
     c?.scheme = "x-safari-https"
     guard let safari = c?.url else { UIApplication.shared.open(url); return }
@@ -183,10 +210,12 @@ private class SBSafariPanel: UIView {
         title.accessibilityTraits = .header
         let intro = label("Your school signs in to \(name) with Google, and Google only allows that in a browser like Safari. "
             + "You do this once. After that, Studyboard keeps syncing \(name) by itself.", .body)
-        var cfg = UIButton.Configuration.filled()
-        cfg.title = "Open \(name) in Safari"; cfg.cornerStyle = .large
-        cfg.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
-        let open = UIButton(configuration: cfg, primaryAction: UIAction { [weak self] _ in self?.onOpen?() })
+        // (a plain filled button: the app still supports iOS 14, which has no UIButton.Configuration)
+        let open = UIButton(type: .system, primaryAction: UIAction { [weak self] _ in self?.onOpen?() })
+        open.setTitle("Open \(name) in Safari", for: .normal)
+        open.titleLabel?.font = .preferredFont(forTextStyle: .headline); open.titleLabel?.adjustsFontForContentSizeCategory = true
+        open.backgroundColor = .systemBlue; open.setTitleColor(.white, for: .normal)
+        open.layer.cornerRadius = 12; open.contentEdgeInsets = UIEdgeInsets(top: 14, left: 18, bottom: 14, right: 18)
         statusLabel.font = .preferredFont(forTextStyle: .callout); statusLabel.textColor = .secondaryLabel
         statusLabel.numberOfLines = 0; statusLabel.adjustsFontForContentSizeCategory = true; statusLabel.isHidden = true
         let host = URL(string: origin)?.host ?? origin
@@ -279,6 +308,14 @@ private class SBSignInController: UIViewController {
         sbPullHandoff(id, origin: origin) { [weak self] _ in guard let self = self else { return }; self.webView.load(URLRequest(url: self.startURL)) }
         timer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in self?.check(); self?.pullSafari() }
         NotificationCenter.default.addObserver(self, selector: #selector(becameActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(importedElsewhere(_:)), name: sbHandoffImported, object: nil)
+    }
+    // a sync picked up Safari's sign-in before this screen did: check it here too
+    @objc func importedElsewhere(_ n: Notification) {
+        guard safari != nil, !finished, !importing, (n.userInfo?["id"] as? String) == id else { return }
+        importing = true
+        safari?.status("Signing you in…")
+        webView.load(URLRequest(url: startURL))
     }
     deinit { NotificationCenter.default.removeObserver(self) }
 
@@ -286,6 +323,7 @@ private class SBSignInController: UIViewController {
     func showSafari() {
         if finished { return }
         _ = wantedBefore
+        SBSchools.markNeedLogin(id, true)
         SBSchoolHandoff.setWanted(id, origin: origin, need: true)
         let was = importing
         importing = false
@@ -301,6 +339,14 @@ private class SBSignInController: UIViewController {
         ])
         safari = p
         hostLabel.text = "Sign in with Safari"
+        // signing in again to a school that already went through Safari, with the extension set up: straight to Safari
+        if wantedBefore, SBSchoolHandoff.extensionSeen(), SBSchoolHandoff.extensionAllowed(on: origin) {
+            p.status("Opening Safari…")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self = self, !self.finished, UIApplication.shared.applicationState == .active else { return }
+                sbOpenInSafari(self.startURL)
+            }
+        }
     }
     @objc func becameActive() { pullSafari(); safari?.refresh(again: false) }
     // Safari handed the sign-in over: put it in place and check it here (check() finishes once the site knows the student)
@@ -366,7 +412,10 @@ public class StudyboardLmsPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "connect", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "run", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "signOut", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "prefs", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "safariResult", returnType: CAPPluginReturnPromise)
     ]
 
     private func checked(_ call: CAPPluginCall) -> (id: String, origin: String, url: URL)? {
@@ -383,7 +432,10 @@ public class StudyboardLmsPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             guard let top = self.bridge?.viewController else { return call.reject("no-view") }
             let vc = SBSignInController(id: c.id, origin: c.origin, url: c.url, who: who)
-            vc.completion = { call.resolve($0) }
+            vc.completion = { r in
+                if r["ok"] as? Bool == true { SBSchools.connected(c.id, origin: c.origin); sbSnapshotNow(c.id, origin: c.origin) }
+                call.resolve(r)
+            }
             top.present(vc, animated: true)
         }
     }
@@ -396,7 +448,12 @@ public class StudyboardLmsPlugin: CAPPlugin, CAPBridgedPlugin {
         DispatchQueue.main.async {
             guard let host = self.bridge?.viewController?.view else { return call.reject("no-view") }
             let r = SBRun(id: c.id, host: host)
-            let reply: ([String: Any]) -> Void = { call.resolve($0) }
+            let reply: ([String: Any]) -> Void = { out in
+                // what the background check and the page's sign-in status go by
+                if out["needLogin"] as? Bool == true { SBSchools.markNeedLogin(c.id, true) }
+                else if out["ok"] as? Bool == true { SBSchools.connected(c.id, origin: c.origin); sbSnapshotNow(c.id, origin: c.origin) }
+                call.resolve(out)
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + ms) { r.finish(["error": "timeout"], reply) }
             let go = { [weak r] in
                 guard let r = r, !r.done else { return }
@@ -413,17 +470,38 @@ public class StudyboardLmsPlugin: CAPPlugin, CAPBridgedPlugin {
                 SBSchoolHandoff.setWanted(c.id, origin: c.origin, need: true)
                 r.finish(["needLogin": true], reply)
             }
-            sbPullHandoff(c.id, origin: c.origin) { [weak r] _ in
-                guard let r = r, !r.done else { return }
-                r.wv.load(URLRequest(url: c.url))
+            sbApplyNewerSnapshot(c.id, origin: c.origin) {
+                sbPullHandoff(c.id, origin: c.origin) { [weak r] _ in
+                    guard let r = r, !r.done else { return }
+                    r.wv.load(URLRequest(url: c.url))
+                }
             }
         }
+    }
+
+    // The sign-in as the background check and the last sync left it (the page's keepAlive asks): null when not known here
+    @objc func status(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let o = call.getString("origin"), let e = SBSchools.all()[id], e.origin == o else { return call.resolve([:]) }
+        call.resolve(e.needLogin ? ["needLogin": true] : ["ok": true])
+    }
+    // The student's choices for this site: background checks (Sync Automatically) and notifications about them
+    @objc func prefs(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), sbStoreIds[id] != nil else { return call.reject("bad-request") }
+        SBSchools.setPrefs(id, auto: call.getBool("auto") ?? true, alerts: call.getBool("alerts") ?? true)
+        call.resolve()
+    }
+    // What the Safari extension last read from this site (schools that sign in with Google), for when the app's own sign-in has run out
+    @objc func safariResult(_ call: CAPPluginCall) {
+        guard let c = checked(call) else { return }
+        guard let r = SBSchoolHandoff.result(c.id, origin: c.origin) else { return call.resolve([:]) }
+        call.resolve(["at": r.at, "json": r.json])
     }
 
     @objc func signOut(_ call: CAPPluginCall) {
         guard let id = call.getString("id"), sbStoreIds[id] != nil else { return call.reject("bad-request") }
         let host = URL(string: call.getString("origin") ?? "")?.host ?? ""
-        SBSchoolHandoff.clear(id)
+        SBSchoolHandoff.forget(id)
+        SBSchools.remove(id)
         DispatchQueue.main.async {
             let store = sbStore(id), types = WKWebsiteDataStore.allWebsiteDataTypes()
             if #available(iOS 17.0, *) {

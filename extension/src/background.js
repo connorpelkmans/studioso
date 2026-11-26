@@ -120,6 +120,7 @@ function syncOne(id, why) {
       await set({ ["result:" + id]: { v: 1, id, origin: s.origin, at, h: c } });
       await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", fails: 0, why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
       handOrigin(s.origin).catch(() => {});
+      resultToApp(id, s.origin, at, c).catch(() => {});
       return { ok: true };
     }
     await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0, fails: Math.min(20, (prev.fails || 0) + 1) });
@@ -310,6 +311,17 @@ async function handToApp(w, tabId) {
     return true;
   })().catch(() => false).finally(() => { handing[w.origin] = null; });
   return handing[w.origin];
+}
+// What was read from a site the app asked about goes to the app too: it uses it while its own sign-in has run out
+// (only the copy in the iPhone app; never more than about 5 MB in one message)
+async function resultToApp(id, origin, at, h) {
+  if (!TO_APP) return false;
+  const w = (await appWants()).find(x => x.origin === origin && x.id === id);
+  if (!w) return false;
+  let size = 0; try { size = JSON.stringify(h).length; } catch (e) { return false; }
+  if (size > 5000000) return false;
+  const r = await toApp({ v: 1, op: "result", id, origin, at, h });
+  return !!(r && r.ok === true);
 }
 // After the school site loads in a tab, after connecting a site, and after a good read
 async function handOrigin(origin, tabId) {
