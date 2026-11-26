@@ -37745,6 +37745,7 @@ async function ingest(x, o){
       setTimeout(() => { if (navigator.onLine !== false && aiReady() && prefs().ai) readQueuedOnce(); else toast(`Photo saved. Open Quick Capture to read it${n > 1 ? " (" + n + " waiting)" : ""}.`); }, 200);
       return true;
     }
+    if (videoShare({title: x.title, text: x.text, url: x.url})) { if (id) markSeen(id); return true; }
     const text = CAP.clean(x.text, 2000, true); if (!text) return false;
     const r = CAP.fromText(text, ctx(), {source: src});
     if (r.drafts.length === 1) {
@@ -37780,16 +37781,20 @@ async function pullInbox(){
 function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); }
 
 /* links */
+// A share that is just a YouTube video goes to Make Flashcards with AI (src/js/99-cards-from-link.js), not to a task
+const videoShare = s => { try { return !!(window.SBLINKCARDS && SBLINKCARDS.fromShare && SBLINKCARDS.fromShare(s)); } catch (e) { return false; } };
 function handleUrl(raw, o){
   o = o || {};
-  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
+  // a shared YouTube video goes to Make Flashcards with AI, even while Quick Capture is off
+  if (r.ok && r.params && r.params.sw) { stagedShare(r.params.sw); return {ok: true, action: "share"}; }
+  if (r.ok && r.action === "share" && videoShare({title: r.params.title, text: r.params.text, url: r.params.link})) return {ok: true, action: "video"};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
   if (p.err) { toast({type: "That share wasn't a photo or text I can read.", big: "Photos over 15 MB can't be shared in.", many: "You can share up to 10 photos at a time.", fail: "Couldn't receive what you shared. Try again."}[p.err] || "Couldn't receive what you shared."); }
   if (r.action === "photo") { openCapture({fresh: true}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
-  if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
   const c = ctx(), trusted = false;
   const res = r.action === "share" ? CAP.fromShare({title: p.title, text: p.text, url: p.link}, c, {source: p.source}) : CAP.fromText(p.text || p.title, c, {source: p.source});
@@ -37812,6 +37817,8 @@ async function stagedShare(id){
     for (const k of await c.keys()) if (k.url.indexOf("/__share/" + id + "/") >= 0) await c.delete(k);
     if (meta.skipped) toast("Only photos can be shared in. Other files were left out.");
     const hint = [meta.title, meta.text].map(x => CAP.clean(x, 600)).filter(Boolean).join(" ");
+    if (!files.length && videoShare({title: meta.title, text: meta.text, url: meta.url})) return;
+    if (CAPTURE_OFF) { toast("Adding tasks from shares and links isn't available right now."); return; }
     if (files.length) photoFiles(files, {source: "share", hint});
     else present(CAP.fromShare({title: meta.title, text: meta.text, url: meta.url}, ctx(), {source: "share"}).drafts, {trusted: false, external: true});
   } catch (e) { toast("Couldn't receive what you shared. Try again."); }
@@ -125073,7 +125080,47 @@ const LINKCARDS = (() => {
     L.push("", "Check the original for exact wording and anything that matters for a grade.");
     return L.join("\n").trim();
   }
-  return {parse, noteText, MSG};
+  // A transcript as copied from YouTube (Show transcript), or a subtitle file (SRT or WebVTT), as plain running text: no timestamps,
+  // "2 minutes, 5 seconds" labels, cue numbers, the panel's own words, [Music]-style tags or ">>" speaker marks. removed: how many
+  // timestamps went. Anything else is kept as written.
+  const UI_LINE = /^(transcript|show transcript|hide transcript|search in video|search transcript|chapters|no results( found)?|follow along using the transcript\.?|toggle timestamps|english( \(auto-generated\))?|webvtt|kind: \w+|language: [\w-]+)$/i;
+  const STAMP = /^\(?\[?(\d{1,2}:)?\d{1,2}:\d{2}([.,]\d{1,3})?\]?\)?/;
+  const SPOKEN = /^((\d+ hours?,? ?)?(\d+ minutes?,? ?)?(\d+ seconds?)?|\d+ hours?|\d+ minutes?)$/i;
+  function cleanTranscript(raw){
+    let removed = 0;
+    const out = [];
+    String(raw || "").replace(/\r\n?/g, "\n").replace(/ /g, " ").split("\n").forEach(l0 => {
+      let l = l0.trim();
+      if (!l) return;
+      if (/^\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[.,]\d{3}/.test(l) || /^\d{1,2}:\d{2}[.,]\d{3}\s*-->/.test(l)) { removed++; return; }
+      if (/^\d+$/.test(l) && l.length < 6) return;
+      if (UI_LINE.test(l)) return;
+      if (SPOKEN.test(l) && /\d/.test(l)) return;
+      const m = l.match(STAMP);
+      if (m && m[0].length) { removed++; l = l.slice(m[0].length).replace(/^[\s\-–—:·|]+/, ""); }
+      if (SPOKEN.test(l) && /\d/.test(l)) return;
+      l = l.replace(/<\/?[a-z][^>]*>/gi, "").replace(/\[(music|applause|laughter|laughs|inaudible|silence|cheering|noise|foreign|__)\]/gi, "").replace(/^(>>|-\s)/, "").replace(/\s+/g, " ").trim();
+      if (l) out.push(l);
+    });
+    const text = out.join(" ").replace(/\s+([,.!?;:])/g, "$1").replace(/\s{2,}/g, " ").trim();
+    return {text, removed};
+  }
+  // A share that is just one YouTube video (its link, maybe its title and a few words): the video, or null for anything else,
+  // so a shared task that happens to mention a video stays a task
+  function videoFromShare(s){
+    s = s || {};
+    const text = String(s.text || ""), title = String(s.title || ""), url = String(s.url || "");
+    const links = [url].concat(text.match(/(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)\/[^\s<>"]+/gi) || []).filter(Boolean);
+    let v = null;
+    for (const u of links) { const r = parse(u); if (r.ok && r.kind === "youtube") { v = r; break; } }
+    if (!v) return null;
+    let rest = text;
+    links.forEach(u => { rest = rest.split(u).join(" "); });
+    if (title) rest = rest.split(title).join(" ");
+    rest = rest.replace(/https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim();
+    return rest.length > 140 ? null : v;
+  }
+  return {parse, noteText, MSG, cleanTranscript, videoFromShare};
 })();
 /*LINKCARDS-END*/
   const P = typeof SBPRO !== "undefined" ? SBPRO : null;
@@ -125088,8 +125135,54 @@ const LINKCARDS = (() => {
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
       <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. For a YouTube video, you paste its transcript.</p>
       <div class="cl-yt" id="aiYtWay" hidden>
-        <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
-        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
+        <div id="aiYtTrBox" hidden>${guide()}
+        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript (timestamps and all)" data-noenter aria-describedby="aiYtTrNote"></textarea>
+        <p class="mini cl-tr-note" id="aiYtTrNote" aria-live="polite"></p></div></div></div></details>`;
+  }
+  // How to copy a YouTube transcript: three steps and a small drawing of where to click (drawn here, not a screenshot of YouTube)
+  const PIC = `<svg class="cl-pic" viewBox="0 0 320 150" role="img" aria-label="Under the video, open the description, click Show transcript, then select the transcript beside the video and copy it">
+    <rect x="4" y="6" width="176" height="96" rx="8" class="p-box"/><path d="M82 40l26 14-26 14z" class="p-mute"/>
+    <rect x="4" y="108" width="176" height="36" rx="7" class="p-soft"/><rect x="12" y="116" width="96" height="6" rx="3" class="p-mute"/>
+    <rect x="92" y="126" width="82" height="13" rx="6.5" class="p-acc"/><text x="133" y="135.5" text-anchor="middle" class="p-acct">Show transcript</text>
+    <circle cx="86" cy="132" r="7" class="p-num"/><text x="86" y="135" text-anchor="middle" class="p-numt">2</text>
+    <circle cx="16" cy="119" r="7" class="p-num"/><text x="16" y="122" text-anchor="middle" class="p-numt">1</text>
+    <rect x="190" y="6" width="126" height="138" rx="8" class="p-soft"/><text x="200" y="22" class="p-t">Transcript</text>
+    <rect x="196" y="30" width="114" height="74" rx="4" class="p-sel"/>
+    <g class="p-mute"><rect x="200" y="36" width="16" height="5" rx="2"/><rect x="222" y="36" width="80" height="5" rx="2"/><rect x="200" y="52" width="16" height="5" rx="2"/><rect x="222" y="52" width="70" height="5" rx="2"/><rect x="200" y="68" width="16" height="5" rx="2"/><rect x="222" y="68" width="84" height="5" rx="2"/><rect x="200" y="84" width="16" height="5" rx="2"/><rect x="222" y="84" width="60" height="5" rx="2"/><rect x="200" y="114" width="16" height="5" rx="2"/><rect x="222" y="114" width="76" height="5" rx="2"/></g>
+    <circle cx="302" cy="98" r="7" class="p-num"/><text x="302" y="101" text-anchor="middle" class="p-numt">3</text></svg>`;
+  const guide = () => `<div class="cl-how"><ol class="mini">
+      <li>Under the video, click <b>…more</b> to open the description.</li>
+      <li>Click <b>Show transcript</b>. It opens beside the video.</li>
+      <li>Drag from the first line to the last to select it, copy, and paste it below. Leave the timestamps in: Studyboard takes them out.</li></ol>${PIC}
+      <p class="mini cl-how-ph">On a phone, the YouTube app may not let you copy its transcript. If it won't, do this on a computer.</p></div>`;
+  // Pasted transcript: tidied at once, saying what was taken out
+  document.addEventListener("input", e => {
+    const t = e.target; if (!t || t.id !== "aiYtTr") return;
+    const note = document.getElementById("aiYtTrNote");
+    if (!(e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop" || (t.value.length > 200 && !t.dataset.cleaned))) { if (note && !t.value.trim()) note.textContent = ""; return; }
+    const r = LINKCARDS.cleanTranscript(t.value);
+    t.dataset.cleaned = "1";
+    if (r.text && r.text !== t.value) t.value = r.text;
+    const words = r.text ? r.text.split(/\s+/).length : 0;
+    if (note) note.textContent = !words ? "" : `${words.toLocaleString()} words${r.removed ? `, ${r.removed.toLocaleString()} timestamp${r.removed === 1 ? "" : "s"} taken out` : ""}. Ready when you are.`;
+  });
+  // A YouTube video shared to Studyboard (share sheet, iPhone share extension, Android): Make Flashcards with AI opens with its link in,
+  // instead of the share becoming a task. Returns false when the share isn't just a video.
+  function fromShare(s){
+    const v = LINKCARDS.videoFromShare(s); if (!v) return false;
+    if (locked()) { proWhy(); return true; }
+    if (typeof aiStudySheet !== "function") return false;
+    aiStudySheet(null, "cards");
+    let n = 0;
+    const fill = () => {
+      const d = document.getElementById("aiLinkD"), inp = document.getElementById("aiLink");
+      if (!d || !inp) { if (++n < 40) setTimeout(fill, 100); return; }
+      d.open = true; inp.value = v.url; linkHint();
+      const box = document.getElementById("aiYtTrBox"); if (box) box.scrollIntoView({block: "center"});
+      toast("Copy the video's transcript on YouTube, then paste it here.");
+    };
+    setTimeout(fill, 60);
+    return true;
   }
   const claims = root => { const i = (root || document).querySelector("#aiLink"); return !!(i && i.value.trim()); };
   document.addEventListener("toggle", e => {
@@ -125285,7 +125378,7 @@ const LINKCARDS = (() => {
     if (L.kind === "youtube" && ytPaste()) {
       const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
       if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
-      pasted = tr;
+      pasted = LINKCARDS.cleanTranscript(tr).text || tr;
     }
     if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI Pro" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
@@ -125354,7 +125447,7 @@ const LINKCARDS = (() => {
     } finally { clearInterval(tick); }
   }
 
-  window.SBLINKCARDS = {html, claims, run, parse: LINKCARDS.parse, LINKCARDS};
+  window.SBLINKCARDS = {html, claims, run, fromShare, parse: LINKCARDS.parse, LINKCARDS};
   if (P) P.addFeature({id: "cards-link", name: "Cards From a Link", where: "In Create with AI: a YouTube video or a web page becomes draft flashcards and a summary note", icon: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
 
   const css = document.createElement("style");
@@ -125366,6 +125459,22 @@ const LINKCARDS = (() => {
 .cl-in{display:grid;gap:6px;margin-top:8px}
 .cl-in input{width:100%;min-width:0}
 .cl-hint{margin:0;overflow-wrap:anywhere}
+.cl-how{display:grid;gap:6px;margin:4px 0 2px}
+.cl-how ol{margin:0;padding-left:20px;display:grid;gap:2px}
+.cl-how-ph{margin:0;color:var(--muted)}
+.cl-pic{width:100%;max-width:340px;height:auto;display:block}
+.cl-pic .p-box{fill:#1C2433;stroke:var(--line)}
+.cl-pic .p-soft{fill:var(--soft);stroke:var(--line)}
+.cl-pic .p-mute{fill:var(--muted);opacity:.55}
+.cl-pic .p-box+.p-mute{fill:#F4F6FA;opacity:.92}
+.cl-pic .p-acc{fill:var(--accent)}
+.cl-pic .p-acct{fill:var(--accent-ink);font:600 8px system-ui,sans-serif}
+.cl-pic .p-sel{fill:var(--accent);opacity:.16}
+.cl-pic .p-num{fill:#FFD84D}
+.cl-pic .p-numt{fill:#1C2433;font:700 9px system-ui,sans-serif}
+.cl-pic .p-t{fill:var(--ink);font:600 9px system-ui,sans-serif}
+.cl-tr-note{margin:0;color:var(--muted)}
+.cl-tr-note:empty{display:none}
 .cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
 .cl-diag summary{cursor:pointer;font-weight:600}
 .cl-diag ul{margin:4px 0 0;padding-left:18px}
