@@ -3402,6 +3402,15 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
 }
 
 
+/* A task's extra reminders and Keep Reminding Until Done */
+.rm-more .rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.rm-more .rm-chip{min-height:36px;cursor:pointer}
+.rm-more .rm-chip[hidden]{display:none}
+.rm-more .rm-nag{margin-top:2px}
+.rm-snz .menu-list button{min-height:52px}
+/* Course registration */
+.rm-row input.rm-date{width:auto;flex:0 0 auto;min-width:150px;min-height:40px;padding:6px 8px;font-size:.9rem}
+.rm-sheet .rm-regnote{margin:6px 0 4px}
 /* ===== module: 70-widgets.css ===== */
 /* 1.11 Widgets and Desktop */
 body.sb-wv header.top,body.sb-wv nav.tabs,body.sb-wv #fab,body.sb-wv #toolbar,body.sb-wv .nav-foot{display:none!important}
@@ -6201,6 +6210,20 @@ body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px)
 html[data-hc="1"] .gt-line{stroke-width:2.8}
 @media (forced-colors:active){.gt-line,.gt-spark svg{stroke:Highlight}.gt-dot,.gt-spark circle{fill:Highlight;stroke:Canvas}.gt-dot.last{fill:Canvas;stroke:Highlight}.gt-goal{stroke:CanvasText}.gt-grid{stroke:GrayText}.gt-ax,.gt-val,.gt-goal-t{fill:CanvasText}}
 
+/* ===== module: 96-classmates.css ===== */
+/* Classmates card on a course page, and its sheets */
+.mates-card .mates-txt{margin:0 0 8px;line-height:1.4}
+.mates-card .mates-txt.mini{color:var(--muted)}
+.mates-card .row-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.mates-card .row-actions .btn{min-height:40px}
+.mates-points{margin:0;padding-left:1.2em;display:grid;gap:8px;line-height:1.4}
+.mates-list{list-style:none;margin:0;padding:0}
+.mates-list li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 2px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.mates-list li:last-child{border-bottom:0}
+.mates-list li b{flex:1;min-width:0;overflow-wrap:anywhere}
+.mates-list .mini{color:var(--muted)}
+.mates-av{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;flex:none;font-weight:700;font-size:.85rem;
+  color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
 /* ===== module: 97-groups-nudge.css ===== */
 /* More button: only in the bottom bar (phones and tablets) */
 nav.tabs .in .nav-more{display:none}

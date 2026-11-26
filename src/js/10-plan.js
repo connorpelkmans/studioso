@@ -743,6 +743,41 @@ window.__sbPlanObj = () => PLAN;
     if (cfg.manage_url) { openExternal(cfg.manage_url); return; }
     toast("To change or cancel your plan, use the link in your receipt email.");
   }
+  // Easy cancel: a subscription that's still set to renew, next to Manage Plan. It only stops future payments: Pro stays until
+  // the end of the time already paid for, and nothing is refunded. A card plan is cancelled here, after one confirm (the server
+  // sets it to cancel at the period's end); App Store and Google Play plans open the store's page, which works the same way.
+  const cancelable = () => { const e = ent(); return !!e && ["stripe", "apple", "google"].includes(e.source) && e.plan !== "lifetime" && e.will_renew !== false && !inPreview(); };
+  const GOOGLE_SUBS = "https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard";
+  async function cancelPlan(btn){
+    const e = ent() || {};
+    if (e.source === "apple") { if (!nativeFire("plan-manage", e)) openExternal("https://apps.apple.com/account/subscriptions"); return; }
+    if (e.source === "google") { if (!nativeFire("plan-manage", e)) openExternal(GOOGLE_SUBS); return; }
+    if (route() === "store") { toast("This plan was bought on the Studyboard website. Cancel it there, where you subscribed."); return; }
+    if (!sb || !sbUser) { toast("Sign in first, then try again."); return; }
+    const until = e.pro_until ? dateStr(e.pro_until) : "";
+    const yes = await askBox({title: "Cancel Your Subscription?", danger: true, yes: "Cancel Subscription", no: "Keep Pro",
+      text: `Your plan stops renewing, so you won't be charged again. You keep Pro ${until ? `until ${until}` : "until the end of the time you've paid for"}. Payments already made aren't refunded.`});
+    if (!yes) return;
+    if (btn) btn.disabled = true;
+    try {
+      const {data, error} = await sb.functions.invoke("create-portal-session", {body: {flow: "cancel"}});
+      let body = data;
+      if (error) { try { body = error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (x) { body = null; } }
+      const end = body && body.ends_at ? dateStr(body.ends_at) : until;
+      if (!error && body && body.canceled) {
+        if (P.row && P.row.ent) P.row.ent = Object.assign({}, P.row.ent, {will_renew: false});   // shown at once; the server's record follows
+        toast(`Canceled. You won't be charged again${end ? `, and you keep Pro until ${end}` : ""}.`, null, null, {done: true});
+        if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet();
+        setTimeout(() => { refresh().catch(() => {}); }, 4000);
+        return;
+      }
+      const code = body && body.error;
+      if (code === "already_canceled") { toast(`Your plan is already canceled${end ? `. You keep Pro until ${end}` : ""}.`); refresh().catch(() => {}); return; }
+      if (code === "no_subscription" || code === "no_billing") { toast("There's no card subscription on this account to cancel."); return; }
+      toast((body && typeof body.message === "string" && cleanMsg(body.message)) || "Couldn't cancel just now. Check your connection and try again.", null, null, {error: true});
+    } catch (x) { toast("Couldn't cancel just now. Check your connection and try again.", null, null, {error: true}); }
+    finally { if (btn) btn.disabled = false; }
+  }
   async function startTrial(){
     if (!sbUser) { toast("Sign in first to start your free trial."); return; }
     try {
@@ -865,7 +900,7 @@ window.__sbPlanObj = () => PLAN;
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
-        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
@@ -962,6 +997,7 @@ window.__sbPlanObj = () => PLAN;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
       case "plan-manage": manage(); return true;
+      case "plan-cancel": cancelPlan(el); return true;
       case "plan-trial": startTrial(); return true;
       case "plan-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 120); return true;
       case "plan-devices": devicesSheet(false); return true;

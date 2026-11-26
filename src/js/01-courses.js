@@ -577,6 +577,7 @@ function viewCourseDetail(c){
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
     ${courseTeamHtml(c, "")}
+    ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}

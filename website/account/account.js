@@ -35,6 +35,7 @@
   // ?plan=semester (old links: the semester plan became the quarterly plan) starts the quarterly checkout
   var qPlan = qs.get("plan") === "semester" ? "quarterly" : qs.get("plan");
   var wantPlan = PLANS.indexOf(qPlan) >= 0 ? qPlan : null;
+  var wantCancel = qs.get("cancel") === "1";   // ?cancel=1 (from the app): point at Cancel subscription once signed in
   var fromApp = qs.get("src") === "app";
   function allowedReturn(candidate) {
     var x = validHttps(candidate); if (!x || x.username || x.password) return null;
@@ -86,6 +87,7 @@
     var trial = e.trial_until && Date.parse(e.trial_until) > now;
     var grant = e.grant_until && Date.parse(e.grant_until) > now;
     res.manage = e.source === "stripe";
+    res.cancel = e.source === "stripe" && e.plan !== "lifetime" && !e.grant_lifetime && e.will_renew !== false && e.plan === "pro" && (until === null || until > now);
     if (e.plan === "lifetime" || e.grant_lifetime) return Object.assign(res, { tag: "Pro for good", pro: true, subscribed: true, detail: "You have Studyboard Pro with no end date." });
     if (paid && trial) return Object.assign(res, { tag: "Pro trial", pro: true, subscribed: true, detail: "Your free trial ends on " + fmt(e.trial_until) + (e.will_renew ? ", then your plan renews." : ". It will not renew.") });
     if (paid) {
@@ -123,7 +125,7 @@
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
-  function setBuyDisabled(d) { ["buy-monthly", "buy-quarterly", "buy-yearly", "buy-plus", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
+  function setBuyDisabled(d) { ["buy-monthly", "buy-quarterly", "buy-yearly", "buy-plus", "btn-manage", "btn-cancel"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
   function openPortal() {
     if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening billing...", "");
     fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname }).then(function (r) {
@@ -132,6 +134,37 @@
       msg($("acct-msg"), r.status === 404 ? "There's no card subscription on this account yet. Choose a plan above." : (r.body && r.body.message) || "Something went wrong opening billing.", "error");
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
+  }
+
+  // Easy cancel: stops renewal only. Pro stays until the end of the time already paid for, and nothing is refunded.
+  // The first click asks to confirm (the button changes), the second cancels.
+  var cancelArmed = false;
+  function openCancel() {
+    if (state.busy) return;
+    var b = $("btn-cancel");
+    if (!cancelArmed) {
+      cancelArmed = true; b.textContent = "Yes, cancel subscription";
+      msg($("acct-msg"), "Your plan will stop renewing, so you won't be charged again. You keep Pro until the end of the time you've paid for. Payments already made aren't refunded.", "");
+      return;
+    }
+    state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Canceling...", "");
+    fn(functions.portal || "create-portal-session", { flow: "cancel" }).then(function (r) {
+      state.busy = false; setBuyDisabled(false); cancelArmed = false; b.textContent = "Cancel subscription";
+      var body = r.body || {}, end = body.ends_at ? fmt(body.ends_at) : "";
+      if (r.status === 200 && body.canceled) {
+        b.hidden = true;
+        msg($("acct-msg"), "Canceled. You won't be charged again" + (end ? ", and you keep Pro until " + end : "") + ".", "ok");
+        setTimeout(renderPlanOnly, 4000);
+        return;
+      }
+      if (body.error === "already_canceled") { b.hidden = true; return msg($("acct-msg"), "Your plan is already canceled" + (end ? ". You keep Pro until " + end : "") + ".", "ok"); }
+      msg($("acct-msg"), body.error === "no_subscription" || r.status === 404 ? "There's no card subscription on this account to cancel." : typeof body.message === "string" ? body.message : "Couldn't cancel just now. Please try again.", "error");
+    }).catch(function () { state.busy = false; setBuyDisabled(false); msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); });
+  }
+  // Read the plan again (after a cancel, once the webhook has recorded it) without clearing the message
+  function renderPlanOnly() {
+    state.sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", state.session.user.id).maybeSingle()
+      .then(function (r) { var d = describe(r && r.data); $("plan-tag").textContent = d.tag; $("plan-detail").textContent = d.detail; if ($("btn-cancel")) $("btn-cancel").hidden = !d.cancel; }, function () {});
   }
 
   // Signed-in view
@@ -149,6 +182,8 @@
         $("buy-panel").hidden = d.subscribed;
         state.sb.from("studyboard_config").select("value").eq("key", "plus_plan").maybeSingle().then(function (c) { if ($("plus-card")) $("plus-card").hidden = !(c && c.data && c.data.value === true); }, function () {});
         $("manage-panel").hidden = !d.manage;
+        if ($("btn-cancel")) $("btn-cancel").hidden = !d.cancel;
+        if (wantCancel && d.cancel && $("btn-cancel")) { wantCancel = false; $("btn-cancel").focus(); msg($("acct-msg"), "To cancel, choose Cancel subscription. Your plan stops renewing; you keep Pro until the end of the time you paid for, and payments already made aren't refunded.", ""); }
         maybeAutoCheckout(d);
       }, function () { $("plan-detail").textContent = "Couldn't load your plan right now."; maybeAutoCheckout({ subscribed: false }); });
   }
@@ -235,6 +270,7 @@
     if ($("buy-plus")) $("buy-plus").addEventListener("click", function () { startCheckout("plus"); });
     if ($("buy-quarterly")) $("buy-quarterly").addEventListener("click", function () { startCheckout("quarterly"); });
     $("btn-manage").addEventListener("click", openPortal);
+    if ($("btn-cancel")) $("btn-cancel").addEventListener("click", openCancel);
 
     // Sign in with Apple, Google or Microsoft in every browser, like the app: the provider's page, then back here signed in
     // (an account made with Apple on the iPhone signs in on any computer)

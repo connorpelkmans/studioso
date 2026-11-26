@@ -325,7 +325,8 @@ begin
     exists (select 1 from public.group_members m where m.group_id = g.id and m.user_id = auth.uid()),
     coalesce(g.kind, 'study'), g.project_due
   from public.study_groups g
-  where g.invite_code = public.sbg_norm_code(p_code) and g.deleted_at is null;
+  where g.invite_code = public.sbg_norm_code(p_code) and g.deleted_at is null
+    and coalesce(to_jsonb(g) ->> 'kind', 'study') <> 'course';   -- Course Hubs are joined from the course page, never by a code
 end $$;
 
 -- Removed by the owner
@@ -361,7 +362,8 @@ declare g uuid; me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
   if not public.sbg_lookup_ok() then raise exception 'Too many code lookups. Try again in an hour.'; end if;
-  select id into g from public.study_groups where invite_code = public.sbg_norm_code(p_code) and deleted_at is null;
+  select x.id into g from public.study_groups x where x.invite_code = public.sbg_norm_code(p_code) and x.deleted_at is null
+    and coalesce(to_jsonb(x) ->> 'kind', 'study') <> 'course';   -- Course Hubs: only from the course page (supabase-classmates.sql)
   if g is null then return null; end if;
   if to_regclass('public.group_suspended') is not null and exists (select 1 from public.group_suspended where user_id = me) then
     raise exception 'Your account can''t use study groups after a report was reviewed. The rest of Studyboard works as usual.';
@@ -876,7 +878,7 @@ end $$;
 -- 1.14: group projects
 alter table public.study_groups add column if not exists kind text not null default 'study';
 alter table public.study_groups drop constraint if exists study_groups_kind_check;
-alter table public.study_groups add constraint study_groups_kind_check check (kind in ('study', 'project'));
+alter table public.study_groups add constraint study_groups_kind_check check (kind in ('study', 'project', 'course'));   -- 'course': a Course Hub (supabase-classmates.sql)
 alter table public.study_groups add column if not exists project_due date;
 grant update (name, course, weekly_goal, project_due) on public.study_groups to authenticated;
 
@@ -1330,7 +1332,8 @@ begin
     if heir is null then update public.study_groups set deleted_at = now() where id = g.id;
     else
       update public.study_groups set owner_id = heir where id = g.id;
-      update public.group_members set role = 'owner' where group_id = g.id and user_id = heir;
+      update public.group_members set role = 'owner' where group_id = g.id and user_id = heir
+        and not exists (select 1 from public.study_groups x where x.id = g.id and x.kind = 'course');   -- a Course Hub has no owner
     end if;
   end loop;
   delete from public.group_members where user_id = uid;
@@ -1785,4 +1788,20 @@ notify pgrst, 'reload schema';
 alter table public.group_items drop constraint if exists group_items_kind_check;
 alter table public.group_items add constraint group_items_kind_check
   check (kind in ('deck', 'task', 'quiz', 'event', 'qa', 'answer', 'link', 'minutes', 'role', 'avail', 'topics', 'topic', 'gfile', 'battle', 'pres', 'presrun', 'preslive'));
+notify pgrst, 'reload schema';
+
+-- Course Hubs (kind 'course', made by supabase-classmates.sql): one shared group per course, joined from the course page.
+-- A hub has no owner. Its owner_id is only who started it, so the owner powers (edit, delete, remove people, new invite
+-- code, change the group type) are off, and nobody can be stuck as an owner who can't leave.
+create or replace function public.sbg_is_owner(gid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.study_groups g where g.id = gid and g.owner_id = auth.uid() and g.deleted_at is null and g.kind <> 'course')
+$$;
+revoke all on function public.sbg_is_owner(uuid) from public, anon;
+grant execute on function public.sbg_is_owner(uuid) to authenticated;
+drop policy if exists "group owner update" on public.study_groups;
+create policy "group owner update" on public.study_groups for update to authenticated
+  using (owner_id = auth.uid() and kind <> 'course') with check (owner_id = auth.uid() and kind <> 'course');
+drop policy if exists "group owner delete" on public.study_groups;
+create policy "group owner delete" on public.study_groups for delete to authenticated using (owner_id = auth.uid() and deleted_at is null and kind <> 'course');
 notify pgrst, 'reload schema';
