@@ -25,7 +25,7 @@ const SBOCR = (() => {
       // workerBlobURL false: the worker runs from its own address, under its own policy (_headers), which alone allows WebAssembly
       return window.Tesseract.createWorker("eng", 1, {workerPath: abs(OCR_DIR + "worker.min.js"), corePath: abs(OCR_DIR + "core"), langPath: abs(OCR_DIR + "lang"),
         workerBlobURL: false, gzip: true, logger: m => { if (report && m && m.status === "recognizing text") report(m.progress || 0); }});
-    })().catch(e => { tess = null; throw Object.assign(aiErr("ocr-failed", "This device couldn't start its text reader. Try again, or use Studyboard AI or an AI key for photos and scans."), {detail: String(e && e.message || e)}); });
+    })().catch(e => { tess = null; throw Object.assign(aiErr("ocr-failed", "This device couldn't start its text reader. Try again, or use Studyboard Pro AI or an AI key for photos and scans."), {detail: String(e && e.message || e)}); });
     return tess;
   }
   const rest = () => { clearTimeout(idle); idle = setTimeout(async () => { const t = tess; tess = null; try { (await t).terminate(); } catch (e) {} }, OCR.idleMs); };

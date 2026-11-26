@@ -1,4 +1,4 @@
-// Browser test for Studyboard AI (included with Pro): the app against the real Worker logic (cloudflare/ai-pro/src/pro.js),
+// Browser test for Studyboard Pro AI (included with Pro): the app against the real Worker logic (cloudflare/ai-pro/src/pro.js),
 // with Anthropic, Whisper and the embeddings model faked
 const path = require("path"), fs = require("fs"), assert = require("assert"), {pathToFileURL} = require("url");
 const {chromium, executablePath} = require("./pw");
@@ -50,10 +50,10 @@ const STUB = () => {
     whisper: async () => ({text: "Today we cover coral bleaching.", transcription_info: {duration: 30}})
   };
   const html = require("../scripts/csp").apply(require("../scripts/app-files").source().replace('const AI_PRO = "https://ai.studyboardapp.com";', `const AI_PRO = "${PRO}";`));
-  ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard AI server");
+  ok(html.includes(`const AI_PRO = "${PRO}";`), "test copy of the app points at the test Studyboard Pro AI server");
 
   const browser = await chromium.launch({executablePath});
-  // grant: the account may use its own paid key (Claude, ChatGPT); without it, only a free Gemini key or Studyboard AI
+  // grant: the account may use its own paid key (Claude, ChatGPT); without it, only a free Gemini key or Studyboard Pro AI
   const device = async ({keys, consent, ownKey, proSeed, grant} = {}) => {
     const ctx = await browser.newContext({viewport: {width: 1100, height: 900}, serviceWorkers: "block"});
     const seed = Object.assign({}, SEED, ownKey ? {settings: Object.assign({}, SEED.settings, {ai: {ownKey: true}})} : {});
@@ -105,16 +105,16 @@ const STUB = () => {
     // 1. A Pro student with no key of their own
     const A = await device({});
     await A.page.waitForFunction(() => { try { return __sbAi.cfg().provider === "studyboard"; } catch (e) { return false; } }, null, {timeout: 15000});
-    ok(A.ctx.calls.some(c => c.path === "/v1/status"), "the app asked the server whether Studyboard AI is included");
-    ok(true, "a Pro student with no key uses Studyboard AI");
+    ok(A.ctx.calls.some(c => c.path === "/v1/status"), "the app asked the server whether Studyboard Pro AI is included");
+    ok(true, "a Pro student with no key uses Studyboard Pro AI");
     await openAi(A.page);
     const sheet = await A.page.textContent("#dlg");
-    ok(/Studyboard AI is included with your Pro plan/.test(sheet) && /Nothing to set up/.test(sheet), "AI Features says it's included, nothing to set up");
+    ok(/Studyboard Pro AI is included with your Pro plan/.test(sheet) && /Nothing to set up/.test(sheet), "AI Features says it's included, nothing to set up");
     ok(await A.page.isChecked("#aiUsePro"), "with its switch on");
     ok(!/Google Gemini<\/b> by default|non-Pro users/.test(await A.page.innerHTML("#dlg")) && !(await A.page.$("#dlg .ai-steps")) && !/Free from Google AI Studio/.test(sheet), "a Pro student isn't walked through getting a free Gemini key");
     ok(!/Use a Paid Model Instead/.test(sheet) && !/These cost money/.test(sheet) && !(await A.page.$('#dlg [data-show="anthropic"], #dlg [data-show="openai"], #dlg [data-show="gemini"]')), "and has no separate Gemini, Claude or OpenAI boxes");
-    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard AI runs out\. Paste a free Gemini API key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
-    ok(!/always runs in Studyboard AI Mode/.test(sheet), "and no note about a Claude key's Studyboard AI Mode");
+    ok(/Backup API Key/.test(sheet) && /Used if your Studyboard Pro AI runs out\. Paste a free Gemini API key\./.test(sheet) && await A.page.isVisible("#aiBackupKey") && await A.page.isVisible("#aiBackupShow") && await A.page.isVisible("#aiBackupTest"), "one Backup API Key box, with Show and Test");
+    ok(!/always runs in Studyboard Pro AI Mode/.test(sheet), "and no note about a Claude key's Studyboard Pro AI Mode");
 
     // 2. Break It Down: consent names Anthropic, then the request goes through the server
     await A.page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
@@ -126,7 +126,7 @@ const STUB = () => {
     await A.page.click("dialog.ai-consent[open] [data-yes]");
     await A.page.waitForFunction(() => /Used the AI/.test((document.querySelector("#bdAiMsg") || {}).textContent || ""), null, {timeout: 15000});
     const bd = aiPosts(A.ctx).find(c => c.body && c.body.task === "breakdown");
-    ok(bd && Array.isArray(bd.body.content) && bd.body.content[0].type === "text" && /coral bleaching/.test(bd.body.content.map(b => b.text || "").join(" ")), "the job went to Studyboard AI as content blocks, with the assignment text");
+    ok(bd && Array.isArray(bd.body.content) && bd.body.content[0].type === "text" && /coral bleaching/.test(bd.body.content.map(b => b.text || "").join(" ")), "the job went to Studyboard Pro AI as content blocks, with the assignment text");
     ok(bd && !("model" in bd.body) && !("maxTokens" in bd.body) && !("temperature" in bd.body), "the app sends no model, cap or temperature (the server decides)");
     const sent = W.sent.find(r => /break|milestone|stage/i.test(JSON.stringify(r.system || "")));
     ok(sent && sent.model === "claude-haiku-5-5" && sent.output_config.effort === "high", "the server ran it on Haiku 5.5 at high effort");
@@ -143,7 +143,7 @@ const STUB = () => {
     const before = W.sent.length;
     await A.page.waitForTimeout(6500); await A.page.click("#bdAi");
     await A.page.waitForSelector("dialog.ai-consent[open] #aiProTitle", {timeout: 10000}); 
-    ok(/Your Studyboard AI for Now/.test(await A.page.textContent("#aiProTitle")) && /comes back on/.test(await A.page.textContent("dialog.ai-consent[open]")), "used up: the student is told when it resets and offered a free Gemini key");
+    ok(/Your Studyboard Pro AI for Now/.test(await A.page.textContent("#aiProTitle")) && /comes back on/.test(await A.page.textContent("dialog.ai-consent[open]")), "used up: the student is told when it resets and offered a free Gemini key");
     ok(W.sent.length === before, "and nothing reached Anthropic");
     await A.page.click("dialog.ai-consent[open] [data-no]");
     await A.ctx.close();
@@ -154,7 +154,7 @@ const STUB = () => {
     { const mb = deps.meter("0b6f2a1c-1d2e-4f50-8a9b-0c1d2e3f4a5b"), lb = P.limits(env), rb = await mb.reserve(lb.dayMicro - 500, lb); await mb.settle(rb.id, lb.dayMicro - 500); }
     const B = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}, studyboard: {v: 1, at: 1}}});
     await B.page.evaluate(() => __sbAi.proRefresh());
-    ok(await B.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "a paid Pro student with a Gemini key uses Studyboard AI first");
+    ok(await B.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "a paid Pro student with a Gemini key uses Studyboard Pro AI first");
     await openTask(B.page, "t1"); await B.page.click('#dlg [data-act="bd-open"]'); await B.page.waitForSelector("#bdList li");
     await B.page.waitForTimeout(6500);
     if (!/Used the AI/.test(await B.page.evaluate(() => (document.querySelector("#bdAiMsg") || {}).textContent || ""))) await B.page.click("#bdAi");
@@ -168,23 +168,23 @@ const STUB = () => {
     // 5. Their own key by choice
     const C = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}, ownKey: true});
     await C.page.evaluate(() => __sbAi.proRefresh());
-    ok(await C.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "a student who turned Studyboard AI off uses their own key");
+    ok(await C.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "a student who turned Studyboard Pro AI off uses their own key");
     await openAi(C.page);
     ok(!(await C.page.isChecked("#aiUsePro")), "and the switch shows it off");
     await C.page.click("#aiUsePro");
-    ok(await C.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "turning it back on switches to Studyboard AI");
+    ok(await C.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "turning it back on switches to Studyboard Pro AI");
     await C.ctx.close();
 
     // 6. A free account: the server says no, and the app never sends a job
     W.tier = "none";
     const D = await device({});
     await D.page.evaluate(() => __sbAi.proRefresh()); await D.page.waitForTimeout(500);
-    ok(await D.page.evaluate(() => __sbAi.cfg().provider) !== "studyboard", "a free account doesn't get Studyboard AI");
+    ok(await D.page.evaluate(() => __sbAi.cfg().provider) !== "studyboard", "a free account doesn't get Studyboard Pro AI");
     ok(aiPosts(D.ctx).length === 0, "and sent no AI job to the server");
     await D.ctx.close();
     W.tier = "paid";
 
-    // 6b. A free account with a free Gemini key: exactly as before (Gemini, with no Studyboard AI requests)
+    // 6b. A free account with a free Gemini key: exactly as before (Gemini, with no Studyboard Pro AI requests)
     W.tier = "none";
     const D2 = await device({keys: {gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"}, consent: {gemini: {v: 1, at: 1}}});
     await D2.page.evaluate(() => __sbAi.proRefresh()); await D2.page.waitForTimeout(300);
@@ -203,8 +203,8 @@ const STUB = () => {
     await E.page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "search"; document.body.appendChild(b); b.click(); b.remove(); });
     await E.page.waitForFunction(() => window.__PRO_EMBED_SEEN, null, {timeout: 1}).catch(() => {});
     for (let i = 0; i < 40 && !E.ctx.calls.some(c => c.path === "/v1/embed"); i++) await E.page.waitForTimeout(250);
-    ok(E.ctx.calls.some(c => c.path === "/v1/embed"), "search by meaning indexes through Studyboard AI (no Gemini key needed)");
-    ok(await E.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "the companion's Ask Me is available on Studyboard AI");
+    ok(E.ctx.calls.some(c => c.path === "/v1/embed"), "search by meaning indexes through Studyboard Pro AI (no Gemini key needed)");
+    ok(await E.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "the companion's Ask Me is available on Studyboard Pro AI");
     await E.ctx.close();
     const F = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
     await F.page.waitForTimeout(800);
@@ -212,11 +212,11 @@ const STUB = () => {
     ok(await F.page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable()), "and Ask Me is available with Claude too");
     await F.ctx.close();
 
-    // 8. Your own Claude key in Studyboard AI Mode: the same rules, on this device
+    // 8. Your own Claude key in Studyboard Pro AI Mode: the same rules, on this device
     W.tier = "none";
     const G = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
     await G.page.evaluate(() => __sbAi.useOwnMode());
-    ok(await G.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Claude key in Studyboard AI Mode");
+    ok(await G.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Claude key in Studyboard Pro AI Mode");
     await openTask(G.page, "t1"); await G.page.click('#dlg [data-act="bd-open"]'); await G.page.waitForSelector("#bdList li");
     // Break It Down runs the AI by itself when it opens with a key; tap only if it didn't
     await G.page.waitForTimeout(6500);
@@ -224,7 +224,7 @@ const STUB = () => {
     await G.page.waitForFunction(() => /Used the AI/.test((document.querySelector("#bdAiMsg") || {}).textContent || ""), null, {timeout: 15000});
     const own = G.ctx.claude.find(c => /break|milestone|stage/i.test(JSON.stringify(c.b.system || "")));
     const ref = P.buildRequest({system: "x", blocks: [{type: "text", text: "y"}], task: P.taskOf("breakdown")});
-    ok(own && own.b.model === "claude-haiku-5-5" && own.b.output_config.effort === "high" && own.b.max_tokens === ref.max_tokens && JSON.stringify(own.b.thinking) === JSON.stringify(ref.thinking), "the same model, thinking and output cap as Studyboard AI for this job");
+    ok(own && own.b.model === "claude-haiku-5-5" && own.b.output_config.effort === "high" && own.b.max_tokens === ref.max_tokens && JSON.stringify(own.b.thinking) === JSON.stringify(ref.thinking), "the same model, thinking and output cap as Studyboard Pro AI for this job");
     ok(own && !("temperature" in own.b) && own.h["x-api-key"] === "sk-ant-test-key-0000000000", "sent with the student's own key, no temperature");
     ok(G.ctx.calls.filter(c => c.path === "/v1/ai").length === 0, "and nothing went through Studyboard's server");
     const spent = await G.page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("studyboard:ownAI") || "{}").days || {}).reduce((a, b) => a + b, 0));
@@ -247,7 +247,7 @@ const STUB = () => {
     await K.page.evaluate(() => { const d = document.querySelector("#dlg details.ai-paid:not(#aiHoIn)"); if (d) d.open = true; });
     await K.page.fill('[data-key="anthropic"]', "sk-ant-test-key-0000000000");
     await K.page.dispatchEvent('[data-key="anthropic"]', "change");
-    ok(await K.page.inputValue("#aiDefault") === "anthropic|studyboard", "typing a Claude key switches the default to Claude (Studyboard AI Mode)");
+    ok(await K.page.inputValue("#aiDefault") === "anthropic|studyboard", "typing a Claude key switches the default to Claude (Studyboard Pro AI Mode)");
     await K.ctx.close();
     W.tier = "paid";
 
@@ -299,7 +299,7 @@ const STUB = () => {
       ok(/New: OpenAI ChatGPT key/.test(await R.page.textContent("#aiBackupKind")), "an sk-proj- key is read as OpenAI");
       await saveAi();
       ok(JSON.stringify(await keysLS()) === JSON.stringify({openai: "sk-proj-abcdefghijklmnop0123456789"}), "and saved as the OpenAI key, replacing the Gemini one");
-      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "Studyboard AI is still used first");
+      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "Studyboard Pro AI is still used first");
       await openAi(R.page);
       ok(await R.page.inputValue("#aiBackupKey") === "sk-proj-abcdefghijklmnop0123456789" && /Saved: OpenAI ChatGPT key/.test(await R.page.textContent("#aiBackupKind")), "it shows again next time");
       await R.page.fill("#aiBackupKey", "sk-ant-test-key-0000000000");
@@ -319,18 +319,18 @@ const STUB = () => {
       await R.page.fill("#aiBackupKey", "");
       await saveAi();
       ok(JSON.stringify(await keysLS()) === "{}", "clearing the box removes the backup key");
-      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "and Studyboard AI carries on");
+      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "studyboard", "and Studyboard Pro AI carries on");
       // turned off: the backup box is their key, and Save keeps it off
       await openAi(R.page);
       await R.page.click("#aiUsePro");
-      ok(/Used while Studyboard AI is off/.test(await R.page.textContent("#aiBackupHint")), "with Studyboard AI off, the hint says the key is used instead");
+      ok(/Used while Studyboard Pro AI is off/.test(await R.page.textContent("#aiBackupHint")), "with Studyboard Pro AI off, the hint says the key is used instead");
       await R.page.fill("#aiBackupKey", "AIzaTESTTESTTESTTESTTESTTEST12345");
       await saveAi();
-      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "and saving keeps Studyboard AI off, using the key");
+      ok(await R.page.evaluate(() => __sbAi.cfg().provider) === "gemini", "and saving keeps Studyboard Pro AI off, using the key");
       await R.ctx.close();
     }
 
-    // 13. An account allowed its own paid key still gets the Gemini set-up, with the paid models, and no note about Studyboard AI Mode
+    // 13. An account allowed its own paid key still gets the Gemini set-up, with the paid models, and no note about Studyboard Pro AI Mode
     W.tier = "none";
     {
       const S = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}});
@@ -339,7 +339,7 @@ const STUB = () => {
       const t = await S.page.textContent("#dlg");
       ok(/Studyboard uses Google Gemini by default/.test(t) && await S.page.$("#dlg .ai-steps") && await S.page.isVisible('#dlg [data-key="gemini"]') && /Use a Paid Model Instead/.test(t) && await S.page.$('#dlg [data-key="anthropic"]') && await S.page.$('#dlg [data-key="openai"]'), "an allowed free account sees the Gemini steps and the separate key boxes");
       ok(!(await S.page.$("#aiBackupKey")) && !/Backup API Key/.test(t), "and no backup box");
-      ok(!/always runs in Studyboard AI Mode/.test(t) && !/This month: \d+% used/.test(t), "the Studyboard AI Mode note and its usage line are gone");
+      ok(!/always runs in Studyboard Pro AI Mode/.test(t) && !/This month: \d+% used/.test(t), "the Studyboard Pro AI Mode note and its usage line are gone");
       await S.ctx.close();
     }
     W.tier = "paid";
@@ -373,48 +373,48 @@ const STUB = () => {
     }
     W.tier = "paid";
 
-    // 14. A Pro student only ever sees "Studyboard AI": no Claude, Haiku or Anthropic on screen, in pickers or anywhere else
-    // (the one exception is the note in AI Features that says where Studyboard AI sends content, a privacy disclosure)
+    // 14. A Pro student only ever sees "Studyboard Pro AI": no Claude, Haiku or Anthropic on screen, in pickers or anywhere else
+    // (the one exception is the note in AI Features that says where Studyboard Pro AI sends content, a privacy disclosure)
     {
       const SHOTS = process.env.SB_SHOTS || "";
-      const NAMES = /haiku|claude|anthropic/i, DISCLOSE = /Studyboard AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare\./;
+      const NAMES = /haiku|claude|anthropic/i, DISCLOSE = /Studyboard Pro AI runs on Anthropic's Claude, through Studyboard's server on Cloudflare\./;
       const shown = async (page, sel) => page.evaluate(s => [...document.querySelectorAll(s)].map(el => el.innerText + " " + [...el.querySelectorAll("option, optgroup")].map(o => o.label || o.textContent).join(" ")).join(" "), sel);
       const clean = t => !NAMES.test(t.replace(DISCLOSE, ""));
       const act = (page, a) => page.evaluate(x => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); const b = document.createElement("button"); b.dataset.act = x; document.body.appendChild(b); b.click(); b.remove(); }, a);
       const shot = async (page, name, sel) => { if (!SHOTS) return; if (sel) await page.evaluate(s => { const el = document.querySelector(s); if (el) el.scrollIntoView({block: "center"}); }, sel); await page.waitForTimeout(700); await page.screenshot({path: path.join(SHOTS, name)}); };
       const proOn = page => page.waitForFunction(() => { try { const t = __sbAi.proGet(); return !!(t && t.on); } catch (e) { return false; } }, null, {timeout: 15000});
 
-      // On Studyboard AI, no key of their own
+      // On Studyboard Pro AI, no key of their own
       const T = await device({});
       await proOn(T.page);
       await openAi(T.page);
       const sheetT = await shown(T.page, "#dlg");
-      ok(DISCLOSE.test(sheetT) && clean(sheetT), "AI Features names only Studyboard AI (apart from the note on where content goes)");
+      ok(DISCLOSE.test(sheetT) && clean(sheetT), "AI Features names only Studyboard Pro AI (apart from the note on where content goes)");
       await shot(T.page, "pro-ai-features.png");
       await act(T.page, "fc-ai-cards"); await T.page.waitForSelector("#dlg[open] .ai-model-bar");
-      ok(/^Studyboard AI/.test((await T.page.textContent("#dlg .ai-model-bar")).trim()) && clean(await shown(T.page, "#dlg")), "an AI window says Studyboard AI and nothing else");
+      ok(/^Studyboard Pro AI/.test((await T.page.textContent("#dlg .ai-model-bar")).trim()) && clean(await shown(T.page, "#dlg")), "an AI window says Studyboard Pro AI and nothing else");
       await shot(T.page, "pro-ai-window.png", "#dlg .ai-model-bar");
       await act(T.page, "menu"); await T.page.waitForSelector("#dlg[open]");
-      ok(/On, using Studyboard AI/.test(await T.page.textContent("#dlg")) && clean(await shown(T.page, "#dlg")), "Settings says Studyboard AI, no model or company");
+      ok(/On, using Studyboard Pro AI/.test(await T.page.textContent("#dlg")) && clean(await shown(T.page, "#dlg")), "Settings says Studyboard Pro AI, no model or company");
       await T.page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); SBCOMPTAB.open(); }); await T.page.waitForSelector("#cptIn");
       ok(clean(await shown(T.page, "body")), "the Companion tab and the page behind it name no model or company");
       await T.ctx.close();
 
-      // With their own Claude key as backup and Studyboard AI switched off (it runs in Studyboard AI's mode): still just "Studyboard AI"
+      // With their own Claude key as backup and Studyboard Pro AI switched off (it runs in Studyboard Pro AI's mode): still just "Studyboard Pro AI"
       const U = await device({grant: true, keys: {anthropic: "sk-ant-test-key-0000000000"}, consent: {anthropic: {v: 1, at: 1}}, ownKey: true});
       await proOn(U.page);
       ok(await U.page.evaluate(() => __sbAi.cfg().provider + "|" + __sbAi.cfg().model) === "anthropic|studyboard", "a Pro student on their own Claude key");
       await act(U.page, "fc-ai-cards"); await U.page.waitForSelector("#dlg[open] select[data-ai-model]");
       const pick = await U.page.evaluate(() => { const s = document.querySelector("#dlg select[data-ai-model]"); return {sel: s.selectedOptions[0].textContent, all: [...s.querySelectorAll("option, optgroup")].map(o => o.label || o.textContent)}; });
-      ok(pick.sel === "Studyboard AI" && pick.all.every(x => !NAMES.test(x)), `the Model picker says just "Studyboard AI" (${pick.all.join(", ")})`);
+      ok(pick.sel === "Studyboard Pro AI" && pick.all.every(x => !NAMES.test(x)), `the Model picker says just "Studyboard Pro AI" (${pick.all.join(", ")})`);
       ok(clean(await shown(U.page, "#dlg")), "and the AI window names no model or company");
       await shot(U.page, "pro-own-key-model-picker.png", "#dlg .ai-model-bar");
       await openAi(U.page);
-      ok(await U.page.evaluate(() => document.querySelector("#aiDefault").selectedOptions[0].textContent) === "Studyboard AI", "Default Model says Studyboard AI too");
+      ok(await U.page.evaluate(() => document.querySelector("#aiDefault").selectedOptions[0].textContent) === "Studyboard Pro AI", "Default Model says Studyboard Pro AI too");
       await shot(U.page, "pro-own-key-ai-features.png", "#aiDefault");
       ok(clean(await shown(U.page, "#aiDefault")) && clean(await shown(U.page, "#aiBackupHint")), "with no model or company in the picker or the backup hint");
       await act(U.page, "menu"); await U.page.waitForSelector("#dlg[open]");
-      ok(/On, using Studyboard AI with your own key/.test(await U.page.textContent("#dlg")) && clean(await shown(U.page, "#dlg")), "Settings: Studyboard AI with your own key, no Haiku");
+      ok(/On, using Studyboard Pro AI with your own key/.test(await U.page.textContent("#dlg")) && clean(await shown(U.page, "#dlg")), "Settings: Studyboard Pro AI with your own key, no Haiku");
       await U.ctx.close();
     }
   } finally { await browser.close(); }

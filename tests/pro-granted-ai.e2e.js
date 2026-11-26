@@ -1,4 +1,4 @@
-// node tests/pro-granted-ai.e2e.js: Pro from a grant has every Pro feature but not Studyboard AI, so the Pro sheet still offers
+// node tests/pro-granted-ai.e2e.js: Pro from a grant has every Pro feature but not Studyboard Pro AI, so the Pro sheet still offers
 // paid Pro to add it; paying for Pro shows nothing to upgrade
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -47,7 +47,7 @@ const b64 = o => Buffer.from(JSON.stringify(o)).toString("base64url");
   try {
     const later = new Date(Date.now() + 30 * 864e5).toISOString();
     const granted = await run({plan: "free", grant_until: later});
-    ok(granted.pro && granted.up && granted.buy >= 2 && /granted/.test(granted.text), "Pro from a grant: every Pro feature, and the Pro sheet offers paid Pro for Studyboard AI: " + JSON.stringify(granted));
+    ok(granted.pro && granted.up && granted.buy >= 2 && /granted/.test(granted.text), "Pro from a grant: every Pro feature, and the Pro sheet offers paid Pro for Studyboard Pro AI: " + JSON.stringify(granted));
     const paying = await run({plan: "pro", pro_until: later, source: "stripe", will_renew: true});
     ok(paying.pro && !paying.up && paying.buy === 0, "paying for Pro: nothing to upgrade: " + JSON.stringify(paying));
     const free = await run(null);

@@ -1,4 +1,4 @@
-// The free first deck: when Studyboard uses the AI on this device (no key, no Studyboard AI), a new student's first set of flashcards
+// The free first deck: when Studyboard uses the AI on this device (no key, no Studyboard Pro AI), a new student's first set of flashcards
 // is made by Studyboard's cloud AI instead (Google's Gemma 4 26B on Cloudflare: ai.studyboardapp.com/v1/first-deck), so their first
 // experience is fast and good. Once per device. The server only runs it while it fits in Cloudflare's free daily allowance; when
 // it doesn't (or anything fails), the device makes the set as usual, without a word. Notes sent for it aren't kept.

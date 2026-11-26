@@ -215,8 +215,8 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(() => window.__sbPlanObj().openSheet(""));
     await page.waitForSelector(".plan-sheet .plan-plus", {timeout: 5000});
     const plusTxt = await page.textContent(".plan-sheet .plan-plus");
-    ok(/\$2\.99/.test(plusTxt) && /Studyboard AI/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard AI");
-    ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard AI isn't in Plus");
+    ok(/\$2\.99/.test(plusTxt) && /Studyboard Pro AI/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard Pro AI");
+    ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard Pro AI isn't in Plus");
 
     // A balance that changed on the server (a refund taking credits back) shows when the shop opens, not the remembered one
     const stale = await page.evaluate(async () => {

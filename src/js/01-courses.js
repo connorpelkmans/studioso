@@ -386,8 +386,8 @@ async function ciFromLibrary(q, say){
     return svg ? {id: uid(), name: String(p.name || luTitle(p.icon)).slice(0, 40), svg, vb: ciMeasure(svg), src: "lucide:" + p.icon + (p.badge && lib.nodes[p.badge] ? "+" + p.badge : ""), fits} : null;
   }).filter(Boolean);
 }
-// The icon library first. When nothing in it really fits, Studyboard AI draws one of its own in the app's icon style; other
-// AI only picks from the library (drawing a good icon takes Studyboard AI's own model)
+// The icon library first. When nothing in it really fits, Studyboard Pro AI draws one of its own in the app's icon style; other
+// AI only picks from the library (drawing a good icon takes Studyboard Pro AI's own model)
 async function ciDraw(q, col, say){
   let lib = [];
   try { lib = await ciFromLibrary(q, say); } catch (e) { console.warn("icon library", e); }
@@ -461,7 +461,7 @@ hook("act", (act, el) => {
     const say = t => { if (out) out.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(t)}`; };
     const col = (getComputedStyle($("#ciGrid") || document.body).getPropertyValue("--c") || "").trim() || "#3B6FE0";
     ciDraw(q, col, say).then(cands => {
-      if (!cands.length) { const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })(); if (out) out.textContent = sb ? "That didn't come out right. Try again, or describe it a little differently." : "No icon in the library matches that. Try other words. With Studyboard AI, it can draw one for you."; return; }
+      if (!cands.length) { const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })(); if (out) out.textContent = sb ? "That didn't come out right. Try again, or describe it a little differently." : "No icon in the library matches that. Try other words. With Studyboard Pro AI, it can draw one for you."; return; }
       ciCands = cands; ciPending = cands[0];
       if (out) out.innerHTML = cands.map((c, k) => `<button type="button" class="ci-cand${k ? "" : " on"}" data-act="ci-ai-pick" data-id="${k}" aria-pressed="${!k}" title="${esc(c.name)}"><span class="g2-ring ci-ai-ring" style="--c:${esc(col)}"><svg class="ci-svg" viewBox="${c.vb}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${c.svg}</svg></span><span>${esc(c.name)}</span></button>`).join("") + (cands.some(c => c.src) ? `<span class="mini ci-src">From the <a href="https://lucide.dev" target="_blank" rel="noopener noreferrer">Lucide</a> icon set (ISC License; see Settings, About)</span>` : "");
       if (use) use.hidden = false;
