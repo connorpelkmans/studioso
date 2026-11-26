@@ -66,7 +66,35 @@ If they ask you to write or do graded work for them (an essay, a care plan, home
       return "That's okay. Not being sure is a lot to sit with. Because you're not sure, please reach out to someone now: call or text 988 (the Suicide & Crisis Lifeline in the US and Canada), or your local emergency number if you might act on these feelings. You could also tell someone you trust that you're having a hard time. I'm right here with you.";
     if (!other && /\b(talk about something else|change the subject|something else|distract me|talk about anything)\b/.test(w))
       return "Of course, we can talk about something else. What's something small that made you smile lately, or a show or song you've had on repeat? And if those heavy feelings come back, 988 is there any time, by call or text.";
+    // brushing it off ("im fine forget it", "nvm", "it's nothing", "don't worry about it")
+    if (!other && /^(i'?m|im|i am)\s+(fine|ok(ay)?|good|alright)\b|\b(forget (it|i said|that|about it)|never ?mind|nvm|it'?s nothing|it was nothing|don'?t worry( about (it|me))?|just kidding|jk|ignore (that|it|me)|doesn'?t matter|not a big deal)\b/.test(w))
+      return "Okay. I'm still really glad you told me, and I won't push. Just checking once more: are you safe right now? If those feelings come back, even a little, you can call or text 988 any time, day or night. I'm here whenever you want to talk.";
+    // reaching out to someone ("maybe i'll text my sister", "i could talk to my mom", "i'll call my therapist")
+    if (/\b(text|call|talk to|tell|reach out to|message|go to|see|visit|book|email)\b[^.?!]{0,25}\b(sister|brother|mom|mum|dad|mother|father|parents?|family|friend|roommate|partner|boyfriend|girlfriend|counsel(?:l)?or|counsel(?:l)?ing|therapist|doctor|ra|someone|somebody|988|cousin|aunt|uncle|grandma|grandpa)\b/.test(w))
+      return (other ? "That's a really good step. Telling someone who can help is the right call. " : "That sounds like a really good idea. Reaching out to someone who cares about you is a brave step, and you don't have to explain it perfectly. ") + "If things get worse or anyone might be in danger, call or text 988 (or your local emergency number) any time. I'm here too.";
+    // the answer to "are you safe right now?"
+    if (!other && /^(yes|yeah|yep|ya|yea|i am|i'?m safe|im safe)\b[\s,.!]*(i'?m|im|i am)?\s*(safe)?[\s.!]*$/.test(w))
+      return "I'm glad you're safe. Thank you for telling me. Feelings like that are heavy to carry, so please think about telling someone you trust or campus counseling. If it ever changes, call or text 988 any time. Do you want to talk about what's been going on?";
+    if (!other && /^(no|nope|not really|i'?m not|im not|not safe)\b/.test(w))
+      return "Thank you for being honest with me. Please call or text 988 right now (the Suicide & Crisis Lifeline in the US and Canada), or call your local emergency number, or go to someone near you and tell them. You deserve support right now, and you don't have to get through this alone. I'm right here.";
     return null;
   }
-  return {cantDo, risk, distress, riskReply, riskFollow, CARE_RULE, integrity, INTEGRITY_RULE};
+  // what the companion is and where the chat goes ("are you chatgpt", "what ai is this", "do my notes get sent anywhere",
+  // "is this private"): said honestly, for the engine in use, never left to a model that guesses
+  const WHO = /\b(are you|r u|is this|is it|you'?re)\s+(really\s+)?(chat ?gpt|gpt|open ?ai|gemini|bard|claude|siri|alexa|copilot|a (real )?(person|human)|an? (ai|a\.i\.|bot|robot|chat ?bot|real person|llm))\b|\bwhat (ai|a\.i\.|model|llm|engine)\b[^.?!]{0,20}\b(are you|is this|do you (use|run)|powers? you)\b|\bwho (made|built|created|programmed) you\b/;
+  const PRIV = /\b(private|privacy|sent anywhere|send(ing)? (it|them|this|my \w+) (anywhere|away|to)|get(ting)? sent|go(es)? anywhere|leave (my|this) (device|phone|computer|laptop)|uploaded|upload(ing)? (my|it|them)|who (else )?can (see|read)|(does|can) any(one|body) (else )?(see|read)|stored|saved (online|anywhere|in the cloud)|on (a|your|the) server|in the cloud|is (this|it|my \w+) (safe|secure|private)|track(ing)? me|sell my)\b/;
+  const PRIV_OBJ = /\b(notes?|data|chats?|messages?|info|information|stuff|conversations?|what i (say|type|tell you|write)|questions?|this|it|planner|grades?|marks?|tasks?|files?)\b/;
+  function aboutMe(q, onDevice, name){
+    const w = low(q), me = name || "your study companion";
+    if (PRIV.test(w) && PRIV_OBJ.test(w))
+      return onDevice
+        ? "Your chats with me are answered by an AI model that runs right here on your device, so what you type and your notes aren't sent to an AI company to answer you. If you ask me to look something up, only the search words go to Wikipedia. Your planner is saved on this device, and synced to your Studyboard account if you use one."
+        : "To answer you, your message and the planner details it needs (like the tasks or notes you ask about) are sent to the AI service set up in Studyboard, and it isn't posted anywhere else. Your planner is saved on this device, and synced to your Studyboard account if you use one. You can switch to on-device AI in AI settings if you'd rather keep chats on this device.";
+    if (WHO.test(w))
+      return onDevice
+        ? `I'm ${me}, your Studyboard companion, not ChatGPT. I think with an AI model built into this device, so I can chat and help with your planner without sending your chats away.`
+        : `I'm ${me}, your Studyboard companion, not ChatGPT. I think with the AI service set up in Studyboard, and I'm here to help with your classes, tasks and studying.`;
+    return null;
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, aboutMe, CARE_RULE, integrity, INTEGRITY_RULE};
 })();
