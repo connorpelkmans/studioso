@@ -4004,6 +4004,38 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* who invited you, above the group you're joining */
 .grp-inv-from{margin:0 0 2px;font-size:1rem;color:var(--ink)}
 .grp-inv-from b{font-weight:800}
+/* ===== module: 81-friends.css ===== */
+/* Friends (81-friends.js) */
+.frd-head-btn{margin-inline-start:auto;display:inline-flex;align-items:center;gap:6px;position:relative}
+.frd-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late);color:#fff;font:700 .72rem/1 var(--display)}
+.frd-card{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:12px 0 4px;padding:14px 16px;border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:16px;background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.frd-card > div:first-child{flex:1 1 240px;display:grid;gap:2px}
+.frd-card span{color:var(--muted);font-size:.9rem}
+.frd-card .row-actions{display:flex;align-items:center;gap:10px}
+.frd-add{display:flex;gap:8px;align-items:stretch}
+.frd-add input{flex:1;min-width:0}
+.frd-msg{margin:0;min-height:1.2em;font-size:.88rem;color:var(--muted)}
+.frd-msg.bad{color:var(--late)}
+.frd-msg.good{color:var(--leaf, #1E9E74)}
+.frd-sheet .fsec{margin:14px 0 6px}
+.frd-link{display:grid;gap:8px}
+.frd-link .fsec{margin-top:4px;margin-bottom:0}
+.frd-link .mini{margin:0}
+.frd-link .row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.frd-link-row{display:flex;min-width:0}
+.frd-code{display:block;flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--soft);font-size:.82rem;overflow-wrap:anywhere;user-select:all}
+.frd-qr{display:grid;justify-items:center;gap:6px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#111}
+.frd-qr svg{width:180px;height:180px}
+.frd-qr .mini{color:#444}
+.frd-row .grp-item-main b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.frd-row .grp-item-btns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.frd-empty{padding:12px 14px}
+.frd-who{display:flex;align-items:center;gap:10px}
+@media (max-width:520px){
+  .frd-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
+  .frd-row .grp-item-btns{grid-column:2 / -1;justify-content:flex-start}
+  .frd-row .grp-item-btns:has(.frd-more){grid-column:auto}
+}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}

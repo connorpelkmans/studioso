@@ -39467,7 +39467,8 @@ hook("boot", boot);
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}</div>
+      ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
@@ -43224,6 +43225,328 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, ageReady, T: {UNAME}};
 })();
 
+/* ===== module: 81-friends.js ===== */
+/* Friends (FRIENDS-PLAN.md, step 1; server: supabase-friends.sql)
+   Two people are friends once one asks and the other accepts. You ask by typing someone's exact @username or by opening
+   their friend link (or its QR code). There's no search or browsing, contacts are never read, and asking by username
+   always gives the same answer, so nobody can find out which usernames exist. Blocking someone ends the friendship.
+   Friends see each other's display name and @username, nothing else. */
+(() => {
+  /*FRIENDS-START*/
+  const FRIENDS = (() => {
+    const CODE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+    // A friend link's code from a link, or a code typed with or without the dash ("" when there isn't one)
+    function codeOf(s){
+      s = String(s || "").trim();
+      const m = s.match(/[?&]friend=([A-Za-z0-9-]+)/), raw = m ? m[1] : /^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/.test(s) ? s : "";
+      const x = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : "";
+    }
+    // What the Add box holds: a friend link or code, a username, or neither (usernames never have a dash, codes always do)
+    function parseAdd(s){
+      const v = String(s || "").trim();
+      if (!v) return {kind: "bad", msg: "Type a friend's @username, or paste their friend link."};
+      const code = codeOf(v);
+      if (code) return {kind: "code", code};
+      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That link isn't a friend link. Ask them to send it again."};
+      const name = v.replace(/^@/, "");
+      if (!/^[A-Za-z][A-Za-z0-9_.]{2,19}$/.test(name)) return {kind: "bad", msg: "Type their whole username, like @sam.lee."};
+      return {kind: "name", name};
+    }
+    // The server's answer to a request, in words. 'sent' is the same for a username that doesn't exist (on purpose)
+    function answerText(r, who){
+      const w = who ? (who.startsWith("@") ? who : "@" + who) : "them";
+      if (r === "accepted") return `You and ${w} are now friends.`;
+      if (r === "already") return `You and ${w} are already friends.`;
+      return who && who.startsWith("@") ? `Request sent. If ${w} is on Studyboard, they'll see it in their Friends.` : `Request sent to ${w}.`;
+    }
+    // Rows from my_friends() in three lists
+    function split(rows){
+      const out = {incoming: [], friends: [], sent: []};
+      for (const r of Array.isArray(rows) ? rows : []) {
+        if (!r || typeof r.user_id !== "string") continue;
+        if (r.status === "accepted") out.friends.push(r); else if (r.mine) out.sent.push(r); else out.incoming.push(r);
+      }
+      const by = (a, b) => String(a.display_name || "").localeCompare(String(b.display_name || ""), undefined, {sensitivity: "base"});
+      out.friends.sort(by); out.sent.sort(by);
+      out.incoming.sort((a, b) => String(b.since || "").localeCompare(String(a.since || "")));
+      return out;
+    }
+    // "today", "yesterday", "3 days ago"
+    function ago(iso, now){
+      const t = Date.parse(iso || ""); if (!Number.isFinite(t)) return "";
+      const d = Math.floor(((now || Date.now()) - t) / 864e5);
+      return d <= 0 ? "today" : d === 1 ? "yesterday" : d < 30 ? d + " days ago" : d < 60 ? "a month ago" : Math.floor(d / 30) + " months ago";
+    }
+    // The friend-link card on Groups: signed in, no friends or requests yet, not dismissed
+    const showCard = s => !!s && s.live && s.loaded && !s.hidden && s.friends === 0 && s.incoming === 0 && s.sent === 0;
+    return {codeOf, parseAdd, answerText, split, ago, showCard, CODE};
+  })();
+  /*FRIENDS-END*/
+
+  /* Connection: the same Supabase client as Study Groups (tests use window.__sbGroupsStub) */
+  const stub = () => window.__sbGroupsStub || null;
+  const cli = () => { const s = stub(); return s ? s.client : (sbActive() ? sb : null); };
+  const me = () => { const s = stub(); return s ? s.user : sbUser; };
+  const live = () => !inPreview() && !!cli() && !!me() && !me().is_anonymous;
+  const SETUP = () => srvSetup("Friends", "supabase-friends.sql");
+  function fErr(e){
+    const m = String((e && (e.message || e.details)) || e || ""), code = String((e && e.code) || "");
+    if (/fetch|network|Load failed|timed? ?out/i.test(m)) return new Error("Couldn't reach Studyboard. Check your internet connection and try again.");
+    if (["42883", "PGRST202", "42P01", "PGRST205"].includes(code) || /Could not find the function|schema cache|does not exist/i.test(m)) return Object.assign(new Error(SETUP()), {setup: true});
+    if (/Sign in first|JWT|not authenticated/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
+    return new Error(m.replace(/^SB_[A-Z0-9_]+:\s*/, "").slice(0, 200) || "Something went wrong. Try again.");
+  }
+  async function rpc(fn, args){
+    const c = cli(); if (!c) throw new Error("Sign in to Studyboard first, then try again.");
+    let r; try { r = await c.rpc(fn, args || {}); } catch (e) { throw fErr(e); }
+    if (r && r.error) throw fErr(r.error);
+    return r ? r.data : null;
+  }
+  const api = {
+    list: () => rpc("my_friends"),
+    ask: name => rpc("request_friend", {p_username: name}),
+    askCode: code => rpc("request_friend_by_code", {p_code: code}),
+    preview: async code => { const d = await rpc("friend_link_preview", {p_code: code}); return (Array.isArray(d) ? d[0] : d) || null; },
+    answer: (id, yes) => rpc("answer_friend", {p_user: id, p_accept: !!yes}),
+    remove: id => rpc("remove_friend", {p_user: id}),
+    code: fresh => rpc("my_friend_code", {p_new: !!fresh}),
+    block: async id => { const c = cli(); const r = await c.from("group_blocks").insert({blocked_id: id}); if (r && r.error && r.error.code !== "23505") throw fErr(r.error); }
+  };
+
+  /* State */
+  const S = {rows: null, lists: FRIENDS.split([]), at: 0, loading: null, err: "", setup: false, code: "", qr: false, msg: "", msgBad: false, uid: ""};
+  const HIDE = () => "studyboard:friendCard:" + ((me() || {}).id || "");
+  const PEND = "studyboard:friendLink";
+  const cardHidden = () => { try { return !!localStorage.getItem(HIDE()); } catch (e) { return false; } };
+  const ready = () => (window.SBUNAME && SBUNAME.ageReady) ? SBUNAME.ageReady() : Promise.resolve(true);
+  function reset(){ Object.assign(S, {rows: null, lists: FRIENDS.split([]), at: 0, loading: null, err: "", setup: false, code: "", qr: false, msg: "", msgBad: false}); }
+  // Load the list (at most once a minute unless forced)
+  function load(force){
+    if (!live()) return Promise.resolve(null);
+    const id = me().id; if (S.uid !== id) { reset(); S.uid = id; }
+    if (S.loading) return S.loading;
+    if (!force && S.rows && Date.now() - S.at < 60e3) return Promise.resolve(S.rows);
+    S.loading = (async () => {
+      try {
+        if (!(await ready())) return null;
+        const rows = await api.list();
+        if (S.uid !== id) return null;
+        S.rows = Array.isArray(rows) ? rows : []; S.lists = FRIENDS.split(S.rows); S.err = ""; S.setup = false; S.at = Date.now();
+      } catch (e) { S.err = e.message; S.setup = !!e.setup; S.at = Date.now(); if (!S.rows) S.rows = []; }
+      finally { S.loading = null; }
+      drawSheet(); refreshPage();
+      return S.rows;
+    })();
+    return S.loading;
+  }
+  // The Friends button and card on Groups are swapped in place: a full render would cut short whatever the page is
+  // doing (a card being pressed and held to reorder, a menu that's open)
+  // Only what's already on the page is updated (the page header may have been rearranged by the page layout, so they're
+  // found by class). The card is never added here: added late, it would push the groups down under a finger.
+  function refreshPage(){
+    const swap = (old, html) => {
+      if (!old) return;
+      const t = document.createElement("template"); t.innerHTML = String(html || "").trim();
+      const el = t.content.firstElementChild;
+      if (el) old.replaceWith(el); else old.remove();
+    };
+    swap(document.querySelector(".frd-head-btn"), groupsHead());
+    swap(document.querySelector(".frd-card"), groupsTop());
+  }
+
+  /* Drawing */
+  const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
+  const avatar = r => {
+    const G = window.SBGROUPS && SBGROUPS.share;
+    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name); } catch (e) {} }
+    const w = String(r.display_name || "?").trim().split(/\s+/).filter(Boolean);
+    return `<span class="grp-av" aria-hidden="true">${esc(((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase())}</span>`;
+  };
+  const whoLine = r => `<b>${esc(r.display_name || "Classmate")}</b>${r.username ? `<span class="mini">@${esc(r.username)}</span>` : ""}`;
+  const row = (r, extra, btns) => `<li class="grp-item frd-row" data-fr="${esc(r.user_id)}">${avatar(r)}<div class="grp-item-main">${whoLine(r)}${extra ? `<span class="mini">${extra}</span>` : ""}</div><div class="grp-item-btns">${btns}</div></li>`;
+  const sec = (title, n, body) => `<section class="frd-sec"><h3 class="fsec">${esc(title)}<span class="n">${n}</span></h3><ul class="grp-list">${body}</ul></section>`;
+  function linkOf(code){
+    const G = window.SBGROUPS && SBGROUPS.share;
+    return code && G && G.linkFor ? G.linkFor("friend", code) : "";
+  }
+  function bodyHtml(){
+    if (S.setup) return `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>`;
+    const L = S.lists, link = linkOf(S.code);
+    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend link · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
+      `<button type="button" class="btn small primary" data-act="frd-accept" data-id="${esc(r.user_id)}">Accept</button><button type="button" class="btn small" data-act="frd-decline" data-id="${esc(r.user_id)}">Decline</button>`)).join("");
+    const friends = L.friends.map(r => row(r, "", `<details class="grp-more g2-mm frd-more"><summary class="g2-dots" aria-label="More for ${esc(r.display_name || "this friend")}">⋯</summary><div class="grp-menu">
+      <button type="button" class="btn" data-act="frd-remove" data-id="${esc(r.user_id)}">Remove Friend</button><button type="button" class="btn" data-act="frd-block" data-id="${esc(r.user_id)}">Block</button></div></details>`)).join("");
+    const sent = L.sent.map(r => row(r, esc("Waiting · asked " + FRIENDS.ago(r.since)), `<button type="button" class="btn small" data-act="frd-cancel" data-id="${esc(r.user_id)}">Cancel</button>`)).join("");
+    return `${S.err ? `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>` : ""}
+      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Link</h3>
+        <p class="mini">Send it to someone you study with. They'll ask to be your friend, and you choose whether to accept.</p>
+        ${S.code ? `<div class="frd-link-row"><code class="frd-code">${esc(link || S.code)}</code></div>
+        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-share">${!link ? "Copy Code" : navigator.share ? "Share Link" : "Copy Link"}</button><button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Link</button></div>
+        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code for your friend link")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
+        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your link…</p>`}</section>
+      ${L.incoming.length ? sec("Requests", L.incoming.length, incoming) : ""}
+      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username, or send them your friend link."}</li>`)}
+      ${L.sent.length ? sec("Sent", L.sent.length, sent) : ""}
+      <p class="hint-line">Friends see your display name and @username. Nobody can search for you: they need your exact username or your link.</p>`;
+  }
+  const sheetOpen = () => dlg.open && !!dlg.querySelector("#frdSheet");
+  function drawSheet(){
+    if (!sheetOpen()) return;
+    const b = $("#frdBody"); if (!b) return;
+    b.innerHTML = bodyHtml();
+    const m = $("#frdMsg"); if (m) { m.textContent = S.msg; m.className = "frd-msg" + (S.msgBad ? " bad" : S.msg ? " good" : ""); }
+  }
+  function say(msg, bad){ S.msg = msg || ""; S.msgBad = !!bad; const m = $("#frdMsg"); if (m) { m.textContent = S.msg; m.className = "frd-msg" + (bad ? " bad" : msg ? " good" : ""); } }
+
+  function openFriends(prefill){
+    if (!live()) { toast(inPreview() ? "Friends work on the Studyboard website and in the app." : "Sign in to your free Studyboard account to add friends."); return; }
+    S.msg = ""; S.msgBad = false;
+    openSheet(`<form class="sheet frd-sheet" id="frdSheet">${head("Friends")}<div class="sheet-body">
+      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend link" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
+      <p class="frd-msg" id="frdMsg" role="status" aria-live="polite"></p>
+      <div id="frdBody">${bodyHtml()}</div></div></form>`, fd => { add(String(fd.get("who") || "")); return false; });
+    load(true);
+    if (!S.code) ensureCode();
+  }
+  async function ensureCode(fresh){
+    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend link no longer works."); }
+    catch (e) { if (e.setup) { S.setup = true; S.err = e.message; } else say(e.message, true); drawSheet(); }
+  }
+  async function add(raw){
+    const p = FRIENDS.parseAdd(raw);
+    if (p.kind === "bad") { say(p.msg, true); return; }
+    const go = $("#frdGo"); if (go) go.disabled = true;
+    say("Sending…");
+    try {
+      if (!(await ready())) return;
+      if (p.kind === "code") { openLink(p.code); return; }
+      const r = await api.ask(p.name);
+      say(FRIENDS.answerText(r, "@" + p.name));
+      const i = $("#frdWho"); if (i) i.value = "";
+      load(true);
+    } catch (e) { say(e.message, true); }
+    finally { const g = $("#frdGo"); if (g) g.disabled = false; }
+  }
+
+  /* A friend link: who it belongs to, then ask */
+  async function openLink(code){
+    if (!live()) return;
+    if (!(await ready())) return;
+    openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Looking up the link…</p></div></div>`);
+    let pv = null, err = "";
+    try { pv = await api.preview(code); } catch (e) { err = e.message; }
+    if (!dlg.open || !dlg.querySelector("#frdLinkSheet")) return;
+    if (!pv) {
+      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend link isn't working anymore. Ask them to send you a new one.")}</p></div>
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
+      return;
+    }
+    const name = esc(pv.display_name || "Classmate"), un = pv.username ? `<span class="mini">@${esc(pv.username)}</span>` : "";
+    const say2 = {self: "This is your own friend link. Send it to someone you study with.", friends: `You and ${name} are already friends.`,
+      asked: `You've asked ${name} to be friends. They'll see it in their Friends.`, asked_you: `${name} asked to be your friend.`}[pv.state];
+    const can = pv.state === "none" || pv.state === "asked_you";
+    openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body">
+      <div class="frd-who">${avatar({user_id: "link-" + code, display_name: pv.display_name})}<div class="grp-item-main"><b>${name}</b>${un}</div></div>
+      <p style="margin:0">${say2 || `Ask ${name} to be your friend? They choose whether to accept.`}</p>
+      <p class="mini" style="margin:0">Friends see each other's display name and @username.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${can ? "Not Now" : "OK"}</button>${can ? `<button type="button" class="btn primary" data-act="frd-link-ask" data-id="${esc(code)}">${pv.state === "asked_you" ? "Accept" : "Ask to Be Friends"}</button>` : ""}</div></div>`);
+  }
+  // A ?friend= link opened the app: kept until you're signed in (for a week)
+  function takeLink(){ try { const p = JSON.parse(localStorage.getItem(PEND) || "null"); if (p && FRIENDS.CODE.test(p.code) && Date.now() - p.at < 7 * 864e5) return p; localStorage.removeItem(PEND); } catch (e) {} return null; }
+  let linkBusy = false, toldSignIn = false;
+  function checkLink(){
+    const p = takeLink(); if (!p || linkBusy) return;
+    if (!live()) {
+      if (!toldSignIn && !inPreview() && sbConfig()) { toldSignIn = true; setTimeout(() => toast("Sign in or make a free account, then the friend link opens."), 1500); }
+      return;
+    }
+    if (dlg.open) return;   // waits for whatever is showing (the welcome, the birthday question)
+    linkBusy = true;
+    try { localStorage.removeItem(PEND); } catch (e) {}
+    openLink(p.code).finally(() => { linkBusy = false; });
+  }
+
+  /* Actions */
+  hook("act", (act, el) => {
+    if (!/^frd-/.test(act)) return false;
+    const id = el && el.dataset ? el.dataset.id || "" : "", r = (S.rows || []).find(x => x.user_id === id), nm = r ? r.display_name || "this person" : "this person";
+    const busy = fn => { if (el) el.disabled = true; return Promise.resolve().then(fn).catch(e => { say(e.message, true); toast(e.message); }).finally(() => { if (el && el.isConnected) el.disabled = false; }); };
+    switch (act) {
+      case "frd-open": if (dlg.open) dlg.close(); setTimeout(() => openFriends(), 0); return true;
+      case "frd-accept": busy(async () => { const ok = await api.answer(id, true); say(ok ? `You and ${nm} are now friends.` : "That request isn't there anymore."); await load(true); }); return true;
+      case "frd-decline": busy(async () => { await api.answer(id, false); say(`Declined. ${nm} isn't told.`); await load(true); }); return true;
+      case "frd-cancel": busy(async () => { await api.remove(id); say("Request cancelled."); await load(true); }); return true;
+      case "frd-remove":
+        confirmSheet("Remove Friend?", `${nm} won't be your friend anymore and isn't told. You can ask again later.`, "Remove", () => {
+          api.remove(id).then(() => { toast(`Removed ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
+        });
+        return true;
+      case "frd-block":
+        confirmSheet(`Block ${nm}?`, `This removes ${nm} as a friend, and neither of you can send the other a friend request. In study groups you share, you won't see what they post. You can unblock them from a group's member list.`, "Block", () => {
+          api.block(id).then(() => { toast(`Blocked ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
+        });
+        return true;
+      case "frd-share": {
+        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = "Add me as a friend on Studyboard";
+        if (!link) { if (G && G.copyText) G.copyText(S.code, "Code copied. They can type it in Friends > Add a Friend."); return true; }
+        if (G && G.sendText) G.sendText("Studyboard Friend Link", txt, link); else navigator.clipboard.writeText(link).then(() => toast("Copied"), () => {});
+        return true;
+      }
+      case "frd-qr": S.qr = !S.qr; drawSheet(); return true;
+      case "frd-newlink":
+        confirmSheet("Make a New Link?", "Your current friend link and QR code stop working. Friends you already have stay your friends.", "Make a New Link", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
+        return true;
+      case "frd-link-ask": busy(async () => {
+        const r = await api.askCode(id);
+        if (dlg.open) dlg.close();
+        toast(FRIENDS.answerText(r, ""));
+        load(true);
+      }); return true;
+      case "frd-card-hide": try { localStorage.setItem(HIDE(), String(Date.now())); } catch (e) {} refreshPage(); return true;
+    }
+    return false;
+  });
+
+  /* Where Friends shows: Groups (a button in the header and, the first time, a card) and Settings > Account */
+  function groupsHead(){
+    if (!live()) return "";
+    const n = S.lists.incoming.length;
+    return `<button type="button" class="btn small frd-head-btn" data-act="frd-open">${ICON_FRIENDS}<span>Friends</span>${n ? `<span class="frd-badge" aria-label="${n} friend request${n === 1 ? "" : "s"}">${n}</span>` : ""}</button>`;
+  }
+  function groupsTop(){
+    if (!live()) return "";
+    const L = S.lists;
+    if (!FRIENDS.showCard({live: true, loaded: S.rows != null && !S.err, hidden: cardHidden(), friends: L.friends.length, incoming: L.incoming.length, sent: L.sent.length})) return "";
+    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Send them your friend link. Once you're friends, you'll find each other here.</span></div>
+      <div class="row-actions"><button type="button" class="btn primary small" data-act="frd-open">Add a Friend</button><button type="button" class="link-btn" data-act="frd-card-hide">Not Now</button></div></section>`;
+  }
+  hook("groupsHead", groupsHead);
+  hook("groupsTop", groupsTop);
+  hook("menu", () => live() ? `<button data-act="frd-open" data-group="account"><span>Friends<span class="sub">${S.rows ? esc([S.lists.friends.length === 1 ? "1 friend" : S.lists.friends.length + " friends", S.lists.incoming.length ? S.lists.incoming.length + " waiting for you" : ""].filter(Boolean).join(" · ")) : "Add friends by @username or a link"}</span></span></button>` : "");
+  hook("render", tab => {
+    const u = me() && me().id;
+    if (u !== S.uid && !u) reset();
+    if (live() && tab === "groups") load(false);
+    checkLink();
+  });
+  hook("boot", () => {
+    try {
+      const u = new URL(location.href), f = u.searchParams.get("friend");
+      if (f) {
+        const code = FRIENDS.codeOf("?friend=" + f);
+        if (code) localStorage.setItem(PEND, JSON.stringify({code, at: Date.now()}));
+        u.searchParams.delete("friend");
+        history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      }
+    } catch (e) {}
+    setTimeout(checkLink, 1200);
+  });
+  // A link waiting for sign-in, or for another sheet to close
+  setInterval(() => { if (takeLink()) checkLink(); }, 3000);
+
+  window.SBFRIENDS = {open: openFriends, load, T: {FRIENDS}};
+})();
 /* ===== module: 97-sharing.js ===== */
 /* Public share links and the Course Library */
 (() => {
@@ -73593,6 +73916,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { return "I couldn't change that colour just now."; } },
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
+    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
@@ -77949,7 +78274,8 @@ Examples:
     // "change my theme": which one is asked, with the ones they have
     if (!v || /^(my|a|the|your|new|different|another|some|it|this|that|me)$/.test(v)) { let have = []; try { have = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 8); } catch (e) {}
       return Object.assign(say(`Which theme?${have.length ? ` You have: ${have.join(", ")}.` : ""} The Style Shop has them all.`), {awaiting: {d: {intent: "set_theme"}, q: "change the theme to"}}); }
-    if (Object.prototype.hasOwnProperty.call(NAMED, v)) return say(`\"${v}\" is a colour, not a theme. Say which theme (the Style Shop has them all), or what to make ${v}: a course, or something I'm wearing.`);
+    // (a colour name that's also a theme's name, "teal", is that theme: only a colour no theme is called is said to be a colour)
+    if (Object.prototype.hasOwnProperty.call(NAMED, v) && !(SKINS || []).some(x => String(x.name || "").toLowerCase() === v || String(x.id || "").toLowerCase() === v)) return say(`\"${v}\" is a colour, not a theme. Say which theme (the Style Shop has them all), or what to make ${v}: a course, or something I'm wearing.`);
     const lists = f === "card" || /card/.test(f) ? [["card", CARD_STYLES]] : f === "note" || /note|shape/.test(f) ? [["note", NOTE_SHAPES]] : f === "pin" ? [["pin", PINS]] : [["skin", SKINS], ["card", CARD_STYLES], ["note", NOTE_SHAPES]];
     const sc = x => { const m = String(x.name || "").toLowerCase(), id = String(x.id || "").toLowerCase(); return m === v || id === v ? 10 : m.startsWith(v) || v.startsWith(m) ? 7 : m.includes(v) ? 5 : v.split(" ").filter(w => w.length > 2 && m.includes(w)).length * 2; };
     let best = null, bs = 0, bk = ""; lists.forEach(([k, L]) => (L || []).forEach(x => { const s0 = sc(x); if (s0 > bs) { bs = s0; best = x; bk = k; } }));
@@ -78720,7 +79046,7 @@ Careful, these are easy to mix up:
     timer: {type: "OBJECT", properties: {do: {type: "STRING"}, minutes: {type: "NUMBER"}, task: {type: "STRING"}}},
     undo: {type: "BOOLEAN"},
     study: {type: "STRING"},
-    map: {type: "OBJECT", properties: {topic: {type: "STRING"}, course: {type: "STRING"}}},
+    map: {type: "OBJECT", properties: {topic: {type: "STRING"}, course: {type: "STRING"}, expand: {type: "BOOLEAN"}}},
     show: {type: "ARRAY", items: {type: "STRING"}},
     page: {type: "STRING"},
     theme: {type: "STRING"},
@@ -78763,7 +79089,7 @@ Studyboard makes every change you put in the JSON the moment you reply, then sho
 
 What you can change, and how (refs are the codes in the data, like T3, C2, K14, D1, F5, N2):
 - "changes": [{"ref","item","field","value","scope"}] on things that exist; "item" is that thing's name exactly as listed next to its ref (a check that the ref is the right row).
-  task (T): title; due (YYYY-MM-DD); time (HH:MM 24h, "" for none); status todo|doing|done ("not started"/"to-do"/"reopen" = todo; "started", "in progress", "working on it" = doing; finished/submitted/handed in = done); priority low|med|high|urgent ("important", "top priority" = high, unless they say urgent); notes; hours; type; course (a C ref: "it's actually for psych"); weight; mark ("17/20", "42/50", "85%"; "" to take a mark off; if it already has a different mark and they didn't say it's a correction or a regrade, ask first); delete yes.
+  task (T): title; due (YYYY-MM-DD); time (HH:MM 24h, "" for none); status todo|doing|done ("not started"/"to-do"/"reopen" = todo; "I've started X", "mark X in progress" = doing, but only when they name the task or ask for the change: "ok starting now" in a pep talk is encouragement to answer, not a change; finished/submitted/handed in = done); priority low|med|high|urgent ("important", "top priority" = high, unless they say urgent); notes; hours; type; course (a C ref: "it's actually for psych"); weight; mark ("17/20", "42/50", "85%"; "" to take a mark off; if it already has a different mark and they didn't say it's a correction or a regrade, ask first); delete yes.
   course (C): name, code, instructor, room, color (a colour word or #RRGGBB), delete yes (only once they confirm dropping it; its tasks stay unless they say to delete them too).
   a marked item (G): mark (the same as its task's mark).
   event (K that is an event): title, date, from, to, where, notes, delete yes ("make it an hour longer" = a later "to"; moving the start keeps the length: change from and to).
@@ -78779,7 +79105,7 @@ What you can change, and how (refs are the codes in the data, like T3, C2, K14, 
 - "newCards": [{"deck": D ref,"front","back"}]: cards into an existing deck. "keep only 4" = delete the rest of that deck's cards (their F refs are under CARDS IN); "make them harder" = new front/back on those F refs; "put those in my X deck instead" = newCards into X with the same cards, and delete the deck you just made; "make a new deck called WWI for it" = a new deck holding that card, and delete the card or deck it was in. Before adding a card, look at the deck's cards under CARDS IN: if the same card is already there, ask instead of adding a copy. When they give a card's front and back after you asked ("what does the AV node do / delays the impulse"), add it. "Save those as cards" after a quiz: a card for every question of that quiz (all of them, including ones you haven't asked yet). Only use notes, decks or files that exist: "the note I just made" when no note was just made gets a question.
 - "timer": {"do": "start"|"stop"|"pause"|"resume"|"link","minutes","task": T ref}. A pomodoro is 25 minutes. "make it 50 minutes" while one runs = start 50. "it's for the a&p quiz" while one runs = link.
 - "undo": true (see above).
-- "map": {"topic","course": C ref}: a concept map made by the app on that topic, saved in the course the topic belongs to (defense mechanisms: Psychiatric Nursing; the heart: A&P); "" only when it fits no course.
+- "map": {"topic","course": C ref}: a concept map made by the app on that topic, saved in the course the topic belongs to (defense mechanisms: Psychiatric Nursing; the heart: A&P); "" only when it fits no course. More on the map you just made ("add the valves", "add more from my note"): {"expand": true, "topic": what to add}. Making a map simpler or taking ideas off can't be done from the chat: say so (they can delete ideas on the map itself); never make a second copy.
 - "study": a D ref, to start a flashcard study session on that deck ("study my heart deck", "start a flashcard session for psych terms", "study them" after making cards).
 - "show": [refs] only when they ask to open, find or go to a particular thing ("open my heart deck", "where's my freud note"); "show me them", "list my quizzes", "what's in it" are answered in the chat, listing them in your answer. "page": today|calendar|flashcards|notes|courses|files|groups|grades|settings|reminders|companion when they ask to go to a part of the app.
 - "theme": a theme's name, or dark|light|system. A theme or mode isn't reversed by "undo": to set it back ("undo the dark mode"), give the theme or mode it was before (in the [Studyboard changed] line, or LOOK NOW). "wear": [{"item","on": true|false,"color"}] for what you (the companion) wear: put on, take off, or recolour an accessory you have. Only the accessories listed as yours: asked for one you don't have (a beanie, a crown), say you haven't unlocked it yet (the Wardrobe shows how) and wear nothing else instead.
@@ -78797,13 +79123,19 @@ ANSWERING
 - Something to write (a study plan, a schedule, a timeline, a mnemonic, a rhyme, a summary, an email draft, practice questions): write it in the answer. If they say "quiz me" or "ask me ...", ask one question at a time (the question only, never its answer) and mark their answer next turn: check it carefully against the facts (an order of steps must be the right order), say right or wrong plainly, give the correct answer when it's wrong, then ask the next question. A quiz on a deck uses that deck's cards (under CARDS IN).
 - Just chatting (hello, how are you, feelings, jokes, questions about you): reply like a friend, briefly, to exactly what they said, and follow the conversation; play along with games and jokes. Don't bring up their tasks, deadlines, today's plan, the timer or what to work on unless they bring up school themselves, and never end a chat reply with "want to start on X?". When they do bring up school (stress about an exam, "I still have a lab report"), mention only what they brought up, kindly. When they mention a plan or event on a day ("my cousin's wedding saturday", "I have clinical wednesday"), match it to the planner: say kindly if something is due that day or if their planner has it on another day (clinical orientation is Friday). A mark they mention while venting that's already saved ("my quiz 1 was 11/20 too") is a feeling to answer kindly, not something to save. When they ask you for something to write or say (a motto, a pep talk, a joke "about nursing"), write it. Never repeat a suggestion you already made. Don't start a timer or change anything because of a feeling or a plan they mention ("ok 25 min then sleep"): just encourage them, unless they ask you to start one.
 - Plans and schedules: never put work on a task after its due date, keep a task's parts in order, fit the time they said ("after dinner" is the evening, "2 hours tonight" is two hours), and stick to the plan you already gave when they ask "what after that".
+- Your first words must agree with the rest: a yes/no question starts with the right "Yes" or "No" ("is HTML a programming language?": "No, it's a markup language"); "am I failing anything?" with a course below its pass mark starts "Yes, A&P".
+- Use only numbers the data gives: no made-up weights ("worth 50%"), percentages or durations. "How long will that take" about a plan you gave: the total for every part of it.
+- "Can I take tonight off": answer kindly, and say what's due tomorrow so they can decide. "How short?" after you suggested a short session: how many minutes. "Should I keep going?" after hours of study: suggest a break first. "I don't know where to start" on a task: the first small step on that task.
+- A plan for time they have ("3 hours saturday"): include everything due that day.
+- Quizzing: if they answer several questions but you asked one, say you asked only one and mark that one. An instruction during a quiz ("only heart", "stop", "switch to psych") is an instruction, not an answer.
+- Undoing a setting you changed ("undo that" after text size): set it back to its old value (in the [Studyboard changed] line) with a SETTINGS change; "undo" doesn't reach settings.
 - Write dates like "Wed, Nov 25" (never "Wednesday Wed"). Say only facts you're sure of: no made-up firsts, awards, dates or numbers; count items carefully (a course's decks are the ones with that course).
 - A mnemonic or memory trick for something in their notes uses what the note says (REBT's note has the ABC model: build on A, B, C).
 - Mnemonics, rhymes, jokes, mottos: write only the final version (no drafts or "no, better:"), check that a mnemonic's letters really spell the word, and "shorter" means one or two lines. "Another one" means another of the same thing you just gave.
 - "Ask me ..." / "quiz me": give the question only, never its answer; "I give up" or "skip": give that question's answer, then the next question.
 - In nursing talk "pt" means the patient. "Switching subjects" in study talk means another course or topic.
 - Crisis lines only when they say something about hurting themselves, not wanting to live, or being in danger. "Please I need help" about a text message isn't that; and when they say never mind or move on, follow them without repeating it.
-- Your own colour can't be changed, only your accessories' colours ("make packy purple": they mean you; say so kindly and offer an accessory colour). Say you're wearing only what's listed as worn.
+- Your own colour can't be changed, only your accessories' colours ("make packy purple", "dress up bramble": a change to a companion by any name means you, the companion they're talking to; say kindly your own colour can't change and offer an accessory colour). Say you're wearing only what's listed as worn.
 - Plain text, no emojis; short paragraphs or "- " bullets; **bold** sparingly. Be brief unless they want detail.`;
   // today and the weeks around it, so "friday", "next tuesday" and "the 1st" are read off, not worked out
   function agCalendar(){ const t = todayISO(), L = []; for (let i = -7; i <= 28; i++) { const d = addDays(t, i); L.push(`${AG_DAYS[parse(d).getDay()]} ${d}${i === 0 ? " (today)" : i === 1 ? " (tomorrow)" : ""}`); } return "CALENDAR: " + L.join(", "); }
@@ -78854,8 +79186,8 @@ ANSWERING
     const guide = A.GUIDE ? "\n\n" + A.GUIDE : "";
     const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
-    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
-    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
+    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${(() => { try { const u = (SBCOMP.unlockWays ? SBCOMP.unlockWays() : []).filter(x => !x.have && x.ways.length); return u.length ? `How to unlock the accessories you don't have yet (any one way): ${u.map(x => `${x.name}: ${x.ways.join(", or ")}`).join("; ")}. ` : ""; } catch (e) { return ""; } })()}${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
+    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said: "another one" right after you explained or gave an example of something is another example of that same thing. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
     const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
     // (too many requests this minute: waited for a free slot, a few times, rather than given up)
@@ -78870,10 +79202,10 @@ ANSWERING
     // no reply, or a placeholder ("placeholder", "...") where the reply should be: asked once more
     if (!d || junk(d.answer) || /^\s*placeholder\s*$/i.test(String(d.answer || ""))) { try { const r3 = await call(`\n\nIMPORTANT: reply with one JSON object whose "answer" is your real reply to the student.`); const d3 = r3 && r3.data; if (d3 && !junk(d3.answer) && !/^\s*placeholder\s*$/i.test(String(d3.answer))) d = d3; else d = null; } catch (e) { if (stopsHere(e)) throw e; d = null; } }
     if (!d) return null;
-    return agApply(d, cat.refs, q);
+    return agApply(d, cat.refs, q, past);
   }
   // Each change checked against the planner, the valid ones made in one step, and the reply put right about what wasn't
-  async function agApply(d, refs, q){
+  async function agApply(d, refs, q, past){
     const A = window.SBASSIST, arr = k => Array.isArray(d[k]) ? d[k].filter(x => x && typeof x === "object") : [];
     const fails = [], log = [], ch = [], decks = [], extra = [];
     // "undo that, I meant the journal": the undo first, then the new change (the other way round, the undo took back the new change)
@@ -78963,7 +79295,15 @@ ANSWERING
       else { const k = A.control(`${td} the timer`); if (k && k.done) log.push(k.answer.replace(/\.$/, "").toLowerCase()); else if (k) extra.push(k.answer); } }
     if (d.theme) { const was = agLook().replace(/^LOOK NOW: |\.$/g, ""), r = themeAct({value: d.theme}); if (/^(Switched|Studyboard now)/.test(r.answer)) log.push(`${r.answer.replace(/\.$/, "")} (before: ${was})`); else extra.push(r.answer); }
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
-    arr("wear").forEach(x => { const it = String(x.item || "").trim(); if (!it || !window.SBCOMP) return;
+    // (and the one the student named, in this message or the one before: "put it on then" after asking about the crown is the crown,
+    // and "darker" after "make packy purple" is about the companion itself, never the Tiny Hat it reached for instead)
+    const ACCW = /\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|accessor(?:y|ies)|outfit|everything)\b/i;
+    const named = [q].concat((past || []).slice(-1).map(x => x.q || "")).map(s => (ACCW.exec(String(s)) || [])[0]).find(Boolean) || "";
+    arr("wear").forEach(x => { let it = String(x.item || "").trim(); if (!it || !window.SBCOMP) return;
+      if (!named) { extra.push(x.color ? "My own colour can't change, only my accessories' colours. Which one should I change?" : "Which accessory should I put on?"); return; }
+      // (one the companion itself just offered counts too: "I have a Tiny Hat if you want me to try it on" then "put it on then")
+      const offered = String(((past || []).slice(-1)[0] || {}).a ? past.slice(-1)[0].a.answer : "").toLowerCase(), iw = agWords(it).concat(it.toLowerCase().split(/\s+/)).filter(w => w.length > 2);
+      if (!/^(all|everything)$/i.test(it) && !iw.some(w => named.toLowerCase().includes(w) || w.includes(named.toLowerCase())) && !(iw.length && iw.every(w => offered.includes(w)) && /\b(it|them|that|one)\b/i.test(q))) it = named;
       const own = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [], hit = /^(all|everything)$/i.test(it) || own.some(n => agWords(n).some(w => agWords(it).includes(w)) || n.toLowerCase() === it.toLowerCase());
       if (!hit) { extra.push(`I haven't unlocked ${/^(a|an|the|my)\b/i.test(it) ? it : "the " + it} yet, so I'm not wearing it. The Wardrobe shows how to get it.`); return; } const r = x.color && SBCOMP.tintByName ? SBCOMP.tintByName(it, x.color) : SBCOMP.wearByName ? SBCOMP.wearByName(it, x.on !== false) : ""; if (r) extra.push(r); });
     if (d.group && d.group.do) { const g = d.group; if (/join/i.test(g.do)) extra.push(window.SBGRPJOIN && SBGRPJOIN(String(g.code || "").trim()) ? `I opened Join${g.code ? ` with ${g.code} filled in` : ""}. Tap Join to check the code.` : "Joining a group needs you signed in and online. Open Groups and tap Join.");
@@ -78974,12 +79314,24 @@ ANSWERING
       sets.forEach((x, i) => { const r = res[i]; if (r && r.title) log.push(`setting ${r.title}: ${r.from ? r.from + " → " : ""}${r.to}`); else if (r !== true) fails.push(`change the setting "${clip(x.setting, 40)}" (I couldn't find it in Settings)`); }); }
     // a concept map, made by the map step (98-concept-map.js) and offered to open
     let mapOpen = null;
-    if (d.map && d.map.topic) { const ct = d.map.course ? refs.get(String(d.map.course).trim().toUpperCase()) : null, cc = ct && ct.kind === "course" ? state.courses[ct.id] : null;
+    // more on the map the chat just made ("add the valves"): added to that map, not a second map
+    const lastMap = ((past || []).slice(-3).reverse().find(x => x.a && x.a.mapOpen) || {}).a;
+    if (d.map && d.map.expand && lastMap && lastMap.mapOpen && window.SBCMAP && SBCMAP.expandFrom) { T.status = "Adding to your map…"; drawStatus();
+      try { const r = await SBCMAP.expandFrom(lastMap.mapOpen.course, lastMap.mapOpen.map, `${q}${d.map.topic ? ". Add: " + clip(String(d.map.topic), 200) : ""}`); mapOpen = lastMap.mapOpen; extra.push(`I added ${r.added} more ideas to ${r.name} (${r.ideas} in all). Tap Open Map to see them.`); log.push(`added ${r.added} ideas to ${r.name}`); }
+      catch (e) { fails.push(`add to that map (${clip((e && e.message) || "", 100)})`); } }
+    else if (d.map && d.map.topic) { const ct = d.map.course ? refs.get(String(d.map.course).trim().toUpperCase()) : null, cc = ct && ct.kind === "course" ? state.courses[ct.id] : null;
       T.status = "Making your map…"; drawStatus();
       // (the topic's name only: "the heart, from your Heart deck: SA node, ..." was read as a typed outline of three ideas)
       const topic = clip(String(d.map.topic).split(/[,:;(]|\s+\b(?:from|using|based on|with)\b/i)[0].replace(/^(?:a\s+)?(?:concept\s+|mind\s+)?map\s+(?:of|about|on)\s+/i, "").trim() || String(d.map.topic), 80);
       const r = await mapAct(`make a concept map about ${topic}`, cc ? (cc.code || cc.name) : "").catch(() => null);
       if (r && r.mapOpen) { mapOpen = r.mapOpen; extra.push(r.answer); log.push(`made a concept map about ${clip(String(d.map.topic), 60)}`); } else fails.push(`make that map${r && r.answer ? ` (${clip(r.answer, 100)})` : ""}`); }
+    // going somewhere only when the words ask to (or answer its own offer to open or study something): "chapter 7 and heart flashcards",
+    // telling it what they studied, opened the reading and the deck and left the chat
+    { const prevA = String(((past || []).slice(-1)[0] || {}).a ? past.slice(-1)[0].a.answer : "");
+      const goSaid = /\b(open|show|go|take me|bring up|pull up|find|where|study|review|quiz|drill|start|launch|jump|let'?s do|lets do|flip|next|see)\b/i.test(q) || (q.split(/\s+/).length <= 6 && /\b(study|open|show|review|start|which deck|which one)\b/i.test(prevA) && /\?/.test(prevA))
+        // (or carry on from going somewhere: "take me to flashcards", then "now the calendar")
+        || (q.split(/\s+/).length <= 5 && /\b(open|show|go|take me|bring up|pull up|study|review)\b/i.test(String(((past || []).slice(-1)[0] || {}).q || "")));
+      if (!goSaid) { d.study = ""; d.show = []; d.page = ""; } }
     // a study session on a deck (opened once the reply is shown)
     if (d.study) { const t = refs.get(String(d.study).trim().toUpperCase()), dk1 = t && t.kind === "deck" ? state.decks[t.id] : (decks.length ? state.decks[decks[decks.length - 1]] : null);
       if (dk1 && dk1.cards.length) { setTimeout(() => { try { startStudy([dk1.id]); } catch (e) {} }, 250); log.push(`opened ${dk1.name} to study`); } else fails.push(dk1 ? `study ${dk1.name} (it has no cards yet)` : "find that deck to study"); }
@@ -92627,7 +92979,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.8";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 20, 2026", TERMS_UPDATED = "November 16, 2026";
+  const UPDATED = "November 26, 2026", TERMS_UPDATED = "November 16, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -92675,7 +93027,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
-<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. <b>Friends</b> see each other's display name and @username, and nothing else. A friend request needs your exact username or your friend link: nobody can search for you, Studyboard never reads your contacts, and blocking someone ends the friendship. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
@@ -92731,6 +93083,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 
 <h3>Children</h3>
 <p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. Studyboard accounts are not available to anyone under 13, and a parent or guardian can't make one for them: when the birthday given is under 13, Studyboard refuses the account. Someone younger can still use Studyboard on their own device without an account. If you think a child under 13 has given us personal data, contact us and we will delete it.</p>
+
+<p>Studyboard complies with the US Children's Online Privacy Protection Act (COPPA). We don't knowingly collect personal information from children under 13: the birthday asked for when making an account is used only to check age, and an account below 13 is refused before anything is saved on our server. Without an account, a child's courses, tasks and notes stay on their own device, and Studyboard sends us nothing that identifies the person: only anonymous daily counts, a scrambled device code used to limit the free first deck to one per device, and the optional features described above, such as anonymous crash reports. A parent or guardian who believes their child under 13 has given us personal information can contact us to have it reviewed and deleted.</p>
 
 <h3>Security</h3>
 <p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device (apart from starting a free trial once, when one is offered). No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>

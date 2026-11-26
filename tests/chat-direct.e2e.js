@@ -505,6 +505,12 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     replyFor = () => ({answer: "Putting it on!", wear: [{item: "festive beanie", on: true}]});
     a = await say("put the festive beanie on");
     ok(/haven't (unlocked|earned)/i.test(a) && !/Tiny Hat is on/i.test(a), "an accessory it doesn't have is said, not swapped: " + a);
+    // no accessory named: nothing worn or recoloured in its place ("make packy purple", "darker" dyed the Tiny Hat)
+    replyFor = () => ({answer: "I can't change my own colour."});
+    await say("make packy purple");
+    replyFor = () => ({answer: "Done, I've made my Tiny Hat dark plum.", wear: [{item: "Tiny Hat", color: "dark plum"}]});
+    a = await say("darker");
+    ok(/own colour can't change/i.test(a) && !/Tiny Hat dark plum/.test(a), "an accessory nobody named isn't recoloured instead: " + a);
     // a study session on a deck
     replyFor = (m, R) => ({answer: "Opening Heart to study.", study: R("Heart")});
     a = await say("study my heart deck");

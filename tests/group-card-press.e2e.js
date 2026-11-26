@@ -31,6 +31,8 @@ const measure = (page, sel) => page.evaluate(sel => {
     const page = await ctx.newPage(), errs = [];
     page.on("pageerror", e => errs.push("pageerror: " + e.message));
     await page.addInitScript({content: `(${stubSrc})(${JSON.stringify({seed: SEED, me: "u1"})})`});
+    // the first-time Friends card (81-friends.js) would push the cards down under the bottom bar; this test is about pressing a card
+    await page.addInitScript(() => { try { localStorage.setItem("studyboard:friendCard:u1", "1"); } catch (e) {} });
     await page.goto("file://" + file); await page.waitForTimeout(1500);
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "grp-page"; document.body.appendChild(b); b.click(); b.remove(); });
     await page.waitForSelector('#view .grp-card[data-sort-id="g2"] .grp-main'); await page.waitForTimeout(500);
