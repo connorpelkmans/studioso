@@ -1122,7 +1122,9 @@
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
-  const isOwner = g => g && g.owner_id === myId();
+  // A Course Hub (kind "course", supabase-classmates.sql) has no owner: whoever started it is just a member
+  const isOwner = g => g && g.kind !== "course" && g.owner_id === myId();
+  const isHub = g => !!g && g.kind === "course";
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
@@ -1143,11 +1145,11 @@
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
     const cards = (gs || []).map(g => {
       const ms = S.members[g.id] || [], ch = S.changed[g.id] || 0;
-      const meta = [isProj(g) ? "Group Project" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
+      const meta = [isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
       const pill = isProj(g) && g.project_due ? `<span class="g2-pill due">Due ${esc(fmtShort(g.project_due))}</span>` : ch ? `<span class="g2-pill grp-upd">${plural(ch, "Update")} for Your Copies</span>` : "";
       return `<article class="grp-card g2-card k-${isProj(g) ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" data-sort-id="${esc(g.id)}" style="--c:${esc(grpColor(g))}">
         <button class="grp-main" data-act="grp-open" data-id="${esc(g.id)}">
-          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : "Study Group"))}</span></span>
+          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"))}</span></span>
           <span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
           <span class="grp-name">${esc(g.name)}</span>
           <span class="g2-meta">${esc(meta)}</span>
@@ -1155,7 +1157,8 @@
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}</div>
+      ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
@@ -1278,8 +1281,8 @@
     const bits = [plural(ms.length, "Member")].concat(proj ? (GTL.isDay(g.project_due) ? ["Due " + fmtShort(g.project_due)] : [])
       : [[n("deck"), "Deck", "Decks"], [n("quiz"), "Quiz", "Quizzes"], [n("qa"), "Question", "Questions"], [n("task"), "Deadline", "Deadlines"]].filter(x => x[0]).map(x => plural(x[0], x[1], x[2])));
     return `<div class="deck-head grp-head g2-head k-${proj ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" id="grpHead" style="--c:${esc(grpColor(g))}">
-      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : "Study Group"}</span>
-        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
+      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"}</span>
+        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}${isHub(g) ? "" : `<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>`}${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
         <div class="g2-txt"><h2>${esc(g.name)}</h2>
           <div class="g2-meta">${g.course ? `<span class="g2-code">${esc(g.course)}</span>` : ""}<span class="grp-avs">${ms.slice(0, 8).map(m => av(m.display_name, m.user_id)).join("")}${ms.length > 8 ? `<span class="grp-av more">+${ms.length - 8}</span>` : ""}</span><span>${esc(bits.join(" · "))}</span></div>
@@ -3591,7 +3594,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-new": if (needOnline()) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
-      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
+      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
       case "grp-member-del": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
         confirmSheet(`Remove ${m.display_name || "This Member"}?`, `They'll stop seeing ${g.name}. What they shared stays unless you remove it. They could rejoin with the invite code, so make a new code in Edit Group if needed.`, "Remove", async () => {
@@ -4614,7 +4617,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(),
+    // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
+    openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};

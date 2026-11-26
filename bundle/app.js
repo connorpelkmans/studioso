@@ -15206,6 +15206,7 @@ function viewCourseDetail(c){
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
     ${courseTeamHtml(c, "")}
+    ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}
@@ -27705,6 +27706,41 @@ window.__sbPlanObj = () => PLAN;
     if (cfg.manage_url) { openExternal(cfg.manage_url); return; }
     toast("To change or cancel your plan, use the link in your receipt email.");
   }
+  // Easy cancel: a subscription that's still set to renew, next to Manage Plan. It only stops future payments: Pro stays until
+  // the end of the time already paid for, and nothing is refunded. A card plan is cancelled here, after one confirm (the server
+  // sets it to cancel at the period's end); App Store and Google Play plans open the store's page, which works the same way.
+  const cancelable = () => { const e = ent(); return !!e && ["stripe", "apple", "google"].includes(e.source) && e.plan !== "lifetime" && e.will_renew !== false && !inPreview(); };
+  const GOOGLE_SUBS = "https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard";
+  async function cancelPlan(btn){
+    const e = ent() || {};
+    if (e.source === "apple") { if (!nativeFire("plan-manage", e)) openExternal("https://apps.apple.com/account/subscriptions"); return; }
+    if (e.source === "google") { if (!nativeFire("plan-manage", e)) openExternal(GOOGLE_SUBS); return; }
+    if (route() === "store") { toast("This plan was bought on the Studyboard website. Cancel it there, where you subscribed."); return; }
+    if (!sb || !sbUser) { toast("Sign in first, then try again."); return; }
+    const until = e.pro_until ? dateStr(e.pro_until) : "";
+    const yes = await askBox({title: "Cancel Your Subscription?", danger: true, yes: "Cancel Subscription", no: "Keep Pro",
+      text: `Your plan stops renewing, so you won't be charged again. You keep Pro ${until ? `until ${until}` : "until the end of the time you've paid for"}. Payments already made aren't refunded.`});
+    if (!yes) return;
+    if (btn) btn.disabled = true;
+    try {
+      const {data, error} = await sb.functions.invoke("create-portal-session", {body: {flow: "cancel"}});
+      let body = data;
+      if (error) { try { body = error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (x) { body = null; } }
+      const end = body && body.ends_at ? dateStr(body.ends_at) : until;
+      if (!error && body && body.canceled) {
+        if (P.row && P.row.ent) P.row.ent = Object.assign({}, P.row.ent, {will_renew: false});   // shown at once; the server's record follows
+        toast(`Canceled. You won't be charged again${end ? `, and you keep Pro until ${end}` : ""}.`, null, null, {done: true});
+        if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet();
+        setTimeout(() => { refresh().catch(() => {}); }, 4000);
+        return;
+      }
+      const code = body && body.error;
+      if (code === "already_canceled") { toast(`Your plan is already canceled${end ? `. You keep Pro until ${end}` : ""}.`); refresh().catch(() => {}); return; }
+      if (code === "no_subscription" || code === "no_billing") { toast("There's no card subscription on this account to cancel."); return; }
+      toast((body && typeof body.message === "string" && cleanMsg(body.message)) || "Couldn't cancel just now. Check your connection and try again.", null, null, {error: true});
+    } catch (x) { toast("Couldn't cancel just now. Check your connection and try again.", null, null, {error: true}); }
+    finally { if (btn) btn.disabled = false; }
+  }
   async function startTrial(){
     if (!sbUser) { toast("Sign in first to start your free trial."); return; }
     try {
@@ -27827,7 +27863,7 @@ window.__sbPlanObj = () => PLAN;
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
-        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
@@ -27924,6 +27960,7 @@ window.__sbPlanObj = () => PLAN;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
       case "plan-manage": manage(); return true;
+      case "plan-cancel": cancelPlan(el); return true;
       case "plan-trial": startTrial(); return true;
       case "plan-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 120); return true;
       case "plan-devices": devicesSheet(false); return true;
@@ -35424,8 +35461,18 @@ const SBICS = (() => {
     c.eventLead = Math.max(0, Math.min(240, Number(c.eventLead) || 0));
     return c;
   }
-  // Reminder times for a task, in minutes from the start of its calendar entry
+  // Reminder times for a task, in minutes from the start of its calendar entry, with its extra reminders (t.remindAlso)
   function taskAlarms(t, opt, cfg){
+    const out = taskAlarms1(t, opt, cfg);
+    if (!cfg || opt === "none" || typeof opt === "number" || t.status === "done" || t.remind === "off" || !Array.isArray(t.remindAlso)) return out;
+    const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, dayAt = (n, time) => -n * 1440 + tMin(time) - base;
+    t.remindAlso.slice(0, 4).map(String).forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(OVR_DAY, k)) out.push(dayAt(OVR_DAY[k], cfg.dayTime));
+      else if (Object.prototype.hasOwnProperty.call(OVR_MIN, k)) out.push(timed ? -OVR_MIN[k] : tMin(cfg.morningTime));
+    });
+    return [...new Set(out)];
+  }
+  function taskAlarms1(t, opt, cfg){
     const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, exam = t.type === "Exam" || t.type === "Quiz";
     const dayAt = (n, time) => -n * 1440 + tMin(time) - base;
     if (opt === "none" || t.status === "done") return [];
@@ -36033,7 +36080,13 @@ const RM_CORE = (() => {
   const DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true,
     events: true, eventLead: 15, classes: false, morning: false, morningTime: "07:30",
     nudges: true, nudgeTime: "16:00", cards: false, cardsTime: "19:00", smart: true,
-    quiet: true, quietFrom: "22:00", quietTo: "07:00", vapid: "", push: false};
+    quiet: true, quietFrom: "22:00", quietTo: "07:00", vapid: "", push: false,
+    // Keep Reminding Until Done: after a task's last reminder, it comes again every nagEvery minutes, up to nagTimes times,
+    // until the task is ticked off (off by default; a task can turn it on or off for itself with t.nag)
+    nag: false, nagEvery: 15, nagTimes: 5,
+    snooze: 60,   // minutes a Snooze button waits
+    // Course registration day: when the school's registration opens for this student, and a note (like section codes)
+    regDate: "", regTime: "07:00", regNote: ""};
   const HOUR = 36e5, DAY = 864e5, WINDOW = 14 * DAY, GRACE = 10 * 60000;
   const p2 = n => String(n).padStart(2, "0");
   const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -36048,7 +36101,13 @@ const RM_CORE = (() => {
   const OVR_MIN = {"0": 0, "15m": 15, "1h": 60, "2h": 120};
   const OVR_DAY = {"1d": 1, "2d": 2, "3d": 3, "1w": 7};
   const cfgOf = c => { const o = Object.assign({}, DEF, c || {}); ["dayTime", "morningTime", "nudgeTime", "cardsTime", "quietFrom", "quietTo"].forEach(k => { if (!isT(o[k])) o[k] = DEF[k]; });
-    o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0)); return o; };
+    o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0));
+    o.nagEvery = Math.max(5, Math.min(120, Math.round(Number(o.nagEvery) || DEF.nagEvery))); o.nagTimes = Math.max(1, Math.min(10, Math.round(Number(o.nagTimes) || DEF.nagTimes)));
+    o.snooze = Math.max(5, Math.min(24 * 60, Math.round(Number(o.snooze) || DEF.snooze)));
+    if (!isD(o.regDate)) o.regDate = ""; if (!isT(o.regTime)) o.regTime = DEF.regTime; o.regNote = String(o.regNote || "").replace(/\s+/g, " ").trim().slice(0, 140); return o; };
+  const ALSO_OK = k => k in OVR_MIN || k in OVR_DAY;
+  // More than one reminder for a task (t.remindAlso: extra choices on top of its usual ones), at most 4
+  const alsoOf = t => Array.isArray(t.remindAlso) ? [...new Set(t.remindAlso.map(String).filter(ALSO_OK))].slice(0, 4) : [];
   // Quiet hours: is this moment inside them, and when do they end / start around it
   function inQuiet(ms, c){
     if (!c.quiet) return false;
@@ -36094,16 +36153,27 @@ const RM_CORE = (() => {
       const timed = !!(t.time && isT(t.time)), dl = dueMs(t), mk = (code, ms) => add({id: `r:t:${t.id}:${code}:${Math.round(ms / 60000).toString(36)}`, at: ms, title: t.title || "Task", body: "", taskId: t.id, kind: "task", _t: t}, dl);
       const o = t.remind;
       if (o === "off") return;
-      if (o && (o in OVR_MIN || o in OVR_DAY)) {
-        if (o in OVR_DAY) mk(o, at(addD(t.due, -OVR_DAY[o]), c.dayTime));
-        else if (timed) mk(o, dl - OVR_MIN[o] * 60000);
-        else mk(o, at(t.due, c.morningTime));
-        return;
+      const one = k => { if (k in OVR_DAY) mk(k, at(addD(t.due, -OVR_DAY[k]), c.dayTime)); else if (timed) mk(k, dl - OVR_MIN[k] * 60000); else mk(k, at(t.due, c.morningTime)); };
+      const from = out.length;
+      if (o && (o in OVR_MIN || o in OVR_DAY)) one(o);
+      else if (c.tasks) {
+        if (c.dayBefore) mk("1d", at(addD(t.due, -1), c.dayTime));
+        if (c.hoursBefore && timed) mk("h", dl - c.hours * HOUR);
+        if (c.exams && MS(t.type)) mk("3d", at(addD(t.due, -3), c.dayTime));
       }
-      if (!c.tasks) return;
-      if (c.dayBefore) mk("1d", at(addD(t.due, -1), c.dayTime));
-      if (c.hoursBefore && timed) mk("h", dl - c.hours * HOUR);
-      if (c.exams && MS(t.type)) mk("3d", at(addD(t.due, -3), c.dayTime));
+      alsoOf(t).forEach(k => { if (k !== o) one(k); });
+      // Keep Reminding Until Done: after the last reminder (or, for a task that asks for it with none, an hour before a due
+      // time / the morning of the due day), again every few minutes until it's done. Never in quiet hours, never a day past due.
+      const nagOn = t.nag === true || (t.nag !== false && c.nag);
+      if (!nagOn) return;
+      const mine = out.slice(from).filter(r => r.taskId === t.id).map(r => r.at);
+      const anchor = mine.length ? Math.max(...mine) : (timed ? dl - HOUR : at(t.due, c.morningTime));
+      for (let k = 1; k <= c.nagTimes; k++) {
+        const ms = anchor + k * c.nagEvery * 60000;
+        if (ms > dl + DAY) break;
+        if (!ok(ms) || inQuiet(ms, c)) continue;
+        out.push({id: `r:t:${t.id}:nag${k}:${Math.round(anchor / 60000).toString(36)}`, at: ms, title: t.title || "Task", body: "", taskId: t.id, kind: "nag", _t: t, nag: k});
+      }
     });
     (inp.occ || []).forEach(o => {
       if (!o || !isD(o.date) || !isT(o.start)) return;
@@ -36138,9 +36208,19 @@ const RM_CORE = (() => {
         if (n) add({id: `r:f:${day}`, at: at(day, c.cardsTime), title: "Flashcards Due", body: `${n} flashcard${n === 1 ? " is" : "s are"} ready for review. A few minutes keeps them fresh.`, taskId: "", kind: "cards"}, null);
       }
     }
+    // Course registration: a week and a day ahead (moved out of quiet hours like any reminder), then an hour, 10 minutes and
+    // the moment it opens, even in quiet hours (registration often opens early, and missing it can cost a class)
+    if (c.regDate) {
+      const open = at(c.regDate, c.regTime), note = c.regNote ? ` ${c.regNote}` : "", key = `r:g:${c.regDate}${c.regTime.replace(":", "")}`;
+      const when = `${fD(c.regDate)} at ${fT(c.regTime)}`;
+      add({id: `${key}:wk`, at: at(addD(c.regDate, -7), c.dayTime), title: "Registration in 1 Week", body: `Opens ${when}. Pick your courses and a backup for each now.${note}`, taskId: "", kind: "reg"}, open);
+      add({id: `${key}:1d`, at: at(addD(c.regDate, -1), c.dayTime), title: "Registration Tomorrow", body: `Opens at ${fT(c.regTime)}. Have your course list and section codes ready.${note}`, taskId: "", kind: "reg"}, open);
+      [[60, "1h", "Registration in 1 Hour", `Opens at ${fT(c.regTime)}.`], [10, "10m", "Registration Opens in 10 Minutes", "Sign in to your school's registration page now."], [0, "now", "Registration Is Open", "Register now."]]
+        .forEach(([m, code, title, body]) => { const ms = open - m * 60000; if (ok(ms)) out.push({id: `${key}:${code}`, at: ms, title, body: body + note, taskId: "", kind: "reg"}); });
+    }
     if (c.smart) (inp.smart || []).forEach(s => { if (s && s.id && s.taskId && ok(s.at) && !inQuiet(s.at, c)) out.push({id: s.id, at: s.at, title: s.title || "Task", body: s.body || "", taskId: s.taskId, kind: "smart", key: s.key || ""}); });
     (inp.snoozes || []).forEach(s => { if (s && s.id && ok(s.at)) out.push({id: s.id, at: s.at, title: s.title || "Reminder", body: s.body || "", taskId: s.taskId || "", kind: "snooze"}); });
-    out.forEach(r => { if (r._t) { r.body = phrase(r._t, r.at); delete r._t; } });
+    out.forEach(r => { if (r._t) { const p = phrase(r._t, r.at); r.body = r.kind === "nag" ? (r.at > dueMs(r._t) ? `Still not done. Was due ${p.replace(/^(Due|Read by|Exam|Quiz) /, "")}` : `Still to do. ${p}`) : p; delete r._t; } });
     out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
     const seen = new Set(), last = {}, near = {};
     out.forEach(r => { if (r.kind === "task") (near[r.taskId] = near[r.taskId] || []).push(r.at); });
@@ -36151,7 +36231,16 @@ const RM_CORE = (() => {
       return true;
     }).slice(0, 400);
   }
-  return {DEF, cfgOf, compute, inQuiet, place, OVR_MIN, OVR_DAY, at, addD, ymd};
+  // Snooze choices like the ones people like in other planners: a few minutes, an hour, this evening, tomorrow morning
+  function snoozeChoices(now, cfg){
+    const c = cfgOf(cfg), today = ymd(new Date(now)), out = [[10, "10 Minutes"], [60, "1 Hour"]].map(([m, l]) => ({label: l, at: now + m * 60000}));
+    const eve = at(today, c.dayTime);
+    if (eve - now > 90 * 60000) out.push({label: "This Evening", at: eve});
+    out.push({label: "Tomorrow Morning", at: at(addD(today, 1), c.morningTime)});
+    return out;
+  }
+  const snoozeLabel = m => m % 60 === 0 ? `Snooze ${m / 60} Hour${m === 60 ? "" : "s"}` : `Snooze ${m} Min`;
+  return {DEF, cfgOf, compute, inQuiet, place, OVR_MIN, OVR_DAY, at, addD, ymd, alsoOf, snoozeChoices, snoozeLabel};
 })();
 /*@@RM-CORE-END*/
 
@@ -36188,7 +36277,7 @@ const RM_CORE = (() => {
     const c = rmCfg(), today = todayISO(), now = Date.now();
     const tasks = tasksArr().filter(t => t.due && t.status !== "done").map(t => {
       const co = courseOf(t.courseId);
-      return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time, start: t.start, status: t.status, remind: t.remind, hours: t.hours, course: co ? courseLabel(co) : ""};
+      return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time, start: t.start, status: t.status, remind: t.remind, remindAlso: t.remindAlso, nag: t.nag, hours: t.hours, course: co ? courseLabel(co) : ""};
     });
     let occ = [];
     if (c.events || c.nudges) {
@@ -36244,16 +36333,17 @@ const RM_CORE = (() => {
   async function show(r, force){
     const visible = !force && document.visibilityState === "visible" && document.hasFocus();
     if (visible || perm() !== "granted") {
-      if (document.visibilityState === "visible") toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, [SBSMART && SBSMART.action(r), r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : {label: "Snooze", fn: () => snooze(r)}]);
+      if (document.visibilityState === "visible") { const sm = SBSMART && SBSMART.action(r), op = r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : null;
+        toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, sm ? [sm, op || {label: "Snooze", fn: () => snoozeSheet(r)}] : [op, {label: "Snooze", fn: () => snoozeSheet(r)}]); }
       if (visible) return;
     }
     if (DESK && typeof DESK.notify === "function") { try { await DESK.notify({title: r.title, body: r.body, taskId: r.taskId}); return; } catch (e) {} }
     if (perm() !== "granted") return;
-    const data = {sbRem: 1, rid: r.id, taskId: r.taskId || "", title: r.title, body: r.body, url: appUrl()};
+    const sn = rmCfg().snooze, data = {sbRem: 1, rid: r.id, taskId: r.taskId || "", title: r.title, body: r.body, url: appUrl(), sn};
     const reg = await swReg();
     if (reg && reg.showNotification) {
       try {
-        const actions = [{action: "snooze", title: "Snooze 1 Hour"}].concat(r.taskId ? [{action: "done", title: "Mark Done"}] : []);
+        const actions = [{action: "snooze", title: RM_CORE.snoozeLabel(sn)}].concat(r.taskId ? [{action: "done", title: "Mark Done"}] : []);
         await reg.showNotification(r.title, {body: r.body, tag: r.id, data, icon: "icons/icon-192.png", badge: "icons/icon-192.png", actions});
         return;
       } catch (e) {}
@@ -36276,19 +36366,27 @@ const RM_CORE = (() => {
     const b = document.createElement("button"); b.dataset.act = "toggle"; b.dataset.id = id; b.hidden = true;
     document.body.appendChild(b); b.click(); b.remove();
   }
-  function snooze(r, minutes){
-    const m = minutes || SNOOZE_MIN, base = String(r.rid || r.id || "x").replace(/^s:/, "").slice(0, 120);
-    const s = {id: `s:${base}:${Date.now().toString(36)}`, at: Date.now() + m * 60000, title: r.title || "Reminder", body: r.body || "", taskId: r.taskId || ""};
+  function snooze(r, minutes){ snoozeTo(r, Date.now() + (minutes || rmCfg().snooze || SNOOZE_MIN) * 60000); }
+  function snoozeTo(r, when){
+    const base = String(r.rid || r.id || "x").replace(/^s:/, "").slice(0, 120);
+    const s = {id: `s:${base}:${Date.now().toString(36)}`, at: when, title: r.title || "Reminder", body: r.body || "", taskId: r.taskId || ""};
     lsSet(LS_SNOOZE, lsGet(LS_SNOOZE, []).filter(x => x && x.at > Date.now() - 36e5).concat(s).slice(-30));
-    toast(`Snoozed until ${fmtTime(pad(new Date(s.at).getHours()) + ":" + pad(new Date(s.at).getMinutes()))}`);
+    toast(`Snoozed until ${fmtAt(s.at).replace(/^Today, /, "")}`);
     refreshSoon(50);
+  }
+  // Pick how long: 10 minutes, an hour, this evening or tomorrow morning
+  function snoozeSheet(r){
+    const ch = RM_CORE.snoozeChoices(Date.now(), rmCfg());
+    openSheet(`<div class="sheet rm-snz">${head("Snooze")}<div class="sheet-body"><p class="mini" style="margin:0">${esc(r.title)}</p>
+      <div class="menu-list">${ch.map((c, i) => `<button type="button" data-snz="${i}"><span>${esc(c.label)}<span class="sub">${esc(fmtAt(c.at))}</span></span></button>`).join("")}</div></div></div>`);
+    $$("[data-snz]", dlg).forEach(b => b.addEventListener("click", () => { const c = ch[Number(b.dataset.snz)]; if (dlg.open) dlg.close(); if (c) snoozeTo(r, c.at); }));
   }
   // Taps on notification buttons, passed on by the service worker, or by the desktop app
   function handle(msg){
     if (!msg || typeof msg !== "object") return;
     const act = msg.action, rid = String(msg.rid || ""), taskId = String(msg.taskId || "");
     const r = LIST.find(x => x.id === rid) || {id: rid, title: msg.title || "Reminder", body: msg.body || "", taskId};
-    if (act === "snooze") snooze(Object.assign({}, r, {taskId: r.taskId || taskId}));
+    if (act === "snooze") snooze(Object.assign({}, r, {taskId: r.taskId || taskId}), Number(msg.minutes) || 0);
     else if (act === "done" && taskId) markDone(taskId);
     else if (taskId) openTask(taskId);
   }
@@ -36297,7 +36395,7 @@ const RM_CORE = (() => {
     let q; try { q = new URLSearchParams(location.search); } catch (e) { return; }
     const act = q.get("sbrem"), task = q.get("sbtask"), rid = q.get("sbrid") || "";
     if (!act && !task) return;
-    ["sbrem", "sbtask", "sbrid", "sbt", "sbb"].forEach(k => q.delete(k));
+    ["sbrem", "sbtask", "sbrid", "sbt", "sbb", "sbsn"].forEach(k => q.delete(k));
     try { history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "") + location.hash); } catch (e) {}
     setTimeout(() => { refresh(); handle({action: act || "open", taskId: task || "", rid, title: "", body: ""}); }, 600);
   }
@@ -36331,7 +36429,7 @@ const RM_CORE = (() => {
   async function queueSync(){
     if (!cloudOk() || !rmCfg().push || Q.missing || Q.busy) return;
     const items = LIST.filter(r => r.at > Date.now() - 60000).map(r => ({id: r.id.slice(0, 200), fire_at: new Date(r.at).toISOString(), title: r.title.slice(0, 200), body: (r.body || "").slice(0, 1000),
-      url: appUrl() ? appUrl() + (r.taskId ? "?sbtask=" + encodeURIComponent(r.taskId) : "") : "", task_id: r.taskId || ""}));
+      url: appUrl() ? appUrl() + "?" + new URLSearchParams(Object.assign(r.taskId ? {sbtask: r.taskId} : {}, {sbsn: String(rmCfg().snooze)})) : "", task_id: r.taskId || ""}));
     const sig = JSON.stringify(items);
     if (sig === Q.sig) return;
     Q.busy = true; Q.at = Date.now();
@@ -36508,9 +36606,17 @@ const RM_CORE = (() => {
             <div class="rm-row">${cb("dayBefore", c.dayBefore, "1 day before, at")}${tIn("dayTime", c.dayTime)}</div>
             <div class="rm-row">${cb("hoursBefore", c.hoursBefore, "Before a due time:")}${sel("hours", c.hours, [[0.5, "30 minutes"], [1, "1 hour"], [2, "2 hours"], [3, "3 hours"], [6, "6 hours"]], "How long before")}</div>
             ${cb("exams", c.exams, "Exams and quizzes also 3 days before")}
+            <div class="rm-row">${cb("nag", c.nag, "Keep reminding me until it's done:")}${sel("nagEvery", c.nagEvery, [[5, "every 5 min"], [10, "every 10 min"], [15, "every 15 min"], [30, "every 30 min"], [60, "every hour"]], "How often")}${sel("nagTimes", c.nagTimes, [[3, "3 times"], [5, "5 times"], [10, "10 times"]], "How many times")}</div>
+            <p class="mini" style="margin:0">After a task's last reminder, it comes again until you tick the task off (or tap Mark Done on the notification). Never during quiet hours. Each task can turn this on or off for itself.</p>
           </div>
+          <div class="rm-row"><span>Snooze button waits</span>${sel("snooze", c.snooze, [[10, "10 minutes"], [15, "15 minutes"], [30, "30 minutes"], [60, "1 hour"], [120, "2 hours"]], "Snooze length")}</div>
           ${SBSMART ? SBSMART.row(c) : ""}
           <p class="mini" style="margin:0">You can change the reminder for a single task in its Advanced Settings.</p>
+        </fieldset>
+        <fieldset><legend>Course Registration</legend>
+          <div class="rm-row"><span>Registration opens</span><input type="date" class="rm-date" data-rm="regDate" value="${esc(c.regDate)}" aria-label="Registration date"><span class="rm-to">at ${tIn("regTime", c.regTime)}</span>${c.regDate ? `<button type="button" class="link-btn" data-act="rm-reg-clear">Clear</button>` : ""}</div>
+          <label class="f rm-regnote"><span class="lh">Note <span class="hint">optional</span></span><input type="text" data-rm="regNote" maxlength="140" value="${esc(c.regNote)}" placeholder="Section codes, e.g. 41023, 41187, 52210"></label>
+          <p class="mini" style="margin:0">Reminders a week and a day before, then an hour, 10 minutes and the moment it opens (those last three even in quiet hours). Your school's registration page or advisor says when yours opens.</p>
         </fieldset>
         <fieldset><legend>Calendar Events</legend>
           <div class="rm-row">${cb("events", c.events, "Before events:")}${sel("eventLead", c.eventLead, [[0, "At the start"], [5, "5 minutes"], [10, "10 minutes"], [15, "15 minutes"], [30, "30 minutes"], [60, "1 hour"]], "How long before")}</div>
@@ -36541,6 +36647,7 @@ const RM_CORE = (() => {
       const k = el.dataset.rm, v = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? Number(el.value) : el.value;
       if (el.type === "time" && !v) return;
       rmSave({[k]: v}, true);
+      if (k === "regDate") setTimeout(() => setupSheet(), 150);   // show or hide Clear
       if (k === "tasks") { const s = root.querySelector(".rm-sub"); if (s) s.hidden = !v; }
       setTimeout(() => { refresh(); const box = $("#rmComing"); if (box) box.innerHTML = comingHtml(); }, 120);
     }));
@@ -36591,6 +36698,7 @@ const RM_CORE = (() => {
   const pmsg = t => { const m = $("#rmPMsg"); if (m) m.textContent = t; };
 
   /* Per-task reminder in the task form */
+  const ALSO = [["1w", "1 Week Before"], ["3d", "3 Days Before"], ["1d", "1 Day Before"], ["2h", "2 Hours Before"], ["1h", "1 Hour Before"], ["15m", "15 Minutes Before"]];
   const OVR = [["", "Default"], ["off", "No Reminder"], ["0", "At Due Time"], ["15m", "15 Minutes Before"], ["1h", "1 Hour Before"], ["2h", "2 Hours Before"], ["1d", "1 Day Before"], ["2d", "2 Days Before"], ["3d", "3 Days Before"], ["1w", "1 Week Before"]];
   let armed = null;
   const origForm = taskForm;
@@ -36604,11 +36712,17 @@ const RM_CORE = (() => {
     const timeF = form.querySelector('[data-fld="time"]'), row = timeF && timeF.closest(".two");
     if (!row) return;
     const cur = t && t.remind ? String(t.remind) : "";
-    row.insertAdjacentHTML("afterend", `<label class="f rm-pick"><span class="lh"><span class="lbl">Reminder</span> <span class="hint" id="rmPickHint"></span></span><select name="sbRemind" id="rmPick">${OVR.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`);
+    const also = new Set(t ? RM_CORE.alsoOf(t) : []), c0 = rmCfg(), nagOn = t && typeof t.nag === "boolean" ? t.nag : c0.nag;
+    row.insertAdjacentHTML("afterend", `<label class="f rm-pick"><span class="lh"><span class="lbl">Reminder</span> <span class="hint" id="rmPickHint"></span></span><select name="sbRemind" id="rmPick">${OVR.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
+      <div class="f rm-more"><span class="lh"><span class="lbl">Also Remind Me</span></span><div class="rm-chips" role="group" aria-label="Also remind me">${ALSO.map(([v, l]) => `<button type="button" class="chip rm-chip" data-also="${v}" aria-pressed="${also.has(v)}">${esc(l)}</button>`).join("")}</div>
+        <label class="mi-check rm-nag"><input type="checkbox" id="rmNag" ${nagOn ? "checked" : ""}> Keep reminding me until it's done</label></div>`);
     const pick = $("#rmPick", form), timeIn = form.querySelector('input[name="time"]'), typeSel = form.querySelector("#tfType");
+    $$("[data-also]", form).forEach(b => b.addEventListener("click", () => { if (b.disabled) return; const on = b.getAttribute("aria-pressed") !== "true"; if (on && $$('[data-also][aria-pressed="true"]', form).length >= 4) { toast("Up to 4 extra reminders"); return; } b.setAttribute("aria-pressed", String(on)); }));
     const upd = () => {
       const timed = !!(timeIn && timeIn.value && !timeIn.closest("[hidden]")), c = rmCfg();
       [...pick.options].forEach(o => { if (o.value in RM_CORE.OVR_MIN && o.value !== "0") o.disabled = !timed; if (o.value === "0") o.textContent = timed ? "At Due Time" : "Morning of the Due Date"; });
+      $$("[data-also]", form).forEach(b => { const m = b.dataset.also in RM_CORE.OVR_MIN; b.disabled = m && !timed; b.hidden = m && !timed; });
+      const more = form.querySelector(".rm-more"); if (more) more.hidden = pick.value === "off";
       if (pick.selectedOptions[0] && pick.selectedOptions[0].disabled) pick.value = "0";
       const def = [];
       if (c.tasks) { if (c.dayBefore) def.push(`1 day before at ${fmtTime(c.dayTime)}`); if (c.hoursBefore && timed) def.push(`${c.hours < 1 ? c.hours * 60 + " min" : c.hours + "h"} before`); if (c.exams && typeSel && MILESTONE(typeSel.value)) def.push("3 days before"); }
@@ -36619,7 +36733,12 @@ const RM_CORE = (() => {
     upd();
     const delBtn = form.querySelector('[data-act="delete-task"]');
     const editId = t && t.id && state.tasks[t.id] ? t.id : delBtn ? delBtn.dataset.id : null;
-    const arm = () => { armed = {id: editId, isNew: !editId, val: pick.value}; setTimeout(() => { armed = null; }, 0); };
+    if (pick) pick.addEventListener("change", upd);
+    const arm = () => {
+      const nb = $("#rmNag", form);
+      armed = {id: editId, isNew: !editId, val: pick.value, also: $$('[data-also][aria-pressed="true"]:not([disabled])', form).map(b => b.dataset.also), nag: nb ? nb.checked : null};
+      setTimeout(() => { armed = null; }, 0);
+    };
     const btn = form.querySelector("[data-submit]");
     if (btn) btn.addEventListener("click", arm, true);
     form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") arm(); }, true);
@@ -36632,6 +36751,8 @@ const RM_CORE = (() => {
       if (ch.kind !== "task" || !ch.after || !(A.isNew ? !state.tasks[ch.id] : ch.id === A.id)) return ch;
       const after = Object.assign({}, ch.after);
       if (A.val) after.remind = A.val; else delete after.remind;
+      if (A.also && A.also.length && A.val !== "off") after.remindAlso = A.also; else delete after.remindAlso;
+      if (A.nag === null || A.nag === rmCfg().nag) delete after.nag; else after.nag = A.nag;
       return Object.assign({}, ch, {after});
     });
     return origApply.call(this, changes, label, extra, opts);
@@ -36639,7 +36760,7 @@ const RM_CORE = (() => {
 
   /* Hooks */
   hook("menu", () => {
-    const c = rmCfg(), on = [c.tasks && "tasks", c.events && "events", c.morning && "morning summary", c.nudges && "study nudges", c.cards && "flashcards"].filter(Boolean);
+    const c = rmCfg(), on = [c.tasks && "tasks", c.events && "events", c.morning && "morning summary", c.nudges && "study nudges", c.cards && "flashcards", c.regDate && c.regDate >= todayISO() && "registration"].filter(Boolean);
     const where = deskNative() ? "Desktop notifications" : perm() === "granted" ? "Notifications on" : perm() === "denied" ? "Notifications blocked here" : "In the app only";
     return `<button data-act="rm-open"><span>Reminders and Notifications<span class="sub">${esc(on.length ? `${where}. Reminding you about ${on.join(", ")}.` : "All reminders are off.")}</span></span></button>`;
   });
@@ -36656,6 +36777,7 @@ const RM_CORE = (() => {
   hook("act", (act, el, id) => {
     switch (act) {
       case "rm-open": setupSheet(); return true;
+      case "rm-reg-clear": rmSave({regDate: "", regNote: ""}, true); setTimeout(() => setupSheet(), 150); toast("Registration reminders cleared"); return true;
       case "rm-perm": askPermission().then(() => { if (dlg.open && dlg.querySelector(".rm-sheet")) setupSheet(); }); return true;
       case "rm-test": {
         const r = {id: "r:test:" + Date.now(), title: "Test Reminder", body: "This is how Studyboard reminders look.", taskId: ""};
@@ -36690,7 +36812,7 @@ const RM_CORE = (() => {
   });
   setInterval(() => { if (!deskNative()) arm(); }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { arm(); refreshSoon(500); } });
-  window.studyboardReminders = {list: () => LIST.slice(), refresh, core: RM_CORE};
+  window.studyboardReminders = {list: () => LIST.slice(), refresh, core: RM_CORE, snoozeSheet};
 })();
 
 
@@ -39310,7 +39432,9 @@ hook("boot", boot);
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
-  const isOwner = g => g && g.owner_id === myId();
+  // A Course Hub (kind "course", supabase-classmates.sql) has no owner: whoever started it is just a member
+  const isOwner = g => g && g.kind !== "course" && g.owner_id === myId();
+  const isHub = g => !!g && g.kind === "course";
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
@@ -39331,11 +39455,11 @@ hook("boot", boot);
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
     const cards = (gs || []).map(g => {
       const ms = S.members[g.id] || [], ch = S.changed[g.id] || 0;
-      const meta = [isProj(g) ? "Group Project" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
+      const meta = [isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
       const pill = isProj(g) && g.project_due ? `<span class="g2-pill due">Due ${esc(fmtShort(g.project_due))}</span>` : ch ? `<span class="g2-pill grp-upd">${plural(ch, "Update")} for Your Copies</span>` : "";
       return `<article class="grp-card g2-card k-${isProj(g) ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" data-sort-id="${esc(g.id)}" style="--c:${esc(grpColor(g))}">
         <button class="grp-main" data-act="grp-open" data-id="${esc(g.id)}">
-          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : "Study Group"))}</span></span>
+          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"))}</span></span>
           <span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
           <span class="grp-name">${esc(g.name)}</span>
           <span class="g2-meta">${esc(meta)}</span>
@@ -39343,7 +39467,8 @@ hook("boot", boot);
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}</div>
+      ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
@@ -39466,8 +39591,8 @@ hook("boot", boot);
     const bits = [plural(ms.length, "Member")].concat(proj ? (GTL.isDay(g.project_due) ? ["Due " + fmtShort(g.project_due)] : [])
       : [[n("deck"), "Deck", "Decks"], [n("quiz"), "Quiz", "Quizzes"], [n("qa"), "Question", "Questions"], [n("task"), "Deadline", "Deadlines"]].filter(x => x[0]).map(x => plural(x[0], x[1], x[2])));
     return `<div class="deck-head grp-head g2-head k-${proj ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" id="grpHead" style="--c:${esc(grpColor(g))}">
-      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : "Study Group"}</span>
-        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
+      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"}</span>
+        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}${isHub(g) ? "" : `<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>`}${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
         <div class="g2-txt"><h2>${esc(g.name)}</h2>
           <div class="g2-meta">${g.course ? `<span class="g2-code">${esc(g.course)}</span>` : ""}<span class="grp-avs">${ms.slice(0, 8).map(m => av(m.display_name, m.user_id)).join("")}${ms.length > 8 ? `<span class="grp-av more">+${ms.length - 8}</span>` : ""}</span><span>${esc(bits.join(" · "))}</span></div>
@@ -41779,7 +41904,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-new": if (needOnline()) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
-      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
+      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
       case "grp-member-del": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
         confirmSheet(`Remove ${m.display_name || "This Member"}?`, `They'll stop seeing ${g.name}. What they shared stays unless you remove it. They could rejoin with the invite code, so make a new code in Edit Group if needed.`, "Remove", async () => {
@@ -42802,7 +42927,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(),
+    // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
+    openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
@@ -43098,6 +43225,328 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   window.SBUNAME = {problem: UNAME.problem, live, save, ensure, sheet, field, wireCheck, cached, ensureAge, ageCached, bdayField, bdayOf, yearsOld, refused, refuse, NO_ACCOUNT, ageReady, T: {UNAME}};
 })();
 
+/* ===== module: 81-friends.js ===== */
+/* Friends (FRIENDS-PLAN.md, step 1; server: supabase-friends.sql)
+   Two people are friends once one asks and the other accepts. You ask by typing someone's exact @username or by opening
+   their friend link (or its QR code). There's no search or browsing, contacts are never read, and asking by username
+   always gives the same answer, so nobody can find out which usernames exist. Blocking someone ends the friendship.
+   Friends see each other's display name and @username, nothing else. */
+(() => {
+  /*FRIENDS-START*/
+  const FRIENDS = (() => {
+    const CODE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+    // A friend link's code from a link, or a code typed with or without the dash ("" when there isn't one)
+    function codeOf(s){
+      s = String(s || "").trim();
+      const m = s.match(/[?&]friend=([A-Za-z0-9-]+)/), raw = m ? m[1] : /^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/.test(s) ? s : "";
+      const x = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      return x.length === 8 ? x.slice(0, 4) + "-" + x.slice(4) : "";
+    }
+    // What the Add box holds: a friend link or code, a username, or neither (usernames never have a dash, codes always do)
+    function parseAdd(s){
+      const v = String(s || "").trim();
+      if (!v) return {kind: "bad", msg: "Type a friend's @username, or paste their friend link."};
+      const code = codeOf(v);
+      if (code) return {kind: "code", code};
+      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That link isn't a friend link. Ask them to send it again."};
+      const name = v.replace(/^@/, "");
+      if (!/^[A-Za-z][A-Za-z0-9_.]{2,19}$/.test(name)) return {kind: "bad", msg: "Type their whole username, like @sam.lee."};
+      return {kind: "name", name};
+    }
+    // The server's answer to a request, in words. 'sent' is the same for a username that doesn't exist (on purpose)
+    function answerText(r, who){
+      const w = who ? (who.startsWith("@") ? who : "@" + who) : "them";
+      if (r === "accepted") return `You and ${w} are now friends.`;
+      if (r === "already") return `You and ${w} are already friends.`;
+      return who && who.startsWith("@") ? `Request sent. If ${w} is on Studyboard, they'll see it in their Friends.` : `Request sent to ${w}.`;
+    }
+    // Rows from my_friends() in three lists
+    function split(rows){
+      const out = {incoming: [], friends: [], sent: []};
+      for (const r of Array.isArray(rows) ? rows : []) {
+        if (!r || typeof r.user_id !== "string") continue;
+        if (r.status === "accepted") out.friends.push(r); else if (r.mine) out.sent.push(r); else out.incoming.push(r);
+      }
+      const by = (a, b) => String(a.display_name || "").localeCompare(String(b.display_name || ""), undefined, {sensitivity: "base"});
+      out.friends.sort(by); out.sent.sort(by);
+      out.incoming.sort((a, b) => String(b.since || "").localeCompare(String(a.since || "")));
+      return out;
+    }
+    // "today", "yesterday", "3 days ago"
+    function ago(iso, now){
+      const t = Date.parse(iso || ""); if (!Number.isFinite(t)) return "";
+      const d = Math.floor(((now || Date.now()) - t) / 864e5);
+      return d <= 0 ? "today" : d === 1 ? "yesterday" : d < 30 ? d + " days ago" : d < 60 ? "a month ago" : Math.floor(d / 30) + " months ago";
+    }
+    // The friend-link card on Groups: signed in, no friends or requests yet, not dismissed
+    const showCard = s => !!s && s.live && s.loaded && !s.hidden && s.friends === 0 && s.incoming === 0 && s.sent === 0;
+    return {codeOf, parseAdd, answerText, split, ago, showCard, CODE};
+  })();
+  /*FRIENDS-END*/
+
+  /* Connection: the same Supabase client as Study Groups (tests use window.__sbGroupsStub) */
+  const stub = () => window.__sbGroupsStub || null;
+  const cli = () => { const s = stub(); return s ? s.client : (sbActive() ? sb : null); };
+  const me = () => { const s = stub(); return s ? s.user : sbUser; };
+  const live = () => !inPreview() && !!cli() && !!me() && !me().is_anonymous;
+  const SETUP = () => srvSetup("Friends", "supabase-friends.sql");
+  function fErr(e){
+    const m = String((e && (e.message || e.details)) || e || ""), code = String((e && e.code) || "");
+    if (/fetch|network|Load failed|timed? ?out/i.test(m)) return new Error("Couldn't reach Studyboard. Check your internet connection and try again.");
+    if (["42883", "PGRST202", "42P01", "PGRST205"].includes(code) || /Could not find the function|schema cache|does not exist/i.test(m)) return Object.assign(new Error(SETUP()), {setup: true});
+    if (/Sign in first|JWT|not authenticated/i.test(m)) return new Error("Sign in to Studyboard first, then try again.");
+    return new Error(m.replace(/^SB_[A-Z0-9_]+:\s*/, "").slice(0, 200) || "Something went wrong. Try again.");
+  }
+  async function rpc(fn, args){
+    const c = cli(); if (!c) throw new Error("Sign in to Studyboard first, then try again.");
+    let r; try { r = await c.rpc(fn, args || {}); } catch (e) { throw fErr(e); }
+    if (r && r.error) throw fErr(r.error);
+    return r ? r.data : null;
+  }
+  const api = {
+    list: () => rpc("my_friends"),
+    ask: name => rpc("request_friend", {p_username: name}),
+    askCode: code => rpc("request_friend_by_code", {p_code: code}),
+    preview: async code => { const d = await rpc("friend_link_preview", {p_code: code}); return (Array.isArray(d) ? d[0] : d) || null; },
+    answer: (id, yes) => rpc("answer_friend", {p_user: id, p_accept: !!yes}),
+    remove: id => rpc("remove_friend", {p_user: id}),
+    code: fresh => rpc("my_friend_code", {p_new: !!fresh}),
+    block: async id => { const c = cli(); const r = await c.from("group_blocks").insert({blocked_id: id}); if (r && r.error && r.error.code !== "23505") throw fErr(r.error); }
+  };
+
+  /* State */
+  const S = {rows: null, lists: FRIENDS.split([]), at: 0, loading: null, err: "", setup: false, code: "", qr: false, msg: "", msgBad: false, uid: ""};
+  const HIDE = () => "studyboard:friendCard:" + ((me() || {}).id || "");
+  const PEND = "studyboard:friendLink";
+  const cardHidden = () => { try { return !!localStorage.getItem(HIDE()); } catch (e) { return false; } };
+  const ready = () => (window.SBUNAME && SBUNAME.ageReady) ? SBUNAME.ageReady() : Promise.resolve(true);
+  function reset(){ Object.assign(S, {rows: null, lists: FRIENDS.split([]), at: 0, loading: null, err: "", setup: false, code: "", qr: false, msg: "", msgBad: false}); }
+  // Load the list (at most once a minute unless forced)
+  function load(force){
+    if (!live()) return Promise.resolve(null);
+    const id = me().id; if (S.uid !== id) { reset(); S.uid = id; }
+    if (S.loading) return S.loading;
+    if (!force && S.rows && Date.now() - S.at < 60e3) return Promise.resolve(S.rows);
+    S.loading = (async () => {
+      try {
+        if (!(await ready())) return null;
+        const rows = await api.list();
+        if (S.uid !== id) return null;
+        S.rows = Array.isArray(rows) ? rows : []; S.lists = FRIENDS.split(S.rows); S.err = ""; S.setup = false; S.at = Date.now();
+      } catch (e) { S.err = e.message; S.setup = !!e.setup; S.at = Date.now(); if (!S.rows) S.rows = []; }
+      finally { S.loading = null; }
+      drawSheet(); refreshPage();
+      return S.rows;
+    })();
+    return S.loading;
+  }
+  // The Friends button and card on Groups are swapped in place: a full render would cut short whatever the page is
+  // doing (a card being pressed and held to reorder, a menu that's open)
+  // Only what's already on the page is updated (the page header may have been rearranged by the page layout, so they're
+  // found by class). The card is never added here: added late, it would push the groups down under a finger.
+  function refreshPage(){
+    const swap = (old, html) => {
+      if (!old) return;
+      const t = document.createElement("template"); t.innerHTML = String(html || "").trim();
+      const el = t.content.firstElementChild;
+      if (el) old.replaceWith(el); else old.remove();
+    };
+    swap(document.querySelector(".frd-head-btn"), groupsHead());
+    swap(document.querySelector(".frd-card"), groupsTop());
+  }
+
+  /* Drawing */
+  const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
+  const avatar = r => {
+    const G = window.SBGROUPS && SBGROUPS.share;
+    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name); } catch (e) {} }
+    const w = String(r.display_name || "?").trim().split(/\s+/).filter(Boolean);
+    return `<span class="grp-av" aria-hidden="true">${esc(((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase())}</span>`;
+  };
+  const whoLine = r => `<b>${esc(r.display_name || "Classmate")}</b>${r.username ? `<span class="mini">@${esc(r.username)}</span>` : ""}`;
+  const row = (r, extra, btns) => `<li class="grp-item frd-row" data-fr="${esc(r.user_id)}">${avatar(r)}<div class="grp-item-main">${whoLine(r)}${extra ? `<span class="mini">${extra}</span>` : ""}</div><div class="grp-item-btns">${btns}</div></li>`;
+  const sec = (title, n, body) => `<section class="frd-sec"><h3 class="fsec">${esc(title)}<span class="n">${n}</span></h3><ul class="grp-list">${body}</ul></section>`;
+  function linkOf(code){
+    const G = window.SBGROUPS && SBGROUPS.share;
+    return code && G && G.linkFor ? G.linkFor("friend", code) : "";
+  }
+  function bodyHtml(){
+    if (S.setup) return `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>`;
+    const L = S.lists, link = linkOf(S.code);
+    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend link · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
+      `<button type="button" class="btn small primary" data-act="frd-accept" data-id="${esc(r.user_id)}">Accept</button><button type="button" class="btn small" data-act="frd-decline" data-id="${esc(r.user_id)}">Decline</button>`)).join("");
+    const friends = L.friends.map(r => row(r, "", `<details class="grp-more g2-mm frd-more"><summary class="g2-dots" aria-label="More for ${esc(r.display_name || "this friend")}">⋯</summary><div class="grp-menu">
+      <button type="button" class="btn" data-act="frd-remove" data-id="${esc(r.user_id)}">Remove Friend</button><button type="button" class="btn" data-act="frd-block" data-id="${esc(r.user_id)}">Block</button></div></details>`)).join("");
+    const sent = L.sent.map(r => row(r, esc("Waiting · asked " + FRIENDS.ago(r.since)), `<button type="button" class="btn small" data-act="frd-cancel" data-id="${esc(r.user_id)}">Cancel</button>`)).join("");
+    return `${S.err ? `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>` : ""}
+      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Link</h3>
+        <p class="mini">Send it to someone you study with. They'll ask to be your friend, and you choose whether to accept.</p>
+        ${S.code ? `<div class="frd-link-row"><code class="frd-code">${esc(link || S.code)}</code></div>
+        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-share">${!link ? "Copy Code" : navigator.share ? "Share Link" : "Copy Link"}</button><button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Link</button></div>
+        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code for your friend link")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
+        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your link…</p>`}</section>
+      ${L.incoming.length ? sec("Requests", L.incoming.length, incoming) : ""}
+      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username, or send them your friend link."}</li>`)}
+      ${L.sent.length ? sec("Sent", L.sent.length, sent) : ""}
+      <p class="hint-line">Friends see your display name and @username. Nobody can search for you: they need your exact username or your link.</p>`;
+  }
+  const sheetOpen = () => dlg.open && !!dlg.querySelector("#frdSheet");
+  function drawSheet(){
+    if (!sheetOpen()) return;
+    const b = $("#frdBody"); if (!b) return;
+    b.innerHTML = bodyHtml();
+    const m = $("#frdMsg"); if (m) { m.textContent = S.msg; m.className = "frd-msg" + (S.msgBad ? " bad" : S.msg ? " good" : ""); }
+  }
+  function say(msg, bad){ S.msg = msg || ""; S.msgBad = !!bad; const m = $("#frdMsg"); if (m) { m.textContent = S.msg; m.className = "frd-msg" + (bad ? " bad" : msg ? " good" : ""); } }
+
+  function openFriends(prefill){
+    if (!live()) { toast(inPreview() ? "Friends work on the Studyboard website and in the app." : "Sign in to your free Studyboard account to add friends."); return; }
+    S.msg = ""; S.msgBad = false;
+    openSheet(`<form class="sheet frd-sheet" id="frdSheet">${head("Friends")}<div class="sheet-body">
+      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend link" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
+      <p class="frd-msg" id="frdMsg" role="status" aria-live="polite"></p>
+      <div id="frdBody">${bodyHtml()}</div></div></form>`, fd => { add(String(fd.get("who") || "")); return false; });
+    load(true);
+    if (!S.code) ensureCode();
+  }
+  async function ensureCode(fresh){
+    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend link no longer works."); }
+    catch (e) { if (e.setup) { S.setup = true; S.err = e.message; } else say(e.message, true); drawSheet(); }
+  }
+  async function add(raw){
+    const p = FRIENDS.parseAdd(raw);
+    if (p.kind === "bad") { say(p.msg, true); return; }
+    const go = $("#frdGo"); if (go) go.disabled = true;
+    say("Sending…");
+    try {
+      if (!(await ready())) return;
+      if (p.kind === "code") { openLink(p.code); return; }
+      const r = await api.ask(p.name);
+      say(FRIENDS.answerText(r, "@" + p.name));
+      const i = $("#frdWho"); if (i) i.value = "";
+      load(true);
+    } catch (e) { say(e.message, true); }
+    finally { const g = $("#frdGo"); if (g) g.disabled = false; }
+  }
+
+  /* A friend link: who it belongs to, then ask */
+  async function openLink(code){
+    if (!live()) return;
+    if (!(await ready())) return;
+    openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Looking up the link…</p></div></div>`);
+    let pv = null, err = "";
+    try { pv = await api.preview(code); } catch (e) { err = e.message; }
+    if (!dlg.open || !dlg.querySelector("#frdLinkSheet")) return;
+    if (!pv) {
+      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend link isn't working anymore. Ask them to send you a new one.")}</p></div>
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
+      return;
+    }
+    const name = esc(pv.display_name || "Classmate"), un = pv.username ? `<span class="mini">@${esc(pv.username)}</span>` : "";
+    const say2 = {self: "This is your own friend link. Send it to someone you study with.", friends: `You and ${name} are already friends.`,
+      asked: `You've asked ${name} to be friends. They'll see it in their Friends.`, asked_you: `${name} asked to be your friend.`}[pv.state];
+    const can = pv.state === "none" || pv.state === "asked_you";
+    openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body">
+      <div class="frd-who">${avatar({user_id: "link-" + code, display_name: pv.display_name})}<div class="grp-item-main"><b>${name}</b>${un}</div></div>
+      <p style="margin:0">${say2 || `Ask ${name} to be your friend? They choose whether to accept.`}</p>
+      <p class="mini" style="margin:0">Friends see each other's display name and @username.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">${can ? "Not Now" : "OK"}</button>${can ? `<button type="button" class="btn primary" data-act="frd-link-ask" data-id="${esc(code)}">${pv.state === "asked_you" ? "Accept" : "Ask to Be Friends"}</button>` : ""}</div></div>`);
+  }
+  // A ?friend= link opened the app: kept until you're signed in (for a week)
+  function takeLink(){ try { const p = JSON.parse(localStorage.getItem(PEND) || "null"); if (p && FRIENDS.CODE.test(p.code) && Date.now() - p.at < 7 * 864e5) return p; localStorage.removeItem(PEND); } catch (e) {} return null; }
+  let linkBusy = false, toldSignIn = false;
+  function checkLink(){
+    const p = takeLink(); if (!p || linkBusy) return;
+    if (!live()) {
+      if (!toldSignIn && !inPreview() && sbConfig()) { toldSignIn = true; setTimeout(() => toast("Sign in or make a free account, then the friend link opens."), 1500); }
+      return;
+    }
+    if (dlg.open) return;   // waits for whatever is showing (the welcome, the birthday question)
+    linkBusy = true;
+    try { localStorage.removeItem(PEND); } catch (e) {}
+    openLink(p.code).finally(() => { linkBusy = false; });
+  }
+
+  /* Actions */
+  hook("act", (act, el) => {
+    if (!/^frd-/.test(act)) return false;
+    const id = el && el.dataset ? el.dataset.id || "" : "", r = (S.rows || []).find(x => x.user_id === id), nm = r ? r.display_name || "this person" : "this person";
+    const busy = fn => { if (el) el.disabled = true; return Promise.resolve().then(fn).catch(e => { say(e.message, true); toast(e.message); }).finally(() => { if (el && el.isConnected) el.disabled = false; }); };
+    switch (act) {
+      case "frd-open": if (dlg.open) dlg.close(); setTimeout(() => openFriends(), 0); return true;
+      case "frd-accept": busy(async () => { const ok = await api.answer(id, true); say(ok ? `You and ${nm} are now friends.` : "That request isn't there anymore."); await load(true); }); return true;
+      case "frd-decline": busy(async () => { await api.answer(id, false); say(`Declined. ${nm} isn't told.`); await load(true); }); return true;
+      case "frd-cancel": busy(async () => { await api.remove(id); say("Request cancelled."); await load(true); }); return true;
+      case "frd-remove":
+        confirmSheet("Remove Friend?", `${nm} won't be your friend anymore and isn't told. You can ask again later.`, "Remove", () => {
+          api.remove(id).then(() => { toast(`Removed ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
+        });
+        return true;
+      case "frd-block":
+        confirmSheet(`Block ${nm}?`, `This removes ${nm} as a friend, and neither of you can send the other a friend request. In study groups you share, you won't see what they post. You can unblock them from a group's member list.`, "Block", () => {
+          api.block(id).then(() => { toast(`Blocked ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
+        });
+        return true;
+      case "frd-share": {
+        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = "Add me as a friend on Studyboard";
+        if (!link) { if (G && G.copyText) G.copyText(S.code, "Code copied. They can type it in Friends > Add a Friend."); return true; }
+        if (G && G.sendText) G.sendText("Studyboard Friend Link", txt, link); else navigator.clipboard.writeText(link).then(() => toast("Copied"), () => {});
+        return true;
+      }
+      case "frd-qr": S.qr = !S.qr; drawSheet(); return true;
+      case "frd-newlink":
+        confirmSheet("Make a New Link?", "Your current friend link and QR code stop working. Friends you already have stay your friends.", "Make a New Link", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
+        return true;
+      case "frd-link-ask": busy(async () => {
+        const r = await api.askCode(id);
+        if (dlg.open) dlg.close();
+        toast(FRIENDS.answerText(r, ""));
+        load(true);
+      }); return true;
+      case "frd-card-hide": try { localStorage.setItem(HIDE(), String(Date.now())); } catch (e) {} refreshPage(); return true;
+    }
+    return false;
+  });
+
+  /* Where Friends shows: Groups (a button in the header and, the first time, a card) and Settings > Account */
+  function groupsHead(){
+    if (!live()) return "";
+    const n = S.lists.incoming.length;
+    return `<button type="button" class="btn small frd-head-btn" data-act="frd-open">${ICON_FRIENDS}<span>Friends</span>${n ? `<span class="frd-badge" aria-label="${n} friend request${n === 1 ? "" : "s"}">${n}</span>` : ""}</button>`;
+  }
+  function groupsTop(){
+    if (!live()) return "";
+    const L = S.lists;
+    if (!FRIENDS.showCard({live: true, loaded: S.rows != null && !S.err, hidden: cardHidden(), friends: L.friends.length, incoming: L.incoming.length, sent: L.sent.length})) return "";
+    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Send them your friend link. Once you're friends, you'll find each other here.</span></div>
+      <div class="row-actions"><button type="button" class="btn primary small" data-act="frd-open">Add a Friend</button><button type="button" class="link-btn" data-act="frd-card-hide">Not Now</button></div></section>`;
+  }
+  hook("groupsHead", groupsHead);
+  hook("groupsTop", groupsTop);
+  hook("menu", () => live() ? `<button data-act="frd-open" data-group="account"><span>Friends<span class="sub">${S.rows ? esc([S.lists.friends.length === 1 ? "1 friend" : S.lists.friends.length + " friends", S.lists.incoming.length ? S.lists.incoming.length + " waiting for you" : ""].filter(Boolean).join(" · ")) : "Add friends by @username or a link"}</span></span></button>` : "");
+  hook("render", tab => {
+    const u = me() && me().id;
+    if (u !== S.uid && !u) reset();
+    if (live() && tab === "groups") load(false);
+    checkLink();
+  });
+  hook("boot", () => {
+    try {
+      const u = new URL(location.href), f = u.searchParams.get("friend");
+      if (f) {
+        const code = FRIENDS.codeOf("?friend=" + f);
+        if (code) localStorage.setItem(PEND, JSON.stringify({code, at: Date.now()}));
+        u.searchParams.delete("friend");
+        history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+      }
+    } catch (e) {}
+    setTimeout(checkLink, 1200);
+  });
+  // A link waiting for sign-in, or for another sheet to close
+  setInterval(() => { if (takeLink()) checkLink(); }, 3000);
+
+  window.SBFRIENDS = {open: openFriends, load, T: {FRIENDS}};
+})();
 /* ===== module: 97-sharing.js ===== */
 /* Public share links and the Course Library */
 (() => {
@@ -84486,6 +84935,211 @@ var SOUNDS_HOOK = hook;
 
 
 
+/* ===== module: 96-classmates.js ===== */
+/* Classmates: who else in your synced courses uses Studyboard, and one Course Hub (a shared study group) per course.
+   The server side is supabase-classmates.sql. Off until the student turns it on. */
+(() => {
+  /*CM-START*/
+  const CM_SITES = {bs: "Brightspace", cv: "Canvas", bb: "Blackboard", md: "Moodle", sg: "Schoology", gc: "Google Classroom"};
+  const CM_FIXED = {gc: "https://classroom.google.com"};   // Classroom has one address for everyone
+  // The courses the server can match, from courses synced from a school site: [{ref, platform, origin, ou, label}]
+  // ref is the course's id in this app; origin is the school site's address (from the course's link to it); ou is the site's own id
+  function cmPayload(courses){
+    const out = [], seen = new Set();
+    (courses || []).forEach(c => {
+      if (!c || c.archived || !c.id || seen.has(String(c.id))) return;
+      for (const f of Object.keys(CM_SITES)) {
+        const L = c[f], ou = L && L.ou != null ? String(L.ou).trim() : "";
+        if (!ou || ou.length > 120) continue;
+        let origin = "";
+        const link = (c.links || []).find(l => l && l.label === CM_SITES[f] && /^https:\/\//i.test(String(l.url || "")));
+        if (link) { try { origin = new URL(link.url).origin; } catch (e) { origin = ""; } }
+        if (!origin) origin = CM_FIXED[f] || "";
+        if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(origin)) continue;
+        seen.add(String(c.id));
+        out.push({ref: String(c.id).slice(0, 80), platform: f, origin, ou, label: String(c.code || c.name || "").trim().slice(0, 80)});
+        break;
+      }
+    });
+    return out.slice(0, 40);
+  }
+  const cmSig = list => JSON.stringify((list || []).map(x => [x.ref, x.platform, x.origin.toLowerCase(), x.ou, x.label]));
+  /*CM-END*/
+
+  /* Connection (the Study Groups test stand-in works here too) */
+  const stub = () => window.__sbGroupsStub || null;
+  const cli = () => { const s = stub(); return s ? s.client : (typeof sbActive === "function" && sbActive() ? sb : null); };
+  const uidNow = () => { const s = stub(); return s ? (s.user && s.user.id) || "" : (typeof sbUser !== "undefined" && sbUser ? sbUser.id : ""); };
+  const missingFn = e => { const m = String((e && (e.message || e.details)) || ""), c = String((e && e.code) || ""); return ["42883", "PGRST202", "42P01"].includes(c) || /Could not find the function|schema cache|does not exist/i.test(m); };
+  const clean = e => String((e && (e.message || e.details)) || e || "").replace(/^SB_[A-Z0-9_]+:\s*/, "").slice(0, 200) || "Something went wrong. Try again.";
+  async function call(name, args){
+    const c = cli(); if (!c) throw new Error("Sign in to Studyboard first.");
+    let r; try { r = await c.rpc(name, args || {}); } catch (e) { throw Object.assign(new Error(/fetch|network|Load failed/i.test(String(e && e.message)) ? "Couldn't reach Studyboard. Check your connection and try again." : clean(e)), {net: true}); }
+    if (r && r.error) { const err = new Error(clean(r.error)); err.raw = String(r.error.message || ""); err.setup = missingFn(r.error); throw err; }
+    return r ? r.data : null;
+  }
+
+  /* What we know */
+  const S = {uid: "", me: null, rows: null, at: 0, busy: null, setup: false, sentSig: "", sentAt: 0, names: {}};
+  const LSK = k => "studyboard:cm:" + k + ":" + uidNow();
+  const lsGet = k => { try { return localStorage.getItem(LSK(k)); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(LSK(k)); else localStorage.setItem(LSK(k), v); } catch (e) {} };
+  const mine = () => cmPayload(typeof coursesArr === "function" ? coursesArr() : []);
+  const onCoursePage = () => typeof ui !== "undefined" && ui.tab === "courses" && !!ui.courseId;
+  const DAY = 864e5;
+
+  function reset(){ Object.assign(S, {uid: uidNow(), me: null, rows: null, at: 0, busy: null, setup: false, sentSig: "", sentAt: 0, names: {}}); }
+  // Ask the server again (at most once a minute unless forced); sends the course list when it changed or once a day
+  function refresh(force){
+    if (!cli() || S.setup) return Promise.resolve();
+    if (S.uid !== uidNow()) reset();
+    if (S.busy) return S.busy;
+    if (!force && S.at && Date.now() - S.at < 60000) return Promise.resolve();
+    S.busy = (async () => {
+      try {
+        S.me = (await call("classmates_me")) || {visible: false, band: null};
+        if (S.me.visible) {
+          const list = mine(), sig = cmSig(list);
+          if (force || sig !== S.sentSig || Date.now() - S.sentAt > DAY) {
+            try { await call("classmates_sync", {p_courses: list}); S.sentSig = sig; S.sentAt = Date.now(); }
+            catch (e) { if (e.setup) throw e; /* too many sends just now, or no birthday yet: the last list stands */ }
+          }
+          S.rows = (await call("classmates_summary")) || [];
+        } else S.rows = [];
+      } catch (e) {
+        if (e.setup) S.setup = true;
+      } finally { S.at = Date.now(); S.busy = null; }
+      if (onCoursePage() || (typeof dlg !== "undefined" && dlg.open && dlg.querySelector(".mates-sheet"))) scheduleRender();
+      maybeAsk();
+    })();
+    return S.busy;
+  }
+
+  // Once per account: after a school site sync brings in courses, a gentle offer to turn it on
+  function maybeAsk(){
+    if (!S.me || S.me.visible || S.setup || lsGet("asked") || !mine().length) return;
+    if (typeof dlg !== "undefined" && dlg.open) return;
+    lsSet("asked", "1");
+    toast("See which classmates use Studyboard and study together for each course.", null, {label: "Show Me", fn: () => onSheet()});
+  }
+
+  /* The course page card */
+  const IC = '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.6c2.9.2 5 2.2 5 5.4"/>';
+  try { if (typeof C2_ICONS === "object" && C2_ICONS && !C2_ICONS.mates) C2_ICONS.mates = IC; } catch (e) {}
+  const n1 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  function courseCard(c){
+    if (!c || !cli() || S.setup) return "";
+    const me = cmPayload([c])[0]; if (!me) return "";   // only courses synced from a school site
+    if (S.uid !== uidNow() || !S.at || Date.now() - S.at > 10 * 60000) setTimeout(() => refresh(), 0);
+    if (!S.me) return "";
+    const box = (n, body) => (typeof c2Box === "function" ? c2Box("mates", "Classmates", n, body, "mates-card") : `<section class="mates-card"><h2 class="sec">Classmates</h2>${body}</section>`);
+    const name = esc(me.label || c.name || "this course");
+    if (!S.me.visible) return box("", `<p class="mates-txt">See which classmates in ${name} use Studyboard, and study together in one shared Course Hub.</p>
+      <div class="row-actions"><button type="button" class="btn small primary" data-act="mates-on">Turn On Classmates</button></div>`);
+    const r = (S.rows || []).find(x => x.ref === c.id);
+    if (!r) return box("", `<p class="mates-txt mini">${S.busy ? "Checking for classmates…" : "Classmates shows up here after your next school site sync."}</p>`);
+    const n = Number(r.classmates) || 0, hm = Number(r.hub_members) || 0;
+    const who = n ? `<p class="mates-txt"><b>${esc(n1(n, "classmate uses", "classmates use"))} Studyboard.</b></p>` : `<p class="mates-txt">No classmates here yet. They'll show up when they turn on Classmates too.</p>`;
+    const hub = r.in_hub ? `<button type="button" class="btn small primary" data-act="mates-hub-open" data-id="${esc(r.hub_id)}">Open Course Hub</button>`
+      : `<button type="button" class="btn small${n ? " primary" : ""}" data-act="mates-hub-join" data-ref="${esc(r.ref)}">${r.hub_id ? "Join Course Hub" : "Start the Course Hub"}</button>`;
+    const sub = r.hub_id ? `<p class="mates-txt mini">The Course Hub has ${esc(n1(hm, "member", "members"))}: shared decks, deadlines, questions and study sessions for ${name}.</p>`
+      : `<p class="mates-txt mini">A Course Hub is one study group for everyone in ${name} who uses Studyboard.</p>`;
+    return box(n || "", `${who}${sub}<div class="row-actions">${hub}${n ? `<button type="button" class="btn small" data-act="mates-who" data-ref="${esc(r.ref)}">See Who</button>` : ""}</div>`);
+  }
+
+  /* Sheets */
+  const myName = () => { try { return window.SBGROUPS && SBGROUPS.myName ? SBGROUPS.myName() : ""; } catch (e) { return ""; } };
+  function onSheet(){
+    if (!cli()) { toast("Sign in to Studyboard first."); return; }
+    const nm = myName();
+    openSheet(`<div class="sheet mates-sheet">${head("Classmates")}<div class="sheet-body">
+      <p style="margin:0">See which classmates in your courses use Studyboard, and join one shared Course Hub for each course.</p>
+      <ul class="mates-points">
+        <li><b>Only people who turn it on.</b> Classmates who also turned it on see your name${nm ? ` (<b>${esc(nm)}</b>)` : ""} in the courses you share. Nothing else: no email, no other courses.</li>
+        <li><b>Only courses synced from your school site.</b> Studyboard keeps a scrambled code for each course, not the course or your school site.</li>
+        <li><b>Same age group only.</b> People 13 to 17 only see others 13 to 17, and adults only see adults.</li>
+        <li><b>Off anytime</b> in Settings. Your courses are removed right away.</li>
+      </ul></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Not Now</button><span class="spacer"></span><button type="button" class="btn primary" id="cmOnGo">Turn On</button></div></div>`);
+    const b = $("#cmOnGo"); if (b) b.addEventListener("click", () => turnOn(b));
+  }
+  async function turnOn(b){
+    if (b) b.disabled = true;
+    const go = async () => {
+      try {
+        await call("classmates_set_visible", {p_on: true});
+        lsSet("asked", "1");
+        if (typeof dlg !== "undefined" && dlg.open) dlg.close();
+        toast("Classmates is on. Checking your courses…");
+        await refresh(true);
+        scheduleRender();
+      } catch (e) {
+        if (b) b.disabled = false;
+        toast(e.setup ? srvSetup("Classmates", "classmates.sql") : /SB_AGE_NEEDED/.test(e.raw || "") ? "Add your birthday first, then try again." : e.message);
+      }
+    };
+    // A birthday is needed (it decides the age group): the app asks for it when an account hasn't given one yet
+    if (window.SBUNAME && SBUNAME.ageReady) { const ok = await SBUNAME.ageReady().catch(() => true); if (!ok) { if (b) b.disabled = false; return; } }
+    go();
+  }
+  function settingsSheet(){
+    if (!S.me) { refresh(true).then(() => S.me && settingsSheet()); return; }
+    if (!S.me.visible) { onSheet(); return; }
+    const rows = (S.rows || []).filter(r => Number(r.classmates) > 0 || r.in_hub);
+    openSheet(`<div class="sheet mates-sheet">${head("Classmates")}<div class="sheet-body">
+      <p style="margin:0"><b>On.</b> Classmates who also turned it on see your name in the courses you share from your school site. People 13 to 17 and adults never see each other.</p>
+      ${rows.length ? `<ul class="mates-list">${rows.map(r => `<li><b>${esc(r.label || "Course")}</b><span class="mini">${esc(n1(Number(r.classmates) || 0, "classmate", "classmates"))}${r.in_hub ? " · in its Course Hub" : ""}</span></li>`).join("")}</ul>` : `<p class="mini" style="margin:0">No classmates in your courses yet.</p>`}
+      <p class="mini" style="margin:0">Turning it off removes your courses right away. Course Hubs you joined stay until you leave them.</p></div>
+      <div class="sheet-foot"><button type="button" class="btn danger" id="cmOff">Turn Off</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
+    const b = $("#cmOff"); if (b) b.addEventListener("click", async () => {
+      b.disabled = true;
+      try { await call("classmates_set_visible", {p_on: false}); S.me.visible = false; S.rows = []; S.sentSig = ""; if (dlg.open) dlg.close(); toast("Classmates is off. Your courses were removed."); scheduleRender(); }
+      catch (e) { b.disabled = false; toast(e.message); }
+    });
+  }
+  async function whoSheet(ref){
+    const r = (S.rows || []).find(x => x.ref === ref); if (!r) return;
+    openSheet(`<div class="sheet mates-sheet">${head(r.label ? `${r.label} Classmates` : "Classmates")}<div class="sheet-body" id="cmWho"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading…</p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Close</button><span class="spacer"></span>${r.in_hub ? `<button type="button" class="btn primary" data-act="mates-hub-open" data-id="${esc(r.hub_id)}">Open Course Hub</button>` : `<button type="button" class="btn primary" data-act="mates-hub-join" data-ref="${esc(ref)}">${r.hub_id ? "Join Course Hub" : "Start the Course Hub"}</button>`}</div></div>`);
+    let list = [];
+    try { list = (await call("classmates_list", {p_ref: ref})) || []; } catch (e) { const el = $("#cmWho"); if (el) el.innerHTML = `<p role="alert" style="margin:0">${esc(e.message)}</p>`; return; }
+    const el = $("#cmWho"); if (!el) return;
+    el.innerHTML = list.length ? `<ul class="mates-list">${list.map(m => `<li><span class="mates-av" aria-hidden="true">${esc(String(m.name || "?").trim().charAt(0).toUpperCase())}</span><b>${esc(m.name || "Classmate")}</b></li>`).join("")}</ul>
+      <p class="mini" style="margin:0">Only classmates who turned on Classmates show here. Say hi in the Course Hub.</p>`
+      : `<p style="margin:0">Nobody else here yet.</p>`;
+  }
+  async function joinHub(ref, btn){
+    if (btn) btn.disabled = true;
+    try {
+      const gid = await call("classmates_join_hub", {p_ref: ref});
+      if (dlg.open) dlg.close();
+      toast("You joined the Course Hub.");
+      refresh(true);
+      if (gid && window.SBGROUPS && SBGROUPS.openFresh) SBGROUPS.openFresh(gid);
+    } catch (e) {
+      if (btn) btn.disabled = false;
+      if (/SB_CM_COURSE/.test(e.raw || "")) refresh(true);
+      toast(e.setup ? srvSetup("Course Hubs", "classmates.sql") : e.message);
+    }
+  }
+
+  /* Wiring */
+  hook("act", (act, el) => {
+    if (!/^mates-/.test(act)) return false;
+    if (act === "mates-on") onSheet();
+    else if (act === "mates-settings") settingsSheet();
+    else if (act === "mates-who") whoSheet(el.dataset.ref);
+    else if (act === "mates-hub-join") joinHub(el.dataset.ref, el);
+    else if (act === "mates-hub-open") { if (dlg.open) dlg.close(); if (window.SBGROUPS && SBGROUPS.openFresh) SBGROUPS.openFresh(el.dataset.id); }
+    return true;
+  });
+  hook("menu", () => cli() && !S.setup && S.me ? `<button data-act="mates-settings" data-group="account"><span>Classmates<span class="sub">${S.me.visible ? "On: classmates in your synced courses can see your name" : "Off: see who in your courses uses Studyboard"}</span></span></button>` : "");
+  // Courses change after a school site sync: send the new list (a cheap check, every minute while signed in)
+  setInterval(() => { if (!cli() || S.setup || document.hidden) return; if (S.uid !== uidNow() || !S.at || (S.me && S.me.visible && cmSig(mine()) !== S.sentSig) || Date.now() - S.at > 30 * 60000) refresh(); }, 60000);
+  setTimeout(() => { if (cli()) refresh(); }, 4000);
+
+  window.SBMATES = {courseCard, refresh: () => refresh(true), state: () => S, T: {cmPayload, cmSig}};
+})();
 /* ===== module: 97-groups-nudge.js ===== */
 /* Study Groups, easier to find on phones and tablets */
 (() => {
@@ -92665,7 +93319,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
   const VERSION = "1.15.8";
   // The support address shown in the policies and About
   const SUPPORT = "support@studyboardapp.com";
-  const UPDATED = "November 20, 2026", TERMS_UPDATED = "November 16, 2026";
+  const UPDATED = "November 26, 2026", TERMS_UPDATED = "November 16, 2026";
   const FIRST_YEAR = 2026;
   const contact = () => `<a href="mailto:${esc(SUPPORT)}">${esc(SUPPORT)}</a>`;
   const year = () => { const y = new Date().getFullYear(); return y > FIRST_YEAR ? FIRST_YEAR + "–" + y : String(FIRST_YEAR); };
@@ -92713,7 +93367,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <p>If you paste a calendar link instead, it is saved on that device only. It works like a password to your calendar, so it is never synced to your account and never put in a backup or export. On the website and phone the link is passed through a small function on our server that fetches the calendar for you and stores nothing. Studyboard does not ask for or use Canvas access tokens. A token an earlier version saved on a device is deleted from it, and you can also delete it in Canvas (Account, Settings). Studyboard only reads from your school's site. What it brings in (due dates, grades, announcements) becomes part of your planner and syncs to your account like everything else if you have one.</p>
 
 <h3>Optional: reminders, calendar link, study groups</h3>
-<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
+<p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. <b>Friends</b> see each other's display name and @username, and nothing else. A friend request needs your exact username or your friend link: nobody can search for you, Studyboard never reads your contacts, and blocking someone ends the friendship. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
@@ -92769,6 +93423,8 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 
 <h3>Children</h3>
 <p>Studyboard is for students aged 13 and over. In the European Economic Area and the UK, where the age of digital consent is higher in some countries (up to 16), a person under that age needs a parent or guardian's permission to make an account. Studyboard accounts are not available to anyone under 13, and a parent or guardian can't make one for them: when the birthday given is under 13, Studyboard refuses the account. Someone younger can still use Studyboard on their own device without an account. If you think a child under 13 has given us personal data, contact us and we will delete it.</p>
+
+<p>Studyboard complies with the US Children's Online Privacy Protection Act (COPPA). We don't knowingly collect personal information from children under 13: the birthday asked for when making an account is used only to check age, and an account below 13 is refused before anything is saved on our server. Without an account, a child's courses, tasks and notes stay on their own device, and Studyboard sends us nothing that identifies the person: only anonymous daily counts, a scrambled device code used to limit the free first deck to one per device, and the optional features described above, such as anonymous crash reports. A parent or guardian who believes their child under 13 has given us personal information can contact us to have it reviewed and deleted.</p>
 
 <h3>Security</h3>
 <p>Connections are encrypted (HTTPS). Each account can only read its own rows, and plans can only be changed by our payment system, never from your device (apart from starting a free trial once, when one is offered). No system is perfectly safe; if something affecting you goes wrong we will tell you.</p>
