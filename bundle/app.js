@@ -17155,7 +17155,11 @@ function viewScheduleMonth(){
     <button class="btn small" data-act="sch-mtoday" ${isNow ? 'disabled aria-pressed="true" title="You are viewing this month"' : 'aria-pressed="false"'}>This Month</button>${schModeCtl(true)}
     <button class="btn small" data-act="avail-open" title="Add or edit work, shifts, travel and protected time so Today's Plan only uses free time">Availability</button><button class="btn small" data-act="school-open" title="Holidays, reading week and snow days, and a rotating schedule (Day 1 to 6, A/B days)">School Days</button>${proBtns("schedule")}
 </div></div>`;
-  return nav + `
+  // Notices, as on the week: the month's summary and any course still without class times
+  const withEv = new Set(eventsArr().map(e => e.courseId).filter(Boolean)), missingM = coursesArr().filter(c => !courseMeetings(c).length && !withEv.has(c.id));
+  schNoticeHtml = `<p style="margin:0">${nMonth} event${nMonth === 1 ? "" : "s"} and classes in ${esc(m.toLocaleDateString(undefined, {month: "long"}))}. Tap a day to see it, or See Week to change a class.</p>${missingM.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missingM.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
+  const ntcBtnM = `<button class="btn small sch-ntc-btn" data-act="sch-notices" title="This month's summary${missingM.length ? " and courses missing class times" : ""}">Notices${missingM.length ? `<span class="sch-ntc-n">${missingM.length}</span>` : ""}</button>`;
+  return nav.replace(/<\/div><\/div>$/, ntcBtnM + "</div></div>") + `
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
     ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
