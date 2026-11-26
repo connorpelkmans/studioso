@@ -20,7 +20,7 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 14, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
@@ -158,9 +158,9 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' when public.studyboard_limits_lite(uid) then 'lite' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
                                "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
-                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
+                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
 begin
