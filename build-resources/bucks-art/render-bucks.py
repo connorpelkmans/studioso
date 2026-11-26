@@ -5,7 +5,7 @@ logo embossed from a height map. Everything is green, the book stripe a paler gr
 The logo comes from icon-1024.png. Make its masks first (the same formula as the coin):
   mask = clip(max((R-28)/190, (B-118)/110), 0, 1) * alpha;  blue (the book stripe) = clip(((B-R)-70)/90, 0, 1) * mask
 Then:  python3 render-bucks.py <dir with mask.npy and blue.npy> <out dir>
-The face is kept plain (a bevelled border, one fine line, the logo) so it stays neat at icon size.
+The face is kept plain (a bevelled border, one fine line, a lighter green circle and the logo) so it stays neat at icon size.
 Writes bucks-bill-320.png (320 x 200, transparent around the bill) and bucks-bill.webp (the app's icon, 160 x 100)."""
 import sys
 import numpy as np
@@ -98,6 +98,12 @@ img = lerp(img, ramp(bev, GREEN), band)
 # one fine raised line just inside the border
 line = np.exp(-((din - (BAND + 34)) / 4) ** 2)
 img = lerp(img, ramp(0.74 + 0.18 * (light_dir - 0.5) * 2, GREEN), line * 0.85)
+# a slightly lighter green circle behind the logo, with a soft raised edge
+ov = np.sqrt((xx - cxm) ** 2 + (yy - cym) ** 2) / (H * 0.40)
+disc_a = np.clip((1 - ov) * H * 0.40 / 2.5, 0, 1)
+img = lerp(img, ramp(0.52 + 0.10 * (light_dir - 0.5), GREEN), disc_a)
+ring = np.exp(-((ov - 1) * H * 0.40 / 9) ** 2)
+img = lerp(img, ramp(0.66 + 0.22 * (light_dir - 0.5) * 2, GREEN), ring * 0.9)
 # the logo, raised, a little larger
 M, Bm = place_logo(H * 0.68, cxm + 8, cym + 6)
 img = green_logo(img, M, Bm, base=0.82)
