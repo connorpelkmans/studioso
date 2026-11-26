@@ -1971,7 +1971,8 @@ async function createFrom(text, courseHint){
   // just a topic ("a concept map about the Byzantine Empire"): the AI maps it properly, with the main ideas and how they connect
   const topic = (t.match(/^\s*(?:(?:please|can you|could you)\s+)?(?:make|create|build|draw|give|generate|do)?\s*(?:me\s+)?(?:a|an)?\s*(?:detailed\s+|big\s+|full\s+)?(?:concept|mind|idea)?\s*map\s+(?:about|on|of|for|covering)\s+(?:the\s+)?(.{2,80}?)\s*[.!?]*$/i) || [])[1];
   const r = topic && !/[,:;]|\b(with|connected|linked|branches?|in the (center|middle)|->|→|and then)\b/i.test(topic) ? await describe(`Make a detailed concept map about ${topic}: its 8 to 12 most important ideas (people, events, causes, results, key terms), each linked to what it relates to, with a short label on every link.`, topic.replace(/\b\w/g, ch => ch.toUpperCase()), null, {ai: true}) : await describe(t, "");
-  const name = String(r.title || "Concept Map").replace(/\b\w/g, ch => ch.toUpperCase()).slice(0, 80) + (/\bmap$/i.test(r.title || "") ? "" : " Map");
+  // (each word's first letter, not every letter after an apostrophe: "Freud's", never "Freud'S")
+  const name = String(r.title || "Concept Map").replace(/(^|[\s\-(\/])([a-z])/g, (x, a, ch) => a + ch.toUpperCase()).slice(0, 80) + (/\bmap$/i.test(r.title || "") ? "" : " Map");
   const rec = Object.assign({id: uid(), name, auto: false, created: Date.now(), at: Date.now()}, r.ov);
   const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([rec])}); delete after.cmap;
   applyChanges([{kind: "course", id: c.id, after}], `Made the map ${name}`, null, {quiet: true});
