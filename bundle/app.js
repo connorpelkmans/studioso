@@ -1084,6 +1084,8 @@ function normTask(t){
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
   }
+  // a reading's page count (its time comes from the pages and the course's reading pace when it has no hours of its own)
+  if (t.pages !== undefined) { const n = Math.round(Number(t.pages)); if (n >= 1 && n <= 5000) t.pages = n; else delete t.pages; }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (t.pins != null) t.pins = normPins(t.pins);
   if (t.pins && !t.pins.length) delete t.pins;
@@ -8563,7 +8565,8 @@ function qaCourse(text){
 }
 function qaLocal(text){
   const d = SBCAPTURE.line(text);
-  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm")};
+  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm"),
+    repeat: d.repeat || null, pages: d.pages || null, reading: d.reading || ""};
 }
 const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, course: {type: "STRING", description: "Exactly one of the listed course codes, or empty"},
@@ -8588,13 +8591,16 @@ async function qaRun(text){
       const today = todayISO(), d = parse(today);
       const courses = coursesArr().map(c => `${c.code || c.name}${c.code ? ` (${c.name})` : ""}`).join("; ") || "none";
       const r = await aiCall({task: "quickadd", fast: true, maxTokens: 3000, temperature: 0.1, schema: QA_SCHEMA, parts: [{text: `Today is ${d.toLocaleDateString("en-US", {weekday: "long"})} ${today}. Courses: ${courses}.\nStudent wrote: "${text}"`}],
-        system: `You turn a student's quick note into planner tasks. Resolve relative dates from today: ${SBCAPTURE.core.WEEKDAY_RULE}; "end of the month" means its last day. Leave due empty if no date is given. Match the course to one of the listed codes when the note clearly refers to it (abbreviations like "bio", "chem", "calc" count). Titles are short and specific, like "Homework 3" or "Quiz 2: Cell Membranes", without the course name or date. Make one task per separate deliverable. hours: a realistic estimate of focused work for a typical college student (0 for exams and quizzes). Studying or reviewing for an exam or quiz is a Study task with hours, not an Exam or Quiz. Only set weight if a percentage is stated. Return JSON only.`});
+        system: `You turn a student's quick note into planner tasks. Resolve relative dates from today: ${SBCAPTURE.core.WEEKDAY_RULE}; "end of the month" means its last day. Leave due empty if no date is given. Match the course to one of the listed codes when the note clearly refers to it (abbreviations like "bio", "chem", "calc" count). Titles are short and specific, like "Homework 3" or "Quiz 2: Cell Membranes", without the course name or date. Make one task per separate deliverable. hours: a realistic estimate of focused work for a typical college student (0 for exams and quizzes). Studying or reviewing for an exam or quiz is a Study task with hours, not an Exam or Quiz. Only set weight if a percentage is stated. Leave repeat words ("every Monday", "MWF", "until Dec 12") and page counts ("30 pages", "pp. 45-80") out of the title. Return JSON only.`});
       const byCode = {}; coursesArr().forEach(c => { byCode[(c.code || c.name).toLowerCase()] = c.id; byCode[c.name.toLowerCase()] = c.id; });
       items = (r.data.tasks || []).map(x => ({title: String(x.title || "").trim(), type: TYPES.includes(x.type) ? x.type : "Assignment", due: isDate(x.due) ? x.due : "", time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", start: isDate(x.start) ? x.start : "",
         hours: Number(x.hours) > 0 && !MILESTONE(x.type) ? Math.round(Number(x.hours) * 4) / 4 : null, weight: Number(x.weight) > 0 ? Number(x.weight) : null, priority: PRIO[x.priority] ? x.priority : "med", difficulty: DIFF_M[x.difficulty] ? x.difficulty : "med",
         courseId: byCode[String(x.course || "").toLowerCase()] || "", location: String(x.location || ""), reading: String(x.reading || ""), notes: String(x.notes || "")})).filter(x => x.title);
       items.forEach(x => { if (x.due && (dayDiff(today, x.due) < -45 || dayDiff(today, x.due) > 800)) x.due = ""; if (x.hours && x.hours > 40) x.hours = null; });
-      if (items.length === 1) { const x = items[0]; if (loc.type === "Study" && MILESTONE(x.type)) x.type = "Study"; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId; }
+      if (items.length === 1) { const x = items[0]; if (loc.type === "Study" && MILESTONE(x.type)) x.type = "Study"; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId;
+        // a repeat and a page count are read on this device, the same with AI on or off
+        if (loc.repeat && x.type !== "Exam") x.repeat = loc.repeat;
+        if (loc.pages && !MILESTONE(x.type)) { x.pages = loc.pages; if (loc.reading && !x.reading) x.reading = loc.reading; if (!loc.hours) x.hours = null; } }
       by = "ai";
     } catch(e) { err = e.code ? e.message : ""; console.warn(e); }
   }
@@ -8612,7 +8618,7 @@ function qaBarHtml(){
       <select data-qa="type" data-i="${i}" aria-label="Type">${TYPES.map(y => `<option ${y === x.type ? "selected" : ""}>${y}</option>`).join("")}</select>
       <input type="date" data-qa="due" data-i="${i}" value="${esc(x.due)}" aria-label="Due date">
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
-      <span class="qa-meta">${!MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
+      <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
       <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
@@ -8654,19 +8660,29 @@ document.addEventListener("keydown", e => {
 });
 function qaAdd(){
   const q = ui.qa; if (!q) return;
-  const changes = q.items.filter(x => x.title.trim()).map(x => {
-    const due = isDate(x.due) ? x.due : "";
+  let rule = null;
+  const groups = q.items.filter(x => x.title.trim()).map(x => {
+    // a repeat starts on the first day it falls on, from the date picked
+    const rep = x.repeat && x.type !== "Exam" && isDate(x.due) ? x.repeat : null;
+    const due = isDate(x.due) ? (rep ? SBCAPTURE.core.repeatFirst(rep, x.due) : x.due) : "";
     let start = isDate(x.start) ? x.start : due ? addDays(due, -(SPAN[x.type] ?? 3)) : todayISO();
     if (start < todayISO()) start = todayISO(); if (due && start > due) start = due;
-    const t = newTask({title: x.title.trim(), type: x.type, courseId: x.courseId || "", due, time: x.time || "", start, hours: MILESTONE(x.type) ? null : (isNum(x.hours) ? Number(x.hours) : null),
+    // a reading with pages keeps no estimated hours: its time follows the course's reading pace
+    const pages = !MILESTONE(x.type) && Number(x.pages) >= 1 ? Math.min(5000, Math.round(Number(x.pages))) : 0;
+    const t = newTask({title: x.title.trim(), type: x.type, courseId: x.courseId || "", due, time: x.time || "", start, hours: MILESTONE(x.type) || (pages && x.est) ? null : (isNum(x.hours) ? Number(x.hours) : null),
       weight: x.weight || null, priority: x.priority || (x.type === "Exam" ? "high" : "med"), difficulty: x.difficulty || "med", location: x.location || "", reading: x.reading || "", notes: x.notes || ""});
-    return {kind: "task", id: t.id, after: t};
+    if (pages) t.pages = pages;
+    const out = [{kind: "task", id: t.id, after: t}];
+    if (rep) { t.seriesId = uid(); const r = ruleCopies(t, rep); out.push(...r.copies); rule = Object.assign({}, rep, {until: r.until}); }
+    return out;
   });
+  const changes = [].concat(...groups);
   ui.qa = null; ui.qaText = "";
-  const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  const one = groups.length === 1 ? changes[0].after : null, ex1 = one && !rule && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  const label = one && rule ? SBCAPTURE.seriesLabel(one, rule, changes.length) : one ? `Added ${one.title}` : `Added ${changes.length} tasks`;
   if (changes.length) sbHaptic("tap");
-  if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
-  const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
+  if (changes.length) applyChanges(changes, label, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
+  const ask = rule ? null : changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
   setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30);
 }
@@ -8676,7 +8692,9 @@ function qaFull(){
   taskForm(null, {courseId: x.courseId, due: x.due});
   const set = (n, v) => { const el = dlg.querySelector(`[name="${n}"]`); if (el && v != null && v !== "") el.value = v; };
   const ty = $("#tfType"); if (ty) { ty.value = x.type; ty.dispatchEvent(new Event("change", {bubbles: true})); }
-  set("title", x.title); set("time", x.time); set("hours", MILESTONE(x.type) ? "" : x.hours); set("weight", x.weight); set("location", x.location); set("reading", x.reading); set("notes", x.notes);
+  set("title", x.title); set("time", x.time); set("hours", MILESTONE(x.type) || (x.pages && x.est) ? "" : x.hours); set("pages", MILESTONE(x.type) ? "" : x.pages);
+  // a repeat the Repeat field can say (every day, week, 2 weeks or month, on the due date's weekday) carries over
+  const rp = x.repeat; if (rp && x.type !== "Exam" && ["1", "7", "14", "m"].includes(rp.every) && (rp.days || []).length <= 1) { set("repeat", rp.every); const r = dlg.querySelector("select[name=repeat]"); if (r) r.dispatchEvent(new Event("change", {bubbles: true})); if (rp.until) { const u = dlg.querySelector("input[name=until]"); if (u) { u.value = rp.until; u.dispatchEvent(new Event("input", {bubbles: true})); } } } set("weight", x.weight); set("location", x.location); set("reading", x.reading); set("notes", x.notes);
   const pr = dlg.querySelector(`input[name=priority][value="${x.priority}"]`); if (pr) pr.checked = true;
 }
 // What's typed in the add bar survives a reload on this device (pull to refresh, Ctrl+R, the browser restarting): it's back
@@ -8708,7 +8726,26 @@ function learned(){
   LEARN = {byType, ratio: r, nRatio: nR}; LEARN_AT = Date.now();
   return LEARN;
 }
+// Reading pace: minutes a page in a course. The student's own setting on the course page, moved by what their finished readings
+// with pages took (92-accuracy.js); 3 minutes a page until then
+const PACE_DEFAULT = 3;
+function readPace(cid){
+  const A = accOf(); if (A && A.paceFor) { try { const p = A.paceFor(cid).mpp; if (p > 0) return p; } catch (e) { console.warn(e); } }
+  const c = cid ? courseOf(cid) : null; return c && Number(c.readPace) > 0 ? Number(c.readPace) : PACE_DEFAULT;
+}
+const fmtPace = n => String(Math.round(Number(n) * 10) / 10);
+// Hours a reading with pages takes at the course's pace (15-minute steps)
+const pageHours = t => Math.max(0.25, Math.round(Number(t.pages) * readPace(t.courseId) / 60 * 4) / 4);
+// "30 pages · about 1h 30m" (or the hours the student set: "30 pages · 2h"; once finished, the time it took: "30 pages · 1h 20m")
+function pagesText(t){
+  const n = Number(t && t.pages); if (!(n >= 1)) return "";
+  const took = t.status === "done" ? Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0) : 0;
+  if (took > 0) return `${n} page${n === 1 ? "" : "s"} · ${fmtMins(took)}`;
+  const own = isNum(t.hours) && Number(t.hours) > 0;
+  return `${n} page${n === 1 ? "" : "s"} · ${own ? fmtHM(Number(t.hours)) : "about " + fmtHM(pageHours(t))}`;
+}
 function localEstimate(t){
+  if (Number(t.pages) >= 1 && !MILESTONE(t.type)) return {hours: pageHours(t), basis: `${t.pages} page${Number(t.pages) === 1 ? "" : "s"} at ${fmtPace(readPace(t.courseId))} min a page`};
   const L = learned(), dm = DIFF_M[t.difficulty] || 1, d = TYPE_DEFAULTS[t.type] || TYPE_DEFAULTS.Other;
   const all = L.byType[t.type] || [], same = all.filter(x => x.c && x.c === t.courseId);
   const use = same.length >= 2 ? same : all.length >= 2 ? all : null;
@@ -13713,7 +13750,7 @@ function card(t){
   return `<div class="card ${c ? "has-tab" : ""} ${t.status === "done" ? "is-done" : ""}" role="button" tabindex="0" data-act="edit-task" data-id="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
     ${c ? `<div class="card-course"><span class="cc-ic" aria-hidden="true">${courseRingHtml(c)}</span>${esc(courseLabel(c))}</div>` : ""}
     <div class="card-title"><button type="button" class="check card-check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.status === "done" ? "Mark not done" : "Mark complete"}: ${esc(t.title)}" aria-pressed="${t.status === "done"}">${CHECK}</button><span>${esc(t.title)}</span><span class="card-grip" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span></div>
-    ${(t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
+    ${Number(t.pages) >= 1 && !MILESTONE(t.type) ? `<div class="card-sub card-pages">${esc([t.reading, pagesText(t)].filter(Boolean).join(" · "))}</div>` : (t.reading && t.type === "Reading") || (t.location && (MILESTONE(t.type) || t.type === "Lab")) ? `<div class="card-sub">${esc(t.type === "Reading" ? t.reading : t.location)}</div>` : ""}
     <div class="card-foot">${t.priority && t.priority !== "med" ? prioBadge(t.priority) : ""}${(() => { if (!t.due) return ""; if (late) return `<span class="soon late">${esc(relDue(t))}</span>`; const sb = soonBadge(t); return sb ? sb + (t.time && !/Due in \d+h/.test(sb) ? `<span>${esc(fmtTime(t.time))}</span>` : "") : ""; })()}${statusBadges(t)}<span>${esc(t.type || "Task")}</span>${MILESTONE(t.type) && t.status !== "done" && !remoteOf(t).v ? `<button type="button" class="rx-q" data-act="edit-task" data-edit="1" data-id="${esc(t.id)}" title="Not sure if this can be taken from home. Open it to say where it is taken." aria-label="Not sure where ${esc(t.title)} is taken. Open it to set that">?</button>` : ""}${t.due && !late && !soonBadge(t) ? `<span>${esc(relDue(t).replace(/^Due /, ""))}</span>` : ""}${isNum(t.hours) && !MILESTONE(t.type) ? `<span>${fmtHM(Number(t.hours))}</span>` : ""}${t.seriesId ? `<span title="Repeats">${REPEAT}</span>` : ""}${nf ? `<span title="${nf} attached file${nf === 1 ? "" : "s"}">${CLIP}${nf}</span>` : ""}${(nn => nn ? `<span class="note-count" title="${nn} sticky note${nn === 1 ? "" : "s"}">${NOTE_ICON}${nn}</span>` : "")(notesOfTask(t.id).length)}${t.pomos ? `<span class="pomo-count" title="${t.pomos} focus session${t.pomos === 1 ? "" : "s"}, ${fmtMins(t.focusMin)}">${TOMATO}${t.pomos}</span>` : ""}${window.SBWRITE ? SBWRITE.chip(t) : ""}${lmsGoBtn(t)}</div>
     ${t.breakdownOf && window.SBBREAK ? `<div class="card-sub">${SBBREAK.rowMeta(t)}</div>` : ""}
     ${p.prep ? (t.status !== "done" ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}% prepared</div>` : "") : p.total ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${p.done}/${p.total}</div>` : (t.status !== "done" && p.frac > 0 ? `<div class="prog"><span class="track"><i style="width:${(p.frac * 100).toFixed(0)}%"></i></span>${Math.round(p.frac * 100)}%</div>` : "")}
@@ -13924,7 +13961,8 @@ function effortOf(t){
   const d = typeDef(t), dm = DIFF_M[diffOf(t)] || 1;
   if (MILESTONE(t.type)) return d.h * dm * Math.min(2, Math.sqrt(weightOf(t) / d.w));
   if (isNum(t.hours) && Number(t.hours) > 0) return Number(t.hours) * (t.prepFor ? 1 : accOf() ? accOf().ratioFor(t) : learned().ratio);
-  return autoPlanOn() && t.aiHours && t.aiHours.h > 0 ? t.aiHours.h : localEstimate(t).hours;
+  // a reading with pages: the pages at the course's reading pace (localEstimate), before any AI guess
+  return autoPlanOn() && t.aiHours && t.aiHours.h > 0 && !(Number(t.pages) >= 1) ? t.aiHours.h : localEstimate(t).hours;
 }
 // A big assignment that has been split into milestones
 const bdHasKids = t => !!(t && t.breakdownParent) && allTasks().some(k => k.breakdownOf === t.id);
@@ -15316,6 +15354,7 @@ function viewCourseDetail(c){
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
     ${typeof SBHEAT !== "undefined" ? SBHEAT.courseHtml(c) : ""}
+    ${coursePaceHtml(c)}
     ${courseTeamHtml(c, "")}
     ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
@@ -15344,6 +15383,26 @@ function courseGradeSide(c){
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${(n => n ? `<p class="mini w-est" style="margin:-4px 0 10px" title="${esc(WEIGHT_GUESS_TIP)}">Uses ${n === 1 ? "1 estimated weight" : n + " estimated weights"}. Check them in Grades.</p>` : "")(courseTasks(c).filter(weightGuessed).length)}${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
+// Reading pace on a course page: one field, shown once the course has a reading with pages (or a pace was set)
+function coursePaceHtml(c){
+  const own = Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!own && !courseTasks(c).some(t => Number(t.pages) >= 1)) return "";
+  const P = window.SBACC && SBACC.paceFor ? SBACC.paceFor(c.id) : {mpp: own || PACE_DEFAULT, n: 0, set: own};
+  const note = P.n ? `Learned from ${P.n} finished reading${P.n === 1 ? "" : "s"}${own ? " since you set it" : ""}. Readings with pages use it for their time.`
+    : own ? "Your setting. Readings with pages use it for their time, and your focus time on them fine-tunes it." : "Readings with pages use it for their time. It learns from your focus time on finished readings.";
+  return `<section class="c2-card2 c2-box c2-pace" aria-label="Reading pace">
+    <label class="c2-pace-row" for="cPace"><span class="c2-pace-l">Reading pace:</span><input type="number" id="cPace" data-pace="${esc(c.id)}" min="0.5" max="20" step="any" inputmode="decimal" value="${esc(fmtPace(P.mpp))}" aria-describedby="cPaceNote"><span>min a page</span></label>
+    <p class="mini" id="cPaceNote">${esc(note)}</p></section>`;
+}
+// A new pace is the course's own from now on (earlier readings stop counting; later ones keep fine-tuning it). Undo puts the old one back
+document.addEventListener("change", e => {
+  const el = e.target; if (!el || !el.dataset || !el.dataset.pace) return;
+  const c = state.courses[el.dataset.pace]; if (!c) return;
+  const v = Math.round(Number(el.value) * 10) / 10;
+  if (!(v >= 0.5 && v <= 20)) { toast("Pick a pace from 0.5 to 20 minutes a page"); el.value = fmtPace(readPace(c.id)); return; }
+  if (v === readPace(c.id) && Number(c.readPace) > 0) return;
+  applyChanges([{kind: "course", id: c.id, after: Object.assign(clone(c), {readPace: v, readPaceAt: Date.now()})}], `Reading pace: ${fmtPace(v)} min a page`);
+});
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
@@ -18423,7 +18482,9 @@ function taskView(t0){
     if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    // a reading with pages: "30 pages · about 1h 30m", at the course's reading pace
+    if (Number(t.pages) >= 1 && !ms) rows.push([I.book, esc(pagesText(t)), isNum(t.hours) && Number(t.hours) > 0 ? "Pages · the time you set" : `Pages · at ${esc(fmtPace(readPace(t.courseId)))} min a page`]);
+    if (cfg.hours && isNum(t.hours) && !ms && !(Number(t.pages) >= 1)) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
     else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
@@ -18553,7 +18614,9 @@ function taskForm(t, preset = {}){
         <div class="adv-body">
           <div class="two">
             <label class="f" data-fld="hours"><span class="lbl">Hours Needed</span><span class="tf-hours-row"><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3">${inPreview() ? "" : `<button type="button" class="btn small ai-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span></label>
+            <label class="f" data-fld="pages"${t.type === "Reading" || Number(t.pages) >= 1 ? "" : " hidden"}><span class="lbl">Pages</span><input type="number" name="pages" min="1" max="5000" step="1" inputmode="numeric" value="${Number(t.pages) >= 1 ? esc(t.pages) : ""}" placeholder="e.g. 30"></label>
           </div>
+          <p class="mini pages-hint" id="pagesHint" hidden aria-live="polite"></p>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <p class="mini acc-hint" id="accHint" hidden aria-live="polite"></p>
           <label class="f" data-fld="location"><span class="lbl">Location</span><input type="text" name="location" maxlength="120" value="${esc(t.location)}" placeholder="e.g. Loew Hall 101"></label>
@@ -18609,6 +18672,8 @@ function taskForm(t, preset = {}){
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
+      // a reading's pages: with no hours set, its time comes from the pages at the course's reading pace
+      pages: !MILESTONE(type) && Number(fd.get("pages")) >= 1 ? Math.min(5000, Math.round(Number(fd.get("pages")))) : undefined,
       docs: docsF ? docsF.value() : DOCLINK.norm(t.docs)
     };
     if (MILESTONE(type)) {
@@ -18659,6 +18724,7 @@ function taskForm(t, preset = {}){
     const v = n => (f.elements[n] && !f.elements[n].closest("[hidden]")) ? String(f.elements[n].value || "").trim() : "";
     const bits = [];
     if (v("hours")) bits.push(v("hours") + "h");
+    if (v("pages")) bits.push(v("pages") + " pages");
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
@@ -18700,6 +18766,12 @@ function taskForm(t, preset = {}){
     else if (v === "doing" && cur >= 100) pctIn.value = 90;
     $("#pctOut").textContent = pctIn.value + "%";
   });
+  // "30 pages · about 1h 30m at 3 min a page" under Hours Needed while no hours are set
+  function drawPages(){
+    const h = $("#pagesHint"), pi = dlg.querySelector("input[name=pages]"), hi = dlg.querySelector("input[name=hours]"), cs = dlg.querySelector("select[name=courseId]"); if (!h || !pi || !hi) return;
+    const n = Number(pi.value), on = n >= 1 && !pi.closest("[hidden]") && !String(hi.value).trim();
+    h.hidden = !on; h.textContent = on ? `${pagesText({pages: Math.round(n), courseId: cs ? cs.value : ""})} at ${fmtPace(readPace(cs ? cs.value : ""))} min a page. Set hours to use your own time instead.` : "";
+  }
   const applyType = () => {
     const type = curType(), cfg = cfgOf(type);
     const show = (fld, on, label) => { const el = dlg.querySelector(`[data-fld="${fld}"]`); if (!el) return; el.hidden = !on; if (label) el.querySelector(".lbl").textContent = label; };
@@ -18710,6 +18782,8 @@ function taskForm(t, preset = {}){
     show("team", !!cfg.team, cfg.team);
     show("link", !!cfg.link, cfg.link);
     show("reading", !!cfg.reading, cfg.reading);
+    { const pf = dlg.querySelector('[data-fld="pages"]'); if (pf) pf.hidden = MILESTONE(type) || !(type === "Reading" || pf.querySelector("input").value); }
+    drawPages();
     show("remote", MILESTONE(type));
     $("#dueLbl").textContent = cfg.due;
     $("#pctLbl").textContent = cfg.prog;
@@ -18728,6 +18802,8 @@ function taskForm(t, preset = {}){
     pctHint(); drawCl(); if (typeof planHint === "function") planHint(); advSummary();
   };
   $("#tfType").addEventListener("change", applyType);
+  ["input[name=pages]", "input[name=hours]", "select[name=courseId]"].forEach(q => { const x = dlg.querySelector(q); if (x) { x.addEventListener("input", drawPages); x.addEventListener("change", drawPages); } });
+  drawPages();
   {
     const rs = dlg.querySelector("select[name=repeat]"), un = dlg.querySelector("input[name=until]"), dueIn = dlg.querySelector("input[name=due]"), cSel = dlg.querySelector("select[name=courseId]");
     if (rs) {
@@ -18897,10 +18973,19 @@ function repeatDates(due, every, until){
   for (let n = 1; n <= 120; n++) { const d = repeatDue(due, every, n); if (d > until) break; out.push(d); }
   return out;
 }
-function repeatCopies(base, every, until){
+function repeatCopies(base, every, until){ return repeatCopiesAt(base, repeatDates(base.due, every, until)); }
+// A repeat typed in a sentence ("every monday", "MWF until dec 12", 75-capture.js): the same series as the Repeat field makes,
+// on the rule's own days. rule.every and rule.until mean what Repeat and Repeat Until mean; base.due is the first day.
+// -> {copies, until}
+function ruleCopies(base, rule){
+  const until = rule.until && rule.until >= base.due ? rule.until : repeatEnd(base.due, base.courseId);
+  const dates = rule.days && rule.days.length ? SBCAPTURE.core.ruleDates(rule, base.due, until).filter(d => d > base.due) : repeatDates(base.due, rule.every, until);
+  return {copies: repeatCopiesAt(base, dates.slice(0, 120)), until};
+}
+function repeatCopiesAt(base, dates){
   const off = dayDiff(base.start || base.due, base.due);
-  return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+  return dates.map((d, i) => {
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId", "pages"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};
@@ -38092,6 +38177,141 @@ const CAP = (() => {
     return {course: scored[0].course, ambiguous: null, used: scored[0].used, score: scored[0].score};
   }
 
+  /* repeats: "every monday", "every other thu", "weekdays until dec 12", "every 2 weeks fri", "daily", "mon wed fri", "MWF", "TTh"
+     A rule is {every: days between ("1", "7", "14", "21"...) or "m" (monthly), days: [weekdays, 0 = Sunday], until: "YYYY-MM-DD" | "", label}.
+     every and until mean what the New Task form's Repeat and Repeat Until fields mean; days adds the weekdays a rule falls on.
+     Anything unclear ("biweekly", "every chapter", "Everything Bagel essay") is left in the sentence. */
+  const WDNAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], WDSHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONSHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const NUMR = "\\d{1,2}|two|three|four|five|six|seven|eight|nine|ten";
+  const numOf = w => NUMW[String(w).toLowerCase()] || Number(w) || 0;
+  // one weekday word, singular or plural ("mon", "Tuesdays", "thurs")
+  const WD1 = `(?:(?:sun|mon|tues|wednes|thurs|fri|satur)days|${WDRE})(?![a-z])`;
+  const wdIndex = w => { const x = String(w).toLowerCase().replace(/\.$/, ""); let k = WD.findIndex(a => a.includes(x)); if (k < 0 && /days$/.test(x)) k = WD.findIndex(a => a.includes(x.slice(0, -1))); return k; };
+  // a run of weekday words: "mon wed fri", "Mon, Wed and Fri", "tue/thu", "tuesdays and thursdays"
+  const WDSEQ = `${WD1}\\.?(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1}\\.?)*`;
+  const seqDays = s => { const out = []; (String(s).match(new RegExp(WD1, "gi")) || []).forEach(w => { const k = wdIndex(w); if (k >= 0 && !out.includes(k)) out.push(k); }); return out; };
+  // letter codes from timetables: MWF, TTh, M/W/F, T/Th, MTWRF; MW, WF and TR only in capitals
+  const CODES = {mwf: [1, 3, 5], tth: [2, 4], tuth: [2, 4], mtwrf: [1, 2, 3, 4, 5], mtwthf: [1, 2, 3, 4, 5], "m/w/f": [1, 3, 5], "m/w": [1, 3], "t/th": [2, 4], "tu/th": [2, 4], "tu/thu": [2, 4], "tue/thu": [2, 4]};
+  const CODES_UP = {MW: [1, 3], WF: [3, 5], TR: [2, 4]};
+  const monOrder = d => (d + 6) % 7;
+  const sortDays = a => a.slice().sort((x, y) => monOrder(x) - monOrder(y));
+  const andList = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+  const dateLabel = (s, from) => { const [y, m, d] = parts(s); return `${MONSHORT[m - 1]} ${d}${from && diff(from, s) > 300 ? ", " + y : ""}`; };
+  function ruleLabel(r, from){
+    const days = sortDays(r.days || []), ev = r.every, k = ev === "m" ? 0 : Number(ev);
+    let t;
+    if (days.length) {
+      const names = days.join() === "1,2,3,4,5" ? "weekday" : days.join() === "6,0" ? "weekend" : days.length === 1 ? WDNAME[days[0]] : andList(days.map(d => WDSHORT[d]));
+      t = k === 7 ? `Every ${names}` : k === 14 ? `Every other ${names}` : `Every ${k / 7} weeks on ${names}`;
+    } else t = ev === "m" ? "Every month" : k === 1 ? "Every day" : k === 2 ? "Every other day" : k === 7 ? "Every week" : k % 7 === 0 ? `Every ${k / 7} weeks` : `Every ${k} days`;
+    return t + (r.until ? " until " + dateLabel(r.until, from) : "");
+  }
+  // The first day a rule falls on, on or after from
+  function repeatFirst(r, from){
+    if (!r || !(r.days || []).length || !validISO(from)) return from;
+    for (let i = 0; i < 7; i++) { const d = addDays(from, i); if (r.days.includes(dow(d))) return d; }
+    return from;
+  }
+  // Every date of a rule from first (included) to until, at most max
+  function ruleDates(r, first, until, max){
+    max = max || 121; const out = [];
+    if (!r || !validISO(first) || !validISO(until) || until < first) return validISO(first) ? [first] : [];
+    const days = (r.days || []).length ? r.days : null;
+    if (!days) {
+      if (r.every === "m") {
+        const [y, m, d] = parts(first);
+        for (let n = 0; n < max; n++) { const mm = m - 1 + n, yy = y + Math.floor(mm / 12), mo = mm % 12 + 1, last = new Date(Date.UTC(yy, mo, 0)).getUTCDate(), x = isoOf(yy, mo, Math.min(d, last)); if (x > until) break; out.push(x); }
+        return out;
+      }
+      const k = Math.max(1, Number(r.every) || 7);
+      for (let n = 0; n < max; n++) { const x = addDays(first, k * n); if (x > until) break; out.push(x); }
+      return out;
+    }
+    const k = Math.max(7, Number(r.every) || 7);
+    days.forEach(dd => { const s = addDays(first, (dd - dow(first) + 7) % 7); for (let n = 0; n < max; n++) { const x = addDays(s, k * n); if (x > until) break; out.push(x); } });
+    return out.sort().slice(0, max);
+  }
+  // Reads a repeat out of a sentence: {rule, rest} or null. today is "YYYY-MM-DD".
+  function readRepeat(text, today){
+    let s = " " + String(text || "") + " ", rule = null;
+    const take = (re, fn) => { if (rule) return false; const m = s.match(re); if (!m) return false; const r = fn(m); if (!r) return false; rule = r; s = s.slice(0, m.index) + " " + s.slice(m.index + m[0].length); return true; };
+    const ON = `(?:\\s+on)?\\s+(${WDSEQ})`;
+    const EVERY = "(?:every|each)";
+    // "every 2 weeks on fri", "every three weeks", "every 3 days", "every 2 months"
+    take(new RegExp(`\\b${EVERY}\\s+(${NUMR})\\s+(days?|weeks?|wks?|months?)\\b(?:${ON})?`, "i"), m => {
+      const n = numOf(m[1]), u = m[2].toLowerCase(); if (!n || n > 30) return null;
+      if (/^m/.test(u)) return n === 1 ? {every: "m", days: []} : null;
+      if (/^d/.test(u)) return m[3] ? null : {every: String(n), days: []};
+      if (n > 8) return null;
+      return {every: String(n * 7), days: m[3] ? seqDays(m[3]) : []};
+    }) ||
+    // "every other thu", "every other day", "every other week (on mon)"
+    take(new RegExp(`\\b${EVERY}\\s+other\\s+(?:(day)\\b|(week)\\b(?:${ON})?|(${WDSEQ}))`, "i"), m => m[1] ? {every: "2", days: []} : m[2] ? {every: "14", days: m[3] ? seqDays(m[3]) : []} : {every: "14", days: seqDays(m[4])}) ||
+    // "every day", "every weekday", "every weekend", "every week (on fri)", "every month", "every monday", "every mon and wed"
+    take(new RegExp(`\\b${EVERY}\\s+(?:(day)\\b|(weekdays?)\\b|(weekends?)\\b|(week)\\b(?:${ON})?|(month)\\b|(${WDSEQ}))`, "i"), m =>
+      m[1] ? {every: "1", days: []} : m[2] ? {every: "7", days: [1, 2, 3, 4, 5]} : m[3] ? {every: "7", days: [6, 0]} : m[4] ? {every: "7", days: m[5] ? seqDays(m[5]) : []} : m[6] ? {every: "m", days: []} : {every: "7", days: seqDays(m[7])}) ||
+    take(/\b(?:on\s+)?weekdays\b/i, () => ({every: "7", days: [1, 2, 3, 4, 5]})) ||
+    take(/\b(daily)\b/i, () => ({every: "1", days: []})) ||
+    take(new RegExp(`\\bweekly\\b(?:${ON})?`, "i"), m => ({every: "7", days: m[1] ? seqDays(m[1]) : []})) ||
+    take(/\b(fortnightly)\b/i, () => ({every: "14", days: []})) ||
+    take(/\b(monthly)\b/i, () => ({every: "m", days: []})) ||
+    // plural weekdays mean every week: "mondays", "tuesdays and thursdays"
+    take(new RegExp(`\\b(?:on\\s+)?((?:sun|mon|tues|wednes|thurs|fri|satur)days(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1})*)\\b`, "i"), m => ({every: "7", days: seqDays(m[1])})) ||
+    // two or more weekdays in a row: "mon wed fri", "tue/thu" (a capital "SAT" is the test, not Saturday)
+    take(new RegExp(`\\b(?:on\\s+)?(${WD1}\\.?(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1}\\.?)+)(?![a-z])`, "i"), m => {
+      if (/\bSAT\b/.test(m[1])) return null;
+      const d = seqDays(m[1]); return d.length >= 2 ? {every: "7", days: d} : null;
+    }) ||
+    take(/(?:^|\s)(?:on\s+)?(mwf|tth|tuth|mtwrf|mtwthf|m\/w\/f|m\/w|t\/th|tu\/th|tu\/thu|tue\/thu)(?=\s|$|[,.;])/i, m => ({every: "7", days: CODES[m[1].toLowerCase()].slice()})) ||
+    take(/(?:^|\s)(?:on\s+)?(MW|WF|TR)(?=\s|$|[,.;])/, m => ({every: "7", days: CODES_UP[m[1]].slice()}));
+    if (!rule) return null;
+    rule.days = sortDays(rule.days);
+    // how long: "until dec 12", "till 1/15", "through the end of the month", "for 4 weeks"
+    rule.until = ""; rule.flags = [];
+    const DATE = `(?:(?:${WDRE})\\.?,?\\s+)?(?:(?:${MONRE})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,?\\s+20\\d\\d)?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONRE})(?:,?\\s+20\\d\\d)?|\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|20\\d\\d-\\d{1,2}-\\d{1,2}|(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:month|term|semester|year)|(?:next\\s+)?(?:${WDRE}))`;
+    const um = s.match(new RegExp(`\\b(?:until|till|til|thru|through|ending(?:\\s+on)?|ends(?:\\s+on)?)\\s+(${DATE})\\b`, "i"));
+    if (um) {
+      const w = um[1];
+      if (/term|semester/i.test(w)) rule.until = "";
+      else if (/end\s+of\s+(?:the\s+)?year/i.test(w)) rule.until = parts(today)[0] + "-12-31";
+      else {
+        const r = readWhen(w, today);
+        // a day already gone is a slip, not next year: it's left for the check
+        if (r.due && r.due >= today) rule.until = r.due; else rule.flags.push("date");
+      }
+      s = s.replace(um[0], " ");
+    } else {
+      const fm = s.match(new RegExp(`\\bfor\\s+(?:the\\s+next\\s+)?(${NUMR})\\s+(weeks?|wks?|months?)\\b`, "i"));
+      if (fm) { const n = numOf(fm[1]); if (n > 0 && n <= 30) { rule.forDays = /^m/i.test(fm[2]) ? n * 30 : n * 7; s = s.replace(fm[0], " "); } }
+    }
+    // "starting dec 1", "from monday": the date is the first one, the word goes
+    s = s.replace(new RegExp(`\\b(?:starting|beginning|from)(?:\\s+on)?(?=\\s+(?:next\\s+|this\\s+)?(?:${MONRE}|${WDRE}|\\d|today|tomorrow|tmrw)\\b)`, "i"), " ");
+    return {rule, rest: s.replace(/\s+/g, " ").trim()};
+  }
+
+  /* pages: "30 pages", "30pg", "pp. 45-80", "pages 12 to 40", "pages 30" */
+  // -> {pages, reading ("pp. 45–80" for a range), rest} or null
+  function readPages(text){
+    let s = " " + String(text || "") + " ";
+    let m = s.match(/(?:^|[\s,(])((?:pp\.?|pgs?\.?|pages?|p\.)\s*(\d{1,4})\s*(?:-|–|—|to|through|thru)\s*(\d{1,4}))\b/i);
+    if (m) {
+      const a = Number(m[2]); let b = Number(m[3]);
+      // "pp. 145-62" is 145 to 162
+      if (b < a && m[3].length < m[2].length) b = Number(m[2].slice(0, m[2].length - m[3].length) + m[3]);
+      if (a >= 1 && b >= a && b - a + 1 <= 2000) return {pages: b - a + 1, reading: `pp. ${a}–${b}`, rest: s.replace(m[1], " ").replace(/\s+/g, " ").trim()};
+      return null;
+    }
+    // "30 pages", "30pg", "a 30-page reading"; not the number of a chapter or unit ("chapter 4 pages 30" is 30 pages)
+    const NUMBERED = /\b(?:ch|chap|chapter|unit|section|sec|module|lecture|lec|week|wk|part|lesson|act|book|vol|volume)\.?\s*$/i;
+    m = null;
+    for (const x of s.matchAll(/\b((\d{1,4})\s*-?\s*(?:pages?|pgs?|pp)\b\.?)/gi)) if (!NUMBERED.test(s.slice(0, x.index))) { m = x; break; }
+    m = m || s.match(/\b(pages\s+(\d{1,4}))\b(?!\s*(?:-|–|—|to\b|through\b|thru\b|and\b|,))/i);
+    // ("read 5 pages of ch 2": the "of" goes with them)
+    if (m) { const n = Number(m[2]), at = s.indexOf(m[1]); if (n >= 1 && n <= 2000) return {pages: n, reading: "", rest: (s.slice(0, at) + " " + s.slice(at + m[1].length).replace(/^\s*of\b/i, "")).replace(/\s+/g, " ").trim()}; }
+    return null;
+  }
+
   /* one sentence -> one draft */
   // "email prof ...", "call the registrar": a quick message, not an assignment
   const MSG_RE = /^\s*(?:e-?mail|text|call|message)\b/i;
@@ -38114,11 +38334,25 @@ const CAP = (() => {
     let s = " " + raw + " ";
     const um = s.match(/\bhttps?:\/\/[^\s<>"']+/i);
     if (um) { const l = safeLink(um[0]); if (l) { d.link = l; const li = lmsInfo(l); if (li) d.platform = li.platform; } s = s.replace(um[0], " "); }
+    // a repeat and a page count come out first, so their words and numbers are never read as a date ("every monday", "pp. 45-80").
+    // An exam never repeats (as in the New Task form), and pages only count for a reading (an essay's "5 pages" is how much to write)
+    const ty0 = guessType(s);
+    if (ty0 !== "Exam") { const rp = readRepeat(s.trim(), today); if (rp) { d.repeat = rp.rule; s = " " + rp.rest + " "; } }
+    if (!ty0 || ty0 === "Reading") { const pg = readPages(s.trim()); if (pg) { d.pages = pg.pages; if (pg.reading) d.reading = pg.reading; s = " " + pg.rest + " "; } }
     const w = readWhen(s.trim(), today, {termStart: ctx.termStart});
     d.due = w.due; d.time = w.time; d.hours = w.hours; d.weight = w.weight; d.priority = w.priority; w.flags.forEach(f => d.flags.push(f));
     s = " " + w.rest + " ";
     const ty = guessType(s); if (ty) { d.type = ty; d.typeGuess = true; }
+    else if (d.pages) { d.type = "Reading"; d.typeGuess = true; }
     if (MSG_RE.test(s) && d.hours == null) d.hours = 0.25;
+    // the first one is the first day the rule falls on, from the date given or today (today included)
+    if (d.repeat) {
+      const r = d.repeat; r.flags.forEach(f => { if (!d.flags.includes(f)) d.flags.push(f); }); delete r.flags;
+      if (validISO(today)) d.due = repeatFirst(r, d.due || today);
+      if (r.forDays) { if (d.due) r.until = addDays(d.due, r.forDays - 1); delete r.forDays; }
+      if (r.until && d.due && r.until < d.due) { r.until = ""; d.flags.push("date"); }
+      r.label = ruleLabel(r, today);
+    }
     const cm = matchCourse(s, ctx.courses);
     if (cm) {
       if (cm.ambiguous) d.flags.push("course");
@@ -38392,7 +38626,7 @@ const CAP = (() => {
   }
 
   return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, bareTime, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
-    parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType};
+    parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType, readRepeat, readPages, ruleDates, ruleLabel, repeatFirst};
 })();
 /* CAPTURE-END */
 
@@ -38419,22 +38653,41 @@ function mk(d){
   const type = TYPES.includes(d.type) ? d.type : "Assignment", due = isDate(d.due) ? d.due : "";
   let start = due ? addDays(due, -(SPAN[type] ?? 3)) : todayISO();
   if (start < todayISO()) start = todayISO(); if (due && start > due) start = due;
+  // a reading with pages keeps no hours of its own: its time comes from the pages and the course's reading pace (localEstimate)
+  const pages = !MILESTONE(type) && Number(d.pages) >= 1 ? Math.min(5000, Math.round(Number(d.pages))) : 0;
   let hours = MILESTONE(type) ? null : (isNum(d.hours) && d.hours !== null ? Number(d.hours) : null);
-  if (hours === null && !MILESTONE(type)) { try { hours = localEstimate({type, courseId: d.courseId || "", difficulty: "med", title: d.title}).hours; } catch (e) {} }
-  return newTask({title: String(d.title).trim().slice(0, 200), type, courseId: d.courseId || "", due, time: d.time || "", start, hours: hours == null ? null : hours, weight: d.weight || null,
-    priority: type === "Exam" ? "high" : d.priority || "med", link: d.link || "", notes: d.notes || ""});
+  if (hours === null && !MILESTONE(type) && !pages) { try { hours = localEstimate({type, courseId: d.courseId || "", difficulty: "med", title: d.title}).hours; } catch (e) {} }
+  const t = newTask({title: String(d.title).trim().slice(0, 200), type, courseId: d.courseId || "", due, time: d.time || "", start, hours: hours == null ? null : hours, weight: d.weight || null,
+    priority: type === "Exam" ? "high" : d.priority || "med", link: d.link || "", notes: d.notes || "", reading: String(d.reading || "").slice(0, 200)});
+  if (pages) t.pages = pages;
+  return t;
 }
+// A draft with a repeat ("every monday") becomes a series, as the New Task form's Repeat field makes it: the first task plus copies
+// that share a seriesId. -> {tasks, rule} (rule.until filled in)
+function series(d){
+  const t = mk(d), r = d.repeat;
+  if (!r || !t.due || t.type === "Exam") return {tasks: [t], rule: null};
+  t.seriesId = uid();
+  const {copies, until} = ruleCopies(t, r), rule = Object.assign({}, r, {until});
+  rule.label = CAP.ruleLabel(rule, todayISO());
+  return {tasks: [t].concat(copies.map(c => c.after)), rule};
+}
+// A repeat in plain words, with the end it will get: "Every Monday until Dec 15"
+const repeatText = (r, due, cid) => CAP.ruleLabel(Object.assign({}, r, {until: r.until || (isDate(due) ? repeatEnd(CAP.repeatFirst(r, due), cid || "") : "")}), todayISO());
+// "Added Math Homework: every Monday until Dec 14 (3 tasks)"
+const seriesLabel = (t, rule, n) => (l => `Added ${t.title}: ${l.charAt(0).toLowerCase()}${l.slice(1)} (${n} tasks)`)(CAP.ruleLabel(rule, todayISO()));
 let last = null;
 function commit(drafts, o){
   o = o || {};
-  const made = drafts.filter(d => d && String(d.title || "").trim()).map(mk);
+  const parts = drafts.filter(d => d && String(d.title || "").trim()).map(series), made = [].concat(...parts.map(p => p.tasks));
   if (!made.length) return [];
-  const t0 = made[0], single = made.length === 1;
-  const inv = applyChanges(made.map(t => ({kind: "task", id: t.id, after: t})), o.inline ? "" : single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`,
-    single && !o.inline ? [MILESTONE(t0.type) && t0.due > todayISO() && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(t0.id)} : null,
+  const t0 = made[0], single = parts.length === 1, rule = single ? parts[0].rule : null;
+  const label = rule ? seriesLabel(t0, rule, made.length) : single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`;
+  const inv = applyChanges(made.map(t => ({kind: "task", id: t.id, after: t})), o.inline ? "" : label,
+    single && !o.inline ? [MILESTONE(t0.type) && t0.due > todayISO() && window.SBPREP && !rule ? {label: "Plan My Prep", fn: () => SBPREP.open(t0.id)} : null,
       {label: "Edit", fn: () => { if (state.tasks[t0.id]) taskForm(state.tasks[t0.id]); }}] : undefined);
-  last = {inv, ids: made.map(t => t.id), label: single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`};
-  if (single && !o.inline && MILESTONE(t0.type) && t0.due >= todayISO()) setTimeout(() => { if (!dlg.open && !(el && el.open)) remoteAsk(t0.id); }, 120);
+  last = {inv, ids: made.map(t => t.id), label};
+  if (single && !rule && !o.inline && MILESTONE(t0.type) && t0.due >= todayISO()) setTimeout(() => { if (!dlg.open && !(el && el.open)) remoteAsk(t0.id); }, 120);
   return made;
 }
 
@@ -38556,7 +38809,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 
@@ -39002,7 +39255,7 @@ function boot(){
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullInbox(); });
 }
-const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
+const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, repeatText, seriesLabel, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
   prefs, core: CAP, queueCount: async () => { try { return (await qList()).length; } catch (e) { return 0; } }};
 window.SBCAPTURE = api;
 hook("boot", boot);
@@ -48121,7 +48374,8 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 var SBEST = (() => {
   const WINDOW = 14;
   const PICKS = [[0.5, "30m"], [1, "1h"], [2, "2h"], [3, "3h"], [5, "5h"]];
-  const needs = t => t && t.status !== "done" && !MILESTONE(t.type) && !t.prepFor && !(isNum(t.hours) && Number(t.hours) > 0) && !!t.due;
+  // (a reading with pages already has its time: the pages at the course's reading pace)
+  const needs = t => t && t.status !== "done" && !MILESTONE(t.type) && !t.prepFor && !(isNum(t.hours) && Number(t.hours) > 0) && !(Number(t.pages) >= 1) && !!t.due;
   function list(all){
     const lim = addDays(todayISO(), WINDOW);
     return allTasks().filter(t => needs(t) && (all || t.due <= lim)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
@@ -89365,7 +89619,33 @@ const ACC = (() => {
   }
   // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
   const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
+  /* Reading pace: minutes a page, from finished readings that have pages */
+  const PACE_LIM = [0.5, 20];
+  // One finished reading -> {mpp, at} or null: the time you said it took, else its focus time (10 minutes or more)
+  function pageSample(t){
+    if (!t || t.status !== "done" || !(Number(t.pages) >= 1) || isMs(t.type) || t.prepFor) return null;
+    const meas = Number(t.focusMin) || 0, act = Number(t.actualMin) || 0;
+    const mins = act > 0 && act >= meas ? act : meas >= 10 ? meas : 0;
+    if (!mins) return null;
+    const mpp = mins / Number(t.pages);
+    // a timer left running, or pages only skimmed: not a pace
+    if (mpp < PACE_LIM[0] || mpp > PACE_LIM[1]) return null;
+    return {mpp, at: Number(t.doneAt) || Number(t.created) || 0};
+  }
+  // A course's readings, oldest first ("" is the readings with no course; null is all of them)
+  const pageSamples = (tasks, course) => (tasks || []).filter(t => t && (course == null || (t.courseId || "") === course)).map(pageSample).filter(Boolean).sort((a, b) => a.at - b.at);
+  // Smoothed: each reading moves the pace 30% of the way toward its own, starting from the student's setting (else 3 min a page).
+  // Once two readings count, one more than 2.5 times slower or faster than the pace so far is an outlier and is set aside.
+  // since: only readings finished after the student last set the pace by hand. -> {mpp, n, skipped}
+  function pace(S, prior, since){
+    let p = Number(prior) > 0 ? Number(prior) : 3, n = 0, skipped = 0;
+    (S || []).filter(x => !(since > 0) || x.at >= since).forEach(x => {
+      if (n >= 2 && (x.mpp > p * 2.5 || x.mpp < p / 2.5)) { skipped++; return; }
+      p += 0.3 * (x.mpp - p); n++;
+    });
+    return {mpp: Math.round(p * 10) / 10, n, skipped};
+  }
+  return {pageSample, pageSamples, pace, entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -89413,6 +89693,14 @@ function explain(t){
   return i.r > 1
     ? tr("acc.over", "You usually take about {x}x your estimate on {what}.", {x: i.r.toFixed(1), what: whatOf(t, i)})
     : tr("acc.under", "You usually finish {what} in about {x}x your estimate.", {x: i.r.toFixed(1), what: whatOf(t, i)});
+}
+
+// A course's reading pace: {mpp minutes a page, n readings it learned from, skipped outliers, set: the student's own number (0 if none)}
+function paceFor(cid){
+  const c = cid ? courseOf(cid) : null, own = c && Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!on()) return {mpp: own || 3, n: 0, skipped: 0, set: own};
+  const M = memo(), key = "p|" + (cid || "");
+  return M.ratios[key] || (M.ratios[key] = Object.assign(ACC.pace(ACC.pageSamples(allTasks(), cid || ""), own || 3, own ? Number(c.readPaceAt) || 0 : 0), {set: own}));
 }
 
 /* SBTIME: read-only tracked time */
@@ -89823,7 +90111,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, paceFor, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
 return api;
 })();

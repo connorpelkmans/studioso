@@ -4528,6 +4528,15 @@ input.w-est-in{color:var(--late,#d64545);font-weight:700;border-color:color-mix(
 }
 
 
+
+/* Repeats in quick add and reading pace */
+.qa-meta{flex-wrap:wrap}
+.qa-meta .qa-rep{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.qa-meta .qa-rep svg{flex:none}
+.pages-hint{margin:-4px 0 4px}
+.c2-pace-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-weight:600}
+.c2-pace-row input{width:5.5em;flex:none;text-align:center;font-weight:700}
+.c2-pace .mini{margin:8px 0 0}
 /* ===== module: 92-cushion.css ===== */
 /* Time Cushion: the pill next to Time Today, and its sheet */
 :root{--cush-spare:#17795A;--cush-tight:#8F5A00;--cush-short:var(--late)}
