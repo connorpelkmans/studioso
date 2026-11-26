@@ -1037,6 +1037,8 @@ begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
   if not exists (select 1 from public.study_groups g where g.id = new.group_id) then return new; end if;
+  -- Course Hubs aren't anyone's group: they have their own cap (300, in classmates_join_hub, supabase-classmates.sql)
+  if exists (select 1 from public.study_groups g where g.id = new.group_id and coalesce(to_jsonb(g) ->> 'kind', 'study') = 'course') then return new; end if;
   tier := case when public.plans_group_is_pro(new.group_id) then 'pro' else 'free' end;
   select (coalesce(value, '{}'::jsonb) -> tier ->> 'groupMembers')::bigint into lim from public.studyboard_config where key = 'limits';
   if lim is null then lim := case when tier = 'pro' then 100 else 3 end; end if;
