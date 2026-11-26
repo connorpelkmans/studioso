@@ -52,4 +52,27 @@ t("the summary note credits the source and links the deck", () => {
   assert(txt.includes("Flashcards: [[BIO101 Osmosis]]"));
   assert(txt.includes("• Water crosses membranes") && txt.includes("• Tonicity: Relative solute on two sides") && !/•\s*$/m.test(txt));
 });
+t("a transcript copied from YouTube becomes running text", () => {
+  const c = L.cleanTranscript("Transcript\nSearch in video\n0:00\nhey everyone welcome back\n0:04\n[Music]\nso today we're looking at\n0:07\nthe Krebs cycle\n1:02:03\n2 minutes, 5 seconds\nand that's it\n");
+  assert.strictEqual(c.text, "hey everyone welcome back so today we're looking at the Krebs cycle and that's it");
+  assert.strictEqual(c.removed, 4);
+  assert.strictEqual(L.cleanTranscript("0:00 hello there\n0:03 >> general kenobi").text, "hello there general kenobi");
+  assert.strictEqual(L.cleanTranscript("(0:12) [Applause] thanks , everyone").text, "thanks, everyone");
+});
+t("subtitle files (SRT and WebVTT) lose their numbers and times", () => {
+  const srt = "1\n00:00:01,000 --> 00:00:04,000\nMitochondria make ATP.\n\n2\n00:00:04,500 --> 00:00:07,000\n<i>Mostly</i> in the inner membrane.\n";
+  assert.strictEqual(L.cleanTranscript(srt).text, "Mitochondria make ATP. Mostly in the inner membrane.");
+  assert.strictEqual(L.cleanTranscript("WEBVTT\nKind: captions\nLanguage: en\n\n00:01.000 --> 00:03.000\nPhotosynthesis\n").text, "Photosynthesis");
+  assert.strictEqual(L.cleanTranscript("Plain notes with no timestamps.\nSecond line.").text, "Plain notes with no timestamps. Second line.");
+  assert.strictEqual(L.cleanTranscript("").text, "");
+});
+t("a share that is just a YouTube video is recognised; a task that mentions one isn't", () => {
+  assert.strictEqual(L.videoFromShare({text: "https://youtu.be/dQw4w9WgXcQ?si=abc"}).id, "dQw4w9WgXcQ");
+  assert.strictEqual(L.videoFromShare({title: "Krebs Cycle in 5 Minutes", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).id, "dQw4w9WgXcQ");
+  assert.strictEqual(L.videoFromShare({text: "Watch this! https://m.youtube.com/watch?v=dQw4w9WgXcQ"}).id, "dQw4w9WgXcQ");
+  assert.strictEqual(L.videoFromShare({text: "Bio lab report due Friday at 5pm, read chapter 4 first and finish the worksheet questions 1 through 12 before the lab session starts, see https://youtu.be/dQw4w9WgXcQ for the demo"}), null);
+  assert.strictEqual(L.videoFromShare({text: "https://example.com/article"}), null);
+  assert.strictEqual(L.videoFromShare({text: "https://www.youtube.com/@CrashCourse"}), null);
+  assert.strictEqual(L.videoFromShare({}), null);
+});
 console.log(`\n${n} passed`);

@@ -912,6 +912,7 @@ async function ingest(x, o){
       setTimeout(() => { if (navigator.onLine !== false && aiReady() && prefs().ai) readQueuedOnce(); else toast(`Photo saved. Open Quick Capture to read it${n > 1 ? " (" + n + " waiting)" : ""}.`); }, 200);
       return true;
     }
+    if (videoShare({title: x.title, text: x.text, url: x.url})) { if (id) markSeen(id); return true; }
     const text = CAP.clean(x.text, 2000, true); if (!text) return false;
     const r = CAP.fromText(text, ctx(), {source: src});
     if (r.drafts.length === 1) {
@@ -947,16 +948,20 @@ async function pullInbox(){
 function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); }
 
 /* links */
+// A share that is just a YouTube video goes to Make Flashcards with AI (src/js/99-cards-from-link.js), not to a task
+const videoShare = s => { try { return !!(window.SBLINKCARDS && SBLINKCARDS.fromShare && SBLINKCARDS.fromShare(s)); } catch (e) { return false; } };
 function handleUrl(raw, o){
   o = o || {};
-  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
+  // a shared YouTube video goes to Make Flashcards with AI, even while Quick Capture is off
+  if (r.ok && r.params && r.params.sw) { stagedShare(r.params.sw); return {ok: true, action: "share"}; }
+  if (r.ok && r.action === "share" && videoShare({title: r.params.title, text: r.params.text, url: r.params.link})) return {ok: true, action: "video"};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
   if (p.err) { toast({type: "That share wasn't a photo or text I can read.", big: "Photos over 15 MB can't be shared in.", many: "You can share up to 10 photos at a time.", fail: "Couldn't receive what you shared. Try again."}[p.err] || "Couldn't receive what you shared."); }
   if (r.action === "photo") { openCapture({fresh: true}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
-  if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
   const c = ctx(), trusted = false;
   const res = r.action === "share" ? CAP.fromShare({title: p.title, text: p.text, url: p.link}, c, {source: p.source}) : CAP.fromText(p.text || p.title, c, {source: p.source});
@@ -979,6 +984,8 @@ async function stagedShare(id){
     for (const k of await c.keys()) if (k.url.indexOf("/__share/" + id + "/") >= 0) await c.delete(k);
     if (meta.skipped) toast("Only photos can be shared in. Other files were left out.");
     const hint = [meta.title, meta.text].map(x => CAP.clean(x, 600)).filter(Boolean).join(" ");
+    if (!files.length && videoShare({title: meta.title, text: meta.text, url: meta.url})) return;
+    if (CAPTURE_OFF) { toast("Adding tasks from shares and links isn't available right now."); return; }
     if (files.length) photoFiles(files, {source: "share", hint});
     else present(CAP.fromShare({title: meta.title, text: meta.text, url: meta.url}, ctx(), {source: "share"}).drafts, {trusted: false, external: true});
   } catch (e) { toast("Couldn't receive what you shared. Try again."); }
