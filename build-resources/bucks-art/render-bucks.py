@@ -1,10 +1,11 @@
 """Studyboard Bucks bill: a green bill with the exact Studyboard logo raised in the middle, drawn the same way as the gold
-Studyboard Credits coin (build-resources/credits-art/render-coins.py): a bevelled metal-like face, a raised border, dotted
-beads, and the logo embossed from a height map. Everything is green, the book stripe a paler green.
+Studyboard Credits coin (build-resources/credits-art/render-coins.py): a bevelled metal-like face, a raised border and the
+logo embossed from a height map. Everything is green, the book stripe a paler green.
 
 The logo comes from icon-1024.png. Make its masks first (the same formula as the coin):
   mask = clip(max((R-28)/190, (B-118)/110), 0, 1) * alpha;  blue (the book stripe) = clip(((B-R)-70)/90, 0, 1) * mask
 Then:  python3 render-bucks.py <dir with mask.npy and blue.npy> <out dir>
+The face is kept plain (a bevelled border, one fine line, the logo) so it stays neat at icon size.
 Writes bucks-bill-320.png (320 x 200, transparent around the bill) and bucks-bill.webp (the app's icon, 160 x 100)."""
 import sys
 import numpy as np
@@ -83,40 +84,23 @@ def green_logo(img, M, Bm, base=0.76, light=(-0.62, -0.78)):
 
 PAD, R = 40, 150
 bill, din = rrect(PAD, PAD, W - PAD, H - PAD, R)
-light_dir = np.clip(1 - (xx / W * 0.55 + yy / H * 0.45), 0, 1)   # lit from the top left
-# the field: a slightly dished face with fine lathe lines, like the coin
 cxm, cym = W / 2, H / 2
-rn = np.sqrt(((xx - cxm) / (W * 0.5)) ** 2 + ((yy - cym) / (H * 0.5)) ** 2)
-field = 0.40 + 0.16 * (light_dir - 0.5) + 0.05 * (1 - np.clip(rn, 0, 1)) + 0.012 * np.sin(rn * 260)
+light_dir = np.clip(1 - (xx / W * 0.55 + yy / H * 0.45), 0, 1)   # lit from the top left
+# the field: an even face, gently lit from the top left (no lathe lines: at icon size they read as noise)
+field = 0.40 + 0.12 * (light_dir - 0.5)
 img = ramp(field, GREEN)
-# the raised border: a bevel band all the way round (lit on the top-left slopes, shaded on the bottom-right)
-BAND = 120
-band = np.clip((BAND - din) / 6, 0, 1)
+# the raised border: one clean bevel all the way round (lit on the top-left slopes, shaded on the bottom-right)
+BAND = 96
+band = np.clip((BAND - din) / 4, 0, 1)
 outer = din < BAND / 2
-bev = 0.55 + 0.30 * (light_dir - 0.5) * 2 * np.where(outer, 1, -1)
+bev = 0.58 + 0.26 * (light_dir - 0.5) * 2 * np.where(outer, 1, -1)
 img = lerp(img, ramp(bev, GREEN), band)
-# a fine raised line just inside the border, and dotted beads inside that (the coin's inner ring and beads)
-line = np.exp(-((din - (BAND + 26)) / 5) ** 2)
-img = lerp(img, ramp(0.72 + 0.22 * (light_dir - 0.5) * 2, GREEN), line * 0.9)
-perim = np.arctan2((yy - cym) / H, (xx - cxm) / W)
-beads = (np.cos(perim * 150) > 0.55) * np.exp(-((din - (BAND + 62)) / 6) ** 2)
-img = lerp(img, ramp(np.full_like(din, 0.86), GREEN), beads * 0.8)
-# guilloche waves either side of the logo, faintly engraved
-for side in (-1, 1):
-    cxw = cxm + side * W * 0.30
-    for k in range(-2, 3):
-        y0 = cym + k * 70
-        wave = np.exp(-((yy - (y0 + 22 * np.sin((xx - cxw) / 46))) / 5) ** 2) * (np.abs(xx - cxw) < W * 0.13)
-        img = lerp(img, ramp(np.full_like(din, 0.62), GREEN), wave * 0.55)
-# an oval medallion behind the logo: a raised rim and a lighter recessed field
-ov = np.sqrt(((xx - cxm) / (H * 0.40)) ** 2 + ((yy - cym) / (H * 0.40)) ** 2)
-med_field = np.clip((0.94 - ov) / 0.01, 0, 1)
-img = lerp(img, ramp(0.50 + 0.10 * (light_dir - 0.5) + 0.06 * (1 - ov) + 0.01 * np.sin(ov * 300), GREEN), med_field)
-med_rim = np.exp(-((ov - 0.97) / 0.025) ** 2)
-img = lerp(img, ramp(0.62 + 0.30 * (light_dir - 0.5) * 2, GREEN), med_rim)
-# the logo, raised
-M, Bm = place_logo(H * 0.62, cxm + 8, cym + 6)
-img = green_logo(img, M, Bm)
+# one fine raised line just inside the border
+line = np.exp(-((din - (BAND + 34)) / 4) ** 2)
+img = lerp(img, ramp(0.74 + 0.18 * (light_dir - 0.5) * 2, GREEN), line * 0.85)
+# the logo, raised, a little larger
+M, Bm = place_logo(H * 0.68, cxm + 8, cym + 6)
+img = green_logo(img, M, Bm, base=0.82)
 # dark outer edge line
 edge = np.exp(-(din / 4) ** 2)
 img = lerp(img, np.array([4, 40, 16], np.float32) * np.ones_like(img), edge * 0.7)
