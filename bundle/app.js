@@ -3791,6 +3791,9 @@ const SBPOLICY = (() => {
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
     // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
     assist: {effort: "medium", out: 6000, routine: true},
+    // The Companion tab with Claude: one step that reads the message against the whole planner, answers it and says what to change
+    // (the app checks and makes each change). Low thinking: it is the reply the student waits on in a conversation
+    agent: {effort: "low", out: 8000, routine: true},
     // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
     plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
@@ -4122,7 +4125,10 @@ const SBPOLICY = (() => {
     const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
     if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
     if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
-    const data = readAnswer(msg);
+    let data = readAnswer(msg);
+    // a reply in plain words where an answer shape was asked for ({answer, ...}): those words are the answer (Claude now and then
+    // writes the reply itself instead of the JSON around it, and it was thrown away as a failure)
+    if (!data && schema && schema.properties && schema.properties.answer && msg.stop_reason !== "max_tokens") { const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim(); if (t && !/^\s*[{[]/.test(t)) data = {answer: t}; }
     if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
     // spent: what this job really used and cost (for the owner's totals), never sent to the student
     return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
@@ -21682,7 +21688,8 @@ function qzSheet(qz){
   let opts = Array.isArray(q.options) ? q.options.map((o, i) => [String(o), i]) : [];
   if (opts.length > 1 && (q.correct || []).includes(opts[0][1])) opts = opts.slice(1).concat(opts.slice(0, 1));
   const lines = q.type === "short" || !opts.length ? `<i class="rv-ln"></i><i class="rv-ln"></i>` : opts.slice(0, 3).map(([o]) => `<span class="rv-opt"><i></i>${esc(o.replace(/\s+/g, " ").slice(0, 60))}</span>`).join("");
-  return `<span class="rv-sheet"><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
+  // the quiz's name heads the sheet, above its first question
+  return `<span class="rv-sheet"><span class="rv-qt"><span class="rv-title">${esc(qz.title || "Practice Quiz")}</span></span><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
 }
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
@@ -21698,7 +21705,7 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title" title="${nm}">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
@@ -21775,17 +21782,16 @@ function viewFlashcards(){
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    const cs = cardStyleOf(d), first = d.cards.find(x => !x.draft && String(x.front || "").trim()), nm = esc(d.name);
-    const term = first ? esc(String(first.front).replace(/\s+/g, " ").trim().slice(0, 90)) : "";
+    const cs = cardStyleOf(d), nm = esc(d.name);
     return `<article class="rv-card rv-deck" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <button class="rv-peek rv-fan cs-${esc(cs)}" data-act="fc-open" data-id="${esc(d.id)}" aria-label="Open ${nm}">
         <span class="face rv-f rv-f3" aria-hidden="true"></span><span class="face rv-f rv-f2" aria-hidden="true"></span>
-        <span class="face rv-f rv-f1" aria-hidden="true">${term ? `<span class="face-text">${term}</span>` : `<span class="face-text rv-blank">${st.total ? "" : "No cards yet"}</span>`}</span>
+        <span class="face rv-f rv-f1" aria-hidden="true"><span class="face-text rv-title" title="${nm}">${nm}</span></span>
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title" title="${nm}">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
-        <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
+      <div class="rv-foot rv-foot-bar">
+        <div class="rv-row"><div class="rv-sub">${window.SBEXAM ? SBEXAM.deckTag(d) : ""}<span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
     </article>`;
@@ -73596,7 +73602,9 @@ window.SBLOCALANS = (() => {
   async function catalog(q, o){
     o = o || {};
     const refs = new Map(), byKey = new Map(), cnt = {}, L = [];
-    const ref = (p, t) => { const k = t.kind + ":" + (t.key || t.id) + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
+    // (the id and the key both: an event's key is its date, so a second event the same day was given the first one's ref, and
+    // "make the meeting 30 min" changed the clinical orientation before it)
+    const ref = (p, t) => { const k = t.kind + ":" + (t.id || "") + ":" + (t.key || "") + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
     const today = todayISO(), cl = id => { const c = id && state.courses[id]; return c ? courseLabel(c) : ""; };
     // courses and their weekly class times
     const cs = coursesArr();
@@ -73604,7 +73612,7 @@ window.SBLOCALANS = (() => {
     // tasks
     const all = tasksArr(), open = all.filter(t => t.status !== "done").sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 220);
     const done = all.filter(t => t.status === "done").sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 30);
-    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
+    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}${t.status !== "done" && t.due < today ? " OVERDUE" : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
     if (open.length) L.push("OPEN TASKS (ref | title | course | type | due | status | priority):\n" + open.map(tl).join("\n"));
     if (done.length) L.push("RECENTLY FINISHED TASKS:\n" + done.map(tl).join("\n"));
     // classes and events, one line per day they happen (two weeks back, five ahead)
@@ -73612,6 +73620,10 @@ window.SBLOCALANS = (() => {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // days off from the school calendar (no classes meet then, so the list above has none that day): named, so an answer says why
+    try { if (window.SBSCHOOL && SBSCHOOL.off && typeof schoolCfg === "function") { const sc = schoolCfg(), offs = [];
+      for (let d = addDays(today, -7); d <= addDays(today, 35); d = addDays(d, 1)) { const x = SBSCHOOL.off(sc, d); if (x) offs.push(`${wd(d)} ${d}: ${x.name || "day off"}`); }
+      if (offs.length) L.push("SCHOOL DAYS OFF (no classes meet these days; events and due dates still happen):\n" + offs.map(x => "- " + x).join("\n")); } } catch (e) {}
     // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
@@ -73623,10 +73635,12 @@ window.SBLOCALANS = (() => {
     const ds = decksArr();
     if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
     const onDeck = ui.tab === "flashcards" && ui.deckId && state.decks[ui.deckId] ? state.decks[ui.deckId] : null;
+    // (o.decks: more decks whose cards are listed, for a step that changes cards in them: Claude's, in the Companion tab)
+    (o.decks || []).map(id => state.decks[id]).filter(d => d && d !== onDeck && d.cards.length).slice(0, 8).forEach(d => L.push(`CARDS IN "${clip(d.name, 60)}" (ref | front | back | times right / wrong in study):\n` + d.cards.slice(0, 120).map(c => `${ref("F", {kind: "card", deck: d.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)} | ${c.right || 0} right / ${c.wrong || 0} wrong`).join("\n")));
     if (onDeck && onDeck.cards.length) L.push(`CARDS IN "${clip(onDeck.name, 60)}" (ref | front | back):\n` + onDeck.cards.slice(0, 200).map(c => `${ref("F", {kind: "card", deck: onDeck.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)}`).join("\n"));
     // notes and whiteboards
     const ns = notesArr().filter(n => !n.archived && String(n.text || "").trim()).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 150);
-    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, 160)}`).join("\n"));
+    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, o.full ? 1500 : 160)}`).join("\n"));
     const D = descs(), wbs = Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).slice(0, 80);
     if (wbs.length) L.push("WHITEBOARDS (ref | name | course | typed text | what's drawn, written or pictured on it):\n" + wbs.map(n => {
       const d = D[n.id] && D[n.id].d, typed = (n.wbItems || []).filter(i => i.k === "t").map(i => i.s).join(" / "), own = ref("W", {kind: "board", id: n.id});
@@ -73669,7 +73683,7 @@ window.SBLOCALANS = (() => {
 
   /* ---------- 3. What the AI may answer with ---------- */
   const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
-    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
+    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting", "mark", "color"];
   const SHOW_CHANGE = {
     focusMinutes: {type: "INTEGER", description: "When the student asks to start a focus timer, focus session or pomodoro: its length in minutes (use 25 if they gave none). The app starts it right away. 0 otherwise."},
     show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
@@ -73708,9 +73722,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
   const fieldOk = {
-    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete"],
-    course: ["name", "code", "instructor", "room"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
-    deck: ["name"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
+    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete", "mark"],
+    course: ["name", "code", "instructor", "room", "color", "delete"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
+    deck: ["name", "delete"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
     note: ["text", "delete"], board: ["name"], file: ["name", "course", "delete"]
   };
   const yes = v => /^(yes|true|1|on|delete|skip|cancel)$/i.test(String(v || "").trim());
@@ -73775,10 +73789,17 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "type") { if (!TYPES.includes(raw)) return null; return S(k.type, raw); }
         if (field === "hours") { const n = Number(raw); if (!(n >= 0 && n <= 500)) return null; out.value = n; return S(k.hours ? k.hours + "h" : "none", n + "h"); }
         if (field === "weight") { const n = Number(String(raw).replace("%", "")); if (!(n >= 0 && n <= 100)) return null; out.value = n; return S(k.weight ? k.weight + "%" : "none", n + "%"); }
+        // a mark: "17/20", "17 out of 20", "85%" or "85" (out of 100); empty takes it off
+        if (field === "mark") { const was = k.mark && k.mark.got != null && k.mark.outOf > 0 ? `${k.mark.got}/${k.mark.outOf}` : "none";
+          if (!raw || /^(none|clear|remove|delete)$/i.test(raw)) { if (was === "none") return null; out.value = null; return S(was, "no mark"); }
+          const fr = /^(\d+(?:\.\d+)?)\s*(?:\/|out of)\s*(\d+(?:\.\d+)?)$/i.exec(raw), pc = /^(\d+(?:\.\d+)?)\s*%?$/.exec(raw), mk = fr ? {got: Number(fr[1]), outOf: Number(fr[2])} : pc ? {got: Number(pc[1]), outOf: 100} : null;
+          if (!mk || !(mk.outOf > 0) || mk.got < 0 || mk.got > mk.outOf * 2) return null; out.value = mk; return S(was, `${mk.got}/${mk.outOf}`); }
         if (field === "course") { const ct = refs.get(raw.toUpperCase()); if (!ct || ct.kind !== "course" || !state.courses[ct.id]) return null; out.value = ct.id; return S(k.courseId && state.courses[k.courseId] ? courseLabel(state.courses[k.courseId]) : "none", courseLabel(state.courses[ct.id])); }
         if (!raw && field === "title") return null;
         return S(clip(k[field], 80) || "empty", clip(raw, 80) || "empty");
       }
+      if (t.kind === "course" && field === "delete") return yes(raw) ? S("", "Delete the course (its tasks stay)") : null;
+      if (t.kind === "course" && field === "color") { if (!/^#[0-9a-f]{6}$/i.test(raw)) return null; return S(state.courses[t.id].color || "none", raw.toUpperCase()); }
       if (t.kind === "course") { if (!raw && field === "name") return null; return S(clip(state.courses[t.id][field], 60) || "none", clip(raw, 60)); }
       if (t.kind === "class" || t.kind === "event") {
         if (field === "skip") return yes(raw) ? S(`${nice(t.date)}, ${tm(t.start)}`, "Cancelled that day") : null;
@@ -73793,6 +73814,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "title" || field === "notes") return raw || field === "notes" ? S(clip(state.events[t.id][field], 60) || "none", clip(raw, 60) || "none") : null;
         return null;
       }
+      if (t.kind === "deck" && field === "delete") return yes(raw) ? S("", "Delete the deck") : null;
       if (t.kind === "deck") return raw ? S(state.decks[t.id].name, clip(raw, 80)) : null;
       if (t.kind === "quiz") { const z = state.decks[t.deck].aiQuizzes.find(x => x.id === t.id); return z && raw ? S(z.title, clip(raw, 80)) : null; }
       if (t.kind === "card") { const k = state.decks[t.deck].cards.find(x => x.id === t.id); if (!k) return null; if (field === "delete") return yes(raw) ? S("", "Delete the card") : null; if (!raw) return null; return S(clip(k[field], 100), clip(raw, 100)); }
@@ -73946,9 +73968,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (t.kind === "task") {
         if (c.field === "delete") { dead.add("task:" + t.id); continue; }
         const n = get("task", t.id); if (!n) continue;
+        if (c.field === "mark") { if (v) n.mark = Object.assign({}, n.mark || {}, v); else delete n.mark; continue; }
         const map = {startDate: "start", course: "courseId"}; n[map[c.field] || c.field] = v;
         if (c.field === "status") { if (v === "done" && !n.doneAt) n.doneAt = Date.now(); if (v !== "done") n.doneAt = null; }
-      } else if (t.kind === "course") { const n = get("course", t.id); if (n) n[c.field] = v; }
+      } else if (t.kind === "course") { if (c.field === "delete") { dead.add("course:" + t.id); continue; } const n = get("course", t.id); if (n) n[c.field] = v; }
       else if (t.kind === "class") {
         const n = get("course", t.id); if (!n) continue;
         if (c.scope === "once" || c.field === "skip" || c.field === "date") {
@@ -73972,7 +73995,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           else if (c.field === "date" || c.field === "from" || c.field === "to") { const mv = Object.assign({date: t.date, start: t.start, end: t.end}, n.moved[t.key] && !n.moved[t.key].skip ? n.moved[t.key] : {}); if (c.field === "date") mv.date = v; if (c.field === "from") mv.start = v; if (c.field === "to") mv.end = v; n.moved[t.key] = mv; }
           else n[c.field] = v;
         } else { const map = {from: "start", to: "end"}; n[map[c.field] || c.field] = v; }
-      } else if (t.kind === "deck") { const n = get("deck", t.id); if (n) n.name = v; }
+      } else if (t.kind === "deck") { if (c.field === "delete") { dead.add("deck:" + t.id); continue; } const n = get("deck", t.id); if (n) n.name = v; }
       else if (t.kind === "quiz" || t.kind === "card" || t.kind === "question") {
         const n = get("deck", t.deck); if (!n) continue;
         if (t.kind === "card") { if (c.field === "delete") n.cards = n.cards.filter(x => x.id !== t.id); else { const k = n.cards.find(x => x.id === t.id); if (k) k[c.field] = v; } }
@@ -74016,7 +74039,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       }
     }
     if (!rest.length && o.shown) try { o.shown(); } catch (e) {}
-    for (const s of sets) await settingChange(s);
+    for (const s of sets) { const r = await settingChange(s, o.direct); if (o.results) o.results.push(r); }
+    // (made from the chat: the Settings sheet it worked in is closed again, so the chat carries on)
+    if (o.direct && sets.length) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
     return true;
   }
 
@@ -74048,7 +74073,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const d = r && r.data; const i = d ? Number(d.i) : -1;
     return i >= 0 && i < list.length ? {c: list[i], value: String(d.value || "").trim()} : null;
   }
-  async function settingChange(s){
+  // direct: asked for in so many words in the chat (Claude's step): set at once, without the confirm box (it can be set back the same way)
+  async function settingChange(s, direct){
     try {
       if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
       menuSheet(); await frame(); await wait(120);
@@ -74059,7 +74085,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (found.c.type !== "open") break;
         found.c.el.click(); await frame(); await wait(250); found = null;
       }
-      if (!found) { toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
+      if (!found) { if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} return false; } toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
       const {c} = found; let v = found.value;
       const el = c.el || (c.type === "choice" && c.els ? c.els.find(b => clip(b.innerText, 30).toLowerCase() === v.toLowerCase()) : null);
       if (c.type === "choice" && c.els && !el) { toast("That setting doesn't have that option."); return false; }
@@ -74068,13 +74094,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       await wait(200); flash(target.closest(".menu-row, .cap-row, label, li") || target);
       if (c.type === "toggle") v = /^(on|yes|true|enable|enabled|show)$/i.test(v) ? "on" : "off";
       if (c.type === "toggle" && v === c.now) { toast(`${clip(c.title.split(/[.!]/)[0], 50)} is already ${v}.`); return true; }
-      const ok = await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
+      const ok = direct ? true : await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
       if (!ok) { toast("Nothing changed."); return false; }
       if (c.type === "toggle") c.el.click();
       else if (c.type === "choice" && c.els) el.click();
       else if (c.el.tagName === "SELECT") { const o = [...c.el.options].find(x => x.textContent.trim().toLowerCase() === v.toLowerCase()); if (!o) { toast("That setting doesn't have that option."); return false; } c.el.value = o.value; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
       else { c.el.value = v; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
-      return true;
+      if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
+      return {title: clip(c.title.split(/[.!]/)[0], 60), from: c.now || "", to: v};
     } catch (e) { console.warn("assist setting", e); toast((e && e.message) || "Couldn't change that setting."); return false; }
   }
 
@@ -74346,6 +74373,13 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      // checks before anything is changed: taking a mark off never deletes the task; a rename of "it" whose task their words don't name
+      // ("for psych, call it Psych Pals" renamed Psych Midterm) is asked about
+      if (qe && qe.length) { const w = String(q).toLowerCase(), named = l => { const ws = (String(l || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); };
+        if (qe.some(c => c.field === "delete") && /\b(grades?|marks?|scores?|results?|percent|points)\b/.test(w) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/.test(w))
+          return {answer: `I can't take a mark off from the chat yet, so I didn't change anything (${qe.find(c => c.field === "delete").label} and its mark are as they were). Open the task and clear its mark, or tell me the right mark and I'll save that instead.`, show: [], changes: [], local: true};
+        if (qe.some(c => c.field === "title") && /\b(it|that|this|them)\b/.test(w) && !qe.filter(c => c.field === "title").every(c => named(c.label)))
+          return {answer: "Which one should I rename? Say its name, for example: rename Care Plan 2 to ...", show: [], changes: [], local: true}; }
       if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
@@ -77254,7 +77288,9 @@ window.SBCARDS = (() => {
   const DOIT_Q = /^\s*(ok(ay)?|yes|yeah|yep|sure|please|go ahead|go|do it|do that|make it|make that|create it|build it|just do it|now)\b[^?]{0,40}$|^\s*(can|could|will|would) you (just )?(make|do|create|build|draw|put) (it|that|this|one)\b/i;
   async function mapAct(q){
     if (!window.SBCMAP || !SBCMAP.createFrom) return null;
-    const course = (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
+    // (a course named anywhere in the words, "a psych concept map", as well as "in BIOS 230": it went to General otherwise)
+    const cn = window.SBTRUTH && SBTRUTH.courseIn ? SBTRUTH.courseIn(q) : null;
+    const course = cn ? (cn.code || cn.name) : (q.match(/\b(?:in|for|under|to) (?:my )?([A-Z][\w&.-]*(?: [A-Z0-9][\w&.-]*){0,3})(?: course| class)?\b/) || [])[1] || "";
     try {
       const r = await SBCMAP.createFrom(q.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?/i, ""), course);
       return {answer: `I made ${r.name}${r.ideas ? ` with ${r.ideas} ideas` : ""} in ${r.where}. Tap Open Map to see it; you can drag, rename or add ideas there.`, sources: [], followUps: [], actions: [],
@@ -77364,6 +77400,15 @@ window.SBCARDS = (() => {
       if (!res || (!(res.changes || []).length && !res.timer && !forced && A.CLAIMS.test(res.answer || ""))) return null;
       // a change to their tasks asked for in so many words: done now (Undo, or "undo", takes it back), not left to confirm
       const ch = (res.changes || []).filter(c => c && c.t && (c.t.kind === "task" || c.t.kind === "newtask"));
+      // the same checks as the intent step: taking a mark off never deletes the task; a rename of "it" with nothing to point at and a name
+      // their words never say is asked about, not guessed
+      { const w = String(q).toLowerCase(), said = v => (String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []).some(x => w.replace(/\bto\b.*$/, "").includes(x));
+        if (ch.some(c => c.field === "delete") && /\b(grades?|marks?|scores?|results?|percent|points)\b/.test(w) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/.test(w))
+          return {answer: `I can't take a mark off from the chat yet, so I didn't change anything (${ch.find(c => c.field === "delete").label} and its mark are as they were). Open the task and clear its mark, or tell me the right mark and I'll save that instead.`, sources: [], followUps: [], actions: []};
+        const R = ((chat && chat.msgs) || []).slice(-3).some(x => x.a && (x.a.ref || (x.a.changes || []).length));
+        const named = l => { const ws = (String(l || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); };
+        if (!R && ch.some(c => c.field === "title" && c.t.kind === "task") && /\b(it|that|this|them)\b/.test(w) && !ch.filter(c => c.field === "title").every(c => named(c.label)))
+          return {answer: /\bgroups?\b/.test(String(((chat && chat.msgs) || []).slice(-1).map(x => x.q).join(" ")).toLowerCase()) ? "A study group is named when you make it: open Groups, tap New Group, and name it there (groups need you signed in)." : "Which one should I rename? Say its name, for example: rename Care Plan 2 to ...", sources: [], followUps: [], actions: []}; }
       if (ch.length && ch.length === (res.changes || []).length && A.build) {
         if (ch.every(c => c.from && c.from === c.to)) return {answer: `${ch[0].label} is already ${String(ch[0].to).toLowerCase()}.`, sources: [], followUps: [], actions: []};
         const built = A.build(ch); if (built.length) {
@@ -77957,8 +78002,7 @@ Careful, these are easy to mix up:
   async function intentAct(q, chat, att, preset){
     const r = await intentAct0(q, chat, att, preset);
     // a question back ("What should the deck be called?"): what it was doing is kept, so the next message can answer it
-    // (a question the step set itself, "Replace it with 17/100?", keeps its own: it knows what "yes" or "no" means)
-    if (r && r.answer && LASTD && !r.awaiting && LASTD.intent !== "question" && LASTD.intent !== "chat" && LASTD.intent !== "cant" && /\?(\s|$)|For example:/.test(r.answer) && !/\b(undo|Done|Added|Made|Saved|moved|marked)\b/.test(r.answer)) r.awaiting = {d: LASTD, q: String(q).slice(0, 300)};
+    if (r && r.answer && !r.awaiting && LASTD && LASTD.intent !== "question" && LASTD.intent !== "chat" && LASTD.intent !== "cant" && /\?(\s|$)|For example:/.test(r.answer) && !/\b(undo|Done|Added|Made|Saved|moved|marked)\b/.test(r.answer)) r.awaiting = {d: LASTD, q: String(q).slice(0, 300)};
     // what was done, so "no, I meant X" can do it to X instead
     else if (r && r.answer && LASTD && !r.awaiting) r.did = Object.assign({}, LASTD, {cands: null});
     return r;
@@ -78099,7 +78143,7 @@ Careful, these are easy to mix up:
           else { d.intent = {rename_task: "rename_item", delete_task: "delete_item"}[d.intent] || d.intent; d.kind = R.kind; d.item = refName(R); if (R.kind === "deck") d.deck = refName(R); } }
         // "it" with nothing the chat just made or showed, and a name their words never say: which one is asked, never guessed ("make a study
         // group" then "for psych, call it Psych Pals" renamed the Psych Midterm task)
-        else if (!R && !preset && /^(rename_item|rename_task|delete_item|delete_task)$/.test(d.intent) && /\b(it|that|this|them)\b/.test(w) && !said(d.item || d.task || d.deck)) {
+        else if (!R && !preset && /^(rename_item|rename_task|delete_item|delete_task)$/.test(d.intent) && /\b(it|that|this|them)\b/.test(w) && !(v => { const ws = (String(v || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); })(d.item || d.task || d.deck)) {
           LASTD = Object.assign({}, d, {intent: "cant"});
           const grp = /\bgroups?\b/.test(String(((chat && chat.msgs) || []).slice(-1).map(x => x.q).join(" ")).toLowerCase());
           return say(grp ? `A study group is named when you make it: open Groups, tap New Group, and call it ${clip(String(d.title || "").trim() || "what you like", 40)} there (groups need you signed in).` : `Which one should I ${/rename/.test(d.intent) ? "rename" : "delete"}? Say its name, for example: rename Care Plan 2 to ...`);
@@ -78396,6 +78440,279 @@ Careful, these are easy to mix up:
     return "";
   }
   const CHAT_MAX = 100000;
+  /* ---------- Claude (Studyboard AI, or a Claude key in Studyboard AI Mode): one step that understands, answers and does ----------
+     The small on-device models need the steps above (exact handlers, a narrow intent step, then checks of its choice against the
+     words). Claude doesn't: those steps, made for the small models, were what went wrong for it (a "set it back to to-do" the words
+     check turned into chat, "extended by 2 days" counted from today because the intent step never saw due dates, cards made from
+     the wrong note). So with Claude, one request carries the whole planner with a ref for everything, the conversation and what each
+     earlier reply changed; Claude answers and lists the changes, and the app checks each one against the planner (98-assist.js
+     check), makes the valid ones in one step (one undo) and says plainly what it couldn't do. Never on the device's AI. */
+  const claudeMode = () => { try { return !(typeof aiOnDevice === "function" && aiOnDevice()) && typeof aiSbMode === "function" && typeof aiCfg === "function" && aiSbMode(aiCfg()); } catch (e) { return false; } };
+  const AG_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const AGENT_SCHEMA = {type: "OBJECT", properties: {
+    answer: {type: "STRING", description: "Your reply to the student, written as if every change you list below is already made"},
+    changes: {type: "ARRAY", items: {type: "OBJECT", properties: {ref: {type: "STRING"}, item: {type: "STRING"}, field: {type: "STRING"}, value: {type: "STRING"}, scope: {type: "STRING"}, setting: {type: "STRING"}}}},
+    newTasks: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, course: {type: "STRING"}, type: {type: "STRING"}, due: {type: "STRING"}, time: {type: "STRING"}, priority: {type: "STRING"}, notes: {type: "STRING"}}}},
+    newEvents: {type: "ARRAY", items: {type: "OBJECT", properties: {title: {type: "STRING"}, date: {type: "STRING"}, from: {type: "STRING"}, to: {type: "STRING"}, where: {type: "STRING"}, course: {type: "STRING"}}}},
+    newCourses: {type: "ARRAY", items: {type: "OBJECT", properties: {name: {type: "STRING"}, code: {type: "STRING"}, instructor: {type: "STRING"}, room: {type: "STRING"}, color: {type: "STRING"}}}},
+    newClasses: {type: "ARRAY", items: {type: "OBJECT", properties: {course: {type: "STRING"}, kind: {type: "STRING"}, days: {type: "STRING"}, from: {type: "STRING"}, to: {type: "STRING"}, where: {type: "STRING"}}}},
+    newNotes: {type: "ARRAY", items: {type: "OBJECT", properties: {text: {type: "STRING"}, board: {type: "STRING"}}}},
+    newDecks: {type: "ARRAY", items: {type: "OBJECT", properties: {name: {type: "STRING"}, course: {type: "STRING"}, cards: {type: "ARRAY", items: {type: "OBJECT", properties: {front: {type: "STRING"}, back: {type: "STRING"}}}}}}},
+    newCards: {type: "ARRAY", items: {type: "OBJECT", properties: {deck: {type: "STRING"}, front: {type: "STRING"}, back: {type: "STRING"}}}},
+    timer: {type: "OBJECT", properties: {do: {type: "STRING"}, minutes: {type: "NUMBER"}, task: {type: "STRING"}}},
+    undo: {type: "BOOLEAN"},
+    study: {type: "STRING"},
+    show: {type: "ARRAY", items: {type: "STRING"}},
+    page: {type: "STRING"},
+    theme: {type: "STRING"},
+    wear: {type: "ARRAY", items: {type: "OBJECT", properties: {item: {type: "STRING"}, on: {type: "BOOLEAN"}, color: {type: "STRING"}}}},
+    group: {type: "OBJECT", properties: {do: {type: "STRING"}, name: {type: "STRING"}, code: {type: "STRING"}}}},
+    required: ["answer"]};
+  const AGENT_RULES = `You read the student's newest message in the light of the conversation, then answer it and, when they ask for something to be done in Studyboard, do it. Reply with ONE JSON object: {"answer": "..."} plus only the keys you need from the list under DOING THINGS.
+
+DOING THINGS
+Studyboard makes every change you put in the JSON the moment you reply, then shows your answer. So write the answer as done, one short sentence per change with the exact name and the new value ("Moved Lab Report: Cardiac Cycle to Sat, Nov 28."). Never tell them to do something themselves that you can do here, never ask them to confirm a change they asked for, and never say you did anything that isn't in the JSON.
+- Any wording counts: "tick off the quiz", "history essay got extended by 2 days", "journal 3: 9/10 :)", "psych midterm = top priority", "gym tmrw 7am", "it's actually for psych", "lab report due thursday at 11:59pm", "foundations instructor is Ms. Brooks". A statement of a new fact about their planner (a new due date, a mark they got, a room, a new appointment, a class they dropped) is a request to update it. But a date said in passing while they tell a story or vent ("ugh my lab partner, and the cardiac lab is due thursday") that differs from the planner: point out the planner's date and ask which is right; change nothing yet.
+- Concept maps live in each course (Courses, then the course's Maps). "Open concept maps": go to Courses and say where they are; you can't make or change a map in this reply.
+- A question changes nothing ("is chapter 7 for foundations?", "did I finish care plan 2?", "psych quiz 1 was 17/20 right?", "how do I add a course?"): just answer it. So does chat, and a plan they mention ("I'll do the reading later").
+- Several things in one message: do every one of them. "both", "all my A&P tasks", "everything due this week": one change per matching item (check each against the data).
+- Follow-ups belong to the conversation: "it", "that one", "the a&p one", "same for chapter 7", "and the quiz too", "actually one more day", "make it 30 min", "do the same for thursday and saturday", or a bare "thursday" / "blue" / "the care plan, out of 20" answering what you just asked. The [Studyboard changed: ...] lines show what each earlier reply really changed (old → new).
+- "undo", "undo that", "never mind, leave it", "put it back" right after a change: "undo": true reverses the whole last change. To reverse only part of it ("undo just the lab report part", "no just the care plan, not the midterm"), set those fields back to their old values from the [Studyboard changed] line instead. "I meant X" right after a change to the wrong item: put the wrong one back and make the change to X.
+- Dates: use CALENDAR for weekdays ("friday" is the next Friday from today, "next tuesday" the Tuesday of next week). A change counted from something ("push it back a week", "extended by 2 days", "moved up a day", "one more day", "2 days before the history essay", "the day after the study group") is counted from that item's current date in the data, not from today. A date that doesn't exist (Nov 31) or a day you can't tell: ask, change nothing.
+- When you asked a question and they answer it ("thursday", "sunday", "the cardiac lab", "diastole"), do it now, filling in anything else with what you suggested; never ask the same question twice. But "i finished it" with nothing in the conversation saying what: ask which task.
+- Ask first before deleting several things at once or anything that has a mark ("clear all my done tasks").
+- "Push", "move back", "extend" mean later: "push it to wednesday" is the next Wednesday after its current due date, never earlier.
+- Marks are numbers ("17/20", "85%"). A letter grade ("I got an A on the essay"): mark it done if they finished it and ask for the score; don't save a letter.
+- A deck given just a name ("make me a deck" then "Cardiology", "call it Psych Meds") is an empty deck: write cards only when they ask for cards on something. A card whose topic doesn't fit the deck they named ("add sublimation card to heart"): ask which deck.
+- "The study group" when there's a calendar event called Study group is that event (rename it with its title), not a Study Groups group.
+- "Add those to my calendar" after a plan you wrote: newEvents on the plan's days and times, titled plainly (no time estimates in titles).
+- A timer started while one task is being talked about ("ok start a timer", "let's do 25 min" for the essay) is for that task: give its ref.
+- Something you can't do ("call the clinical coordinator"): say so and offer a reminder, but add nothing unless they ask for one.
+- Change only what they asked for: nothing extra (no notes, weights or priorities they didn't mention). Numbers they give you for a calculation or a what-if ("the midterm is worth 40%, A is 90") change nothing unless they ask you to save them.
+- A new due date or event day in the past ("move the essay to yesterday"): say it's in the past and ask if they're sure; change nothing yet.
+- Deleting: only when the words name the item clearly. "Delete the quiz" when they have several quizzes (open or done): ask which. Dropping a course: ask first.
+- When you truly can't tell which item they mean (two match equally) or a needed detail is missing (a new task with no name), ask one short question and change nothing. If one item clearly fits, just do it.
+- "Go ahead", "do it", "yes", "sure" right after you offered or suggested changes: make exactly those changes now.
+- "undo" can go together with other changes in one reply (the undo happens first): "don't delete 3, mark it done instead" = "undo": true plus the change to mark it done.
+- Something repeating ("every sunday until the exam", "a weekly reminder to review my heart cards"): add one task or event for each date, up to the date they give or for the next 4 weeks, and say which dates.
+- App settings (text size, notifications and reminders, daily study hours, language, sounds, the daily quote...) you change with a SETTINGS change: never say a setting can't be changed before trying.
+- Something Studyboard can't do (send an email or text, check or submit on Brightspace, book or buy something, print, a phone alarm, see their other apps): say so honestly in one sentence, change nothing, and offer what you can do instead (like adding a task or an event to remind them). Never pretend.
+
+What you can change, and how (refs are the codes in the data, like T3, C2, K14, D1, F5, N2):
+- "changes": [{"ref","item","field","value","scope"}] on things that exist; "item" is that thing's name exactly as listed next to its ref (a check that the ref is the right row).
+  task (T): title; due (YYYY-MM-DD); time (HH:MM 24h, "" for none); status todo|doing|done ("not started"/"to-do"/"reopen" = todo; "started", "in progress", "working on it" = doing; finished/submitted/handed in = done); priority low|med|high|urgent ("important", "top priority" = high, unless they say urgent); notes; hours; type; course (a C ref: "it's actually for psych"); weight; mark ("17/20", "42/50", "85%"; "" to take a mark off; if it already has a different mark and they didn't say it's a correction or a regrade, ask first); delete yes.
+  course (C): name, code, instructor, room, color (a colour word or #RRGGBB), delete yes (only once they confirm dropping it; its tasks stay unless they say to delete them too).
+  a marked item (G): mark (the same as its task's mark).
+  event (K that is an event): title, date, from, to, where, notes, delete yes ("make it an hour longer" = a later "to"; moving the start keeps the length: change from and to).
+  class (K that is a class): with scope "once" (that day only: date, from, to, skip yes) or "all" (every week: from, to, where, weekday).
+  deck (D): name, delete yes. card (F): front, back, delete yes. sticky note (N): text (the whole new text: "add X to my REBT note" = that note's text with X added, never a new note), delete yes. file (P): name, course, delete yes.
+  app settings: {"ref":"SETTINGS","field":"setting","setting":"<which, in words>","value":"<new value>"}.
+- "newTasks": [{"title","course" (C ref),"type" (Assignment|Exam|Quiz|Reading|Project|Lab|Study|Other),"due","time","priority","notes"}] for schoolwork and things to do or hand in, things they say they need to do ("i need to review the rubric tonight"), study time with no clock time ("study for the final every sunday": type Study, one per day), and reminders: "remind me to email Dr. Lee", "add a reminder to email my instructor before Wednesday" is a task ("Email clinical instructor") due then. You can't send the email, but the reminder you CAN add, so add it.
+- "newEvents": [{"title","date","from","to","where","course"}] for things at a time: appointments, shifts, gym, dinners, meetings, office hours, study sessions, practices. One per date ("every sunday until the exam" = one for each of those Sundays). Copy time and place from another event when they say "same time and place as ...".
+- "newCourses": [{"name","code","instructor","room","color"}].
+- "newClasses": [{"course": C ref,"kind": "Lecture"|"Lab"|"Tutorial"|"Seminar"|"Office Hours","days": "Mon,Wed","from","to","where"}]: a course's weekly class times ("add psych mondays and wednesdays 10-12", "BIOS lab is fridays 2-5").
+- "newNotes": [{"text","board"}]: a sticky note with their words (board: a note board's name, or "" for My Notes). "Remember that ...", "note to self", "jot down", "sticky note: ...", and the words they give after you asked what a note should say, are a note (never a task, and never a task's notes), even when the words mention buying or emailing something.
+- "newDecks": [{"name","course","cards":[{"front","back"}]}]: flashcards. Write the cards yourself: accurate, one fact each, a clear question on the front. From the note, deck or topic they name (the note's full text is in STICKY NOTES); the number they ask for, else 6 to 10. An empty new deck has "cards": [].
+- "newCards": [{"deck": D ref,"front","back"}]: cards into an existing deck. "keep only 4" = delete the rest of that deck's cards (their F refs are under CARDS IN); "make them harder" = new front/back on those F refs; "put those in my X deck instead" = newCards into X with the same cards, and delete the deck you just made; "make a new deck called WWI for it" = a new deck holding that card, and delete the card or deck it was in. Before adding a card, look at the deck's cards under CARDS IN: if the same card is already there, ask instead of adding a copy. When they give a card's front and back after you asked ("what does the AV node do / delays the impulse"), add it. "Save those as cards" after a quiz: a card for every question of that quiz (all of them, including ones you haven't asked yet). Only use notes, decks or files that exist: "the note I just made" when no note was just made gets a question.
+- "timer": {"do": "start"|"stop"|"pause"|"resume"|"link","minutes","task": T ref}. A pomodoro is 25 minutes. "make it 50 minutes" while one runs = start 50. "it's for the a&p quiz" while one runs = link.
+- "undo": true (see above).
+- "study": a D ref, to start a flashcard study session on that deck ("study my heart deck", "start a flashcard session for psych terms", "study them" after making cards).
+- "show": [refs] only when they ask to open, find or go to a particular thing ("open my heart deck", "where's my freud note"); "show me them", "list my quizzes", "what's in it" are answered in the chat, listing them in your answer. "page": today|calendar|flashcards|notes|courses|files|groups|grades|settings|companion when they ask to go to a part of the app.
+- "theme": a theme's name, or dark|light|system. A theme or mode isn't reversed by "undo": to set it back ("undo the dark mode"), give the theme or mode it was before (in the [Studyboard changed] line, or LOOK NOW). "wear": [{"item","on": true|false,"color"}] for what you (the companion) wear: put on, take off, or recolour an accessory you have. Only the accessories listed as yours: asked for one you don't have (a beanie, a crown), say you haven't unlocked it yet (the Wardrobe shows how) and wear nothing else instead.
+- "group": {"do": "new"|"join","name","code"}: start a study group (it opens New Group filled in) or join one with an invite code.
+
+ANSWERING
+- About their planner: read it exactly from the data (titles, due dates with the weekday, times, marks, rooms, instructors). "What am I working on" = tasks with status doing. A task marked OVERDUE is late: say so ("was due Mon, Nov 23, so it's overdue"), never as if it's still coming up. When they ask for a list (what's due, my marks, my quizzes, what's tomorrow), include every matching item from the data, done and open where it fits, and nothing that doesn't match. "Today"/"tomorrow" include classes and events from CLASSES AND EVENTS BY DATE as well as tasks due. Count and compare carefully. Never invent their data; if something they ask about in their planner isn't there, say so briefly.
+- "What should I do next" and plans for today: follow TODAY'S PLAN and DO THIS NEXT. But when the conversation is about one course or worry ("i'm scared of failing A&P" then "what do i do first"), answer within that: the first step for A&P.
+- Time they have ("I have the whole weekend free", "I've got a free hour now", "2 hours tonight"): that's study time to plan, so suggest what to do with it from what's due soonest (name the tasks and roughly how long each), and "split it up for me" then means a schedule for that time.
+- "Quiz me on what's due this week" means on the material those tasks cover (the A&P quiz's heart content, the psych terms), never on due dates.
+- Their notes, cards and files: quote and explain what they say (STICKY NOTES has each note's text).
+- Subject questions (science, history, maths, words, anything): answer from your own knowledge, correctly, directly and at the depth asked. Start with the answer itself. Don't mention their planner, notes or files unless they help with this question, and never say what you checked or that a topic "isn't in your notes" or "isn't in your planner".
+- Something to write (a study plan, a schedule, a timeline, a mnemonic, a rhyme, a summary, an email draft, practice questions): write it in the answer. If they say "quiz me" or "ask me ...", ask one question at a time (the question only, never its answer) and mark their answer next turn: check it carefully against the facts (an order of steps must be the right order), say right or wrong plainly, give the correct answer when it's wrong, then ask the next question. A quiz on a deck uses that deck's cards (under CARDS IN).
+- Just chatting (hello, how are you, feelings, jokes, questions about you): reply like a friend, briefly, to exactly what they said, and follow the conversation; play along with games and jokes. Don't bring up their tasks, deadlines, today's plan, the timer or what to work on unless they bring up school themselves, and never end a chat reply with "want to start on X?". When they do bring up school (stress about an exam, "I still have a lab report"), mention only what they brought up, kindly. When they mention a plan or event on a day ("my cousin's wedding saturday", "I have clinical wednesday"), match it to the planner: say kindly if something is due that day or if their planner has it on another day (clinical orientation is Friday). A mark they mention while venting that's already saved ("my quiz 1 was 11/20 too") is a feeling to answer kindly, not something to save. When they ask you for something to write or say (a motto, a pep talk, a joke "about nursing"), write it. Never repeat a suggestion you already made. Don't start a timer or change anything because of a feeling or a plan they mention ("ok 25 min then sleep"): just encourage them, unless they ask you to start one.
+- Plans and schedules: never put work on a task after its due date, keep a task's parts in order, fit the time they said ("after dinner" is the evening, "2 hours tonight" is two hours), and stick to the plan you already gave when they ask "what after that".
+- Write dates like "Wed, Nov 25" (never "Wednesday Wed"). Say only facts you're sure of: no made-up firsts, awards, dates or numbers; count items carefully (a course's decks are the ones with that course).
+- Mnemonics, rhymes, jokes, mottos: write only the final version (no drafts or "no, better:"), check that a mnemonic's letters really spell the word, and "shorter" means one or two lines. "Another one" means another of the same thing you just gave.
+- "Ask me ..." / "quiz me": give the question only, never its answer; "I give up" or "skip": give that question's answer, then the next question.
+- In nursing talk "pt" means the patient. "Switching subjects" in study talk means another course or topic.
+- Crisis lines only when they say something about hurting themselves, not wanting to live, or being in danger. "Please I need help" about a text message isn't that; and when they say never mind or move on, follow them without repeating it.
+- Your own colour can't be changed, only your accessories' colours ("make packy purple": they mean you; say so kindly and offer an accessory colour). Say you're wearing only what's listed as worn.
+- Plain text, no emojis; short paragraphs or "- " bullets; **bold** sparingly. Be brief unless they want detail.`;
+  // today and the weeks around it, so "friday", "next tuesday" and "the 1st" are read off, not worked out
+  function agCalendar(){ const t = todayISO(), L = []; for (let i = -7; i <= 28; i++) { const d = addDays(t, i); L.push(`${AG_DAYS[parse(d).getDay()]} ${d}${i === 0 ? " (today)" : i === 1 ? " (tomorrow)" : ""}`); } return "CALENDAR: " + L.join(", "); }
+  // how Studyboard looks now (so "undo the dark mode" or "go back to my old theme" can be set back)
+  function agLook(){ try { const sk = (SKINS || []).find(x => x.id === styleCfg().skin), mode = (() => { try { return localStorage.getItem(THEME_KEY) || "system"; } catch (e) { return "system"; } })();
+    return `LOOK NOW: ${sk ? sk.name + " theme" : "default theme"}, ${mode === "system" ? "light or dark following the device" : mode + " mode"}.`; } catch (e) { return ""; } }
+  function agTimer(){ try { if (typeof pomo === "undefined" || !(pomo.running || pomo.left > 0)) return "FOCUS TIMER: not running."; const ms = pomo.running ? pomo.endAt - Date.now() : pomo.left, t = pomo.taskId && state.tasks[pomo.taskId];
+    return `FOCUS TIMER: ${pomo.running ? "running" : "paused"}, ${Math.max(0, Math.round(ms / 60000))} min left${t ? ", for " + t.title : ""}.`; } catch (e) { return ""; } }
+  const agHex = (w, c) => { const s = String(w || "").toLowerCase().trim(); let hex = (/#[0-9a-f]{6}\b/i.exec(s) || [])[0] || ""; if (!hex) { const hit = Object.keys(NAMED).sort((a, b) => b.length - a.length).find(n => new RegExp("\\b" + n + "\\b").test(s)); if (hit) hex = NAMED[hit]; }
+    if (!hex) return ""; const anyOk = typeof anyColorLocked === "function" && !anyColorLocked(); if (anyOk || typeof COURSE_COLORS === "undefined" || COURSE_COLORS.some(x => x.toLowerCase() === hex.toLowerCase())) return hex.toUpperCase();
+    const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), a = rgb(hex); let pick = hex, bd = 1e9; COURSE_COLORS.forEach(x => { const b = rgb(x), dd = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2; if (dd < bd) { bd = dd; pick = x; } }); return pick.toUpperCase(); };
+  const agWords = s => (String(s || "").toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(w => !/^(the|and|for|with|from|this|that|deck|card|task|event|class|note|course)$/.test(w));
+  const agLabel = t => { let s = ""; try { s = window.SBASSIST.labelOf(t); if (t.kind === "course" || t.kind === "class") { const c = state.courses[t.id]; if (c) s += " " + c.name + " " + (c.code || ""); } } catch (e) {} return s; };
+  async function claudeTurn(q, c){
+    const A = window.SBASSIST; if (!A || !A.catalog || !A.check || !A.build) return null;
+    const past = (c.msgs || []).filter(x => x.q && (x.a || x.err)).slice(-8);
+    // the cards of decks the chat just made or touched, or that the message names (so "keep only 4", "make them harder" have refs)
+    const ql = q.toLowerCase(), dk = new Set();
+    past.slice(-3).forEach(x => { const a = x.a || {}; (a.decks || []).forEach(id => dk.add(id)); if (a.ref && a.ref.kind === "deck") dk.add(a.ref.id); if (a.card && a.card.deck) dk.add(a.card.deck); });
+    // (a few small decks: every card goes, so "review my weakest cards" or "quiz me on my cards" can be answered from them)
+    if (decksArr().reduce((n, d) => n + (d.cards || []).length, 0) <= 200) decksArr().forEach(d => dk.add(d.id));
+    decksArr().forEach(d => { const n = String(d.name || "").toLowerCase(); if (n && (ql.includes(n) || n.split(/\s+/).filter(w => w.length > 3).some(w => ql.includes(w)))) dk.add(d.id); });
+    const cat = await A.catalog(q, {max: 90000, decks: [...dk], full: true});
+    // tasks deleted in the last half hour, with refs: "don't delete 3, mark it done instead" is "undo" plus a change to it (made after
+    // the undo brings it back); without them Claude had nothing to point at and said it couldn't
+    try { const gone = Object.values(state.trash || {}).filter(e => e && Date.now() - (e.deletedAt || 0) < 30 * 60000).flatMap(e => (e.items || []).filter(i => i.kind === "task" && i.data && !state.tasks[i.id])).slice(0, 10);
+      if (gone.length) cat.text += "\n\nRECENTLY DELETED TASKS (\"undo\": true brings back the last deletion; changes listed for them are made after it):\n" + gone.map((i, n) => { const k = "X" + (n + 1); cat.refs.set(k, {kind: "task", id: i.id}); return `${k} | ${clip(i.data.title, 90)}`; }).join("\n"); } catch (e) {}
+    const me = info() || {}, worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [], owned = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [];
+    // today's plan (its order and time blocks) only when the talk is about time or work: sent with every message, it was brought into
+    // greetings, feelings and a question about opportunity cost ("Reflection Journal 3 is still waiting for you")
+    const recent = [q].concat(past.slice(-2).map(x => x.q || "")).join(" ");
+    const planTalk = /\b(plan|next|now|today|tonight|tomorrow|this week|weekend|should i|first|priorit\w*|focus|free|time|hours?|minutes?|schedule|busy|study|studying|work on|do now|due|behind|catch up|overdue|late|deadline|start|finish|timer|pomodoro|session|after (that|this|dinner|class))\b/i.test(recent);
+    let facts = ""; if (planTalk) try { facts = aiPlannerFacts({grades: false, plan: true}) || ""; } catch (e) {}
+    let skins = []; try { skins = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 12); } catch (e) {}
+    // the other companions they have (a student calls them by those names too: "evening packy", "who's bramble?")
+    const pals = (() => { try { return (SBCOMP.all ? SBCOMP.all() : []).filter(x => x.owned && x.name !== me.name).slice(0, 30).map(x => `${x.name}${x.kind ? " (" + x.kind + ")" : ""}`); } catch (e) { return []; } })();
+    const boards = (() => { try { return ["My Notes"].concat(noteBoards().map(b => b.name)).join("; "); } catch (e) { return "My Notes"; } })();
+    // how the app works, always (a question about the app doesn't always look like one: "does it connect to brightspace")
+    const guide = A.GUIDE ? "\n\n" + A.GUIDE : "";
+    const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
+    const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
+    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `You're wearing: ${worn.join(", ")}. ` : "You're wearing no accessories. "}${owned.length ? `Accessories you have: ${owned.join(", ")}. ` : ""}${pals.length ? `The student can switch to the other study companions they have in Studyboard (in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
+    const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. Never write ref codes like T3 or N1 in the answer.)`;
+    const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
+    // (a dropped connection or a busy moment: tried once more before anything else)
+    // (too many requests this minute: waited for a free slot, a few times, rather than given up)
+    const tryCall = async () => { for (let i = 0; ; i++) { try { return await call(); } catch (e) { if (stopsHere(e) || usedUp(e) || i >= 3) throw e; const rate = !!(e && (e.rate || e.code === "limit" || /requests already|too many|a minute/i.test(String(e.message || "")))); if (rate) { T.status = "Lots of questions at once. One moment…"; drawStatus(); } await new Promise(res => setTimeout(res, rate ? 8000 : 1500)); } } };
+    let r = await tryCall(), d = r && r.data && typeof r.data === "object" ? r.data : null;
+    const asked = x => !!x && ["changes", "newTasks", "newEvents", "newCourses", "newClasses", "newNotes", "newDecks", "newCards", "show", "wear"].some(k => Array.isArray(x[k]) && x[k].length) || !!(x && (x.undo || x.study || x.page || x.theme || (x.timer && x.timer.do && x.timer.do !== "none") || (x.group && x.group.do)));
+    // a reply that says it did something with nothing listed to do: asked once more
+    if (d && !asked(d) && A.CLAIMS.test(String(d.answer || ""))) { try { const r2 = await call(`\n\nIMPORTANT: your last reply said "${clip(d.answer, 200)}" but listed no change. If the student asked for a change, list it in the JSON. If not, don't say anything was done.`); if (r2 && r2.data && r2.data.answer) d = r2.data; } catch (e) { if (stopsHere(e)) throw e; } }
+    // no reply, or a placeholder ("placeholder", "...") where the reply should be: asked once more
+    if (!d || junk(d.answer) || /^\s*placeholder\s*$/i.test(String(d.answer || ""))) { try { const r3 = await call(`\n\nIMPORTANT: reply with one JSON object whose "answer" is your real reply to the student.`); const d3 = r3 && r3.data; if (d3 && !junk(d3.answer) && !/^\s*placeholder\s*$/i.test(String(d3.answer))) d = d3; else d = null; } catch (e) { if (stopsHere(e)) throw e; d = null; } }
+    if (!d) return null;
+    return agApply(d, cat.refs, q);
+  }
+  // Each change checked against the planner, the valid ones made in one step, and the reply put right about what wasn't
+  async function agApply(d, refs, q){
+    const A = window.SBASSIST, arr = k => Array.isArray(d[k]) ? d[k].filter(x => x && typeof x === "object") : [];
+    const fails = [], log = [], ch = [], decks = [], extra = [];
+    // "undo that, I meant the journal": the undo first, then the new change (the other way round, the undo took back the new change)
+    let undoMiss = "";
+    if (d.undo) { const k = A.control("undo"); if (k && k.done) log.push(k.answer.replace(/\.$/, "")); else undoMiss = k ? k.answer : "There's nothing to undo."; }
+    const what = cx => `${cx.label}: ${cx.what.toLowerCase()} ${cx.from ? cx.from + " → " : ""}${cx.to}`;
+    const sets = [], checked = [], failK = [];
+    arr("changes").forEach(c0 => {
+      const cc = Object.assign({}, c0, {value: c0.value == null ? "" : String(c0.value)});
+      if (String(cc.ref || "").toUpperCase() === "SETTINGS" || cc.field === "setting") { const x = A.check(cc, refs); if (x) sets.push(x); else fails.push(`change the setting "${clip(cc.setting || cc.value, 40)}"`); return; }
+      let t = refs.get(String(cc.ref || "").trim().toUpperCase());
+      // a task with no ref because it was deleted when the planner was read, and is back after the undo above ("don't delete 3, mark
+      // it done instead"): found by the name Claude gives
+      if (!t && cc.item && d.undo) { const nm = String(cc.item).trim().toLowerCase(), tk = tasksArr().find(x => String(x.title || "").toLowerCase() === nm); if (tk) { const k = ("TU_" + tk.id).toUpperCase(); refs.set(k, {kind: "task", id: tk.id}); cc.ref = k; t = refs.get(k); } }
+      // the ref is checked against the name Claude gives with it ("item"): one pointing at the row next to it ("make it 30 min" changed
+      // the clinical orientation instead of the meeting) is put right when exactly one item of that kind has that name
+      if (t && cc.item) { const ws = agWords(cc.item), sc = v => { const L = agWords(agLabel(v)); return ws.filter(w => L.includes(w)).length; };
+        if (ws.length && sc(t) === 0) { const alt = [...refs.entries()].filter(([k, v]) => v.kind === t.kind && A.exists(v) && sc(v) > 0), top = Math.max(0, ...alt.map(([k, v]) => sc(v))), best = alt.filter(([k, v]) => sc(v) === top), same = best.filter(([k, v]) => !t.date || v.date === t.date);
+          const pick = best.length === 1 ? best[0] : same.length === 1 ? same[0] : null; if (pick) { cc.ref = pick[0]; t = pick[1]; } } }
+      // a mark on a graded item (a G ref) is the task's mark
+      if (t && t.kind === "grade" && cc.field === "mark") { const k = ("TG_" + t.id).toUpperCase(); refs.set(k, {kind: "task", id: t.id}); cc.ref = k; t = refs.get(k); }
+      // a colour: the exact one with Pro's any-colour, else the nearest of the course colours (said, so "hot pink #FF3E9A" isn't claimed)
+      if (t && t.kind === "course" && cc.field === "color") { const want = String(cc.value || ""), hx = agHex(want), asked = (/#[0-9a-f]{6}\b/i.exec(want) || [])[0] || (NAMED[want.toLowerCase().trim()] || "");
+        cc.value = hx || want; const cur = String((state.courses[t.id] || {}).color || "").toUpperCase();
+        if (hx && cur === hx) { extra.push(`${courseLabel(state.courses[t.id])} is already that colour.`); return; }
+        if (hx && asked && asked.toUpperCase() !== hx) extra.push(`(Your course colours don't include that exact shade, so I used the closest one, ${hx}. Pro can use any colour exactly.)`); }
+      const x = A.check(cc, refs);
+      if (x) checked.push(x); else failK.push({k: t ? `${t.kind === "grade" ? "task" : t.kind}:${t.id}:${cc.field}` : "", s: `change ${t ? A.labelOf(t) || "that" : "that"}'s ${String(cc.field || "").toLowerCase() || "details"}${cc.value ? ` to ${clip(cc.value, 40)}` : ""}`});
+    });
+    // (the same change listed twice, once on the task and once on its grade row: the one that worked is enough, no "couldn't" for the other)
+    { const okK = new Set(checked.map(x => `${x.t.kind}:${x.t.id}:${x.field}`)); failK.filter(f => !okK.has(f.k)).forEach(f => fails.push(f.s)); }
+    const nt = arr("newTasks").filter(x => String(x.title || "").trim());
+    if (nt.length) { const res = A.resolve({newTasks: nt.map(x => Object.assign({}, x, {type: TYPES.includes(x.type) ? x.type : "Assignment", priority: /^(low|med|high|urgent)$/.test(x.priority) ? x.priority : (x.type === "Exam" ? "high" : "med")}))}, refs); res.changes.forEach(x => checked.push(x)); }
+    // existing items and new tasks: built together (several fields of one item become one change)
+    if (checked.length) { const b = A.build(checked); b.forEach(x => ch.push(x)); checked.forEach(x => log.push(x.t.kind === "newtask" ? `added task ${x.label} (${x.to})` : what(x))); }
+    const courseRef = v => { const t = v ? refs.get(String(v).trim().toUpperCase()) : null; if (t && t.kind === "course" && state.courses[t.id]) return state.courses[t.id]; const c = v ? courseOfName(String(v)) : null; return c || null; };
+    arr("newEvents").forEach(e => {
+      const title = clip(String(e.title || "").trim(), 120), date = String(e.date || "").trim(); if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { fails.push(`add ${title || "that event"}${date ? "" : " (it needs a date)"}`); return; }
+      const from = hm(e.from), to = hm(e.to), c = courseRef(e.course);
+      const ev = normEvent({id: uid(), title, courseId: c ? c.id : "", date, allDay: !from, start: from, end: from ? to : "", where: clip(String(e.where || ""), 120)});
+      ch.push({kind: "event", id: ev.id, after: ev}); log.push(`added event ${title} on ${fmtDate(ev.date)}${ev.start ? ` ${fmtTime(ev.start)}–${fmtTime(ev.end)}` : ""}${ev.where ? " at " + ev.where : ""}`);
+    });
+    arr("newCourses").forEach(x => {
+      const name = clip(String(x.name || "").trim(), 80), code = clip(String(x.code || "").trim().toUpperCase(), 24); if (!name && !code) return;
+      const dup = coursesArr().find(c => (code && (c.code || "").toUpperCase() === code) || (name && c.name.toLowerCase() === name.toLowerCase())); if (dup) { fails.push(`add ${name || code} (you already have ${courseLabel(dup)})`); return; }
+      const used = coursesArr().map(c => c.color), nc = {id: uid(), created: Date.now(), name: name || code, code, instructor: clip(String(x.instructor || ""), 80), schedule: "", room: clip(String(x.room || ""), 60), office: "", color: agHex(x.color) || COLORS.find(c => !used.includes(c)) || COLORS[used.length % COLORS.length], notes: "", links: [], meetings: []};
+      ch.push({kind: "course", id: nc.id, after: nc}); log.push(`added course ${courseLabel(nc)}`);
+    });
+    // a course's weekly class times
+    arr("newClasses").forEach(x => {
+      const c = courseRef(x.course), from = hm(x.from), to = hm(x.to), DN = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+      const days = [...new Set(String(x.days || "").toLowerCase().split(/[\s,/&]+|\band\b/).map(w => DN.indexOf(w.slice(0, 3))).filter(i => i >= 0))].sort();
+      if (!c || !days.length || !from || !to) { fails.push(`add those class times${c ? "" : " (which course?)"}`); return; }
+      let e = ch.find(y => y.kind === "course" && y.id === c.id); if (!e) { e = {kind: "course", id: c.id, after: clone(c)}; ch.push(e); } if (!e.after) return;
+      const kind = /^(Lecture|Lab|Tutorial|Seminar|Office Hours)$/.test(x.kind) ? x.kind : "Lecture", ms = courseMeetings(e.after).map(m => Object.assign({}, m)).concat({id: uid(), kind, days, start: from, end: to, where: clip(String(x.where || ""), 60)});
+      e.after.meetings = ms; e.after.schedule = meetingsSummary(ms); log.push(`added ${courseLabel(c)} ${kind.toLowerCase()} ${days.map(i => AG_DAYS[i]).join("/")} ${fmtTime(from)}–${fmtTime(to)}`);
+    });
+    arr("newDecks").forEach(x => {
+      const name = clip(String(x.name || "").trim(), 120); if (!name) return; const c = courseRef(x.course), id = uid();
+      const cards = (Array.isArray(x.cards) ? x.cards : []).filter(k => k && String(k.front || "").trim() && String(k.back || "").trim()).slice(0, 60).map(k => ({id: uid(), front: clip(String(k.front).trim(), 600), back: clip(String(k.back).trim(), 1200)}));
+      const nd = normDeck({id, name, courseId: c ? c.id : "", cards, created: Date.now(), updated: Date.now()});
+      ch.push({kind: "deck", id, after: nd}); decks.push(id); log.push(`made deck ${name} with ${cards.length} card${cards.length === 1 ? "" : "s"}`);
+    });
+    // (a card with no deck named, after others that name one: the same deck)
+    let lastDeck = ""; arr("newCards").forEach(x => { if (!String(x.deck || "").trim() && lastDeck) x.deck = lastDeck; else if (String(x.deck || "").trim()) lastDeck = x.deck; });
+    arr("newCards").forEach(x => {
+      const t = refs.get(String(x.deck || "").trim().toUpperCase()), dk0 = t && t.kind === "deck" && state.decks[t.id] ? state.decks[t.id] : deckNamed(x.deck);
+      const f = String(x.front || "").trim(), b = String(x.back || "").trim(); if (!dk0 || !f || !b) { fails.push(`add the card "${clip(f, 40)}"${dk0 ? "" : ` (there's no deck called "${clip(x.deck, 40)}")`}`); return; }
+      let e = ch.find(y => y.kind === "deck" && y.id === dk0.id); if (!e) { e = {kind: "deck", id: dk0.id, after: clone(dk0)}; ch.push(e); } if (!e.after) return;
+      e.after.cards.push({id: uid(), front: clip(f, 600), back: clip(b, 1200), box: 0, due: "", seen: 0, right: 0, wrong: 0}); e.after.updated = Date.now();
+      if (!decks.includes(dk0.id)) decks.push(dk0.id); log.push(`added card "${clip(f, 60)}" to ${dk0.name}`);
+    });
+    ch.filter(x => x.kind === "deck" && x.after).forEach(x => { if (!decks.includes(x.id)) decks.push(x.id); });
+    // notes: each with its words, on the board named (in the same step as the rest, so "undo" takes them back too)
+    for (const x of arr("newNotes")) { const tx = String(x.text || "").trim(); if (!tx) continue; let b = boardNamed(x.board); if (!b && x.board && !/^my notes?$/i.test(String(x.board).trim())) b = boardFor(String(x.board).replace(/\s*\bboard\b\s*/i, " ").trim(), null);
+      const n = addNoteTo(b ? b.id : "", tx, "", true); ch.push({kind: "note", id: n.id, after: n}); log.push(`added note on ${b ? b.name : "My Notes"}: "${clip(tx, 80)}"`); }
+    if (ch.length) applyChanges(ch, log.length === 1 ? clip(log[0].replace(/^\w/, s => s.toUpperCase()), 80) : `${log.length} changes`);
+    // the focus timer
+    const tm0 = d.timer && typeof d.timer === "object" ? d.timer : null, td = tm0 ? String(tm0.do || "").toLowerCase() : "";
+    if (td && td !== "none") { const tt = tm0.task ? refs.get(String(tm0.task).trim().toUpperCase()) : null, task = tt && tt.kind === "task" ? state.tasks[tt.id] : null;
+      if (td === "start") { const mins = Number(tm0.minutes) > 0 && Number(tm0.minutes) <= 180 ? Math.round(Number(tm0.minutes)) : 25; if (A.startTimer(mins, task)) log.push(`started a ${mins}-minute focus timer${task ? " for " + task.title : ""}`); else fails.push("start the timer"); }
+      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { pomo.taskId = task.id; try { pomoSave(); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
+      else { const k = A.control(`${td} the timer`); if (k && k.done) log.push(k.answer.replace(/\.$/, "").toLowerCase()); else if (k) extra.push(k.answer); } }
+    if (d.theme) { const was = agLook().replace(/^LOOK NOW: |\.$/g, ""), r = themeAct({value: d.theme}); if (/^(Switched|Studyboard now)/.test(r.answer)) log.push(`${r.answer.replace(/\.$/, "")} (before: ${was})`); else extra.push(r.answer); }
+    // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
+    arr("wear").forEach(x => { const it = String(x.item || "").trim(); if (!it || !window.SBCOMP) return;
+      const own = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [], hit = /^(all|everything)$/i.test(it) || own.some(n => agWords(n).some(w => agWords(it).includes(w)) || n.toLowerCase() === it.toLowerCase());
+      if (!hit) { extra.push(`I haven't unlocked ${/^(a|an|the|my)\b/i.test(it) ? it : "the " + it} yet, so I'm not wearing it. The Wardrobe shows how to get it.`); return; } const r = x.color && SBCOMP.tintByName ? SBCOMP.tintByName(it, x.color) : SBCOMP.wearByName ? SBCOMP.wearByName(it, x.on !== false) : ""; if (r) extra.push(r); });
+    if (d.group && d.group.do) { const g = d.group; if (/join/i.test(g.do)) extra.push(window.SBGRPJOIN && SBGRPJOIN(String(g.code || "").trim()) ? `I opened Join${g.code ? ` with ${g.code} filled in` : ""}. Tap Join to check the code.` : "Joining a group needs you signed in and online. Open Groups and tap Join.");
+      else { const nm = String(g.name || "").trim(); extra.push(window.SBGRPNEW && SBGRPNEW(nm, /project/i.test(q)) ? `I opened New Group${nm ? ` with "${nm}" filled in` : ""}. Check it and tap Create.` : `Groups need you signed in and online. Open Groups and tap New Group${nm ? ` to make "${nm}"` : ""}.`); } }
+    // settings go through the Settings sheet's own controls, shown and confirmed there
+    if (sets.length) { const res = []; try { await A.propose(sets, {direct: true, results: res}); } catch (e) {}
+      sets.forEach((x, i) => { const r = res[i]; if (r && r.title) log.push(`setting ${r.title}: ${r.from ? r.from + " → " : ""}${r.to}`); else if (r !== true) fails.push(`change the setting "${clip(x.setting, 40)}" (I couldn't find it in Settings)`); }); }
+    // a study session on a deck (opened once the reply is shown)
+    if (d.study) { const t = refs.get(String(d.study).trim().toUpperCase()), dk1 = t && t.kind === "deck" ? state.decks[t.id] : (decks.length ? state.decks[decks[decks.length - 1]] : null);
+      if (dk1 && dk1.cards.length) { setTimeout(() => { try { startStudy([dk1.id]); } catch (e) {} }, 250); log.push(`opened ${dk1.name} to study`); } else fails.push(dk1 ? `study ${dk1.name} (it has no cards yet)` : "find that deck to study"); }
+    // going somewhere: a thing, or a part of the app
+    const show = (Array.isArray(d.show) ? d.show : []).map(x => refs.get(String(x || "").trim().toUpperCase())).filter(t => t && A.exists(t));
+    let shown = null;
+    if (show.length) { shown = Object.assign({}, show[0], {label: A.labelOf(show[0])}); setTimeout(() => { A.jump(show[0]).catch(() => {}); }, 200); }
+    else if (d.page) { const k = String(d.page).toLowerCase().replace(/^(my|the)\s+/, "").replace(/\s+(page|tab|view|section)$/, "").trim();
+      if (/^(settings?|preferences|options)$/.test(k)) setTimeout(() => { try { menuSheet(); } catch (e) {} }, 200);
+      else if (PAGES[k]) setTimeout(() => { try { ui.tab = PAGES[k]; if (PAGES[k] !== "courses") ui.courseId = null; render(); window.scrollTo(0, 0); } catch (e) {} }, 200); }
+    let answer = String(d.answer || "").trim();
+    // a reply that says it did what couldn't be done ("Done, notifications are muted" when the setting wasn't found): what really
+    // happened instead, so it never says both
+    if (fails.length && (A.CLAIMS.test(answer) || /^\s*(done|got it|all set)\b/i.test(answer))) answer = log.length ? `Done: ${log.join("; ")}.` : "";
+    if (fails.length) answer = `${answer}${answer ? "\n\n" : ""}I couldn't ${fails.slice(0, 4).join("; ")}, so ${fails.length === 1 ? "that part wasn't" : "those weren't"} changed.`;
+    // ("nothing to undo" only when nothing else was done either: "undo the dark mode" set the theme back and said both)
+    if (undoMiss && !log.length) extra.unshift(undoMiss);
+    if (extra.length) answer =`${answer}${answer ? "\n\n" : ""}${extra.join(" ")}`;
+    answer = answer.replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})?)*/gu, "").trim();
+    // the refs are for Claude, never the student ("your Freud notes (N1)", "Transference (F3)")
+    answer = answer.replace(/\s*\((?:\s*(?:refs?\s+)?[A-Z]{1,2}\d{1,3}\s*,?)+\)/g, "").replace(/\b[A-Z]{1,2}\d{1,3}\b/g, x => refs.has(x) ? "" : x).replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
+    const out = {answer: answer || "Done.", sources: [], followUps: [], actions: [], log, decks, agent: true};
+    if (shown) out.show = [shown];
+    return out;
+  }
   async function ask(q){
     q = String(q || "").replace(/\s+/g, " ").trim().slice(0, 1000);
     const att = T.att.slice();
@@ -78419,8 +78736,10 @@ Careful, these are easy to mix up:
       // the AI on the device (98-truth.js): planner facts from the app itself, exact; other answers checked against what it was given
       // stop, pause or resume the timer, or undo the last change: done at once, with no AI (98-assist.js), on any engine
       // two things in one message ("finished the journal, start a 25 min timer for the essay"): each done in turn (98-assist.js splits them)
-      const multi = !att.length && !!(window.SBTRUTH && SBTRUTH.steps && window.SBASSIST && SBASSIST.ask) && (ps => ps.length > 1 && ps.every(x => !/\?\s*$/.test(x) && !/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did)\b/i.test(x)))(SBTRUTH.steps(q));
-      const ctl = !multi && !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
+      // Claude: one step understands and does it (claudeTurn); the steps made for the small on-device models are skipped
+      const CL = !att.length && claudeMode();
+      const multi = !CL && !att.length && !!(window.SBTRUTH && SBTRUTH.steps && window.SBASSIST && SBASSIST.ask) && (ps => ps.length > 1 && ps.every(x => !/\?\s*$/.test(x) && !/^\s*(what|what's|whats|who|why|how|when|where|which|is|are|do|does|did)\b/i.test(x)))(SBTRUTH.steps(q));
+      const ctl = !CL && !multi && !att.length && window.SBASSIST && SBASSIST.control ? SBASSIST.control(q) : null, me0 = !ctl && !att.length ? selfAnswer(q) : "";
       // a request to do something (any wording) is understood by the AI and done by the app (intentAct); a planner question with
       // no request in it is answered from the app's own data first (exact, instant)
       const ACTY = /\b(add(s|ed|ing)?|put(s|ting)?|mak(e|es|ing)|creat(e|ed|ing)|delet(e|ed|ing)|remov(e|ed|ing)|get rid|eras(e|ed)|trash(ed)?|mov(e|ed|es|ing)|push(ed|ing)?|bump(ed)?|reschedul(e|ed|ing)|postpon(e|ed)|delay(ed)?|extend(ed|s)?|mark(ed)?|check(ed)? off|tick(ed)? off|cross(ed)? (off|out)|finish(ed|ing)?|complet(e|ed)|done|submit(ted)?|turn(ed)? in|hand(ed)? in|wrap(ped)? up|renam(e|ed)|call it|chang(e|ed|ing)|set|switch(ed)?|turn(ed)? (on|off)|start(ed|ing)?|stop(ped)?|paus(e|ed)|resum(e|ed)|open|take me|go to|show me|bring up|jot|note|remind|schedul(e|ed)|book|cancel(l?ed)?|undo|revert|edit|updat(e|ed)|wear|join|enrol+(ed)?|working on|now due|due date (is|changed|moved)|in[- ]progress)\b/i;
@@ -78442,9 +78761,9 @@ Careful, these are easy to mix up:
       // and "it", "that", "what about X?", "why?" about the subject it just answered
       const last = (c.msgs || []).filter(x => x.q && x.a && !x.err).slice(-1)[0];
       // a quiz in the chat: started, or an answer to its question (marked, then the next one)
-      { const qz = !att.length && !(window.SBCARE && SBCARE.distress(q)) && !(last && last.a.risk) ? chatQuiz(q, last) : null; if (qz) { if (!(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, 700)); m.a = qz; return; } }
+      { const qz = !CL && !att.length && !(window.SBCARE && SBCARE.distress(q)) && !(last && last.a.risk) ? chatQuiz(q, last) : null; if (qz) { if (!(window.__SB_TEST && !window.__SB_PACE)) await new Promise(r => setTimeout(r, 700)); m.a = qz; return; } }
       // more on the deck it just made ("add one more about denial", "keep only 4")
-      { const df = !att.length ? deckFollow(q, last) : null; if (df) { m.a = df; return; } }
+      { const df = !CL && !att.length ? deckFollow(q, last) : null; if (df) { m.a = df; return; } }
       const NEWREQ = /^\s*(?:please\s+|(?:can|could|would) you\s+)?(?:add|create|make|delete|remove|move|change|start|stop|mark|open|go to|take me|switch|turn|set|put|show|study|quiz|explain|what|who|when|where|why|how|is|are|do|does|did|can|could|should)\b/i;
       const slot = !att.length && last && last.a.awaiting && !NEWREQ.test(q) && q.split(/\s+/).length <= 14 ? last.a.awaiting : null;
       const mapMore = !att.length && last && last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q) && q.split(/\s+/).length <= 12 && !/\b(new|another)\s+map\b/i.test(q);
@@ -78466,6 +78785,22 @@ Careful, these are easy to mix up:
           // ("why isn't it just the average of 60 and 30?": a question about the last answer, which the follow-up step explains, never a new sum)
           if (why && mathR && mathR.math && /^stat/.test(String(mathR.math.kind || "")) && last.a.math.kind !== mathR.math.kind) mathR = null; } catch (e) { console.warn("math", e); } }
       const MATHQ = !mathR && !!MT && !MARKSAID(q) && MT.mathy(q);
+      // with Claude: a crisis reply (written in code), exact maths with numbers in it, and a quiz already going in the chat stay as
+      // they are; everything else is Claude's one step
+      if (CL) {
+        const CARE0 = window.SBCARE; let early = null;
+        if (CARE0 && CARE0.risk(q)) { const rr = CARE0.riskReply(q); early = {answer: rr, sources: [], followUps: [], actions: [], care: true, risk: /their safety comes first/i.test(rr) ? "other" : "self"}; }
+        // (the messages after a crisis reply go to Claude with the care rules, so "never mind, let's do flashcards" isn't given the
+        // crisis lines again; the crisis reply itself stays the written one above)
+        if (!early && mathR && !MARKSAID(q) && (/\d/.test(q) || MT.mathy(q))) early = {answer: mathR.answer, math: mathR.math, sources: [], followUps: [], actions: []};
+        const ids1 = snapIds();
+        // concept maps are made by their own step (98-concept-map.js), from here as from anywhere: left to the steps below
+        const mapQ = (MAP_Q.test(q) && MAP_ASK.test(q)) || (!!last && !!last.a.mapOpen && /\b(more|detail(ed|s)?|bigger|expand|add (more|ideas|to it)|fill (it )?out|flesh|deeper|elaborate)\b/i.test(q));
+        if (!early && !mapQ) { T.status = "Thinking…"; draw(); early = await claudeTurn(q, c).catch(e => { if (stopsHere(e)) throw e; console.warn("claude step", e); return null; });
+          // (never the small models' steps instead: they answered "what does my wednesday look like" with "I couldn't make that change")
+          if (!early) early = {answer: "Sorry, I couldn't get a proper answer just now, so I didn't change anything. Could you say that again?", sources: [], followUps: [], actions: []}; }
+        if (early) { m.a = early; const nw = newSince(ids1); if (nw && !m.a.ref) m.a.ref = nw; if (CARE0 && (CARE0.distress(q) || (c.msgs || []).slice(-4).some(x => x.a && x.a.care))) m.a.care = true; return; }
+      }
       const dev = typeof aiOnDevice === "function" && aiOnDevice(), TR = window.SBTRUTH, quick = !mathR && !multi && dev && TR && !att.length && !ctl && !me0 && (ISQ(q) || window.__SB_GATE) && !ACTX(q) && !(window.SBASSIST && SBASSIST.isRequest && SBASSIST.isRequest(q)) ? TR.facts(qFix || q) : null;
       // asked to make or change something: the app does it (or offers it to confirm), so it can't just be talked about
       // common misspellings of the words that say what to do ("finsihed", "compelted", "submited", "resechedule")
@@ -78820,15 +79155,17 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!b) { b = {id: uid(), name: name.slice(0, 40), courseId: course ? course.id : ""}; state.settings = Object.assign({}, state.settings, {noteBoards: noteBoards().concat(b)}); saveSettings(); }
     return b;
   }
-  function addNoteTo(boardId, text, courseId){
+  function addNoteTo(boardId, text, courseId, made){
     const all = notesArr().filter(n => !n.archived && noteBoardOf(n) === boardId);
     // the same note made again by the same message (the reply's own save and the action step): the one already there
     { const tx = String(text).slice(0, 8000).trim(), dup = all.find(n => String(n.text || "").trim() === tx && Date.now() - (n.created || 0) < 8000); if (dup) return dup; }
     const z = all.reduce((m, n) => Math.max(m, n.z || 0), 0) + 1, col = all.length % 5, row = Math.floor(all.length / 5) % 4;
     const n = normNote({id: uid(), board: boardId, text: text.slice(0, 8000), color: "yellow", x: 40 + col * (NOTE_W() + 30) + Math.round(Math.random() * 20), y: 40 + row * 240 + Math.round(Math.random() * 20), z, rot: Math.round((Math.random() * 4 - 2) * 10) / 10, courseId: courseId || "", created: Date.now()});
-    applyChanges([{kind: "note", id: n.id, after: n}], null);
-    // "undo that" takes the note away, even after the board has placed it (an ordinary undo step keeps an item changed since)
-    if (typeof undoStack !== "undefined") undoStack.push({label: "Added a note", at: Date.now(), done: false, quiet: true, undo: () => { if (state.notes[n.id]) applyChanges([{kind: "note", id: n.id, after: null}], null); return 0; }});
+    if (!made) {
+      applyChanges([{kind: "note", id: n.id, after: n}], null);
+      // "undo that" takes the note away, even after the board has placed it (an ordinary undo step keeps an item changed since)
+      if (typeof undoStack !== "undefined") undoStack.push({label: "Added a note", at: Date.now(), done: false, quiet: true, undo: () => { if (state.notes[n.id]) applyChanges([{kind: "note", id: n.id, after: null}], null); return 0; }});
+    }
     return n;
   }
   // photos attached in the chat with "add this to my note board": a new note on the board holding them (photos in notes are Pro)
@@ -115713,10 +116050,11 @@ function reviewHtml(){
     const snip = PP ? esc(cut(PP.body, 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
-    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    // the assignment's title heads the page, in the app's own type so it reads as the card's name, not the paper's text
+    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 90))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
-      <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
+      <div class="wsr-foot wsr-foot-bar">
       <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
       <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
@@ -116336,6 +116674,9 @@ svg.ws-zic{display:block;flex:none}
 .wsr-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px 14px}
 .wsr-row{display:flex;align-items:center;gap:10px;margin-top:auto}
 .wsr-sub{flex:1 1 auto;min-width:0;display:grid;gap:2px;color:var(--muted)}
+.wsr-foot-bar{justify-content:flex-end;padding:10px 12px 10px 14px}
+.wsr-ptitle{flex:none;padding:0 8px 6px;text-align:center;margin-bottom:2px;border-bottom:2px solid color-mix(in srgb,var(--c) 55%,#fff)}
+.wsr-page .wsr-ph.wsr-t{font:800 .92rem/1.18 var(--display,var(--font,system-ui));text-align:start;color:#1E2230;padding:0;-webkit-line-clamp:3;overflow-wrap:anywhere;word-break:normal;text-align:center}
 .wsr-main{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px;margin-top:auto}
 @media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{translate:none}}
 .wsr-t{font-weight:700;font-size:1rem;line-height:1.25;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -117427,6 +117768,8 @@ function mapsOf(c){
   if (!list.length && c.cmap && typeof c.cmap === "object") list.push(Object.assign({id: "main", name: `${courseName(c)} Map`, auto: true, created: c.cmap.at || 0}, c.cmap));
   return list;
 }
+// a map's name is its central idea: a central idea renamed on the map (names.root) is the name everywhere
+const rootName = (rec, fb) => String((rec && rec.names && typeof rec.names.root === "string" && rec.names.root.trim()) || fb || "").slice(0, 120);
 const mapOf = o => { if (!o || o.kind !== "course") return null; const c = state.courses[o.id], ms = mapsOf(c); return ms.find(m => m.id === o.map) || (o.map === "main" || !o.map ? {id: o.map || "main", name: `${courseName(c)} Map`, auto: true} : null); };
 const overlay = u => { u = u && typeof u === "object" ? u : {}; return {pos: u.pos && typeof u.pos === "object" ? u.pos : {}, hide: Array.isArray(u.hide) ? u.hide : [], add: Array.isArray(u.add) ? u.add : [], links: Array.isArray(u.links) ? u.links : [], cut: Array.isArray(u.cut) ? u.cut : [], names: u.names && typeof u.names === "object" ? u.names : {}, styles: u.styles && typeof u.styles === "object" ? u.styles : {}}; };
 const userOf = o => { if (o && o.kind === "course") return overlay(mapOf(o)); const x = ownerObj(o); return overlay(x && x.cmap); };
@@ -117664,8 +118007,8 @@ function mapChange(u, meta){
 // every map, for the Review tab: each course's maps, and each exam's map (from its Prep Plan topics)
 function allMaps(){
   const out = [];
-  Object.values(state.courses || {}).filter(c => c && !c.archived).forEach(c => mapsOf(c).forEach(m => out.push({kind: "course", cid: c.id, id: m.id, name: m.name || "Untitled Map", auto: m.auto !== false, at: m.at || m.created || 0, rec: m})));
-  allTasks().filter(t => isExam(t) && t.status !== "done" && topicsOf(t).length).forEach(t => out.push({kind: "exam", cid: t.courseId || "", id: t.id, name: t.title, auto: true, at: (t.cmap && t.cmap.at) || 0, exam: true}));
+  Object.values(state.courses || {}).filter(c => c && !c.archived).forEach(c => mapsOf(c).forEach(m => out.push({kind: "course", cid: c.id, id: m.id, name: rootName(m, m.name) || "Untitled Map", auto: m.auto !== false, at: m.at || m.created || 0, rec: m})));
+  allTasks().filter(t => isExam(t) && t.status !== "done" && topicsOf(t).length).forEach(t => out.push({kind: "exam", cid: t.courseId || "", id: t.id, name: rootName(t.cmap, t.title) || "Untitled Map", auto: true, at: (t.cmap && t.cmap.at) || 0, exam: true}));
   return out;
 }
 const isPdf = f => !!f && f.kind === "file" && Array.isArray(f.revs) && f.revs.length && /\.pdf$/i.test((f.revs[f.revs.length - 1] || {}).name || f.name || "");
@@ -117761,7 +118104,7 @@ function open(kind, id, map){
   // one slim bar (name, tools, close) so the map gets the room; on a phone the tools take a second line
   // sm-skip: the app's fade-in for new content stays out of the map (it would fade every redraw, menu and the video player)
   openSheet(`<div class="sheet cm-sheet sm-skip" style="--c:${esc(c ? c.color : "#2F6FE4")}"><div class="cm-top"><span class="cm-hic" aria-hidden="true">${ICON.replace('width="16" height="16"', 'width="18" height="18"')}</span>
-    <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? mp.name : ownerObj(o).title)}</h2></div>
+    <div class="cm-tt"><span class="cm-kick">Concept Map${BETA ? ' <span class="sb-beta" title="Beta: still being improved">Beta</span>' : ""}</span><h2 class="cm-name">${esc(mp ? rootName(mp, mp.name) : rootName(ownerObj(o).cmap, ownerObj(o).title))}</h2></div>
     <div class="cm-tools" role="toolbar" aria-label="Concept map tools"></div><button type="button" class="icon-btn cm-x" data-act="close" aria-label="Close">${CLOSE}</button></div>
     <div class="cm-canvas" tabindex="-1"><canvas class="cm-dots" aria-hidden="true"></canvas><svg class="cm-svg" role="group" aria-label="Concept map"><g class="cm-world"></g></svg><div class="cm-zoom"><button type="button" class="icon-btn" data-cm="in" aria-label="Zoom in">+</button><button type="button" class="icon-btn" data-cm="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-cm="fit" aria-label="Fit the map">⤢</button></div><div class="cm-legend" aria-hidden="true"></div><div class="cm-panel" aria-live="polite"></div></div></div>`);
   M.el = dlg.querySelector(".cm-sheet");
@@ -118634,7 +118977,12 @@ async function onClick(e){
     case "open": if (n) openNode(n); break;
     case "connect": if (n) { M.connect = n.id; paint(); } break;
     case "con-x": M.connect = ""; paint(); break;
-    case "rename": { if (!n) return; const v = await ask("Rename on the map:", n.label); if (v == null) return; const x = u(); x.names = Object.assign({}, x.names, {[n.id]: v.trim().slice(0, 120)}); if (!v.trim()) delete x.names[n.id]; if (n.kind === "idea") x.add = x.add.map(i => "idea:" + i.id === n.id ? Object.assign({}, i, {label: v.trim() || i.label}) : i); saveUser(x, "Renamed an item on the map"); rebuild(true); paint(); break; }
+    case "rename": { if (!n) return; const v = await ask("Rename on the map:", n.label); if (v == null) return; const x = u(); x.names = Object.assign({}, x.names, {[n.id]: v.trim().slice(0, 120)}); if (!v.trim()) delete x.names[n.id]; if (n.kind === "idea") x.add = x.add.map(i => "idea:" + i.id === n.id ? Object.assign({}, i, {label: v.trim() || i.label}) : i);
+      // the central idea is the map's name: renaming it renames the map
+      if (n.root && M.own.kind === "course" && v.trim()) { x.names = Object.assign({}, x.names); delete x.names.root; saveUser(x, "Renamed the map", {name: v.trim().slice(0, 80)}); }
+      else saveUser(x, n.root ? "Renamed the map" : "Renamed an item on the map");
+      if (n.root) { const h = M.el && M.el.querySelector(".cm-name"); if (h) h.textContent = v.trim() || h.textContent; }
+      rebuild(true); paint(); break; }
     case "hide": { if (!n) return; const x = u(); x.hide = x.hide.concat([n.id]); saveUser(x, `Hid ${n.label} on the map`); M.sel = ""; rebuild(true); paint(); break; }
     case "del": { if (!n) return; const x = u(); x.add = x.add.filter(i => "idea:" + i.id !== n.id); x.links = x.links.filter(l => l.a !== n.id && l.b !== n.id); saveUser(x, `Deleted ${n.label} from the map`); M.sel = ""; rebuild(true); paint(); break; }
     // a connection's words, line, arrows and direction (an automatic one becomes yours when you style it)
@@ -118951,10 +119299,10 @@ async function scanDrawing(file, name, onStatus){
 }
 function renameSheet(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
-  openSheet(`<form class="sheet">${bandHead("Rename Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(m.name)}" autocomplete="off"></label></div>
+  openSheet(`<form class="sheet">${bandHead("Rename Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(rootName(m, m.name))}" autocomplete="off"></label></div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit>Save</button></div></form>`, () => {
     const name = String(dlg.querySelector("#cmName").value || "").trim().slice(0, 80); if (!name) return false;
-    const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => x.id === mid ? Object.assign({}, x, {name, at: Date.now()}) : x)}); delete after.cmap;
+    const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => { if (x.id !== mid) return x; const y = Object.assign({}, x, {name, at: Date.now()}); if (y.names && y.names.root != null) { y.names = Object.assign({}, y.names); delete y.names.root; } return y; })}); delete after.cmap;
     applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
   });
   const nm = dlg.querySelector("#cmName"); if (nm) { nm.focus(); nm.select(); }
@@ -118980,7 +119328,11 @@ function mapPeek(x){
   } catch (e) { return null; }
 }
 function countsOf(x){ const p = mapPeek(x); return p ? {items: p.items, links: p.links} : null; }
-function peekSvg(p, col){
+// opt.label: the map's name, drawn over the central idea at a readable size whatever the map's spread (the card's own title)
+const peekName = (label, x, y) => `<span class="cm-pkname" style="left:${Math.max(22, Math.min(78, x)).toFixed(1)}%;top:${Math.max(24, Math.min(76, y)).toFixed(1)}%"><span class="cm-ctitle">${esc(label)}</span></span>`;
+function peekSvg(p, col, opt){
+  const lab = opt && opt.label;
+  if (lab && (!p || p.g.nodes.length < 2)) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g></svg>` + peekName(lab, 50, 50);
   if (!p || p.g.nodes.length < 2) return `<svg class="cm-peek" viewBox="-160 -70 320 140" aria-hidden="true"><g class="pk-e"><line x1="0" y1="0" x2="-95" y2="-38"/><line x1="0" y1="0" x2="100" y2="-30"/><line x1="0" y1="0" x2="20" y2="48"/></g><g class="pk-n pk-ghost"><rect x="-130" y="-52" width="70" height="26" rx="13"/><rect x="66" y="-44" width="70" height="26" rx="13"/><rect x="-15" y="36" width="70" height="26" rx="13"/></g><rect class="pk-root" x="-48" y="-16" width="96" height="32" rx="16" fill="${esc(col)}"/></svg>`;
   const ns = p.g.nodes.slice(0, 40), keep = new Set(ns.map(n => n.id)), P = p.pos;
   const xs = ns.map(n => (P[n.id] || [0])[0]);
@@ -118997,7 +119349,7 @@ function peekSvg(p, col){
   let x0 = Math.min(...ns.map(n => ext(n, 0, -1))), x1 = Math.max(...ns.map(n => ext(n, 0, 1))), y0 = Math.min(...ns.map(n => ext(n, 1, -1))), y1 = Math.max(...ns.map(n => ext(n, 1, 1)));
   // keep a wide card shape: pad the short side so nodes aren't squashed
   const wantH = (x1 - x0) * 0.42; if (y1 - y0 < wantH) { const d = (wantH - (y1 - y0)) / 2; y0 -= d; y1 += d; } else { const wantW = (y1 - y0) / 0.42; if (x1 - x0 < wantW) { const d = (wantW - (x1 - x0)) / 2; x0 -= d; x1 += d; } }
-  const cut = (id, dx, dy) => { const g = geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
+  const cut = (id, dx, dy) => { const g = lab && id === "root" ? null : geo[id]; return g ? CMAP.exitAt(g[0], g[1], g[2], dx, dy) + 1 : 0; };
   const lines = p.g.edges.filter(e => keep.has(e.a) && keep.has(e.b)).map(e => { const a = P[e.a], b = P[e.b]; if (!a || !b) return "";
     const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1, ra = cut(e.a, dx, dy), rb = cut(e.b, -dx, -dy); if (L <= ra + rb) return "";
     return `<line x1="${a[0] + dx / L * ra}" y1="${a[1] + dy / L * ra}" x2="${b[0] - dx / L * rb}" y2="${b[1] - dy / L * rb}"${e.line && e.line !== "solid" ? ` class="ln-${esc(e.line)}"` : ""}/>`; }).join("");
@@ -119006,6 +119358,7 @@ function peekSvg(p, col){
     const [x, y] = P[n.id] || [0, 0], sh = CMAP.shapeOf(n), w = n.img || n.emb ? fs * 8 : Math.max(fs * 3, t.length * f * 0.58 + f * 1.6), h = f * 2;
     const txt = sh === "text" || n.img || n.emb ? "" : `<text x="${x}" y="${y}" class="${n.root ? "pk-rt" : "pk-t"}" style="font-size:${f.toFixed(1)}px"${!n.root && ok(n.text) ? ` fill="${ok(n.text)}"` : ""}>${esc(t)}</text>`;
     const st = ok(n.stroke) || ok(n.color) || "", fl = ok(n.fill) || "", attr = `${st ? ` stroke="${st}"` : ""}${fl ? ` style="fill:color-mix(in srgb,${fl.slice(0, 7)} 100%,var(--surface))"` : st ? ` style="fill:color-mix(in srgb,${st.slice(0, 7)} 20%,var(--surface))"` : ""}`; // solid fills: the lines meet in the middle, under the boxes
+    if (n.root && lab) return "";
     if (n.root) return `<rect class="pk-root" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${esc(col)}"/>` + txt;
     if (sh === "text") return `<rect class="pk-txt" x="${x - w * 0.35}" y="${y - 5}" width="${w * 0.7}" height="10" rx="5"/>`;
     if (sh === "circle" || sh === "cloud") return `<ellipse class="pk-n" cx="${x}" cy="${y}" rx="${w / 2}" ry="${h / 2 + 6}"${attr}/>` + txt;
@@ -119013,7 +119366,10 @@ function peekSvg(p, col){
     if (n.img || n.emb) return `<rect class="pk-n pk-pic" x="${x - w / 2}" y="${y - fs * 2.6}" width="${w}" height="${fs * 5.2}" rx="10"${attr}/>`;
     return `<rect class="pk-n" x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="${sh === "box" ? 4 : sh === "rounded" ? 10 : h / 2}"${attr}/>` + txt;
   }).join("");
-  return `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
+  const svg = `<svg class="cm-peek" viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><g class="pk-e">${lines}</g><g>${nodes}</g></svg>`;
+  if (!lab) return svg;
+  const r = P.root || [0, 0];
+  return svg + peekName(lab, (r[0] - x0) / (x1 - x0) * 100, (r[1] - y0) / (y1 - y0) * 100);
 }
 // Dragging map cards (01-flashcards.js SBRV): each map's key, the whole list in the order shown, and My Order once you've moved one
 const rvKey = x => x.exam ? "e:" + x.id : x.cid + ":" + x.id;
@@ -119037,8 +119393,8 @@ function listHtml(){
     const meta = [n ? `${n.items} idea${n.items === 1 ? "" : "s"} · ${n.links} link${n.links === 1 ? "" : "s"}` : "", x.exam ? "from the Prep Plan" : "", ago(x.at)].filter(Boolean).join(" · ");
     const ic = (d, w) => `<svg viewBox="0 0 24 24" width="${w || 17}" height="${w || 17}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     return `${head}<article class="cm-mapcard" data-rv="${esc(rvKey(x))}" style="--c:${esc(colorOf(x.cid))}">
-      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid))}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
-      <div class="cm-cfoot"><button class="cm-cinfo" ${open}><b class="cm-ctitle">${esc(x.name)}</b></button>
+      <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid), {label: x.name})}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
+      <div class="cm-cfoot cm-cfoot-bar">
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
       <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
@@ -119567,6 +119923,11 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-cchip .fc-ic svg{width:12px;height:12px}
 .cm-exam{position:absolute;right:10px;top:10px;padding:3px 9px;border-radius:999px;background:var(--c);color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .cm-cfoot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 10px 12px 14px}
+.cm-cfoot-bar{justify-content:flex-end;padding:10px 10px 10px 14px}
+/* the map's name on its central idea: always big enough to read, however large the map */
+.cm-pkname{position:absolute;z-index:2;max-width:64%;translate:-50% -50%;display:flex;pointer-events:none;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.cm-pkname>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;padding:6px 14px;border-radius:16px;background:var(--c);color:#fff;font:800 .98rem/1.2 var(--display,var(--font,system-ui));text-align:center;box-shadow:0 4px 12px color-mix(in srgb,var(--c) 45%,transparent),0 0 0 3px color-mix(in srgb,var(--surface) 70%,transparent)}
+.cm-mapcard:hover .cm-pkname{transform:scale(1.04)}
 .cm-crow{display:flex;align-items:center;gap:6px;margin-top:auto}
 .cm-csub{flex:1 1 auto;min-width:0;color:var(--muted);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cm-cinfo{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:0;border:0;background:none;text-align:left;cursor:pointer;color:inherit;font:inherit;margin-top:auto}
@@ -120064,14 +120425,14 @@ window.SBCMAP = {createFrom, expandFrom, listHtml, mapsOf, courseBtn, courseCard
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
     return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
-        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
+        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b class="rv-title">${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="pr-open" data-id="${esc(p.id)}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
         <div class="rv-row"><span class="mini rv-sub">${meta}${runs.length ? ` · ${runs.length} run${runs.length === 1 ? "" : "s"}` : ""}</span>
         <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="pr-del" data-id="${esc(p.id)}" aria-label="Delete ${nm}" title="Delete">${IC.trash}</button>${runs.length ? `<button class="icon-btn rv-ib" data-act="pr-hist" data-id="${esc(p.id)}" aria-label="History of ${nm}" title="History">${IC.history}</button>` : ""}<button class="btn small primary rv-go" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div></div></div>
     </article>`;

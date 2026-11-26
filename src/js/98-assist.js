@@ -70,7 +70,9 @@ window.SBLOCALANS = (() => {
   async function catalog(q, o){
     o = o || {};
     const refs = new Map(), byKey = new Map(), cnt = {}, L = [];
-    const ref = (p, t) => { const k = t.kind + ":" + (t.key || t.id) + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
+    // (the id and the key both: an event's key is its date, so a second event the same day was given the first one's ref, and
+    // "make the meeting 30 min" changed the clinical orientation before it)
+    const ref = (p, t) => { const k = t.kind + ":" + (t.id || "") + ":" + (t.key || "") + (t.page ? "@" + t.page : "") + (t.spot ? "#" + t.spot.what + t.spot.x0 + "," + t.spot.y0 : ""); if (byKey.has(k)) return byKey.get(k); cnt[p] = (cnt[p] || 0) + 1; const r = p + cnt[p]; refs.set(r, t); byKey.set(k, r); return r; };
     const today = todayISO(), cl = id => { const c = id && state.courses[id]; return c ? courseLabel(c) : ""; };
     // courses and their weekly class times
     const cs = coursesArr();
@@ -78,7 +80,7 @@ window.SBLOCALANS = (() => {
     // tasks
     const all = tasksArr(), open = all.filter(t => t.status !== "done").sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999")).slice(0, 220);
     const done = all.filter(t => t.status === "done").sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 30);
-    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
+    const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}${t.status !== "done" && t.due < today ? " OVERDUE" : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
     if (open.length) L.push("OPEN TASKS (ref | title | course | type | due | status | priority):\n" + open.map(tl).join("\n"));
     if (done.length) L.push("RECENTLY FINISHED TASKS:\n" + done.map(tl).join("\n"));
     // classes and events, one line per day they happen (two weeks back, five ahead)
@@ -86,6 +88,10 @@ window.SBLOCALANS = (() => {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
       if (occ.length) L.push("CLASSES AND EVENTS BY DATE (ref | day | date | time | what | where):\n" + occ.map(x => `${ref("K", {kind: x.type === "meet" ? "class" : "event", id: x.id, key: x.key, date: x.date, start: x.start, end: x.end, mid: x.m && x.m.id, label: x.label, repeats: x.type === "meet" || !!(x.ev && x.ev.repeat)})} | ${wd(x.date)} | ${x.date} | ${x.allDay ? "all day" : `${x.start}-${x.end}`} | ${x.type === "meet" ? `${courseLabel(x.c)} ${x.label}` : clip(x.title, 60) + (x.ev && x.ev.repeat ? " (repeats)" : "")} | ${clip(x.where, 40)}${x.skipped ? " | cancelled this day" : x.moved ? " | moved this day" : ""}`).join("\n"));
     } catch (e) { console.warn("assist classes", e); }
+    // days off from the school calendar (no classes meet then, so the list above has none that day): named, so an answer says why
+    try { if (window.SBSCHOOL && SBSCHOOL.off && typeof schoolCfg === "function") { const sc = schoolCfg(), offs = [];
+      for (let d = addDays(today, -7); d <= addDays(today, 35); d = addDays(d, 1)) { const x = SBSCHOOL.off(sc, d); if (x) offs.push(`${wd(d)} ${d}: ${x.name || "day off"}`); }
+      if (offs.length) L.push("SCHOOL DAYS OFF (no classes meet these days; events and due dates still happen):\n" + offs.map(x => "- " + x).join("\n")); } } catch (e) {}
     // grades: each course's standing, and every marked item (its ref jumps to the course's Grades tab and highlights the row)
     try {
       const G = window.SBGRADES, gl = G && G.lines ? G.lines() : [], gi = G && G.items ? G.items() : [];
@@ -97,10 +103,12 @@ window.SBLOCALANS = (() => {
     const ds = decksArr();
     if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
     const onDeck = ui.tab === "flashcards" && ui.deckId && state.decks[ui.deckId] ? state.decks[ui.deckId] : null;
+    // (o.decks: more decks whose cards are listed, for a step that changes cards in them: Claude's, in the Companion tab)
+    (o.decks || []).map(id => state.decks[id]).filter(d => d && d !== onDeck && d.cards.length).slice(0, 8).forEach(d => L.push(`CARDS IN "${clip(d.name, 60)}" (ref | front | back | times right / wrong in study):\n` + d.cards.slice(0, 120).map(c => `${ref("F", {kind: "card", deck: d.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)} | ${c.right || 0} right / ${c.wrong || 0} wrong`).join("\n")));
     if (onDeck && onDeck.cards.length) L.push(`CARDS IN "${clip(onDeck.name, 60)}" (ref | front | back):\n` + onDeck.cards.slice(0, 200).map(c => `${ref("F", {kind: "card", deck: onDeck.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)}`).join("\n"));
     // notes and whiteboards
     const ns = notesArr().filter(n => !n.archived && String(n.text || "").trim()).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 150);
-    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, 160)}`).join("\n"));
+    if (ns.length) L.push("STICKY NOTES (ref | note board | text):\n" + ns.map(n => `${ref("N", {kind: "note", id: n.id})} | ${nbName(noteBoardOf(n))} | ${clip(n.text, o.full ? 1500 : 160)}`).join("\n"));
     const D = descs(), wbs = Object.values(state.notes || {}).filter(n => isWhiteboard(n) && !n.archived).slice(0, 80);
     if (wbs.length) L.push("WHITEBOARDS (ref | name | course | typed text | what's drawn, written or pictured on it):\n" + wbs.map(n => {
       const d = D[n.id] && D[n.id].d, typed = (n.wbItems || []).filter(i => i.k === "t").map(i => i.s).join(" / "), own = ref("W", {kind: "board", id: n.id});
@@ -143,7 +151,7 @@ window.SBLOCALANS = (() => {
 
   /* ---------- 3. What the AI may answer with ---------- */
   const FIELDS = ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete",
-    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting"];
+    "name", "code", "instructor", "room", "date", "from", "to", "where", "weekday", "skip", "front", "back", "stem", "answer", "explanation", "options", "correct", "text", "setting", "mark", "color"];
   const SHOW_CHANGE = {
     focusMinutes: {type: "INTEGER", description: "When the student asks to start a focus timer, focus session or pomodoro: its length in minutes (use 25 if they gave none). The app starts it right away. 0 otherwise."},
     show: {type: "ARRAY", items: {type: "STRING"}, description: "Refs (like T3, K12, P4, W2) of what the student asked to find or see, most relevant first. Empty when they didn't ask to find anything and nothing is being changed."},
@@ -182,9 +190,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
 
   /* ---------- 4. Checking what came back ---------- */
   const fieldOk = {
-    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete"],
-    course: ["name", "code", "instructor", "room"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
-    deck: ["name"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
+    task: ["title", "due", "time", "startDate", "status", "priority", "notes", "hours", "type", "course", "weight", "delete", "mark"],
+    course: ["name", "code", "instructor", "room", "color", "delete"], class: ["date", "from", "to", "where", "weekday", "skip"], event: ["title", "date", "from", "to", "where", "notes", "delete", "skip"],
+    deck: ["name", "delete"], quiz: ["title"], card: ["front", "back", "delete"], question: ["stem", "answer", "explanation", "options", "correct", "delete"],
     note: ["text", "delete"], board: ["name"], file: ["name", "course", "delete"]
   };
   const yes = v => /^(yes|true|1|on|delete|skip|cancel)$/i.test(String(v || "").trim());
@@ -249,10 +257,17 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "type") { if (!TYPES.includes(raw)) return null; return S(k.type, raw); }
         if (field === "hours") { const n = Number(raw); if (!(n >= 0 && n <= 500)) return null; out.value = n; return S(k.hours ? k.hours + "h" : "none", n + "h"); }
         if (field === "weight") { const n = Number(String(raw).replace("%", "")); if (!(n >= 0 && n <= 100)) return null; out.value = n; return S(k.weight ? k.weight + "%" : "none", n + "%"); }
+        // a mark: "17/20", "17 out of 20", "85%" or "85" (out of 100); empty takes it off
+        if (field === "mark") { const was = k.mark && k.mark.got != null && k.mark.outOf > 0 ? `${k.mark.got}/${k.mark.outOf}` : "none";
+          if (!raw || /^(none|clear|remove|delete)$/i.test(raw)) { if (was === "none") return null; out.value = null; return S(was, "no mark"); }
+          const fr = /^(\d+(?:\.\d+)?)\s*(?:\/|out of)\s*(\d+(?:\.\d+)?)$/i.exec(raw), pc = /^(\d+(?:\.\d+)?)\s*%?$/.exec(raw), mk = fr ? {got: Number(fr[1]), outOf: Number(fr[2])} : pc ? {got: Number(pc[1]), outOf: 100} : null;
+          if (!mk || !(mk.outOf > 0) || mk.got < 0 || mk.got > mk.outOf * 2) return null; out.value = mk; return S(was, `${mk.got}/${mk.outOf}`); }
         if (field === "course") { const ct = refs.get(raw.toUpperCase()); if (!ct || ct.kind !== "course" || !state.courses[ct.id]) return null; out.value = ct.id; return S(k.courseId && state.courses[k.courseId] ? courseLabel(state.courses[k.courseId]) : "none", courseLabel(state.courses[ct.id])); }
         if (!raw && field === "title") return null;
         return S(clip(k[field], 80) || "empty", clip(raw, 80) || "empty");
       }
+      if (t.kind === "course" && field === "delete") return yes(raw) ? S("", "Delete the course (its tasks stay)") : null;
+      if (t.kind === "course" && field === "color") { if (!/^#[0-9a-f]{6}$/i.test(raw)) return null; return S(state.courses[t.id].color || "none", raw.toUpperCase()); }
       if (t.kind === "course") { if (!raw && field === "name") return null; return S(clip(state.courses[t.id][field], 60) || "none", clip(raw, 60)); }
       if (t.kind === "class" || t.kind === "event") {
         if (field === "skip") return yes(raw) ? S(`${nice(t.date)}, ${tm(t.start)}`, "Cancelled that day") : null;
@@ -267,6 +282,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (field === "title" || field === "notes") return raw || field === "notes" ? S(clip(state.events[t.id][field], 60) || "none", clip(raw, 60) || "none") : null;
         return null;
       }
+      if (t.kind === "deck" && field === "delete") return yes(raw) ? S("", "Delete the deck") : null;
       if (t.kind === "deck") return raw ? S(state.decks[t.id].name, clip(raw, 80)) : null;
       if (t.kind === "quiz") { const z = state.decks[t.deck].aiQuizzes.find(x => x.id === t.id); return z && raw ? S(z.title, clip(raw, 80)) : null; }
       if (t.kind === "card") { const k = state.decks[t.deck].cards.find(x => x.id === t.id); if (!k) return null; if (field === "delete") return yes(raw) ? S("", "Delete the card") : null; if (!raw) return null; return S(clip(k[field], 100), clip(raw, 100)); }
@@ -420,9 +436,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (t.kind === "task") {
         if (c.field === "delete") { dead.add("task:" + t.id); continue; }
         const n = get("task", t.id); if (!n) continue;
+        if (c.field === "mark") { if (v) n.mark = Object.assign({}, n.mark || {}, v); else delete n.mark; continue; }
         const map = {startDate: "start", course: "courseId"}; n[map[c.field] || c.field] = v;
         if (c.field === "status") { if (v === "done" && !n.doneAt) n.doneAt = Date.now(); if (v !== "done") n.doneAt = null; }
-      } else if (t.kind === "course") { const n = get("course", t.id); if (n) n[c.field] = v; }
+      } else if (t.kind === "course") { if (c.field === "delete") { dead.add("course:" + t.id); continue; } const n = get("course", t.id); if (n) n[c.field] = v; }
       else if (t.kind === "class") {
         const n = get("course", t.id); if (!n) continue;
         if (c.scope === "once" || c.field === "skip" || c.field === "date") {
@@ -446,7 +463,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
           else if (c.field === "date" || c.field === "from" || c.field === "to") { const mv = Object.assign({date: t.date, start: t.start, end: t.end}, n.moved[t.key] && !n.moved[t.key].skip ? n.moved[t.key] : {}); if (c.field === "date") mv.date = v; if (c.field === "from") mv.start = v; if (c.field === "to") mv.end = v; n.moved[t.key] = mv; }
           else n[c.field] = v;
         } else { const map = {from: "start", to: "end"}; n[map[c.field] || c.field] = v; }
-      } else if (t.kind === "deck") { const n = get("deck", t.id); if (n) n.name = v; }
+      } else if (t.kind === "deck") { if (c.field === "delete") { dead.add("deck:" + t.id); continue; } const n = get("deck", t.id); if (n) n.name = v; }
       else if (t.kind === "quiz" || t.kind === "card" || t.kind === "question") {
         const n = get("deck", t.deck); if (!n) continue;
         if (t.kind === "card") { if (c.field === "delete") n.cards = n.cards.filter(x => x.id !== t.id); else { const k = n.cards.find(x => x.id === t.id); if (k) k[c.field] = v; } }
@@ -490,7 +507,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       }
     }
     if (!rest.length && o.shown) try { o.shown(); } catch (e) {}
-    for (const s of sets) await settingChange(s);
+    for (const s of sets) { const r = await settingChange(s, o.direct); if (o.results) o.results.push(r); }
+    // (made from the chat: the Settings sheet it worked in is closed again, so the chat carries on)
+    if (o.direct && sets.length) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
     return true;
   }
 
@@ -522,7 +541,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const d = r && r.data; const i = d ? Number(d.i) : -1;
     return i >= 0 && i < list.length ? {c: list[i], value: String(d.value || "").trim()} : null;
   }
-  async function settingChange(s){
+  // direct: asked for in so many words in the chat (Claude's step): set at once, without the confirm box (it can be set back the same way)
+  async function settingChange(s, direct){
     try {
       if (dlg && dlg.open) try { dlg.close(); } catch (e) {}
       menuSheet(); await frame(); await wait(120);
@@ -533,7 +553,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         if (found.c.type !== "open") break;
         found.c.el.click(); await frame(); await wait(250); found = null;
       }
-      if (!found) { toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
+      if (!found) { if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} return false; } toast(`I couldn't find a setting for "${s.setting}". It's open for you to look.`); return false; }
       const {c} = found; let v = found.value;
       const el = c.el || (c.type === "choice" && c.els ? c.els.find(b => clip(b.innerText, 30).toLowerCase() === v.toLowerCase()) : null);
       if (c.type === "choice" && c.els && !el) { toast("That setting doesn't have that option."); return false; }
@@ -542,13 +562,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       await wait(200); flash(target.closest(".menu-row, .cap-row, label, li") || target);
       if (c.type === "toggle") v = /^(on|yes|true|enable|enabled|show)$/i.test(v) ? "on" : "off";
       if (c.type === "toggle" && v === c.now) { toast(`${clip(c.title.split(/[.!]/)[0], 50)} is already ${v}.`); return true; }
-      const ok = await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
+      const ok = direct ? true : await confirmBox("Change this setting?", [{label: clip(c.title.split(/[.!]/)[0], 60), what: "Setting", from: c.now || "", to: v}], "Change");
       if (!ok) { toast("Nothing changed."); return false; }
       if (c.type === "toggle") c.el.click();
       else if (c.type === "choice" && c.els) el.click();
       else if (c.el.tagName === "SELECT") { const o = [...c.el.options].find(x => x.textContent.trim().toLowerCase() === v.toLowerCase()); if (!o) { toast("That setting doesn't have that option."); return false; } c.el.value = o.value; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
       else { c.el.value = v; c.el.dispatchEvent(new Event("input", {bubbles: true})); c.el.dispatchEvent(new Event("change", {bubbles: true})); }
-      return true;
+      if (direct) { try { if (dlg && dlg.open) dlg.close(); } catch (e) {} }
+      return {title: clip(c.title.split(/[.!]/)[0], 60), from: c.now || "", to: v};
     } catch (e) { console.warn("assist setting", e); toast((e && e.message) || "Couldn't change that setting."); return false; }
   }
 
@@ -820,6 +841,13 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
+      // checks before anything is changed: taking a mark off never deletes the task; a rename of "it" whose task their words don't name
+      // ("for psych, call it Psych Pals" renamed Psych Midterm) is asked about
+      if (qe && qe.length) { const w = String(q).toLowerCase(), named = l => { const ws = (String(l || "").toLowerCase().match(/[a-z0-9&]{4,}/g) || []); return !!ws.length && ws.filter(x => w.replace(/\b(?:to|as)\b.*$/, "").includes(x)).length >= Math.ceil(ws.length * 2 / 3); };
+        if (qe.some(c => c.field === "delete") && /\b(grades?|marks?|scores?|results?|percent|points)\b/.test(w) && !/\b(the (task|assignment|whole thing)|and the grade|everything)\b/.test(w))
+          return {answer: `I can't take a mark off from the chat yet, so I didn't change anything (${qe.find(c => c.field === "delete").label} and its mark are as they were). Open the task and clear its mark, or tell me the right mark and I'll save that instead.`, show: [], changes: [], local: true};
+        if (qe.some(c => c.field === "title") && /\b(it|that|this|them)\b/.test(w) && !qe.filter(c => c.field === "title").every(c => named(c.label)))
+          return {answer: "Which one should I rename? Say its name, for example: rename Care Plan 2 to ...", show: [], changes: [], local: true}; }
       if (qe && qe.length && !o.propose) { const b1 = build(qe); if (b1.length) { applyChanges(b1, qe.length === 1 ? (qe[0].field === "delete" ? `Deleted ${qe[0].label}` : `${qe[0].label}: ${qe[0].what.toLowerCase()} changed`) : `Made ${qe.length} changes`);
         return {answer: qe.map(c => c.field === "delete" ? `Deleted ${c.label}` : c.field === "status" && c.value === "done" ? `Nice work! I marked ${c.label} done` : `${c.label}: ${c.what.toLowerCase()} is now ${c.to}`).join(". ") + `. Say "undo" to take it back.`, show: qe[0].field !== "delete" && exists(qe[0].t) ? [{kind: "task", id: qe[0].t.id, label: qe[0].label}] : [], changes: [], local: true}; } }
       if (qe && qe.length) return {answer: qe.length === 1 && qe[0].field === "delete" ? `Delete ${qe[0].label}? Tap Review Change to confirm.` : `${qe[0].label}: ${qe.map(c => `${c.what.toLowerCase()} ${c.from ? c.from + " → " : ""}${c.to}`).join(", ")}. Tap Review Change to confirm.`, show: [], changes: qe, local: true};
