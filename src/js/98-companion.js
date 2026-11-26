@@ -149,32 +149,40 @@
   const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
   // Clothing patterns (Pro) go on these (the list grows with the fabric ones below)
   const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
-  // Where lenses sit on a face: the eyes' centres and a lens radius R, kept a little apart where the eyes are close together
-  function faceFit(e){
+  // Where lenses sit on a face: the eyes' centres and a lens radius R, kept a little apart where the eyes are close together,
+  // and ext, how far past the lenses a strap, wing or visor may reach: on a face whose eyes sit at its edge (a frog's) only a little,
+  // so nothing sticks out into the air (the body's width at the neck stands in for the head's)
+  function faceFit(e, c){
     const gap = e.rx - e.lx, R = Math.min(Math.max(6.5, e.r * 1.8), Math.max(5.2, gap / 2 - .9));
-    return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap};
+    const na = c && c.anchors && c.anchors.neck, half = Array.isArray(na) && num(na[4]) ? na[4] / 2 : 0;
+    const ext = half ? Math.max(2, Math.min(R * 1.2, half + 4 - (gap / 2 + R))) : R * 1.2;
+    return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap, ext: f1(ext)};
   }
-  /* The wardrobe's other 60 (98-comp-acc.js): 20 each for the head, face and neck, 5 of each rarity. How rare a thing is sets how
-     much studying earns it (any one way unlocks it, as for every prop); commons and rares are free, exotics and legendaries are Pro */
-  const RARITY = ["common", "rare", "exotic", "legendary"];
-  const RARITY_NAME = {common: "Common", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  /* The wardrobe's other 90 (98-comp-acc.js): 30 each for the head, face and neck, from Common to Legendary. How rare a thing is sets
+     how much studying earns it (any one way unlocks it, as for every prop), spread evenly from the easiest to the hardest of its
+     rarity; commons, uncommons and rares are free, exotics and legendaries are Pro */
+  const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  // [easiest, hardest] for each way, and a fourth way that depends on where it's worn
   const MORE_WAYS = {
-    common: {hours: [3, 4, 6, 7, 9], cards: [40, 60, 80, 110, 130], quizzes: [3, 4, 5, 6, 8], head: ["checkins", 3, 4, 5, 6, 7], face: ["notes", 3, 4, 5, 6, 8], neck: ["studydays", 3, 4, 5, 6, 8]},
-    rare: {hours: [12, 16, 20, 24, 30], cards: [200, 260, 320, 380, 450], quizzes: [10, 12, 14, 16, 18], head: ["studydays", 12, 15, 18, 21, 25], face: ["prep", 6, 7, 8, 10, 12], neck: ["checkins", 14, 17, 20, 24, 28]},
-    exotic: {hours: [45, 55, 65, 75, 90], cards: [700, 850, 1000, 1150, 1300], quizzes: [28, 32, 36, 40, 45], head: ["stickers", 12, 14, 16, 18, 20], face: ["focusWeeks", 4, 4, 5, 5, 6], neck: ["spread", 4, 4, 5, 5, 6]},
-    legendary: {hours: [120, 150, 180, 210, 250], cards: [2000, 2500, 3000, 3500, 4000], quizzes: [55, 62, 70, 80, 90], head: ["stickers", 25, 28, 32, 36, 40], face: ["focusWeeks", 8, 9, 10, 11, 12], neck: ["studydays", 90, 105, 120, 135, 150]}
+    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8]},
+    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12]},
+    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28]},
+    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6]},
+    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150]}
   };
-  const MORE = typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : [];
-  const MORE_BY = {}, MORE_N = {};
+  const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
+  const MORE_BY = {}, MORE_N = {}, MORE_OF = {};
+  MORE.forEach(a => { MORE_OF[a.slot + a.rarity] = (MORE_OF[a.slot + a.rarity] || 0) + 1; });
   MORE.forEach(a => {
-    if (ACC.some(x => x.id === a.id) || !RARITY.includes(a.rarity)) return;
-    const k = MORE_N[a.slot + a.rarity] = (MORE_N[a.slot + a.rarity] || 0) + 1, i = Math.min(4, k - 1), w = MORE_WAYS[a.rarity], x = w[a.slot];
+    const key = a.slot + a.rarity, i = MORE_N[key] = (MORE_N[key] || 0) + 1, t = MORE_OF[key] > 1 ? (i - 1) / (MORE_OF[key] - 1) : 0;
+    const w = MORE_WAYS[a.rarity], at = ([lo, hi]) => Math.round(lo + (hi - lo) * t), x = w[a.slot];
     MORE_BY[a.id] = a; ACC_SLOT[a.id] = a.slot;
     if (a.def) ACC_DEF[a.id] = a.def;
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: a.rarity === "common" || a.rarity === "rare", hours: w.hours[i], paths: [["cards", w.cards[i]], ["quizzes", w.quizzes[i]], [x[0], x[i + 1]]]});
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: RARITY.indexOf(a.rarity) <= 2, hours: at(w.hours), paths: [["cards", at(w.cards)], ["quizzes", at(w.quizzes)], [x[0], at([x[1], x[2]])]]});
   });
   ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
   const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
@@ -250,7 +258,7 @@
     const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
-    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes))}</g>`).join("")}`;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
