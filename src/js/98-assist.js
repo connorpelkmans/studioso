@@ -1022,11 +1022,11 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per 2 focus minutes, 1 per 5 flashcards reviewed, 1 per right answer on a passed practice quiz plus a bonus, 3 to 25 per finished task by its size, 10 per presentation practice run plus 40 for the first run on target). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
-- Account: sign in to keep everything in sync across devices; profile; change email or password; Studyboard Pro; Studyboard Credits; Restore Purchases; delete account.
+- Account: sign in to keep everything in sync across devices; profile; change email or password; Studyboard Pro; Studyboard Bucks; Restore Purchases; delete account.
 - Appearance: Light, Dark or System; Style Shop; the study companion; animations; daily quote.
 - Accessibility: text size; high contrast and calm backgrounds; language; spelling.
 - Study Plan: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}Term Scrapbook.

@@ -22242,7 +22242,7 @@ function startStudy(deckIds, onlyIds){
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
-  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds)};
+  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds), cr0: typeof SBSC !== "undefined" && SBSC ? SBSC.earned(true) : 0};
   fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
@@ -22788,8 +22788,8 @@ hook("act", (act, el) => {
    2. Why a card is back ("You missed this yesterday") and an "in a row" chip from 3 known cards on.
    3. A daily goal you choose (Tiny 5, Steady 20, Strong 50, Exam Week 100): card ratings and quiz answers count, any rating,
       so honest ratings never cost anything. Reaching it is a quiet celebration.
-   4. A rewarding end to a study session: a ring of what you knew, cards newly mastered, your best run, today's goal and Mochi's
-      next accessory.
+   4. A rewarding end to a study session: a ring of what you knew, cards newly mastered, your best run, today's goal, the
+      Studyboard Credits it earned and Mochi's next accessory to save up for.
    5. AI quiz questions you missed become flashcards in that deck (with Undo), so a quiz always ends with a next step.
    Never here: hearts or lives, lockouts, cooldowns, speed scoring, anything bought. */
 
@@ -22981,7 +22981,8 @@ function studyDoneHtml(f, cards, total, again){
   const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
   const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
   const t = goalCfg()[1], g = goalToday();
-  let next = null; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor("cards") : null; } catch (e) {}
+  // Studyboard Credits earned in this session (98-0study-credits.js), and the next accessory they're saving up for
+  let next = null, got = 0; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
   return `<section class="done-card sd">
       <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
         <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
@@ -22992,7 +22993,8 @@ function studyDoneHtml(f, cards, total, again){
         <div class="sd-tile"><b>${f.best || 0}</b><span>best run</span></div>
         <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
       </div>
-      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "Ready to wear" : `${next.left} card${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.v / next.n * 100)}%"></i></div></div>` : ""}
+      ${got ? `<p class="sd-credits">${SBSC.coin(22)}<b>+${got} Credit${got === 1 ? "" : "s"}</b><span class="mini">earned this session</span></p>` : ""}
+      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "You can buy it now" : `${next.left.toLocaleString()} credit${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.have / next.price * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
       ${keepSafeHtml()}
@@ -27612,7 +27614,7 @@ window.__sbPlanObj = () => PLAN;
   const directCheckout = period => checkoutCall({plan: period, src: "app"});
   // Tests run the real call with their own server (window.__SB_TEST only)
   if (window.__SB_TEST) window.__sbCheckoutCall = (what, client, user) => checkoutCall(what, client, user);
-  // what: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  // what: {plan} for a subscription, or {pack} for Studyboard Bucks (the server's credit packs). The server decides every price.
   async function checkoutCall(what, client, user){
     const c = client || sb, u = client ? user : sbUser;
     if (!c || !u || u.is_anonymous) return null;
@@ -58804,6 +58806,218 @@ var SBSTATS = (() => {
 })();
 
 
+/* ===== module: 98-0study-credits.js ===== */
+/* Studyboard Credits: the gold coins students earn by studying, spent on companion accessories (98-companion.js, the Wardrobe).
+   They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
+
+   How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
+     - Focus time       1 per 2 minutes          just keeping the timer going is the easiest
+     - Flashcards       1 per 5 cards reviewed   active recall, about 10 seconds a card
+     - Practice quizzes 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score
+     - Tasks            by type: Exam 25, Project 15, Quiz 12, Assignment and Lab 8, Reading and Study 4, Other 3;
+                        a step of a broken-down task 2 (at most 10 tasks a day count, so splitting work up doesn't pay)
+     - Presentations    10 for each full practice run (2 a day per presentation), +40 the first time a run lands on target
+
+   Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
+   minutes), so credits sync with the rest of a student's work and include what they did before this existed. Each kind keeps
+   its highest total (state.settings.sc.hw), so deleting an old deck or finished task never takes credits back. Presentations live
+   on one device (99-present.js, IndexedDB), so each run's credits are written down once (sc.ev, by run id).
+   Spending: sc.own {accessoryId: price}. The balance is everything earned minus everything spent, never below zero.
+   Nothing here is money: it's all in the student's own synced settings. */
+var SBSC = (() => {
+  // The gold coin (build-resources/credits-art/credits-coin-256.png, as a 96 px WebP)
+  const COIN_SRC = "data:image/webp;base64,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";
+  const coin = (px = 18) => `<img class="scr-coin" src="${COIN_SRC}" width="${px}" height="${px}" alt="" aria-hidden="true">`;
+
+  /* ---------- What each kind of work earns ---------- */
+  const TASK_PTS = {Exam: 25, Project: 15, Quiz: 12, Assignment: 8, Lab: 8, Reading: 4, Study: 4, Other: 3};
+  const TASK_STEP = 2, TASKS_A_DAY = 10;
+  const PRES_RUN = 10, PRES_RUNS_A_DAY = 2, PRES_MASTER = 40;
+  // In the order the Wardrobe lists them: [key, name, how it's earned]
+  const KINDS = [
+    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer"],
+    ["cards", "Flashcards", "1 credit for every 5 cards you review"],
+    ["quiz", "Practice Quizzes", "1 credit for each right answer, +3 for passing (70% or more), +3 more for a perfect score"],
+    ["task", "Tasks", "By how big the task is: an exam 25, a project 15, a quiz 12, an assignment or lab 8, a reading 4 (up to 10 tasks a day)"],
+    ["pres", "Presentations", `${PRES_RUN} for each full practice run (2 a day per presentation), +${PRES_MASTER} the first time you finish on target`]
+  ];
+  const DERIVED = ["focus", "cards", "quiz", "task"];
+
+  const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
+  function setSc(patch){
+    const cur = sc(), next = Object.assign({}, cur, patch);
+    ["hw", "ev", "own"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    state.settings = Object.assign({}, state.settings, {sc: next});
+    saveSettings();
+  }
+  const dayOf = ms => { const d = new Date(Number(ms) || 0); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const tr = (f, dflt = 0) => { try { return f(); } catch (e) { return dflt; } };
+
+  // What's saved now, per kind (in credits, before rounding)
+  const quizPts = r => { const t = Number(r && r.total) || 0, s = Number(r && r.score) || 0; if (t < 3 || s / t < 0.7) return 0; return s + 3 + (s >= t ? 3 : 0); };
+  function current(){
+    const out = {focus: 0, cards: 0, quiz: 0, task: 0};
+    out.focus = tr(() => (typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() : 0) / 2);
+    tr(() => Object.values(state.decks || {}).forEach(d => {
+      (d.cards || []).forEach(c => { out.cards += (Number(c && c.seen) || 0) / 5; });
+      (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => (q && q.results) || [])).forEach(r => { out.quiz += quizPts(r); });
+    }));
+    tr(() => {
+      // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
+      const per = {};
+      Object.values(state.tasks || {}).forEach(t => {
+        if (!t || t.status !== "done") return;
+        const pts = t.breakdownOf ? TASK_STEP : TASK_PTS[t.type] || TASK_PTS.Other;
+        (per[t.doneAt ? dayOf(t.doneAt) : "?"] = per[t.doneAt ? dayOf(t.doneAt) : "?"] || []).push(pts);
+      });
+      Object.values(per).forEach(l => { out.task += l.sort((a, b) => b - a).slice(0, TASKS_A_DAY).reduce((n, x) => n + x, 0); });
+    });
+    return out;
+  }
+  // Each kind's total: what's saved now, or the most it has ever been (so deleting old work never takes credits away)
+  let cache = null, cacheAt = 0;
+  function totals(){
+    const now = Date.now(); if (cache && now - cacheAt < 1500) return cache;
+    const cur = current(), hw = sc().hw || {}, by = {};
+    DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
+    by.pres = Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (/^pres:/.test(k) ? Number(v) || 0 : 0), 0);
+    const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
+    cache = {by, cur, earned}; cacheAt = now;
+    return cache;
+  }
+  const invalidate = () => { cache = null; };
+  const spent = () => Object.values(sc().own || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+  const earned = fresh => { if (fresh) invalidate(); return totals().earned; };
+  const balance = () => Math.max(0, earned() - spent());
+  // Keep each kind's highest total in the synced settings, now and then (not on every card: a minute apart at most)
+  let hwAt = 0;
+  function keepHigh(force){
+    if (!force && Date.now() - hwAt < 60000) return;
+    const t = totals(), hw = sc().hw || {}, up = {};
+    DERIVED.forEach(k => { const v = Math.floor(t.cur[k] * 10) / 10; if (v > (Number(hw[k]) || 0)) up[k] = v; });
+    if (!Object.keys(up).length) return;
+    hwAt = Date.now(); setSc({hw: up});
+  }
+
+  /* ---------- Spending ---------- */
+  const owns = id => !!(sc().own || {})[id];
+  // Pays for an accessory: true when bought (or already owned), false when there aren't enough credits
+  function buy(id, price){
+    price = Math.max(0, Math.round(Number(price) || 0));
+    if (!id || owns(id)) return !!id;
+    invalidate();
+    if (balance() < price) return false;
+    keepHigh(true);
+    setSc({own: {[id]: price}});
+    invalidate(); paintPills();
+    return true;
+  }
+
+  /* ---------- Presentations: each run's credits written down once ---------- */
+  hook("pr-finish", (p, run) => {
+    try {
+      if (!p || !run || run.sec || run.early || !run.id) return;
+      const ev = sc().ev || {}, today = todayISO(), pid = String(p.id || "");
+      const runsToday = Object.keys(ev).filter(k => k.indexOf(`pres:${pid}:run:${today}:`) === 0).length;
+      const add = {};
+      if (runsToday < PRES_RUNS_A_DAY) add[`pres:${pid}:run:${today}:${run.id}`] = PRES_RUN;
+      // on target: within 10 seconds over its time goal, and not rushed (at least three quarters of it)
+      const tgt = (Number(run.target) || 0) * 1000, onTarget = tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
+      if (onTarget && !ev[`pres:${pid}:master`]) add[`pres:${pid}:master`] = PRES_MASTER;
+      if (!Object.keys(add).length) return;
+      setSc({ev: add}); invalidate();
+      const n = Object.values(add).reduce((a, b) => a + b, 0);
+      if (seenTotal != null) { seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); }
+      pop(n, add[`pres:${pid}:master`] ? "Presentation mastered" : "Practice run");
+    } catch (e) { console.warn("study credits: presentation", e); }
+  });
+
+  /* ---------- "+12 Credits": a little coin that pops in when you've earned some ---------- */
+  // Credits earned are noticed when the app draws (a moment after, so a flashcard session shows them once, at its end)
+  let seenTotal = null, popT = 0, popEl = null;
+  const NAMES = {focus: "Focus time", cards: "Flashcards", quiz: "Quiz passed", task: "Task done", pres: "Presentation"};
+  function pop(n, why){
+    n = Math.round(n); if (n < 1) return;
+    try {
+      // a manual popover, so it shows over an open sheet too (sheets are in the top layer)
+      if (!popEl || !popEl.isConnected) { popEl = document.createElement("div"); popEl.className = "scr-pop"; popEl.setAttribute("role", "status"); popEl.setAttribute("aria-live", "polite"); if (popEl.showPopover) popEl.setAttribute("popover", "manual"); document.body.appendChild(popEl); }
+      popEl.innerHTML = `${coin(26)}<span><b>+${n.toLocaleString()} Credit${n === 1 ? "" : "s"}</b>${why ? `<small>${esc(why)}</small>` : ""}</span>`;
+      try { if (popEl.showPopover) { if (popEl.matches(":popover-open")) popEl.hidePopover(); popEl.showPopover(); } } catch (e) {}
+      popEl.classList.remove("show"); void popEl.offsetWidth; popEl.classList.add("show");
+      clearTimeout(popEl._t); popEl._t = setTimeout(() => { popEl.classList.remove("show"); setTimeout(() => { try { if (!popEl.classList.contains("show") && popEl.matches(":popover-open")) popEl.hidePopover(); } catch (e) {} }, 400); }, 3200);
+    } catch (e) {}
+    paintPills();
+  }
+  let lastBy = null;
+  function notice(){
+    invalidate();
+    const t = totals();
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    // which kind of work it came from (the one that grew the most)
+    let why = "", most = 0; Object.keys(t.by).forEach(k => { const d = t.by[k] - ((lastBy || {})[k] || 0); if (d > most) { most = d; why = NAMES[k]; } });
+    const gained = t.earned - seenTotal; seenTotal = t.earned; lastBy = Object.assign({}, t.by);
+    // a big jump at once is work arriving from another device (or a backup), not something just done: no pop
+    if (gained <= 250) pop(gained, why);
+    keepHigh();
+  }
+  // mid-way through a flashcard session or a presentation run: wait (the session's end shows what it earned)
+  const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && f.mode === "study" && Array.isArray(f.q) && !!f.q[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
+  function noticeSoon(){
+    clearTimeout(popT);
+    popT = setTimeout(() => { if (studying() || document.hidden) { noticeSoon(); return; } notice(); }, 1800);
+  }
+  hook("render", noticeSoon);
+  hook("stats-focus", noticeSoon);
+  hook("good-moment", noticeSoon);
+  // the first count after start-up (and after the account's data arrives) is quiet: only new work pops
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); keepHigh(); }, 3000); setTimeout(intro, 20000); });
+  // Once per account: what's been earned so far, from studying before credits existed (after start-up's sync has settled)
+  function intro(){
+    try {
+      if (sc().intro || document.hidden) return;
+      invalidate(); const n = balance();
+      setSc({intro: 1});
+      if (n > 0) pop(n, "Earned by your studying so far. Spend them in your companion's Wardrobe.");
+    } catch (e) {}
+  }
+
+  // Anywhere showing the balance (.scr-bal) is kept current
+  function paintPills(){
+    invalidate();
+    const b = balance().toLocaleString();
+    document.querySelectorAll("[data-scr-bal]").forEach(el => { el.textContent = b; });
+  }
+  const pill = () => `<span class="scr-pill" title="Studyboard Credits: earned by studying, spent on accessories">${coin(20)}<b data-scr-bal>${balance().toLocaleString()}</b><span>Credits</span></span>`;
+  // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
+  function howHtml(){
+    const t = totals();
+    return `<ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+  }
+
+  if (!document.getElementById("scr-css")) { const st = document.createElement("style"); st.id = "scr-css";
+    st.textContent = `.scr-coin{flex:none;vertical-align:-.2em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
+.scr-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 6px;border-radius:999px;border:1px solid color-mix(in srgb,#E2A82A 45%,var(--line));background:color-mix(in srgb,#F6C34A 14%,var(--surface));color:var(--ink);font:700 .9rem var(--display);white-space:nowrap}
+.scr-pill > span{font-weight:600;opacity:.85}
+.scr-pop{position:fixed;z-index:2147483000;inset:auto;margin:0;overflow:visible;right:16px;top:calc(env(safe-area-inset-top,0px) + 14px);display:flex;align-items:center;gap:10px;padding:8px 16px 8px 10px;border-radius:999px;background:var(--surface,#fff);color:var(--ink,#222);border:1px solid color-mix(in srgb,#E2A82A 55%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:min(360px,calc(100vw - 32px));box-sizing:border-box;opacity:0;transform:translateY(-12px) scale(.96);pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,1.4,.4,1)}
+.scr-pop.show{opacity:1;transform:none}
+.scr-pop span{display:grid;line-height:1.15}
+.scr-pop b{font:800 1rem var(--display);color:#8A5A00}
+.scr-pop small{font-size:.78rem;color:var(--muted,#666)}
+:root[data-theme="dark"] .scr-pop b,.dark .scr-pop b{color:#FFD36B}
+@media (prefers-reduced-motion:reduce){.scr-pop{transition:opacity .2s}}
+.scr-how{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.scr-how li{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.scr-how-n{flex:1;display:grid;gap:2px;min-width:0}
+.scr-how-v{display:inline-flex;align-items:center;gap:5px;font:800 .95rem var(--display);font-variant-numeric:tabular-nums}`;
+    document.head.appendChild(st); }
+
+  return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+    kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop,
+    // For tests: count again now
+    refresh: () => { invalidate(); notice(); }};
+})();
+if (window.__SB_TEST) window.SBSC = SBSC;
 /* ===== module: 98-comp-00.js ===== */
 /* Study Companions */
 var COMP_DATA = [];
@@ -71025,23 +71239,22 @@ var COMP_EXTRA = [];
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
-  // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
+  // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
+  // quizzes, tasks and presentations, each by how hard it is. Prices climb with how special a prop is. Once bought, a prop is kept for
+  // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
+  // Props earned the old way (cfg().earned, before credits) stay yours.
   const ACC = [
-    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
-    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
-    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
-    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
-    {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
+    {id: "scarf", name: "Cozy Scarf", price: 40},
+    {id: "hat", name: "Tiny Hat", price: 75},
+    {id: "bowtie", name: "Party Bow Tie", price: 120},
+    {id: "glasses", name: "Round Glasses", price: 160},
+    {id: "medal", name: "Champion Medal", price: 250},
+    {id: "cape", name: "Hero Cape", price: 400},
+    {id: "star", name: "Star Badge", price: 550},
+    {id: "beanie", name: "Festive Beanie", price: 200, festive: true},
+    {id: "cap", name: "Graduation Cap", price: 750},
+    {id: "crown", name: "Little Crown", price: 1000}
   ];
-  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
-  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
@@ -71090,7 +71303,7 @@ var COMP_EXTRA = [];
     if (STYLE_LISTS.comp.some(x => x.id === c.id)) return;
     STYLE_LISTS.comp.push({id: c.id, name: c.name, theme: th, get tier(){ return themeTier(th); }});
   }));
-  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
+  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return "free"; }}); }); // bought with earned credits, never Pro
 
   /* ---------- Drawing ---------- */
   const OUT = (w = 3) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -71324,51 +71537,17 @@ var COMP_EXTRA = [];
   const ownName = id => { const n = (cfg().names || {})[id]; return typeof n === "string" ? n.replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim() : ""; };
   const nameOf = c => ownName(c.id) || c.name;
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
-  /* Earning props */
-  const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
-    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "Study Group or Room", focusWeeks: "weeks with 4+ focus days", festive: "Winter Holiday Visit"};
-  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
-    stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
-    groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
-  let pStat = null, pStatAt = 0, pStatSc;
-  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot); a scrapbook update counts again at once
-  function propStats(){
-    const now = Date.now(), sc0 = state.settings && state.settings.scrap; if (pStat && now - pStatAt < 4000 && sc0 === pStatSc) return pStat;
-    pStatSc = sc0;
-    const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
-    const tr = f => { try { f(); } catch (e) {} };
-    tr(() => { s.hours = hours(); });
-    tr(() => { s.studydays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(addDays(todayISO(), -400)).length : 0; });
-    tr(() => { s.spread = Object.values(state.tasks || {}).filter(t => MILESTONE(t.type) && !t.prepFor && t.due && t.due <= todayISO() && examSpread(t)).length; });
-    tr(() => { const k = rewardStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
-    tr(() => Object.values(state.decks || {}).forEach(d => {
-      (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
-      (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
-    }));
-    tr(() => { s.notes = Object.values(state.notes || {}).filter(n => String(n.text || "").trim().length >= 15).length; });
-    tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
-      s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
-    tr(() => { s.checkins = (cfg().ci || []).length; });
-    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
-    tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
-    tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
-    pStat = s; pStatAt = now;
-    return s;
-  }
-  const pathsOf = a => (a.hours ? [["hours", a.hours]] : []).concat(a.paths || []);
+  /* Getting props: bought with Studyboard Credits */
+  const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
+  const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
   const wasEarned = a => !!(cfg().earned || {})[a.id];
-  // How far along each way of getting this prop is
-  const propProg = a => { const s = propStats(); return pathsOf(a).map(([k, n]) => { const v = Math.min(Number(s[k]) || 0, n); return {k, n, v: k === "hours" ? Math.round(v * 10) / 10 : Math.floor(v), p: v / n, ask: PROP_ASK[k](n), unit: PROP_UNIT[k]}; }); };
-  const isEarned = a => !!a && (wasEarned(a) || propProg(a).some(x => x.p >= 1));
-  const unlocked = () => ACC.filter(isEarned);
-  // The goal a prop shows stays the same for the session: the scrapbook's sticker count only arrives a few seconds after load,
-  // and a "closest" path picked before it would flip under the student. So nothing is pinned until the scrapbook is ready.
-  const pinPath = {};
-  const closestPath = a => { const ps = propProg(a), pin = pinPath[a.id] && ps.find(x => x.k === pinPath[a.id]); if (pin) return pin;
-    const b = ps.sort((x, y) => y.p - x.p)[0]; if (b && (!window.__sbScrap || (state.settings && state.settings.scrap))) pinPath[a.id] = b.k; return b; };
-  const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
-  const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
+  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  // the Festive Beanie is on sale between Dec 1 and Jan 6
+  const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
+  const forSale = a => !!a && (!a.festive || inSeason());
+  const coinHtml = px => SC() ? SC().coin(px) : "";
+  const creditsTxt = n => `${(+n || 0).toLocaleString()} ${+n === 1 ? "credit" : "credits"}`;
+  const canWear = a => !!a && isEarned(a);
   // What it wears now
   const wearOf = c => wornList((cfg().wear || {})[c.id]).filter(id => canWear(ACC.find(x => x.id === id)));
   function wearColor(c){
@@ -72724,7 +72903,6 @@ var COMP_EXTRA = [];
     later(checkUnlocks, 5000);
   }
   // A new accessory
-  const LEGACY_ACC = ["scarf", "hat", "glasses", "backpack", "star", "cap"];
   let lastUnlockChk = 0;
   function checkIn(){
     try {
@@ -72732,28 +72910,12 @@ var COMP_EXTRA = [];
       const t = todayISO(), ci = cfg().ci || [];
       if (ci[ci.length - 1] === t) return;
       setCfg({ci: ci.concat(t).slice(-400)});
-      pStat = null;
     } catch (e) {}
   }
+  // (props aren't unlocked by milestones any more: they're bought with credits, so this only notes the day's visit)
   function checkUnlocks(){
     lastUnlockChk = Date.now();
     checkIn();
-    const have = cfg().earned, seen = Number(cfg().seen);
-    const earnedNow = ACC.filter(isEarned);
-    if (!have) {
-      const quiet = earnedNow.filter(a => !LEGACY_ACC.includes(a.id) || !Number.isFinite(seen) || LEGACY_ACC.indexOf(a.id) < seen);
-      setCfg({earned: Object.fromEntries(quiet.map(a => [a.id, 1]))});
-      if (!Number.isFinite(seen) && !quiet.length) return;
-      if (earnedNow.length === quiet.length) return;
-    }
-    const got = cfg().earned || {};
-    const fresh = earnedNow.filter(a => !got[a.id]);
-    if (!fresh.length) return;
-    setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
-    try { refreshPicker(); } catch (e) {}
-    // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
-    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
-    revealSoon();
   }
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
@@ -72774,20 +72936,20 @@ var COMP_EXTRA = [];
   const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
   function revealProp(a){
     revealOn = true;
-    const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
+    const c = current(), wearNow = !!c && canWear(a), worn = !!c && wearOf(c).includes(a.id);
     const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
     const o = document.createElement("div");
     o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
     if (o.showPopover) o.setAttribute("popover", "manual");
     const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
-    const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
+    const how = !c ? "Pick a companion to wear it." : worn ? "Your companion is wearing it now." : wearNow ? "Your companion can wear it now." : "It's in your companion's wardrobe.";
     o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
-      <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
-      <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
+      <span class="cpu-kick">New Accessory!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : ""}${esc(how)}</p>
+      <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     sbHaptic("success", {force: true});
@@ -72804,7 +72966,7 @@ var COMP_EXTRA = [];
       // the companion celebrates too
       if (act && cur) {
         hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Thanks for working so hard!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
@@ -73595,7 +73757,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (key === accPrevKey) return; accPrevKey = key;
     const art = box.querySelector(".cp-acc-prev-art"), t = box.querySelector(".cp-acc-prev-t");
     if (art) art.innerHTML = previewHtml(c, next, 110);
-    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : " (not earned yet)"}`;
+    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : a ? ` (${creditsTxt(a.price)})` : ""}`;
   }
   ["mouseover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const t = e.target && e.target.closest && e.target.closest(".cp-acc-tile"); if (t) accPreview(t); }));
   function previewHtml(c, wear, px){
@@ -73615,16 +73777,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen shop-inuse" role="status">✓ In Use</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Use</button>`}
       </div>`;
     }).join("");
-    const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
-    const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
+    const nGot = ACC.filter(isEarned).length, bal = credits();
     const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
-    const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
-      const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
+      const got = isEarned(a), on = wear.includes(a.id), sale = forSale(a), afford = sale && bal >= a.price;
       const icon = propIcon(a, tints);
-      return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+      const sub = got ? (on ? "Wearing" : "Wear") : !sale ? "Back Dec 1" : `${coinHtml(14)}<b>${a.price.toLocaleString()}</b>`;
+      return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}${!got && afford ? " can-buy" : ""}" data-act="comp-wear" data-acc="${a.id}" ${got ? `aria-pressed="${on}"` : `aria-label="${esc(a.name)}: ${sale ? `buy for ${creditsTxt(a.price)}` : "on sale again Dec 1"}"`}>
+        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}</span><span class="mini cp-acc-p">${sub}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -73634,18 +73795,54 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
-      <h3 class="fsec">Accessories</h3>
+      <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
+      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
       ${smartRow()}`;
+  }
+  /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
+  let buyBack = "";
+  function buyProp(a){
+    if (!a) return;
+    if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
+    stopPreviews();
+    const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
+    const wear = c ? wearOf(c).filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id) : [];
+    const chip = !sale ? `<span class="cp-buy-chip">On sale Dec 1 to Jan 6</span>` : enough ? `<span class="cp-buy-chip ok">${(bal - a.price).toLocaleString()} left after</span>` : `<span class="cp-buy-chip">${(a.price - bal).toLocaleString()} more to earn</span>`;
+    openSheet(`<div class="sheet cp-buy" data-acc="${a.id}">${head(a.name)}<div class="sheet-body">
+      <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
+      <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
+      <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is about 12 credits, a passed 10-question quiz 11 to 16, and an exam you've taken 25.</p>` : ""}
+      ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
+    if (!dlg.open) try { dlg.showModal(); } catch (e) {}
+  }
+  function buyNow(a, btn){
+    if (!a || !SC()) return;
+    if (!isEarned(a)) {
+      if (!forSale(a)) { buyProp(a); return; }
+      if (!SC().buy(a.id, a.price)) { toast("Not enough credits yet. Keep studying!"); buyProp(a); return; }
+    }
+    const back = buyBack; buyBack = "";
+    // it goes straight on
+    const c = current();
+    if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
+    sbHaptic("success", {force: true});
+    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    try { refreshPicker(); } catch (e) {}
+    if (back) {
+      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
+      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
+    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
@@ -73671,7 +73868,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   // Change: just this theme's companions
   function changeBody(){
-    const b = pickerBody(), i = b.indexOf('<div class="cp-tiles">'), j = b.indexOf('<h3 class="fsec">Accessories</h3>');
+    const b = pickerBody(), i = b.indexOf('<div class="cp-tiles">'), j = b.indexOf('<h3 class="fsec cp-acc-h">');
     const mine = i < 0 ? "" : b.slice(i, j > i ? j : undefined), here = themeKey(skinId());
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
@@ -73735,13 +73932,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     if (a === "comp-wear") {
       const id = el.dataset.acc || "", acc = ACC.find(x => x.id === id), c = current(); if (!c) return true;
-      if (id && !isEarned(acc)) { const w = closestPath(acc); toast(`${acc.name}: ${w.ask}. ${pathShort(w)}.`); return true; }
-      if (id && !canWear(acc)) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Every companion accessory comes with Studyboard Pro."); return true; }
+      if (id && !isEarned(acc)) { buyProp(acc); return true; }
       const now = wearOf(c), next = !id ? [] : now.includes(id) ? now.filter(x => x !== id) : now.filter(x => slotOf(x) !== slotOf(id)).concat(id);
       setCfg({wear: {[c.id]: next}}); curSig = ""; build(); refreshPicker();
       if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
       return true;
     }
+    if (a === "comp-buy") { buyNow(ACC.find(x => x.id === el.dataset.acc), el); return true; }
+    if (a === "comp-buy-back") { const b = buyBack; buyBack = ""; if (b === "picker") openPicker(); else if (b === "shop") styleShop("companions"); else if (dlg.open) dlg.close(); return true; }
     if (a === "comp-pat") {
       const id = el.dataset.acc, k = el.dataset.pat || "";
       if (!PAT_PROPS.includes(id) || (k && !PATS.some(x => x[0] === k))) return true;
@@ -74085,15 +74283,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
-    // how an accessory is earned, in words, from its own unlock rules ("how do i get the little crown"): null for no such accessory
-    // (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
+    // how an accessory is got, in words ("how do i get the little crown"): its price in Studyboard Credits and how credits are earned;
+    // null for no such accessory (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
     earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
-      const ways = (a.hours ? [PROP_ASK.hours(a.hours)] : []).concat((a.paths || []).map(([k, v]) => PROP_ASK[k] ? PROP_ASK[k](v) : "").filter(Boolean));
-      return `The ${a.name} is earned by studying: ${ways.length > 1 ? "any one of these: " + ways.map(x => x.charAt(0).toLowerCase() + x.slice(1)).join("; ") : ways.join("")}. Open Companion, then Wardrobe, to see how close you are.`; } catch (e) { return null; } },
+      if (isEarned(a)) return `You already have the ${a.name}. Open Companion, then Wardrobe, to put it on.`;
+      const bal = credits();
+      return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
-    wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
+    wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
     // Wearing or taking off an accessory by its name (the chat's "put on your scarf", "take off the glasses"): what happened, in words
     wearByName: (name, on) => { try {
@@ -74106,7 +74305,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
-        if (!have.length) return `I haven't earned ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. The Wardrobe shows how to unlock ${kind[1].length > 1 ? "them" : "it"}.`;
+        if (!have.length) return `I haven't unlocked ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. You can buy ${kind[1].length > 1 ? "one" : "it"} in the Wardrobe with Studyboard Credits.`;
         const pick = have.find(x => !now.includes(x.id)) || have[0];
         if (now.includes(pick.id)) return `I'm already wearing my ${pick.name}!`;
         setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(pick.id)).concat(pick.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
@@ -74116,7 +74315,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
       if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
-      if (!canWear(a)) return `I haven't earned the ${a.name} yet. The Wardrobe shows how to unlock it.`;
+      if (!canWear(a)) return `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
@@ -74139,8 +74338,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { return "I couldn't change that colour just now."; } },
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
-    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
+    // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [`Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    // Studyboard Credits for the chat ("how many credits do I have")
+    credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
@@ -74151,9 +74352,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
-    // The next accessory a kind of effort ("cards", "quizzes") is working toward: {id, name, n, v, left}, for the end of a session
-    nextFor: k => { try { const a = ACC.find(x => !isEarned(x) && (x.free || owns("prop", x.id)) && (x.paths || []).some(p => p[0] === k)); if (!a) return null;
-      const p = propProg(a).find(x => x.k === k); return p ? {id: a.id, name: a.name, n: p.n, v: p.v, left: Math.max(0, p.n - p.v)} : null; } catch (e) { return null; } },
+    // The next accessory to save up for (the cheapest one not yet owned that's on sale), for the end of a study session:
+    // {id, name, price, have, left}; the kind of effort no longer matters, every kind earns credits
+    nextFor: () => { try { const a = ACC.filter(x => !isEarned(x) && forSale(x)).sort((x, y) => x.price - y.price)[0]; if (!a) return null;
+      const have = credits(); return {id: a.id, name: a.name, price: a.price, have: Math.min(have, a.price), left: Math.max(0, a.price - have)}; } catch (e) { return null; } },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker
@@ -75354,11 +75556,11 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per 2 focus minutes, 1 per 5 flashcards reviewed, 1 per right answer on a passed practice quiz plus a bonus, 3 to 25 per finished task by its size, 10 per presentation practice run plus 40 for the first run on target). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
-- Account: sign in to keep everything in sync across devices; profile; change email or password; Studyboard Pro; Studyboard Credits; Restore Purchases; delete account.
+- Account: sign in to keep everything in sync across devices; profile; change email or password; Studyboard Pro; Studyboard Bucks; Restore Purchases; delete account.
 - Appearance: Light, Dark or System; Style Shop; the study companion; animations; daily quote.
 - Accessibility: text size; high contrast and calm backgrounds; language; spelling.
 - Study Plan: area of study; Study Hours per Day; Weekly Hours Limit; Availability and Free Time (work and protected time); Learn My Pace; Exam Mode (the last 3 days before an exam point everything at it); Autopilot (Pro: moves missed study sessions overnight); Grades; Weekly Review; ${STREAK_HIDDEN ? "" : "Gentle Study Streak; "}Term Scrapbook.
@@ -75789,7 +75991,7 @@ window.SBAPPHELP = (() => {
     [/\b(shortcut|shortcuts|keyboard|hotkey)\b/, "Press ? anywhere to see the keyboard shortcuts. Keys 1 to 7 switch pages, N adds a task, C opens Quick Capture, Ctrl+K (Cmd+K) searches everything."],
     [/\b(search)\b/, "Press Ctrl+K (Cmd+K) to Search Everywhere: tasks, cards, notes and the text inside your files, and it can answer with AI."],
     [/\b(language|text size|font size|high contrast|accessibility)\b/, `Open ${S}, then Accessibility: text size, high contrast, calm backgrounds and language.`],
-    [/\b(companion|mochi|wardrobe|accessor(y|ies)|outfit|dress)\b/, "Open Companion in the sidebar: the Wardrobe has accessories you earn by studying. Choose or rename your companion in Settings, Appearance."],
+    [/\b(companion|mochi|wardrobe|accessor(y|ies)|outfit|dress)\b/, "Open Companion in the sidebar: the Wardrobe has accessories you buy with Studyboard Credits, which you earn by studying. Choose or rename your companion in Settings, Appearance."],
     [/\b(study hours|study plan|exam mode|autopilot|weekly hours)\b/, `Open ${S}, then Study Plan: study hours per day, weekly hours limit, free time, Exam Mode and Autopilot.`],
     [/\b(widget|widgets|install|app on my phone|home screen)\b/, `Open ${S}, then Notifications and Widgets: widgets and installing the app.`],
     [/\b(new term|new semester|start over|clear)\b/, `Open ${S}, then Data and Backups, then Start a New Term (it archives this term) or clear all data.`],
@@ -75815,11 +76017,11 @@ window.SBAPPHELP = (() => {
         [/\bstudy groups?|\bgroups?\b(?= work| on here| in (?:the app|studyboard))/, "Study Groups let you study with classmates: make a group (or join one with its invite code), then share decks, quizzes and deadlines, plan sessions together and take the weekly challenge. Groups need you signed in. Open Groups in the sidebar, or tell me \"join a group\" with the code."],
         [/\b(focus )?timer|\bpomodoro|\bfocus (session|mode|time)/, "The Focus timer runs pomodoro sessions (25 minutes by default) on a task: the time counts toward that task and your study hours. Start one from Tools in the sidebar, or tell me \"start a 25 minute timer for my lab report\"; I can pause, resume, change or stop it too."],
         [/\b(spaced repetition|review|flash ?cards?|decks?)\b(?= work| on here| in (?:the app|studyboard))/, "Review uses spaced repetition: each card comes back just before you'd forget it, sooner when you miss it, later when you know it. Study what's due each day in Review. Make cards yourself, or ask me to make them from your notes."],
-        [/\bstreaks?\b/, "A study day counts when you study (focus time, cards, quizzes or notes); days in a row make your streak, and it unlocks accessories for your companion."],
+        [/\bstreaks?\b/, "A study day counts when you study (focus time, cards, quizzes or notes); days in a row make your streak."],
         [/\bautopilot\b/, `Autopilot plans your study sessions for you around your deadlines and free time. Turn it on in ${S}, then Study Plan.`],
         [/\bexam mode\b/, `Exam Mode focuses your plan on an upcoming exam: more review for it, less for the rest, until it's done. Turn it on in ${S}, then Study Plan.`],
-        [/\b(scrapbook|stickers?)\b/, "The Term Scrapbook collects stickers you earn for study milestones this term; some accessories unlock with stickers."],
-        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b|\b(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear)\b/, "Your companion's Wardrobe has accessories you earn by studying (focus hours, cards reviewed, quizzes passed, streaks). Open Companion, then Wardrobe, to see each one and how close you are; say \"put on the scarf\" to wear one."],
+        [/\b(scrapbook|stickers?)\b/, "The Term Scrapbook collects stickers you earn for study milestones this term."],
+        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b|\b(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear)\b/, "Your companion's Wardrobe has accessories you buy with Studyboard Credits, the gold coins you earn by studying: focus time, flashcards, practice quizzes, finished tasks and presentation practice, with more for harder work. Open Companion, then Wardrobe, to see each one's price and your credits; say \"put on the scarf\" to wear one you have."],
         [/\btoday'?s plan|\bthe plan\b(?= work)/, "Today's Plan picks what to do next from your deadlines, how long things take and what's overdue, so you always have a next step."],
       ];
       if (/\b(how (?:do|does|did|would|will)|what (?:is|are|'?s|does)|whats|explain|tell me about)\b/.test(s) && /\b(work|works|working|on here|in (?:the app|studyboard)|for|mean|is|are)\b/.test(s) && !/\b(heart|cell|osmosis|body|brain|nerve|blood|lung|kidney|muscle|war|economy|history)\b/.test(s)) {
@@ -79719,7 +79921,7 @@ Careful, these are easy to mix up:
     const recent = ((chat && chat.msgs) || []).slice(-3).reverse().map(x => (x.q || "") + " " + (x.a ? x.a.answer : "")).join(" ");
     const lastList = ((chat && chat.msgs) || []).slice(-1).map(x => x.a && x.a.accList).filter(Boolean)[0];
     if (/\b(what|which)\b[^?]*\b(accessor(y|ies)|outfits?|things? (can|could) (you|u|i) wear|can (you|u) wear|clothes)\b[^?]*\b(have|own|got|earned|unlocked|wear)\b|\bwhat can (you|u) wear\b/.test(w)) {
-      const own = SBCOMP.ownedNames(); if (!own.length) return say("I haven't earned any accessories yet. The Wardrobe shows how to unlock them.");
+      const own = SBCOMP.ownedNames(); if (!own.length) return say(`I haven't earned any accessories yet. You can buy them in the Wardrobe with Studyboard Credits${SBCOMP.credits ? ` (you have ${SBCOMP.credits().toLocaleString()})` : ""}, which you earn by studying.`);
       return Object.assign(say(`I can wear: ${own.map((x, i) => `${i + 1}. ${x}`).join(", ")}. Say which one to put on.`), {accList: own}); }
     const ord = /\b(?:the\s+)?(first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th|last)(?:\s+one)?\b/.exec(w);
     if (lastList && ord && /\b(wear|put|try|on)\b/.test(w)) { const k = {first: 0, "1st": 0, second: 1, "2nd": 1, third: 2, "3rd": 2, fourth: 3, "4th": 3, fifth: 4, "5th": 4}[ord[1]], it = k == null ? lastList[lastList.length - 1] : lastList[k]; if (it) return say(SBCOMP.wearByName(it, true)); }
@@ -79918,7 +80120,7 @@ ANSWERING
     const guide = A.GUIDE ? "\n\n" + A.GUIDE : "";
     const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
-    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${(() => { try { const u = (SBCOMP.unlockWays ? SBCOMP.unlockWays() : []).filter(x => !x.have && x.ways.length); return u.length ? `How to unlock the accessories you don't have yet (any one way): ${u.map(x => `${x.name}: ${x.ways.join(", or ")}`).join("; ")}. ` : ""; } catch (e) { return ""; } })()}${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
+    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${(() => { try { const u = (SBCOMP.unlockWays ? SBCOMP.unlockWays() : []).filter(x => !x.have && x.ways.length); return u.length ? `Accessories you don't have yet are bought in the Wardrobe with Studyboard Credits, gold coins the student earns by studying (focus time, flashcards, practice quizzes, finished tasks, presentation practice; harder work earns more). The student has ${SBCOMP.credits ? SBCOMP.credits() : 0} credits. Prices: ${u.map(x => `${x.name} ${x.price} credits`).join("; ")}. Studyboard Bucks (green bills bought with money) are only for the Style Shop, not accessories. ` : ""; } catch (e) { return ""; } })()}${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
     const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said: "another one" right after you explained or gave an example of something is another example of that same thing. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
     const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
@@ -82094,19 +82296,27 @@ You can also DO things in Studyboard, but only when the student asks or what the
 
 
 /* ===== module: 97-credits.js ===== */
-/* Studyboard Credits: buy credits on the website (Stripe), then keep shop items for good with them. A Theme Collection
+/* Studyboard Bucks (the green bills): buy Bucks on the website (Stripe), then keep shop items for good with them. A Theme Collection
    (300) brings its theme, its companions, its sticker pack, its pins and its flashcard style; a sticker pack or a flashcard
    style is 100, a pin 50. The server decides every price and the balance (supabase-credits.sql); this file only shows them,
    asks for a purchase, and remembers what the account owns so owns() in 01-style-shop.js can say yes on this device.
-   Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md). */
+   Switched on with studyboard_config.item_purchases (see CREDITS-GUIDE.md).
+   The server still calls them credits (studyboard_credit_* tables, studyboard_credits_me, packs like credits_300): Bucks are what
+   students see. The earned Studyboard Credits (gold coins, for companion accessories) are a separate currency: 98-0study-credits.js. */
 (() => {
   const K = "studyboard:credits";
   const KIND_NAME = {skin: "Theme Collection", sticker: "Sticker Pack", card: "Flashcard Style", pin: "Pin", note: "Note Shape", cm: "Concept Map Style"};
   // Shown until the server has answered once; the server's own prices always win when buying
   const DEFAULT_PRICES = {skin: 300, sticker: 100, card: 100, pin: 50, note: 100};
-  // The Studyboard Credits coin (build-resources/credits-art: the gold coin, 96 px WebP)
-  const COIN_SRC = "data:image/webp;base64,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";
-  const COIN = `<img class="sbc-coin" src="${COIN_SRC}" width="20" height="20" alt="" aria-hidden="true">`;
+  // The Studyboard Bucks bill (build-resources/bucks-art/bucks-bill.svg: a green bill with the Studyboard S and its graduation cap).
+  // A bill is wider than it is tall (64 by 40). The gold coin now belongs to the Studyboard Credits students earn (98-0study-credits.js).
+  const BILL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 40"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5FC870"/><stop offset=".55" stop-color="#2E9A49"/><stop offset="1" stop-color="#1D7A37"/></linearGradient><radialGradient id="m" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#F6FFF7"/><stop offset="1" stop-color="#C6EECC"/></radialGradient></defs><rect x="1" y="1" width="62" height="38" rx="5" fill="url(#g)" stroke="#13602A" stroke-width="1.5"/><rect x="4.5" y="4.5" width="55" height="31" rx="3" fill="none" stroke="#D8F6DD" stroke-opacity=".75" stroke-width="1.1" stroke-dasharray="1.2 1.5"/><path d="M8 15.5q3-2.2 6 0t6 0M8 20q3-2.2 6 0t6 0M8 24.5q3-2.2 6 0t6 0M44 15.5q3-2.2 6 0t6 0M44 20q3-2.2 6 0t6 0M44 24.5q3-2.2 6 0t6 0" fill="none" stroke="#C4F0CB" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/><circle cx="32" cy="20" r="13" fill="url(#m)" stroke="#13602A" stroke-width="1.5"/><circle cx="32" cy="20" r="10.8" fill="none" stroke="#2E9A49" stroke-opacity=".4" stroke-width=".9"/><path d="M26.6 12.6l5.4-2.5 5.4 2.5-5.4 2.5z" fill="#13602A"/><path d="M28.9 13.7v1.6q3.1 1.5 6.2 0v-1.6" fill="#13602A"/><path d="M37.4 12.6v3.2" stroke="#E7B92E" stroke-width="1" stroke-linecap="round"/><path d="M35.8 17.6c-.8-1.1-2.1-1.6-3.7-1.6-2 0-3.4 1-3.4 2.5 0 3.6 7.3 2.1 7.3 6.2 0 1.7-1.6 3-3.8 3-1.7 0-3.1-.7-4-1.9" fill="none" stroke="#13602A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M32 28.2v2.4" stroke="#13602A" stroke-width="2" stroke-linecap="round"/><circle cx="8.6" cy="8.6" r="2" fill="#D8F6DD" fill-opacity=".8"/><circle cx="55.4" cy="31.4" r="2" fill="#D8F6DD" fill-opacity=".8"/></svg>`;
+  const COIN_SRC = "data:image/svg+xml," + encodeURIComponent(BILL_SVG);
+  const COIN = `<img class="sbc-coin" src="${COIN_SRC}" width="32" height="20" alt="" aria-hidden="true">`;
+  // A small fan of bills, for the big moments (the price on a buy sheet, Bucks arriving)
+  const STACK_SRC = "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -10 76 60"><g transform="rotate(-10 32 20) translate(-3 4)" opacity=".75">${BILL_SVG.replace(/<svg[^>]*>|<\/svg>/g, "").replace(/id="(g|m)"/g, 'id="$1b"').replace(/url\(#(g|m)\)/g, "url(#$1b)")}</g>${BILL_SVG.replace(/<svg[^>]*>|<\/svg>/g, "")}</svg>`);
+  const plural = n => (+n === 1 ? "Buck" : "Bucks");
+  const bucks = n => `${(+n || 0).toLocaleString()} ${plural(n)}`;
 
   // Tests swap in their own server and account (window.__SB_TEST only)
   let fake = null;
@@ -82193,7 +82403,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
             if (pending) { added = {credits: got, balance: C.balance}; pending = null; }
             // bought credits arrive in a burst of light, like a new companion prop (anything else just says so)
             if (bought) { const bal = C.balance; setTimeout(() => burst(got, bal), 120); } // after the Credits sheet is drawn again, so it sits on top
-            else if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${got} credits added. You have ${C.balance}.`);
+            else if (!(dlg.open && dlg.querySelector(".sbc-sheet:not([data-kind])"))) toast(`${bucks(got)} added. You have ${bucks(C.balance)}.`);
           }
           try { applySkin(); } catch (e) {}
           scheduleRender(); redrawOpen();
@@ -82317,19 +82527,19 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const inside = kind === "skin" ? insideHtml(id) : "";
     const list = kind === "skin" && !inside ? contents(id) : [];
     const go = !mineOk ? `<button type="button" class="btn primary" data-act="sbc-signin">Sign In to Buy</button>`
-      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Buy It for ${COIN}${cost} Credits</button>`
-      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Credits</button>`;
-    const wallet = !mineOk ? `<p class="sbc-note">Credits belong to your account, so sign in first.</p>`
-      : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying credits isn't available in this app.</p>` : ""}`;
+      : enough ? `<button type="button" class="btn primary sbc-go" data-act="sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">Buy It for ${COIN}${bucks(cost)}</button>`
+      : storeApp() ? "" : `<button type="button" class="btn primary" data-act="sbc-packs">Get Bucks</button>`;
+    const wallet = !mineOk ? `<p class="sbc-note">Bucks belong to your account, so sign in first.</p>`
+      : `<div class="sbc-wallet" role="status"><span class="sbc-wallet-l">Your balance</span><span class="sbc-wallet-n">${COIN}<b>${bal.toLocaleString()}</b></span>${enough ? `<span class="sbc-chip ok">${bal - cost} left after</span>` : `<span class="sbc-chip">${cost - bal} more needed</span>`}</div>${!enough && storeApp() ? `<p class="sbc-note">Buying Bucks isn't available in this app.</p>` : ""}`;
     openSheet(`<div class="sheet sbc-sheet sbc-buy" data-kind="${esc(kind)}" data-id="${esc(id)}">${head(nameOf(kind, id))}
       <div class="sheet-body">
         ${note ? `<p class="sbc-note sbc-why">${esc(note)}</p>` : ""}
         <div class="sbc-stage sbc-stage-${esc(kind)}" aria-hidden="true">${preview(kind, id)}${kind === "skin" ? `<span class="sbc-stage-l">Theme</span>` : ""}</div>
-        <div class="sbc-price"><img class="sbc-price-coin" src="${COIN_SRC}" width="44" height="44" alt=""><span class="sbc-price-t"><b>${cost} credits</b>${KIND_NAME[kind] ? `<span>${esc(KIND_NAME[kind])}</span>` : ""}</span></div>
+        <div class="sbc-price"><img class="sbc-price-coin" src="${STACK_SRC}" width="64" height="50" alt=""><span class="sbc-price-t"><b>${bucks(cost)}</b>${KIND_NAME[kind] ? `<span>${esc(KIND_NAME[kind])}</span>` : ""}</span></div>
         ${inside}
         ${list.length ? `<ul class="sbc-list">${list.map(x => `<li>${TICK}<span>${esc(x)}</span></li>`).join("")}</ul>` : ""}
         ${wallet}
-        ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${priceOf("skin", th)} credits</span></span>${CHEV}</button>` : ""}
+        ${th ? `<button type="button" class="sbc-upsell" data-act="sbc-item" data-kind="skin" data-id="${esc(th)}"><span class="sbc-upsell-t"><b>Get the whole ${esc(themeName(th))} Collection</b><span>The theme, its companions, stickers, pins and this style, for ${bucks(priceOf("skin", th))}</span></span>${CHEV}</button>` : ""}
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Not Now"}</button><span class="spacer"></span>${go}${PLAN.isPro() ? "" : `<button type="button" class="btn sbc-getpro" data-act="plan-open" title="Every collection while you're subscribed">Get Pro</button>`}</div></div>`);
   }
@@ -82339,27 +82549,27 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (pending && Date.now() - pending.at > 30 * 60000) pending = null;
     if (added || pending) {
       const body = added
-        ? `<div class="sbc-done" role="status"><img class="sbc-done-coin" src="${COIN_SRC}" width="64" height="64" alt=""><b>${added.credits.toLocaleString()} credits added</b><span>You have ${added.balance.toLocaleString()} credits. Pick anything in the Style Shop to keep it for good.</span></div>`
-        : `<div class="sbc-wait" role="status"><span class="sbc-spin" aria-hidden="true"></span><b>Finish paying in the checkout tab</b><span>${pending.credits ? `Your ${pending.credits.toLocaleString()} credits` : "Your credits"} appear here as soon as Stripe confirms the payment. You can keep using Studyboard meanwhile.</span>
+        ? `<div class="sbc-done" role="status"><img class="sbc-done-coin" src="${STACK_SRC}" width="96" height="76" alt=""><b>${bucks(added.credits)} added</b><span>You have ${bucks(added.balance)}. Pick anything in the Style Shop to keep it for good.</span></div>`
+        : `<div class="sbc-wait" role="status"><span class="sbc-spin" aria-hidden="true"></span><b>Finish paying in the checkout tab</b><span>${pending.credits ? `Your ${bucks(pending.credits)}` : "Your Bucks"} appear here as soon as Stripe confirms the payment. You can keep using Studyboard meanwhile.</span>
             <div class="sbc-wait-acts"><button type="button" class="btn small" data-act="sbc-reopen">Open Checkout Again</button><button type="button" class="btn small" data-act="sbc-check">Check Now</button></div></div>`;
-      openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
+      openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Bucks")}
         <div class="sheet-body">${body}</div>
         <div class="sheet-foot">${added ? "" : `<button type="button" class="btn" data-act="sbc-cancel">Choose Another Pack</button>`}<span class="spacer"></span><button type="button" class="btn primary" data-act="sbc-back">${backToShop ? "Back to Shop" : "Done"}</button></div></div>`);
       return;
     }
     const m = mine(), packs = m && Array.isArray(m.packs) ? m.packs : null, base = packs && packs[0] ? packs[0].cents / packs[0].credits : 0;
-    const body = !signedIn() ? `<p style="margin:0">Credits belong to your account. Sign in or create a free account first.</p>`
-      : storeApp() ? `<p style="margin:0">Buying credits isn't available in this app. Credits you already have work here.</p>`
+    const body = !signedIn() ? `<p style="margin:0">Bucks belong to your account. Sign in or create a free account first.</p>`
+      : storeApp() ? `<p style="margin:0">Buying Bucks isn't available in this app. Bucks you already have work here.</p>`
       : !packs ? `<p class="mini" style="margin:0">Loading…</p>`
       : `<div class="sbc-packs">${packs.map(p => {
           // the extra credits against buying the same money's worth at the smallest pack's rate (a "Bonus" badge from the server
           // is worked out the same way here, so it can't go stale)
-          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, bonusTag = bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Credits` : "", badge = !p.badge || /bonus/i.test(p.badge) ? bonusTag : p.badge;
-          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> credits</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 && badge !== bonusTag ? `<span class="mini">${bonus.toLocaleString()} bonus credits compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
-        <p class="mini" style="margin:0">A Theme Collection is ${prices().skin} credits (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Credits don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
-    openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Credits")}
+          const bonus = base ? Math.round(p.credits - p.cents / base) : 0, bonusTag = bonus >= 1 ? `+${bonus.toLocaleString()} Bonus Bucks` : "", badge = !p.badge || /bonus/i.test(p.badge) ? bonusTag : p.badge;
+          return `<button type="button" class="sbc-pack${p.badge === "Best Value" ? " best" : ""}" data-act="sbc-pack" data-id="${esc(p.id)}">${badge ? `<span class="pp-flag">${esc(badge)}</span>` : ""}<span class="sbc-pack-n">${COIN}<b>${esc(Number(p.credits).toLocaleString())}</b> Bucks</span><span class="sbc-pack-p">${esc(money(p.cents, p.currency))}</span>${bonus >= 1 && badge !== bonusTag ? `<span class="mini">${bonus.toLocaleString()} bonus Bucks compared with the ${esc(Number(packs[0].credits).toLocaleString())} pack</span>` : ""}</button>`; }).join("")}</div>
+        <p class="mini" style="margin:0">A Theme Collection is ${bucks(prices().skin)} (with its companions, stickers, pins and flashcard style), a sticker pack or flashcard style ${prices().sticker}, a pin ${prices().pin}. Bucks don't expire, and what you keep stays yours even without Pro. You'll pay securely with Stripe on the Studyboard website.</p>`;
+    openSheet(`<div class="sheet sbc-sheet">${head("Studyboard Bucks")}
       <div class="sheet-body">
-        ${signedIn() ? `<p class="sbc-bal sbc-bal-big" role="status">${COIN}<span>You have <b>${balance()}</b> credit${balance() === 1 ? "" : "s"}</span></p>` : ""}
+        ${signedIn() ? `<p class="sbc-bal sbc-bal-big" role="status">${COIN}<span>You have <b>${balance().toLocaleString()}</b> ${plural(balance())}</span></p>` : ""}
         ${body}
       </div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="sbc-back">${backToShop ? "Back to Shop" : "Close"}</button><span class="spacer"></span>${signedIn() ? "" : `<button type="button" class="btn primary" data-act="sbc-signin">Sign In</button>`}</div></div>`);
@@ -82373,7 +82583,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     try { const {data, error} = await cl().rpc("studyboard_buy_item", {p_kind: kind, p_item: id}); r = error ? {error: "network"} : data; } catch (e) { r = {error: "network"}; }
     busy = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
-    const ERR = {off: "Buying with credits isn't available right now.", sign_in: "Sign in first, then try again.", bad_item: "That item can't be bought with credits.",
+    const ERR = {off: "Buying with Bucks isn't available right now.", sign_in: "Sign in first, then try again.", bad_item: "That item can't be bought with Bucks.",
       slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
     if (!r || !r.ok) {
       if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } buySheet(kind, id); return; }
@@ -82385,7 +82595,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const wasShop = backToShop;
     if (dlg.open) dlg.close();
     scheduleRender();
-    const left = `${C.balance} credit${C.balance === 1 ? "" : "s"} left.`;
+    const left = `${bucks(C.balance)} left.`;
     if (kind === "skin") toast(`The ${themeName(id)} Collection is yours for good. ${left}`, null, {label: "Use It Now", fn: () => { saveStyle({skin: id}); applySkin(); render(); }});
     else toast(`${nameOf(kind, id)} is yours for good. ${left}`);
     if (wasShop) setTimeout(() => { try { styleShop(); } catch (e) {} }, 120);
@@ -82400,7 +82610,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     try { const {data, error} = await cl().rpc("studyboard_buy_bundle", {p_theme: th, p_items: items}); if (error) { missing = /PGRST202|could not find the function/i.test((error.code || "") + " " + (error.message || "")); r = {error: missing ? "off" : "network"}; } else r = data; } catch (e) { r = {error: "network"}; }
     busy = false;
     if (btn && btn.isConnected) { btn.disabled = false; btn.removeAttribute("aria-busy"); }
-    const ERR = {off: "Building your own look isn't available yet. You can still get the Collection or each piece.", sign_in: "Sign in first, then try again.", bad_item: "One of those pieces can't be bought with credits.",
+    const ERR = {off: "Building your own look isn't available yet. You can still get the Collection or each piece.", sign_in: "Sign in first, then try again.", bad_item: "One of those pieces can't be bought with Bucks.",
       own_theme: "You already have this theme. Get the other pieces one by one.", slow_down: "That's a lot of purchases. Wait a little, then try again.", network: "Couldn't reach Studyboard. Check your connection and try again."};
     if (!r || !r.ok) {
       if (r && r.error === "not_enough") { if (C && typeof r.balance === "number") { C.balance = r.balance; save(); } packsSheet(); return false; }
@@ -82410,7 +82620,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     C.owned = (C.owned || []).concat([["skin", th]], items); save(); rebuild();
     try { applySkin(); } catch (e) {}
     scheduleRender();
-    toast(`Your ${themeName(th)} look is yours for good. ${C.balance} credit${C.balance === 1 ? "" : "s"} left.`);
+    toast(`Your ${themeName(th)} look is yours for good. ${bucks(C.balance)} left.`);
     load();
     return true;
   }
@@ -82454,7 +82664,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       case "sbc-buy": buy(el.dataset.kind, el.dataset.id, el); return true;
       case "sbc-pack": buyPack(el.dataset.id, el); return true;
       case "sbc-reopen": if (pending) PLAN.openExternal(pending.url); return true;
-      case "sbc-check": load(); toast("Checking for your credits…"); return true;
+      case "sbc-check": load(); toast("Checking for your Bucks…"); return true;
       case "sbc-cancel": pending = null; packsSheet(); return true;
       case "sbc-zoom": zoom(el.dataset.what, el.dataset.th); return true;
       case "sbc-zoom-x": unzoom(); return true;
@@ -82463,7 +82673,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     }
     return false;
   });
-  hook("menu", () => enabled() && signedIn() ? `<button data-act="sbc-packs" data-group="account"><span>Studyboard Credits<span class="sub">${balance()} credit${balance() === 1 ? "" : "s"} · Keep themes, stickers and more for good</span></span></button>` : "");
+  hook("menu", () => enabled() && signedIn() ? `<button data-act="sbc-packs" data-group="account"><span>Studyboard Bucks<span class="sub">${bucks(balance())} · Keep themes, stickers and more for good</span></span></button>` : "");
   // Sign-in changes: load this account's credits
   let seenUid = "";
   hook("render", () => {
@@ -82483,9 +82693,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
     try {
       const hd = dlg.querySelector(".sheet.shop .sheet-head, .sheet.ui-shop .sheet-head");
       if (hd && showBar() && !hd.querySelector(".sbc-pill")) {
-        const n = balance(), txt = signedIn() ? `<b>${n.toLocaleString()}</b><span class="sbc-pill-l">credit${n === 1 ? "" : "s"}</span>` : `<span class="sbc-pill-l">Credits</span>`;
+        const n = balance(), txt = signedIn() ? `<b>${n.toLocaleString()}</b><span class="sbc-pill-l">${plural(n)}</span>` : `<span class="sbc-pill-l">Bucks</span>`;
         const close = hd.querySelector('[data-act="close"]');
-        const pill = `<button type="button" class="sbc-pill" data-act="sbc-packs" title="Studyboard Credits: keep any Pro item for good" aria-label="${signedIn() ? `You have ${n} credits. Get more` : "Studyboard Credits"}">${COIN}${txt}</button>`;
+        const pill = `<button type="button" class="sbc-pill" data-act="sbc-packs" title="Studyboard Bucks: keep any Pro item for good" aria-label="${signedIn() ? `You have ${bucks(n)}. Get more` : "Studyboard Credits"}">${COIN}${txt}</button>`;
         if (close) close.insertAdjacentHTML("beforebegin", pill); else hd.insertAdjacentHTML("beforeend", pill);
         hd.classList.add("has-cr");
       }
@@ -82500,8 +82710,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
     root.querySelectorAll('[data-act="shop-unlock"]:not([data-cr])').forEach(b => {
       b.dataset.cr = "1";
       const n = priceOf(b.dataset.kind, b.dataset.id); if (!n) return;
-      b.innerHTML = `🔒 ${n} Credits`;
-      b.setAttribute("aria-label", `Buy ${nameOf(b.dataset.kind, b.dataset.id)} for ${n} credits`);
+      b.innerHTML = `🔒 ${bucks(n)}`;
+      b.setAttribute("aria-label", `Buy ${nameOf(b.dataset.kind, b.dataset.id)} for ${bucks(n)}`);
     });
   }
   // Rows the shop fills in later (collections, See All) get their prices too
@@ -82522,9 +82732,9 @@ You can also DO things in Studyboard, but only when the student asks or what the
     o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
-        <span class="cpu-prop sbc-bnum"><b data-sbc-count style="font-size:${n.length > 5 ? 2.1 : n.length > 4 ? 2.5 : 3}rem">${still ? n : "0"}</b><small>credits</small></span></div>
-      <span class="cpu-kick">Credits Added!</span><h2 class="cpu-name" id="sbcBurstName">+${n} Credits</h2>
-      <p class="cpu-how" id="sbcBurstHow">Thanks for your purchase. You have ${(+bal || 0).toLocaleString()} credits to spend.</p>
+        <span class="cpu-prop sbc-bnum"><b data-sbc-count style="font-size:${n.length > 5 ? 2.1 : n.length > 4 ? 2.5 : 3}rem">${still ? n : "0"}</b><small>${plural(got)}</small></span></div>
+      <span class="cpu-kick">Bucks Added!</span><h2 class="cpu-name" id="sbcBurstName">+${n} ${plural(got)}</h2>
+      <p class="cpu-how" id="sbcBurstHow">Thanks for your purchase. You have ${bucks(bal)} to spend.</p>
       <div class="cpu-acts"><button type="button" class="btn cpu-wear" data-sbc-burst="ok">Got It</button></div></div>`;
     // inside an open window (the Credits sheet): a modal window leaves everything outside it untouchable
     (dlg.open ? dlg : document.body).appendChild(o);
@@ -82547,12 +82757,19 @@ You can also DO things in Studyboard, but only when the student asks or what the
     o.addEventListener("keydown", e => { if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); if (e.key === "Escape") close(); } });
   }
   if (!document.getElementById("sbc-burst-css")) { const st = document.createElement("style"); st.id = "sbc-burst-css";
-    st.textContent = `.sbc-bnum{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#7A4A00;font-family:var(--display)}
+    st.textContent = `.sbc-bnum{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#14602A;font-family:var(--display)}
 .sbc-bnum b{font:900 3rem/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.02em;text-shadow:0 2px 0 rgba(255,255,255,.7)}
-.sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#A0670A}
-.sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}`;
+.sbc-bnum small{margin-top:2px;font:800 .78rem/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:#2E8B47}
+.sbc-bnum b:not(:only-child){max-width:136px;overflow:hidden}
+.sbc-burst .cpu-rays{background:repeating-conic-gradient(from 0deg,rgba(120,220,140,.5) 0deg 7deg,rgba(120,220,140,0) 7deg 22.5deg)}
+.sbc-burst .cpu-glow{background:radial-gradient(circle,rgba(210,250,215,.95),rgba(80,190,105,.5) 38%,rgba(40,150,70,0) 70%)}
+.sbc-burst .cpu-prop{background:radial-gradient(circle at 35% 30%,#fff,#ECFBEF 60%,#BFEBC8);box-shadow:0 0 0 6px rgba(255,255,255,.55),0 18px 40px rgba(10,80,30,.45),0 0 60px rgba(90,200,115,.75)}
+.sbc-burst .cpu-kick{color:#9BF0AE;text-shadow:0 1px 8px rgba(40,170,80,.6)}
+.sbc-burst .cpu-acts .cpu-wear{background:linear-gradient(180deg,#6FD682,#1F8A3F)!important;color:#fff!important;box-shadow:0 8px 22px rgba(40,160,70,.45)!important}`;
     document.head.appendChild(st); }
   window.SBCREDITS = {burst, owns, priceOf, balance, load, buySheet, packsSheet, enabled, contents, buyBundle, signedIn: () => signedIn(),
+    // "300 Bucks", and the little green bill, for other screens (99-shop-home.js)
+    bucks, bill: () => COIN,
     // For tests: what this device remembers
     state: () => (mine() ? JSON.parse(JSON.stringify(mine())) : null)};
   if (window.__SB_TEST) Object.assign(window.SBCREDITS, {fake: (client, user) => { fake = {sb: client, user}; seenUid = ""; rebuild(); scheduleRender(); }, shop: () => styleShop(), unlock: (k, id) => shopUnlock(k, id), pending: () => pending, added: () => added, comps: th => (STYLE_LISTS.comp || []).filter(c => c.theme === th).map(c => c.id)});
@@ -82602,19 +82819,21 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (kind === "cm") return !!CM() && CM().current() === id;
     return false;
   };
+  // "300 Bucks" (Studyboard Bucks, the green bills: what the server calls credits)
+  const BK = n => { try { if (CR() && CR().bucks) return CR().bucks(n); } catch (e) {} return `${n} Bucks`; };
   const price = (kind, id) => { try { return CR() && CR().enabled && CR().enabled() ? CR().priceOf(kind, id) : 0; } catch (e) { return 0; } };
   const yours = (kind, id) => STORE.paywall ? owns(kind, id) : tierOf(kind, id) === "free";
   // The little label on a tile: In Use, Yours, Free, a price, or Pro
   const has = (kind, id) => kind === "cm" ? cmOwns(id) : owns(kind, id);
   function tag(kind, id){
     if (inUse(kind, id)) return `<em class="sbh-tag on">In Use</em>`;
-    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE; }
+    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${BK(p)}</em>` : PRO_BADGE; }
     const tier = tierOf(kind, id);
     if (!STORE.paywall) return tier === "pro" ? PRO_BADGE : `<em class="sbh-tag free">Free</em>`;
     if (owns(kind, id) && tier === "pro") return `<em class="sbh-tag own">Yours</em>`;
     if (tier !== "pro") return `<em class="sbh-tag free">Free</em>`;
     const p = price(kind, id);
-    return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE;
+    return p ? `<em class="sbh-tag cost">${BK(p)}</em>` : PRO_BADGE;
   }
 
   /* ---------- Pictures ---------- */
@@ -82682,7 +82901,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
           ${inside(th)}
           <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
-            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${BK(p)}` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
     const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
     const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
         <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
@@ -82750,7 +82969,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     }).filter(Boolean);
     // the first two kinds now, the rest just before they scroll into view (as on the Shop page)
     const rows = YROWS.map((f, i) => i < 2 || EAGER ? f() : `<section class="sbh-row sbh-wait" data-wait="y${i}"></section>`).join("");
-    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
+    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with Bucks or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
   }
 
   /* ---------- Build Your Look ---------- */
@@ -82839,11 +83058,11 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (!need.length) sum = `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`;
     else if (bundle) {
       const apart = col + extras.reduce((n, [, k, id]) => n + price(k, id), 0);
-      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${apart} credits</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${col} credits</b></div>
+      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${BK(apart)}</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${BK(col)}</b></div>
         <p class="mini">The ${esc(ths ? ths.name : "")} theme with its whole Collection${extras.length ? `, plus ${names(extras)}` : ""}.${proOnly.length ? ` ${names(proOnly)} ${proOnly.length === 1 ? "comes" : "come"} with Studyboard Pro.` : ""}</p></div>`;
-      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${col} credits</button>`;
+      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${BK(col)}</button>`;
     } else {
-      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
+      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${BK(cost)}</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
       const buyable = need.filter(([, k, id]) => price(k, id));
       main = buyable.map(([, k, id]) => `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`).join("");
       if (main) main = `<div class="sbh-getrow">${main}</div>`;
@@ -82961,7 +83180,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (act === "sbh-wear") { wear(); return true; }
     if (act === "sbh-bundle") {
       if (!LOOK || !CR() || !CR().buyBundle) return true;
-      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with credits."); return true; }
+      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with Bucks."); return true; }
       const r = rec(LOOK.skin) || {}, mine = (k, id) => (k === "card" && r.card === id) || (k === "pin" && (r.pins || []).includes(id));
       const items = [["card", LOOK.card], ["pin", LOOK.pin], ["cm", LOOK.cm]].filter(([k, id]) => id && !has(k, id) && price(k, id) && !mine(k, id));
       CR().buyBundle(LOOK.skin, items.slice(0, 5), el).then(ok => { if (ok) { wear(); } });

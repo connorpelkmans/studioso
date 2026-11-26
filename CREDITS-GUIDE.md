@@ -1,15 +1,48 @@
-## Studyboard Credits and Studyboard Plus
+## Studyboard Bucks, Studyboard Credits and Studyboard Plus
 
-Two ways to pay that sit beside Studyboard Pro:
+Studyboard has two currencies, and they never mix:
 
-- **Studyboard Credits:** buy credits once, then keep shop items for good, with or without Pro.
-- **Studyboard Plus:** $2.99 a month for every Pro theme and feature except the built-in Studyboard AI. AI with the student's own key still works.
+| | Studyboard Bucks | Studyboard Credits |
+|---|---|---|
+| Looks like | A green bill (`build-resources/bucks-art/bucks-bill.svg`) | A gold coin (`build-resources/credits-art/credits-coin-256.png`) |
+| How you get them | Bought with money on the website (Stripe) | Earned by studying |
+| What they buy | Style Shop items: Theme Collections, sticker packs, flashcard styles, pins, note shapes, map styles | Companion accessories in the Wardrobe |
+| Where they live | Supabase (`studyboard_credit_*` tables) | The student's own synced settings (`state.settings.sc`) |
+| Code | `src/js/97-credits.js` | `src/js/98-0study-credits.js`, used by `src/js/98-companion.js` |
 
-Both are **switched off** until you turn them on (see "Launch" below). While they're off, nothing changes for anyone.
+**Naming:** the server still calls Bucks "credits" (tables, `studyboard_credits_me`, packs like `credits_300`, the Stripe product). Only students see the word Bucks. Renaming the server side would mean migrating live payment tables for no gain.
 
-### What Credits Buy
+Beside them sits **Studyboard Plus:** $2.99 a month for every Pro theme and feature except the built-in Studyboard AI. AI with the student's own key still works.
 
-| Item | Credits | About |
+Bucks and Plus are **switched off** until you turn them on (see "Launch" below). While they're off, nothing changes for anyone. Studyboard Credits are always on.
+
+## Studyboard Credits (earned, for accessories)
+
+Students earn credits for real work, scaled to how hard it is (about one credit per minute of real effort):
+
+| Work | Credits | Why |
+|---|---|---|
+| Focus time | 1 per 2 minutes | The easiest: just keeping the timer going |
+| Flashcards | 1 per 5 cards reviewed | Active recall, about 10 seconds a card |
+| Practice quizzes | 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score | Has to be passed; a failed quiz earns nothing |
+| Tasks | Exam 25, Project 15, Quiz 12, Assignment or Lab 8, Reading or Study 4, Other 3; a step of a broken-down task 2 | By size. At most 10 tasks a day count, so splitting work into tiny tasks doesn't pay |
+| Presentations | 10 per full practice run (2 a day per presentation), +40 the first time a run lands on target | "On target": within 10 seconds over the time goal and at least 75% of it |
+
+Accessory prices: Cozy Scarf 40, Tiny Hat 75, Party Bow Tie 120, Round Glasses 160, Festive Beanie 200 (sold Dec 1 to Jan 6 only), Champion Medal 250, Hero Cape 400, Star Badge 550, Graduation Cap 750, Little Crown 1,000. An active student (a focus session, 20 cards, a quiz and a couple of tasks a day) earns about 50 a day: the scarf on day one, the crown after a few weeks.
+
+**How it's counted:** everything except presentations is worked out from what's already saved (decks, quiz results, finished tasks with their `doneAt`, focus minutes). So credits sync with everything else, and work done before credits existed counts too. Each kind keeps its highest total (`sc.hw`, saved at most once a minute), so deleting an old deck or task never takes credits back. Unticking and re-ticking a task doesn't earn twice. Presentation runs live on one device, so each run's credits are written down once (`sc.ev`, keyed by run id). Purchases are `sc.own` (`{accessory: price}`), and the balance is earned minus spent, never below zero.
+
+**Moving from earned accessories:** accessories unlocked the old way (`comp.earned`) stay owned. Accessories are no longer Pro: anyone can buy any of them with credits. Patterns and custom colours are still Pro.
+
+**In the app:** a "+12 Credits" coin pops in at the top right after new work (it waits until a flashcard session or presentation run ends). The Wardrobe shows the balance, each accessory's price (gold when affordable), a buy sheet with the companion trying it on, and How to Earn Credits with each kind's total. The end of a flashcard session shows the credits it earned and the next accessory to save for. The first time, a pop says how many credits the student's past work already earned.
+
+**Changing a rate or price:** rates are at the top of `98-0study-credits.js`, prices in `ACC` at the top of `98-companion.js`. A rate change applies to past work too, because totals are recalculated.
+
+## Studyboard Bucks (paid, for the Style Shop)
+
+### What Bucks Buy
+
+| Item | Bucks | About |
 |---|---|---|
 | Theme Collection | 300 | $3. The theme, its companions, its sticker pack, its pins and its flashcard style |
 | Sticker pack | 100 | $1 |
@@ -20,9 +53,9 @@ Both are **switched off** until you turn them on (see "Launch" below). While the
 | Concept map style | 100 | $1. A subject map style (a theme's own map style comes with its Collection). Needs `supabase-credits-bundle.sql` |
 | Build Your Look | 300 | $3. A Theme Collection plus up to 5 more flashcard styles, pins or map styles picked in the Style Shop's Build Your Look (needs `supabase-credits-bundle.sql`) |
 
-Only Pro items can be bought; free items and companion accessories can't. A companion opens its Theme Collection. A pin, sticker pack or flashcard style that belongs to a collection also points to the whole collection.
+Only Pro items can be bought with Bucks. Free items can't, and companion accessories are bought with earned Studyboard Credits instead. A companion opens its Theme Collection. A pin, sticker pack or flashcard style that belongs to a collection also points to the whole collection.
 
-### Credit Packs (Stripe product "Studyboard Credits", `prod_VdRSF2ExXrjwfx`, live)
+### Bucks Packs (Stripe product "Studyboard Credits", `prod_VdRSF2ExXrjwfx`, live; rename it to "Studyboard Bucks" in Stripe)
 
 | Pack | Price | Stripe price id | Lookup key |
 |---|---|---|---|
@@ -73,6 +106,8 @@ The price ids live in Supabase, in `studyboard_credit_packs`, not in secrets. Th
 - Supabase (live): `supabase-credits.sql` applied and self-tested. `ai_included` added, with the updated `studyboard_apply_billing`, which was checked with a rolled-back test. `stripe_prices`, `plus_plan` (off) and `prices.plusMonthly` are set.
 
 ### Still To Do (Owner)
+
+- **For the Bucks rename:** run `supabase-bucks.sql` (renames the pack labels), rename the Stripe product "Studyboard Credits" to "Studyboard Bucks" (Dashboard, Product catalog) so the checkout page and receipts match, and redeploy `create-checkout` (its payment description now says Bucks).
 
 0. **Turn on map styles and Build Your Look bundles:** run `supabase-credits-bundle.sql` in the SQL Editor (after `supabase-credits.sql`). It lets concept map styles be sold (kind `cm`, 100 credits) and adds `studyboard_buy_bundle(theme, items)`: the theme with its Collection plus up to 5 flashcard styles, pins or map styles (note shapes are sold on their own), for the Collection price. Until it's run, the app says bundles aren't available yet and still sells the Collection and each piece.
 1. **Deploy the two functions** (from the repository root, Supabase CLI signed in):

@@ -4904,17 +4904,17 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 /* What you're using reads the same on every tab (and for companions): a soft "✓ In Use" badge, not a faded button */
 .btn.shop-inuse:disabled,.cp-chosen.shop-inuse{opacity:1;cursor:default;display:inline-flex;align-items:center;justify-content:center;gap:4px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-weight:700;box-shadow:none}
 /* ===== module: 97-credits.css ===== */
-/* Studyboard Credits: the balance in the Style Shop, the buy sheet and the credit packs */
-.sbc-coin{flex:none;width:1.15em;height:1.15em;vertical-align:-.2em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+/* Studyboard Bucks (green bills; the server calls them credits): the balance in the Style Shop, the buy sheet and the packs */
+.sbc-coin{flex:none;width:1.6em;height:1em;vertical-align:-.15em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
 /* The balance pill in the Style Shop's header, left of the close button */
 .sbc-pill{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:4px 14px 4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:700 .9rem var(--display);cursor:pointer;white-space:nowrap;margin-left:auto}
-.sbc-pill .sbc-coin{width:24px;height:24px;color:#F2B230}
+.sbc-pill .sbc-coin{width:32px;height:20px}
 .sbc-pill .sbc-pill-l{font-weight:600;opacity:.9}
 .sbc-pill:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .sheet.shop .sheet-head.shop-band.has-cr{padding-right:200px!important}
 .shop-band > .sbc-pill{position:absolute;right:70px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.5);color:#fff}
 .shop-band > .sbc-pill:hover{background:rgba(255,255,255,.28)}
-.shop-band > .sbc-pill .sbc-coin{color:#FFD45C;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.shop-band > .sbc-pill .sbc-coin{filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 @media (max-width:720px){
   .sheet.shop .sheet-head.shop-band.has-cr{padding-right:60px!important}
   .shop-band > .sbc-pill{position:static;transform:none;margin-top:8px;min-height:34px}
@@ -4941,7 +4941,7 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 .sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(4,56px);gap:10px}
 .sbc-stage .sbc-stk .stk-cell{width:56px;height:56px}
 .sbc-price{display:flex;align-items:center;gap:12px}
-.sbc-price-coin{flex:none;width:44px;height:44px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+.sbc-price-coin{flex:none;width:64px;height:50px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
 .sbc-price-t{display:grid;gap:2px;min-width:0}
 .sbc-price-t b{font:800 1.25rem var(--display)}
 .sbc-price-t span{font-size:.86rem;color:var(--muted)}
@@ -4951,7 +4951,7 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 .sbc-wallet{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);border-radius:14px}
 .sbc-wallet-l{color:var(--muted);font-size:.9rem}
 .sbc-wallet-n{display:inline-flex;align-items:center;gap:6px;font:800 1.05rem var(--display)}
-.sbc-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#F2B230 22%,var(--surface));color:var(--ink)}
+.sbc-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#2E9A49 20%,var(--surface));color:var(--ink)}
 .sbc-chip.ok{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
 .sbc-upsell{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);text-align:start;font:inherit;cursor:pointer}
 .sbc-upsell:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
@@ -4962,7 +4962,7 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 .sbc-note{margin:0;font-size:.88rem;color:var(--muted)}
 .sbc-pro{margin:0;text-align:center;font-size:.86rem;color:var(--muted)}
 .sbc-go{display:inline-flex;align-items:center;gap:6px}
-.sbc-go .sbc-coin{width:20px;height:20px}
+.sbc-go .sbc-coin{width:30px;height:19px}
 
 /* A Theme Collection's pieces: the theme on top, then one compact row of everything else */
 .sbc-stage{position:relative}
@@ -5291,14 +5291,34 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-.cp-acc-tile.off{opacity:.55;cursor:default}
-.cp-how{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.cp-how li{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.cp-how-ways{display:grid;gap:6px}
-.cp-how-way{display:grid;gap:1px;font-size:.78rem}
-.cp-how-bar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
-.cp-how-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
-.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1)}
+.cp-acc-tile.off{cursor:pointer}
+.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1);opacity:.55}
+.cp-acc-tile.off .cp-acc-n{opacity:.7}
+/* Props are bought with Studyboard Credits (98-0study-credits.js): the price under each one not owned yet, gold when it's affordable */
+.cp-acc-p{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.cp-acc-p b{font-weight:800}
+.cp-acc-tile.can-buy{border-color:color-mix(in srgb,#E2A82A 60%,var(--line));background:color-mix(in srgb,#F6C34A 9%,var(--surface))}
+.cp-acc-tile.can-buy .cp-acc-ic{filter:none;opacity:.85}
+.cp-acc-tile.can-buy .cp-acc-p{color:#8A5A00}
+:root[data-theme="dark"] .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+.cp-acc-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cp-acc-h .scr-pill{margin-left:auto;font-size:.85rem}
+/* The buy sheet */
+.cp-buy .sheet-body{display:grid;gap:14px}
+.cp-buy-stage{display:grid;place-items:center;min-height:170px;border-radius:16px;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,#F6C34A 22%,var(--surface)),var(--soft) 70%)}
+.cp-buy-stage .cp-acc-ic{width:96px;height:96px}
+.cp-buy-price{display:flex;align-items:center;gap:12px}
+.cp-buy-price > span{display:grid;gap:2px}
+.cp-buy-price b{font:800 1.25rem var(--display)}
+.cp-buy-price > span > span{font-size:.86rem;color:var(--muted)}
+.cp-buy-wallet{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);border-radius:14px}
+.cp-buy-wallet > span:first-child{color:var(--muted);font-size:.9rem}
+.cp-buy-wallet b{display:inline-flex;align-items:center;gap:5px;font:800 1.05rem var(--display)}
+.cp-buy-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#F6C34A 24%,var(--surface))}
+.cp-buy-chip.ok{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.cp-buy-how > summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+.cp-buy-how[open]{display:grid;gap:8px}
+.cp-buy-go{display:inline-flex;align-items:center;gap:6px}
 .cp-acc-ic{width:44px;height:44px;display:block;--cp-wear:var(--accent)}
 .cp-acc-ic svg{width:100%;height:100%;overflow:visible}
 .cp-tints{display:grid;gap:8px}
@@ -10682,9 +10702,10 @@ html[data-motion="static"] .rv-pres:hover .pr-scr,html[data-motion="static"] .rv
 .sbh-meta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0}
 .sbh-meta b{max-width:100%;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sbh-tag{flex:none;display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;font:800 .66rem/1 var(--display);font-style:normal;letter-spacing:.02em;white-space:nowrap}
-.sbh-tag.free{color:#17734C;background:#DDF5EA}.sbh-tag.own,.sbh-tag.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}.sbh-tag.cost{color:#7A4700;background:#FFF0CC}
-.sbh-tag.cost::before{content:"";width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FFE9A3,#E9A21C);box-shadow:inset 0 0 0 1px rgba(150,90,0,.35)}
-:root[data-theme="dark"] .sbh-tag.free{color:#7FE3B5;background:rgba(95,211,160,.14)}:root[data-theme="dark"] .sbh-tag.cost{color:#FFD27A;background:rgba(242,182,90,.15)}
+.sbh-tag.free{color:#17734C;background:#DDF5EA}.sbh-tag.own,.sbh-tag.on{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface))}.sbh-tag.cost{color:#14602A;background:#DDF3E1}
+/* a price in Studyboard Bucks: a tiny green bill */
+.sbh-tag.cost::before{content:"";width:13px;height:8px;border-radius:2px;background:linear-gradient(135deg,#5FC870,#1D7A37);box-shadow:inset 0 0 0 1px rgba(19,96,42,.6),inset 0 0 0 2.5px rgba(216,246,221,.55)}
+:root[data-theme="dark"] .sbh-tag.free{color:#7FE3B5;background:rgba(95,211,160,.14)}:root[data-theme="dark"] .sbh-tag.cost{color:#8FE3A2;background:rgba(95,200,112,.15)}
 .sbh-meta .pro-badge{flex:none}
 
 /* The pictures, each kind sized to its box */
@@ -11069,6 +11090,9 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sd-tile.gold{border-color:#E9C46A;background:color-mix(in srgb,#F8E7B8 45%,var(--surface))}
 .sd-tile.gold b{color:#8A5A00}
 .sd-next{width:100%;max-width:460px;display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);box-sizing:border-box;text-align:left}
+.sd-credits{display:inline-flex;align-items:center;gap:8px;margin:0;padding:6px 14px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,#E2A82A 50%,var(--line));background:color-mix(in srgb,#F6C34A 14%,var(--surface))}
+.sd-credits b{font:800 1rem var(--display);color:#8A5A00}
+:root[data-theme="dark"] .sd-credits b{color:#FFD36B}
 .sd-next-t{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .sd-bar{height:10px;border-radius:5px;background:color-mix(in srgb,var(--line) 80%,var(--surface));overflow:hidden}
 .sd-bar i{display:block;height:100%;border-radius:5px;background:var(--accent)}

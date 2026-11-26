@@ -1,15 +1,15 @@
 /* ===== module: 97-credits.css ===== */
-/* Studyboard Credits: the balance in the Style Shop, the buy sheet and the credit packs */
-.sbc-coin{flex:none;width:1.15em;height:1.15em;vertical-align:-.2em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+/* Studyboard Bucks (green bills; the server calls them credits): the balance in the Style Shop, the buy sheet and the packs */
+.sbc-coin{flex:none;width:1.6em;height:1em;vertical-align:-.15em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
 /* The balance pill in the Style Shop's header, left of the close button */
 .sbc-pill{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:4px 14px 4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--soft);color:var(--ink);font:700 .9rem var(--display);cursor:pointer;white-space:nowrap;margin-left:auto}
-.sbc-pill .sbc-coin{width:24px;height:24px;color:#F2B230}
+.sbc-pill .sbc-coin{width:32px;height:20px}
 .sbc-pill .sbc-pill-l{font-weight:600;opacity:.9}
 .sbc-pill:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .sheet.shop .sheet-head.shop-band.has-cr{padding-right:200px!important}
 .shop-band > .sbc-pill{position:absolute;right:70px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.5);color:#fff}
 .shop-band > .sbc-pill:hover{background:rgba(255,255,255,.28)}
-.shop-band > .sbc-pill .sbc-coin{color:#FFD45C;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.shop-band > .sbc-pill .sbc-coin{filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 @media (max-width:720px){
   .sheet.shop .sheet-head.shop-band.has-cr{padding-right:60px!important}
   .shop-band > .sbc-pill{position:static;transform:none;margin-top:8px;min-height:34px}
@@ -36,7 +36,7 @@
 .sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(4,56px);gap:10px}
 .sbc-stage .sbc-stk .stk-cell{width:56px;height:56px}
 .sbc-price{display:flex;align-items:center;gap:12px}
-.sbc-price-coin{flex:none;width:44px;height:44px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+.sbc-price-coin{flex:none;width:64px;height:50px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
 .sbc-price-t{display:grid;gap:2px;min-width:0}
 .sbc-price-t b{font:800 1.25rem var(--display)}
 .sbc-price-t span{font-size:.86rem;color:var(--muted)}
@@ -46,7 +46,7 @@
 .sbc-wallet{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);border-radius:14px}
 .sbc-wallet-l{color:var(--muted);font-size:.9rem}
 .sbc-wallet-n{display:inline-flex;align-items:center;gap:6px;font:800 1.05rem var(--display)}
-.sbc-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#F2B230 22%,var(--surface));color:var(--ink)}
+.sbc-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#2E9A49 20%,var(--surface));color:var(--ink)}
 .sbc-chip.ok{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
 .sbc-upsell{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);text-align:start;font:inherit;cursor:pointer}
 .sbc-upsell:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))}
@@ -57,7 +57,7 @@
 .sbc-note{margin:0;font-size:.88rem;color:var(--muted)}
 .sbc-pro{margin:0;text-align:center;font-size:.86rem;color:var(--muted)}
 .sbc-go{display:inline-flex;align-items:center;gap:6px}
-.sbc-go .sbc-coin{width:20px;height:20px}
+.sbc-go .sbc-coin{width:30px;height:19px}
 
 /* A Theme Collection's pieces: the theme on top, then one compact row of everything else */
 .sbc-stage{position:relative}
