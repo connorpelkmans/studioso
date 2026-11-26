@@ -576,6 +576,7 @@ function viewCourseDetail(c){
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
+    ${coursePaceHtml(c)}
     ${courseTeamHtml(c, "")}
     ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
@@ -604,6 +605,26 @@ function courseGradeSide(c){
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${(n => n ? `<p class="mini w-est" style="margin:-4px 0 10px" title="${esc(WEIGHT_GUESS_TIP)}">Uses ${n === 1 ? "1 estimated weight" : n + " estimated weights"}. Check them in Grades.</p>` : "")(courseTasks(c).filter(weightGuessed).length)}${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
+// Reading pace on a course page: one field, shown once the course has a reading with pages (or a pace was set)
+function coursePaceHtml(c){
+  const own = Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!own && !courseTasks(c).some(t => Number(t.pages) >= 1)) return "";
+  const P = window.SBACC && SBACC.paceFor ? SBACC.paceFor(c.id) : {mpp: own || PACE_DEFAULT, n: 0, set: own};
+  const note = P.n ? `Learned from ${P.n} finished reading${P.n === 1 ? "" : "s"}${own ? " since you set it" : ""}. Readings with pages use it for their time.`
+    : own ? "Your setting. Readings with pages use it for their time, and your focus time on them fine-tunes it." : "Readings with pages use it for their time. It learns from your focus time on finished readings.";
+  return `<section class="c2-card2 c2-box c2-pace" aria-label="Reading pace">
+    <label class="c2-pace-row" for="cPace"><span class="c2-pace-l">Reading pace:</span><input type="number" id="cPace" data-pace="${esc(c.id)}" min="0.5" max="20" step="any" inputmode="decimal" value="${esc(fmtPace(P.mpp))}" aria-describedby="cPaceNote"><span>min a page</span></label>
+    <p class="mini" id="cPaceNote">${esc(note)}</p></section>`;
+}
+// A new pace is the course's own from now on (earlier readings stop counting; later ones keep fine-tuning it). Undo puts the old one back
+document.addEventListener("change", e => {
+  const el = e.target; if (!el || !el.dataset || !el.dataset.pace) return;
+  const c = state.courses[el.dataset.pace]; if (!c) return;
+  const v = Math.round(Number(el.value) * 10) / 10;
+  if (!(v >= 0.5 && v <= 20)) { toast("Pick a pace from 0.5 to 20 minutes a page"); el.value = fmtPace(readPace(c.id)); return; }
+  if (v === readPace(c.id) && Number(c.readPace) > 0) return;
+  applyChanges([{kind: "course", id: c.id, after: Object.assign(clone(c), {readPace: v, readPaceAt: Date.now()})}], `Reading pace: ${fmtPace(v)} min a page`);
+});
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);

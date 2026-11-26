@@ -278,6 +278,8 @@ function normTask(t){
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
   }
+  // a reading's page count (its time comes from the pages and the course's reading pace when it has no hours of its own)
+  if (t.pages !== undefined) { const n = Math.round(Number(t.pages)); if (n >= 1 && n <= 5000) t.pages = n; else delete t.pages; }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (t.pins != null) t.pins = normPins(t.pins);
   if (t.pins && !t.pins.length) delete t.pins;

@@ -3,7 +3,8 @@
 var SBEST = (() => {
   const WINDOW = 14;
   const PICKS = [[0.5, "30m"], [1, "1h"], [2, "2h"], [3, "3h"], [5, "5h"]];
-  const needs = t => t && t.status !== "done" && !MILESTONE(t.type) && !t.prepFor && !(isNum(t.hours) && Number(t.hours) > 0) && !!t.due;
+  // (a reading with pages already has its time: the pages at the course's reading pace)
+  const needs = t => t && t.status !== "done" && !MILESTONE(t.type) && !t.prepFor && !(isNum(t.hours) && Number(t.hours) > 0) && !(Number(t.pages) >= 1) && !!t.due;
   function list(all){
     const lim = addDays(todayISO(), WINDOW);
     return allTasks().filter(t => needs(t) && (all || t.due <= lim)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));

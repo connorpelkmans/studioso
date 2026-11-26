@@ -14,7 +14,26 @@ function learned(){
   LEARN = {byType, ratio: r, nRatio: nR}; LEARN_AT = Date.now();
   return LEARN;
 }
+// Reading pace: minutes a page in a course. The student's own setting on the course page, moved by what their finished readings
+// with pages took (92-accuracy.js); 3 minutes a page until then
+const PACE_DEFAULT = 3;
+function readPace(cid){
+  const A = accOf(); if (A && A.paceFor) { try { const p = A.paceFor(cid).mpp; if (p > 0) return p; } catch (e) { console.warn(e); } }
+  const c = cid ? courseOf(cid) : null; return c && Number(c.readPace) > 0 ? Number(c.readPace) : PACE_DEFAULT;
+}
+const fmtPace = n => String(Math.round(Number(n) * 10) / 10);
+// Hours a reading with pages takes at the course's pace (15-minute steps)
+const pageHours = t => Math.max(0.25, Math.round(Number(t.pages) * readPace(t.courseId) / 60 * 4) / 4);
+// "30 pages · about 1h 30m" (or the hours the student set: "30 pages · 2h"; once finished, the time it took: "30 pages · 1h 20m")
+function pagesText(t){
+  const n = Number(t && t.pages); if (!(n >= 1)) return "";
+  const took = t.status === "done" ? Math.max(Number(t.focusMin) || 0, Number(t.actualMin) || 0) : 0;
+  if (took > 0) return `${n} page${n === 1 ? "" : "s"} · ${fmtMins(took)}`;
+  const own = isNum(t.hours) && Number(t.hours) > 0;
+  return `${n} page${n === 1 ? "" : "s"} · ${own ? fmtHM(Number(t.hours)) : "about " + fmtHM(pageHours(t))}`;
+}
 function localEstimate(t){
+  if (Number(t.pages) >= 1 && !MILESTONE(t.type)) return {hours: pageHours(t), basis: `${t.pages} page${Number(t.pages) === 1 ? "" : "s"} at ${fmtPace(readPace(t.courseId))} min a page`};
   const L = learned(), dm = DIFF_M[t.difficulty] || 1, d = TYPE_DEFAULTS[t.type] || TYPE_DEFAULTS.Other;
   const all = L.byType[t.type] || [], same = all.filter(x => x.c && x.c === t.courseId);
   const use = same.length >= 2 ? same : all.length >= 2 ? all : null;
