@@ -861,6 +861,8 @@ There are three ways reminders reach you:
 
 **Keep Reminding Until Done:** in Reminders and Notifications, under Task Reminders. After a task's last reminder, it comes again every 5 to 60 minutes, 3 to 10 times, until the task is ticked off or you tap **Mark Done** on the notification. It skips quiet hours and stops a day after the due time. Off by default; each task can turn it on or off for itself (**Keep reminding me until it's done** in the task). Phone reminders need `send-reminders` deployed as before: Mark Done there already clears the rest of a task's reminders.
 
+**Course Registration:** in Reminders and Notifications, enter when your registration opens (and, if you like, a note such as your section codes). Studyboard reminds you a week and a day before, then an hour, 10 minutes and the moment it opens. The last three come even during quiet hours. **Clear** removes them.
+
 **Snooze:** the notification's Snooze button waits as long as you choose in settings (**Snooze button waits**, 10 minutes to 2 hours). Inside Studyboard, **Snooze** offers 10 minutes, 1 hour, this evening or tomorrow morning.
 
 ### Set up phone notifications (once)

@@ -3408,6 +3408,9 @@ canvas.ob-fx{position:fixed;inset:0;z-index:5}
 .rm-more .rm-chip[hidden]{display:none}
 .rm-more .rm-nag{margin-top:2px}
 .rm-snz .menu-list button{min-height:52px}
+/* Course registration */
+.rm-row input.rm-date{width:auto;flex:0 0 auto;min-width:150px;min-height:40px;padding:6px 8px;font-size:.9rem}
+.rm-sheet .rm-regnote{margin:6px 0 4px}
 /* ===== module: 70-widgets.css ===== */
 /* 1.11 Widgets and Desktop */
 body.sb-wv header.top,body.sb-wv nav.tabs,body.sb-wv #fab,body.sb-wv #toolbar,body.sb-wv .nav-foot{display:none!important}

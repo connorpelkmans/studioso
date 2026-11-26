@@ -11,7 +11,9 @@ const RM_CORE = (() => {
     // Keep Reminding Until Done: after a task's last reminder, it comes again every nagEvery minutes, up to nagTimes times,
     // until the task is ticked off (off by default; a task can turn it on or off for itself with t.nag)
     nag: false, nagEvery: 15, nagTimes: 5,
-    snooze: 60};   // minutes a Snooze button waits
+    snooze: 60,   // minutes a Snooze button waits
+    // Course registration day: when the school's registration opens for this student, and a note (like section codes)
+    regDate: "", regTime: "07:00", regNote: ""};
   const HOUR = 36e5, DAY = 864e5, WINDOW = 14 * DAY, GRACE = 10 * 60000;
   const p2 = n => String(n).padStart(2, "0");
   const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -28,7 +30,8 @@ const RM_CORE = (() => {
   const cfgOf = c => { const o = Object.assign({}, DEF, c || {}); ["dayTime", "morningTime", "nudgeTime", "cardsTime", "quietFrom", "quietTo"].forEach(k => { if (!isT(o[k])) o[k] = DEF[k]; });
     o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0));
     o.nagEvery = Math.max(5, Math.min(120, Math.round(Number(o.nagEvery) || DEF.nagEvery))); o.nagTimes = Math.max(1, Math.min(10, Math.round(Number(o.nagTimes) || DEF.nagTimes)));
-    o.snooze = Math.max(5, Math.min(24 * 60, Math.round(Number(o.snooze) || DEF.snooze))); return o; };
+    o.snooze = Math.max(5, Math.min(24 * 60, Math.round(Number(o.snooze) || DEF.snooze)));
+    if (!isD(o.regDate)) o.regDate = ""; if (!isT(o.regTime)) o.regTime = DEF.regTime; o.regNote = String(o.regNote || "").replace(/\s+/g, " ").trim().slice(0, 140); return o; };
   const ALSO_OK = k => k in OVR_MIN || k in OVR_DAY;
   // More than one reminder for a task (t.remindAlso: extra choices on top of its usual ones), at most 4
   const alsoOf = t => Array.isArray(t.remindAlso) ? [...new Set(t.remindAlso.map(String).filter(ALSO_OK))].slice(0, 4) : [];
@@ -131,6 +134,16 @@ const RM_CORE = (() => {
         const n = (inp.cards || []).filter(x => x && x.seen > 0 && (!x.due || x.due <= day)).length;
         if (n) add({id: `r:f:${day}`, at: at(day, c.cardsTime), title: "Flashcards Due", body: `${n} flashcard${n === 1 ? " is" : "s are"} ready for review. A few minutes keeps them fresh.`, taskId: "", kind: "cards"}, null);
       }
+    }
+    // Course registration: a week and a day ahead (moved out of quiet hours like any reminder), then an hour, 10 minutes and
+    // the moment it opens, even in quiet hours (registration often opens early, and missing it can cost a class)
+    if (c.regDate) {
+      const open = at(c.regDate, c.regTime), note = c.regNote ? ` ${c.regNote}` : "", key = `r:g:${c.regDate}${c.regTime.replace(":", "")}`;
+      const when = `${fD(c.regDate)} at ${fT(c.regTime)}`;
+      add({id: `${key}:wk`, at: at(addD(c.regDate, -7), c.dayTime), title: "Registration in 1 Week", body: `Opens ${when}. Pick your courses and a backup for each now.${note}`, taskId: "", kind: "reg"}, open);
+      add({id: `${key}:1d`, at: at(addD(c.regDate, -1), c.dayTime), title: "Registration Tomorrow", body: `Opens at ${fT(c.regTime)}. Have your course list and section codes ready.${note}`, taskId: "", kind: "reg"}, open);
+      [[60, "1h", "Registration in 1 Hour", `Opens at ${fT(c.regTime)}.`], [10, "10m", "Registration Opens in 10 Minutes", "Sign in to your school's registration page now."], [0, "now", "Registration Is Open", "Register now."]]
+        .forEach(([m, code, title, body]) => { const ms = open - m * 60000; if (ok(ms)) out.push({id: `${key}:${code}`, at: ms, title, body: body + note, taskId: "", kind: "reg"}); });
     }
     if (c.smart) (inp.smart || []).forEach(s => { if (s && s.id && s.taskId && ok(s.at) && !inQuiet(s.at, c)) out.push({id: s.id, at: s.at, title: s.title || "Task", body: s.body || "", taskId: s.taskId, kind: "smart", key: s.key || ""}); });
     (inp.snoozes || []).forEach(s => { if (s && s.id && ok(s.at)) out.push({id: s.id, at: s.at, title: s.title || "Reminder", body: s.body || "", taskId: s.taskId || "", kind: "snooze"}); });
@@ -527,6 +540,11 @@ const RM_CORE = (() => {
           ${SBSMART ? SBSMART.row(c) : ""}
           <p class="mini" style="margin:0">You can change the reminder for a single task in its Advanced Settings.</p>
         </fieldset>
+        <fieldset><legend>Course Registration</legend>
+          <div class="rm-row"><span>Registration opens</span><input type="date" class="rm-date" data-rm="regDate" value="${esc(c.regDate)}" aria-label="Registration date"><span class="rm-to">at ${tIn("regTime", c.regTime)}</span>${c.regDate ? `<button type="button" class="link-btn" data-act="rm-reg-clear">Clear</button>` : ""}</div>
+          <label class="f rm-regnote"><span class="lh">Note <span class="hint">optional</span></span><input type="text" data-rm="regNote" maxlength="140" value="${esc(c.regNote)}" placeholder="Section codes, e.g. 41023, 41187, 52210"></label>
+          <p class="mini" style="margin:0">Reminders a week and a day before, then an hour, 10 minutes and the moment it opens (those last three even in quiet hours). Your school's registration page or advisor says when yours opens.</p>
+        </fieldset>
         <fieldset><legend>Calendar Events</legend>
           <div class="rm-row">${cb("events", c.events, "Before events:")}${sel("eventLead", c.eventLead, [[0, "At the start"], [5, "5 minutes"], [10, "10 minutes"], [15, "15 minutes"], [30, "30 minutes"], [60, "1 hour"]], "How long before")}</div>
           ${cb("classes", c.classes, "Include my classes and labs")}
@@ -556,6 +574,7 @@ const RM_CORE = (() => {
       const k = el.dataset.rm, v = el.type === "checkbox" ? el.checked : el.tagName === "SELECT" ? Number(el.value) : el.value;
       if (el.type === "time" && !v) return;
       rmSave({[k]: v}, true);
+      if (k === "regDate") setTimeout(() => setupSheet(), 150);   // show or hide Clear
       if (k === "tasks") { const s = root.querySelector(".rm-sub"); if (s) s.hidden = !v; }
       setTimeout(() => { refresh(); const box = $("#rmComing"); if (box) box.innerHTML = comingHtml(); }, 120);
     }));
@@ -668,7 +687,7 @@ const RM_CORE = (() => {
 
   /* Hooks */
   hook("menu", () => {
-    const c = rmCfg(), on = [c.tasks && "tasks", c.events && "events", c.morning && "morning summary", c.nudges && "study nudges", c.cards && "flashcards"].filter(Boolean);
+    const c = rmCfg(), on = [c.tasks && "tasks", c.events && "events", c.morning && "morning summary", c.nudges && "study nudges", c.cards && "flashcards", c.regDate && c.regDate >= todayISO() && "registration"].filter(Boolean);
     const where = deskNative() ? "Desktop notifications" : perm() === "granted" ? "Notifications on" : perm() === "denied" ? "Notifications blocked here" : "In the app only";
     return `<button data-act="rm-open"><span>Reminders and Notifications<span class="sub">${esc(on.length ? `${where}. Reminding you about ${on.join(", ")}.` : "All reminders are off.")}</span></span></button>`;
   });
@@ -685,6 +704,7 @@ const RM_CORE = (() => {
   hook("act", (act, el, id) => {
     switch (act) {
       case "rm-open": setupSheet(); return true;
+      case "rm-reg-clear": rmSave({regDate: "", regNote: ""}, true); setTimeout(() => setupSheet(), 150); toast("Registration reminders cleared"); return true;
       case "rm-perm": askPermission().then(() => { if (dlg.open && dlg.querySelector(".rm-sheet")) setupSheet(); }); return true;
       case "rm-test": {
         const r = {id: "r:test:" + Date.now(), title: "Test Reminder", body: "This is how Studyboard reminders look.", taskId: ""};

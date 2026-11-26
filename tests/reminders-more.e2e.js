@@ -31,6 +31,20 @@ let checks = 0; const ok = (c, m) => { checks++; assert(c, m); };
     const rm = (await st()).settings.reminders;
     ok(rm.nag === true && rm.nagEvery === 10 && rm.snooze === 15, "settings saved: " + JSON.stringify(rm));
     ok(/Still to do/.test(await page.textContent("#rmComing")) || (await page.evaluate(() => window.studyboardReminders.list().some(r => r.kind === "nag"))), "repeats are planned");
+    // Course registration
+    const reg = (() => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().slice(0, 10); })();
+    await page.fill('dialog[open] [data-rm="regDate"]', reg); await page.waitForTimeout(600);
+    await page.fill('dialog[open] [data-rm="regNote"]', "CRN 41023"); await page.press('dialog[open] [data-rm="regNote"]', "Tab"); await page.waitForTimeout(500);
+    const rs = (await st()).settings.reminders;
+    ok(rs.regDate === reg && rs.regNote === "CRN 41023", "registration day saved: " + JSON.stringify({d: rs.regDate, n: rs.regNote}));
+    const regs = await page.evaluate(() => { window.studyboardReminders.refresh(); return window.studyboardReminders.list().filter(r => r.kind === "reg").map(r => r.title); });
+    ok(regs.length === 5 && regs[4] === "Registration Is Open", "five registration reminders planned: " + regs.join(", "));
+    ok(await page.locator('dialog[open] [data-act="rm-reg-clear"]').count() === 1, "a Clear button appears");
+    await page.evaluate(() => document.querySelector('dialog[open] [data-rm="regDate"]').scrollIntoView({block: "center"}));
+    await page.screenshot({path: shots + "/rm-registration.png"});
+    await page.click('dialog[open] [data-act="rm-reg-clear"]'); await page.waitForTimeout(500);
+    ok((await st()).settings.reminders.regDate === "" && await page.evaluate(() => { window.studyboardReminders.refresh(); return !window.studyboardReminders.list().some(r => r.kind === "reg"); }), "Clear removes them");
+    await page.evaluate(() => document.querySelector('dialog[open] [data-rm="nag"]').scrollIntoView({block: "center"}));
     await page.screenshot({path: shots + "/rm-settings.png"});
     await page.keyboard.press("Escape"); await page.waitForTimeout(300);
 

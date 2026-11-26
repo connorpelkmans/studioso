@@ -70,6 +70,22 @@ const forT = (list, kind) => list.filter(r => r.taskId === "t1" && (!kind || r.k
   eq([R.snoozeLabel(60), R.snoozeLabel(120), R.snoozeLabel(15)], ["Snooze 1 Hour", "Snooze 2 Hours", "Snooze 15 Min"], "button labels");
 }
 
+// Course registration day
+{
+  const regs = cfg => run([], Object.assign({regDate: "2026-11-12", regTime: "07:00", regNote: "41023, 41187"}, cfg)).filter(r => r.kind === "reg");
+  const L = regs({});
+  const fmt = ms => new Date(ms).toISOString() && `${new Date(ms).getDate()} ${hm(ms)}`;
+  eq(L.map(r => fmt(r.at)), ["5 18:00", "11 18:00", "12 06:00", "12 06:50", "12 07:00"], "a week and a day before at the evening time, then 1 hour, 10 minutes and the moment it opens");
+  eq(L.map(r => r.title), ["Registration in 1 Week", "Registration Tomorrow", "Registration in 1 Hour", "Registration Opens in 10 Minutes", "Registration Is Open"]);
+  ok(L.every(r => / 41023, 41187$/.test(r.body)), "every reminder carries the note");
+  const q = regs({quiet: true, quietFrom: "22:00", quietTo: "07:30"});
+  eq(q.filter(r => new Date(r.at).getDate() === 12).map(r => hm(r.at)), ["06:00", "06:50", "07:00"], "the last three come even in quiet hours");
+  eq(run([], {regDate: "2026-10-01"}).filter(r => r.kind === "reg").length, 0, "a past registration day gives nothing");
+  eq(run([], {regDate: "not a date"}).filter(r => r.kind === "reg").length, 0, "a bad date gives nothing");
+  const c = R.cfgOf({regNote: "x".repeat(300), regTime: "25:00"});
+  ok(c.regNote.length === 140 && c.regTime === "07:00", "the note is capped, a bad time falls back");
+}
+
 // The calendar link carries the extra reminders too
 {
   const cf = src("50-calfeed.js");
