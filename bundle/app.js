@@ -126408,6 +126408,11 @@ const AUTOPILOT = (() => {
   const tipText = el => {
     if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // the full text of something cut off ("…"), only while it is
+    if (el.dataset && el.dataset.tipfull) {
+      const cut = x => x && (x.scrollWidth > x.clientWidth + 1 || x.scrollHeight > x.clientHeight + 1);
+      return cut(el) || [...el.querySelectorAll("*")].slice(0, 12).some(cut) ? el.dataset.tipfull : "";
+    }
     // the companion speaks for itself: its long screen-reader label isn't shown as a hover message
     if (el.closest && el.closest(".cp, [data-notip]")) return "";
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
@@ -126449,7 +126454,7 @@ const AUTOPILOT = (() => {
   };
   document.addEventListener("pointerover", e => {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const el = e.target.closest && e.target.closest("[data-why],[data-tip],button,a[href],[role=button],[role=tab]");
+    const el = e.target.closest && e.target.closest("[data-why],[data-tip],[data-tipfull],button,a[href],[role=button],[role=tab]");
     if (!el || el === tipFor) return;
     if (tipFor) hideTip();
     want(el, 500);
@@ -126680,6 +126685,22 @@ const AUTOPILOT = (() => {
       for (let n = w.nextNode(); n; n = w.nextNode()) { s += n.data; if (s.trim().length > t.length) return false; }
       return s.trim() === t;
     };
+    // Which hover boxes are worth showing (most titles only repeated or explained what's already on screen, and every one of
+    // them used to pop up): a disabled control's reason, a keyboard shortcut, a short value on something with no words (a
+    // progress bar: just its first sentence), and the full text of text that's cut off (shown only while it's cut off). An
+    // icon-only button shows just its name (102-qol.js), never a description.
+    const SHORTCUT = /\b(Ctrl|Cmd|Alt|Shift|Option)\s*[+\-]|[⌘⌃⌥⇧]|\bpress\s+\S{1,3}\b|\(\s*[A-Z?/]\s*\)$/i;
+    const firstSentence = t => { const m = /^(.{3,90}?[.!?])(\s|$)/.exec(t); return (m ? m[1] : t.slice(0, 90)).trim(); };
+    const ownText = el => { let s2 = ""; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { if (n.parentElement && n.parentElement.closest("svg")) continue; s2 += n.data; if (s2.length > 300) break; } return s2.replace(/\s+/g, " ").trim(); };
+    const tipKind = (el, t) => {
+      if (el.disabled || el.getAttribute("aria-disabled") === "true") return "tip";
+      if (SHORTCUT.test(t)) return "tip";
+      const own = ownText(el), interactive = el.matches("button,a[href],[role=button],[role=tab],input,select,textarea,label");
+      if (!/[\p{L}\p{N}]/u.test(own)) return interactive ? "" : "first";
+      const a2 = own.replace(/[….]+$/, "").toLowerCase(), b2 = t.toLowerCase();
+      if (a2.length >= 2 && (b2.startsWith(a2) || b2.includes(a2))) return "full";   // the same text, or more of it: only while it's cut off
+      return "";
+    };
     // (labels last: finding a control's <label>s looks through the whole page)
     const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && hasText(el)) || (el.labels && el.labels.length);
     const strip = el => {
@@ -126687,7 +126708,7 @@ const AUTOPILOT = (() => {
       if (el.hasAttribute("title")) {
         const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title");
         if (t && !named(el)) el.setAttribute("aria-label", t);
-        else if (t && (el.getAttribute("aria-label") ? t !== el.getAttribute("aria-label") : !textIs(el, t))) el.dataset.tip = t;
+        else if (t) { const k = tipKind(el, t); if (k === "tip") el.dataset.tip = t; else if (k === "first") el.dataset.tip = firstSentence(t); else if (k === "full") el.dataset.tipfull = t; }
       }
       if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();
