@@ -1452,13 +1452,15 @@ Studyboard makes every change you put in the JSON the moment you reply, then sho
 - "The study group" when there's a calendar event called Study group is that event (rename it with its title), not a Study Groups group.
 - "Add those to my calendar" after a plan you wrote: newEvents on the plan's days and times, titled plainly (no time estimates in titles).
 - A timer started while one task is being talked about ("ok start a timer", "let's do 25 min" for the essay) is for that task: give its ref.
-- Something you can't do ("call the clinical coordinator"): say so and offer a reminder, but add nothing unless they ask for one.
+- Something you can't do ("call the clinical coordinator", "text my study group that we're moving to 7"): say so and offer a reminder, but change and add nothing unless they ask.
+- "Answers?" or "what are the answers" after practice questions you gave: give the answer key.
 - Change only what they asked for: nothing extra (no notes, weights or priorities they didn't mention). Numbers they give you for a calculation or a what-if ("the midterm is worth 40%, A is 90") change nothing unless they ask you to save them.
 - A new due date or event day in the past ("move the essay to yesterday"): say it's in the past and ask if they're sure; change nothing yet.
 - Deleting: only when the words name the item clearly. "Delete the quiz" when they have several quizzes (open or done): ask which. Dropping a course: ask first.
 - When you truly can't tell which item they mean (two match equally) or a needed detail is missing (a new task with no name), ask one short question and change nothing. If one item clearly fits, just do it.
 - "Go ahead", "do it", "yes", "sure" right after you offered or suggested changes: make exactly those changes now.
-- "undo" can go together with other changes in one reply (the undo happens first): "don't delete 3, mark it done instead" = "undo": true plus the change to mark it done.
+- "undo" can go together with other changes in one reply (the undo happens first): "oops I meant the journal, undo that" = "undo": true plus the change to the journal. But a task you just deleted along with other changes ("don't delete 3, mark it done instead"): a change on its X ref under RECENTLY DELETED TASKS brings just that one back, so no undo.
+- "I'm putting that on a sticky note", "I'll add it later": what they'll do themselves; add nothing.
 - Something repeating ("every sunday until the exam", "a weekly reminder to review my heart cards"): add one task or event for each date, up to the date they give or for the next 4 weeks, and say which dates.
 - Notifications or alerts ("turn on notifications for my study group"): they need the student's own OK in the browser, so you can't switch them on yourself. Open them with "page": "reminders" and say to turn on the reminders they want there (they cover events like the study group and due dates). Not a SETTINGS change.
 - App settings (text size, notifications and reminders, daily study hours, language, sounds, the daily quote...) you change with a SETTINGS change: never say a setting can't be changed before trying.
@@ -1477,7 +1479,7 @@ What you can change, and how (refs are the codes in the data, like T3, C2, K14, 
 - "newEvents": [{"title","date","from","to","where","course"}] for things at a time: appointments, shifts, gym, dinners, meetings, office hours, study sessions, practices. One per date ("every sunday until the exam" = one for each of those Sundays). Copy time and place from another event when they say "same time and place as ...".
 - "newCourses": [{"name","code","instructor","room","color"}].
 - "newClasses": [{"course": C ref,"kind": "Lecture"|"Lab"|"Tutorial"|"Seminar"|"Office Hours","days": "Mon,Wed","from","to","where"}]: a course's weekly class times ("add psych mondays and wednesdays 10-12", "BIOS lab is fridays 2-5").
-- "newNotes": [{"text","board"}]: a sticky note with their words (board: a note board's name, or "" for My Notes). "Remember that ...", "note to self", "jot down", "sticky note: ...", and the words they give after you asked what a note should say, are a note (never a task, and never a task's notes), even when the words mention buying or emailing something.
+- "newNotes": [{"text","board"}]: a sticky note with their words (board: a note board's name, or "" for My Notes). "Remember that ...", "note to self", "jot down", "sticky note: ...", and the words they give after you asked what a note should say, are a note (never a task, and never a task's notes), even when the words mention buying or emailing something, and even when it's news about an event or task ("remember that the study group is moving to room 6" is a note; the event stays as it is).
 - "newDecks": [{"name","course","cards":[{"front","back"}]}]: flashcards. Write the cards yourself: accurate, one fact each, a clear question on the front. From the note, deck or topic they name (the note's full text is in STICKY NOTES); the number they ask for, else 6 to 10. An empty new deck has "cards": [].
 - "newCards": [{"deck": D ref,"front","back"}]: cards into an existing deck. "keep only 4" = delete the rest of that deck's cards (their F refs are under CARDS IN); "make them harder" = new front/back on those F refs; "put those in my X deck instead" = newCards into X with the same cards, and delete the deck you just made; "make a new deck called WWI for it" = a new deck holding that card, and delete the card or deck it was in. Before adding a card, look at the deck's cards under CARDS IN: if the same card is already there, ask instead of adding a copy. When they give a card's front and back after you asked ("what does the AV node do / delays the impulse"), add it. "Save those as cards" after a quiz: a card for every question of that quiz (all of them, including ones you haven't asked yet). Only use notes, decks or files that exist: "the note I just made" when no note was just made gets a question.
 - "timer": {"do": "start"|"stop"|"pause"|"resume"|"link","minutes","task": T ref}. A pomodoro is 25 minutes. "make it 50 minutes" while one runs = start 50. "it's for the a&p quiz" while one runs = link.
@@ -1518,6 +1520,14 @@ ANSWERING
   const agHex = (w, c) => { const s = String(w || "").toLowerCase().trim(); let hex = (/#[0-9a-f]{6}\b/i.exec(s) || [])[0] || ""; if (!hex) { const hit = Object.keys(NAMED).sort((a, b) => b.length - a.length).find(n => new RegExp("\\b" + n + "\\b").test(s)); if (hit) hex = NAMED[hit]; }
     if (!hex) return ""; const anyOk = typeof anyColorLocked === "function" && !anyColorLocked(); if (anyOk || typeof COURSE_COLORS === "undefined" || COURSE_COLORS.some(x => x.toLowerCase() === hex.toLowerCase())) return hex.toUpperCase();
     const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), a = rgb(hex); let pick = hex, bd = 1e9; COURSE_COLORS.forEach(x => { const b = rgb(x), dd = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2; if (dd < bd) { bd = dd; pick = x; } }); return pick.toUpperCase(); };
+  const CLAIM_A = /\b(?:i'?ve|i have|i)\s+(?:just\s+|now\s+|also\s+)?(?:made|opened|saved|put|turned|switched|marked|moved|added|created|set|changed|deleted|removed|renamed|started|filled|linked|recoloured|recolored)\b|^\s*(?:done|all set|made|opened|saved|added|moved|marked|changed|deleted|renamed|started|switched|turned|created)\b/i;
+  // "Mon, Dec 5" / "Monday, December 5" with the wrong weekday: put right from the date (this year, or next when it's months back)
+  function agWeekdays(s){
+    const MO = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], t = todayISO();
+    return String(s || "").replace(/\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat)(day|sday|nesday|rsday|urday)?(,?\s+)(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)([a-z]*\.?\s+)(\d{1,2})\b/g, (x, w, wl, sp, mo, mo2, dd) => {
+      try { const m = MO.indexOf(mo.toLowerCase()); let y = Number(t.slice(0, 4)); let iso = `${y}-${String(m + 1).padStart(2, "0")}-${String(dd).padStart(2, "0")}`; if (iso < addDays(t, -120)) iso = `${y + 1}${iso.slice(4)}`;
+        const k = parse(iso).getDay(); if (isNaN(k)) return x; const right = wl ? LONG[k] : LONG[k].slice(0, 3); return right + sp + mo + mo2 + dd; } catch (e) { return x; } });
+  }
   const agWords = s => (String(s || "").toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(w => !/^(the|and|for|with|from|this|that|deck|card|task|event|class|note|course)$/.test(w));
   const agLabel = t => { let s = ""; try { s = window.SBASSIST.labelOf(t); if (t.kind === "course" || t.kind === "class") { const c = state.courses[t.id]; if (c) s += " " + c.name + " " + (c.code || ""); } } catch (e) {} return s; };
   async function claudeTurn(q, c){
@@ -1533,7 +1543,7 @@ ANSWERING
     // tasks deleted in the last half hour, with refs: "don't delete 3, mark it done instead" is "undo" plus a change to it (made after
     // the undo brings it back); without them Claude had nothing to point at and said it couldn't
     try { const gone = Object.values(state.trash || {}).filter(e => e && Date.now() - (e.deletedAt || 0) < 30 * 60000).flatMap(e => (e.items || []).filter(i => i.kind === "task" && i.data && !state.tasks[i.id])).slice(0, 10);
-      if (gone.length) cat.text += "\n\nRECENTLY DELETED TASKS (\"undo\": true brings back the last deletion; changes listed for them are made after it):\n" + gone.map((i, n) => { const k = "X" + (n + 1); cat.refs.set(k, {kind: "task", id: i.id}); return `${k} | ${clip(i.data.title, 90)}`; }).join("\n"); } catch (e) {}
+      if (gone.length) cat.text += "\n\nRECENTLY DELETED TASKS (a change on one of these brings that one task back with the change made; nothing else is undone, so don't use \"undo\" for this):\n" + gone.map((i, n) => { const k = "X" + (n + 1); cat.refs.set(k, {kind: "task", id: i.id, gone: i.data}); return `${k} | ${clip(i.data.title, 90)}`; }).join("\n"); } catch (e) {}
     const me = info() || {}, worn = SBCOMP.wornNames ? SBCOMP.wornNames() : [], owned = SBCOMP.ownedNames ? SBCOMP.ownedNames() : [];
     // today's plan (its order and time blocks) only when the talk is about time or work: sent with every message, it was brought into
     // greetings, feelings and a question about opportunity cost ("Reflection Journal 3 is still waiting for you")
@@ -1542,13 +1552,14 @@ ANSWERING
     let facts = ""; if (planTalk) try { facts = aiPlannerFacts({grades: false, plan: true}) || ""; } catch (e) {}
     let skins = []; try { skins = (SKINS || []).filter(x => typeof owns !== "function" || owns("skin", x.id)).map(x => x.name).slice(0, 12); } catch (e) {}
     // the other companions they have (a student calls them by those names too: "evening packy", "who's bramble?")
-    const pals = (() => { try { return (SBCOMP.all ? SBCOMP.all() : []).filter(x => x.owned && x.name !== me.name).slice(0, 30).map(x => `${x.name}${x.kind ? " (" + x.kind + ")" : ""}`); } catch (e) { return []; } })();
+    // every companion in Studyboard, and which the student has ("who's bramble?" when Bramble isn't theirs got "I don't know a Bramble")
+    const pals = (() => { try { return (SBCOMP.all ? SBCOMP.all() : []).filter(x => x.name !== me.name).slice(0, 80).map(x => `${x.name}${x.kind ? " (" + x.kind + ")" : ""}${x.owned ? "" : " [not unlocked]"}`); } catch (e) { return []; } })();
     const boards = (() => { try { return ["My Notes"].concat(noteBoards().map(b => b.name)).join("; "); } catch (e) { return "My Notes"; } })();
     // how the app works, always (a question about the app doesn't always look like one: "does it connect to brightspace")
     const guide = A.GUIDE ? "\n\n" + A.GUIDE : "";
     const hist = past.map(x => `Student: ${x.q}\nYou: ${x.a ? clip(x.a.answer, 1500) : "(no reply: " + clip(x.err, 80) + ")"}${x.a && x.a.log && x.a.log.length ? `\n[Studyboard changed: ${x.a.log.join("; ")}]` : ""}`).join("\n\n");
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
-    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `You're wearing: ${worn.join(", ")}. ` : "You're wearing no accessories. "}${owned.length ? `Accessories you have: ${owned.join(", ")}. ` : ""}${pals.length ? `The student can switch to the other study companions they have in Studyboard (in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
+    const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
     const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
     const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
@@ -1557,7 +1568,10 @@ ANSWERING
     let r = await tryCall(), d = r && r.data && typeof r.data === "object" ? r.data : null;
     const asked = x => !!x && ["changes", "newTasks", "newEvents", "newCourses", "newClasses", "newNotes", "newDecks", "newCards", "show", "wear"].some(k => Array.isArray(x[k]) && x[k].length) || !!(x && (x.undo || x.study || (x.map && x.map.topic) || x.page || x.theme || (x.timer && x.timer.do && x.timer.do !== "none") || (x.group && x.group.do)));
     // a reply that says it did something with nothing listed to do: asked once more
-    if (d && !asked(d) && A.CLAIMS.test(String(d.answer || ""))) { try { const r2 = await call(`\n\nIMPORTANT: your last reply said "${clip(d.answer, 200)}" but listed no change. If the student asked for a change, list it in the JSON. If not, don't say anything was done.`); if (r2 && r2.data && r2.data.answer) d = r2.data; } catch (e) { if (stopsHere(e)) throw e; } }
+    // (any "I made / opened / saved / put / turned ...", or a reply opening with "Done", not only the words the old check knew: "Made an
+    // empty deck called Cardiology" made nothing)
+    const CLAIM2 = /\b(?:i'?ve|i have|i)\s+(?:just\s+|now\s+|also\s+)?(?:made|opened|saved|put|turned|switched|marked|moved|added|created|set|changed|deleted|removed|renamed|started|filled|linked|recoloured|recolored)\b|^\s*(?:done|all set|made|opened|saved|added|moved|marked|changed|deleted|renamed|started|switched|turned|created)\b/i;
+    if (d && !asked(d) && (A.CLAIMS.test(String(d.answer || "")) || CLAIM2.test(String(d.answer || "")))) { try { const r2 = await call(`\n\nIMPORTANT: your last reply said "${clip(d.answer, 200)}" but listed no change. If the student asked for a change, list it in the JSON. If not, don't say anything was done.`); if (r2 && r2.data && r2.data.answer) d = r2.data; } catch (e) { if (stopsHere(e)) throw e; } }
     // no reply, or a placeholder ("placeholder", "...") where the reply should be: asked once more
     if (!d || junk(d.answer) || /^\s*placeholder\s*$/i.test(String(d.answer || ""))) { try { const r3 = await call(`\n\nIMPORTANT: reply with one JSON object whose "answer" is your real reply to the student.`); const d3 = r3 && r3.data; if (d3 && !junk(d3.answer) && !/^\s*placeholder\s*$/i.test(String(d3.answer))) d = d3; else d = null; } catch (e) { if (stopsHere(e)) throw e; d = null; } }
     if (!d) return null;
@@ -1579,6 +1593,9 @@ ANSWERING
       // a task with no ref because it was deleted when the planner was read, and is back after the undo above ("don't delete 3, mark
       // it done instead"): found by the name Claude gives
       if (!t && cc.item && d.undo) { const nm = String(cc.item).trim().toLowerCase(), tk = tasksArr().find(x => String(x.title || "").toLowerCase() === nm); if (tk) { const k = ("TU_" + tk.id).toUpperCase(); refs.set(k, {kind: "task", id: tk.id}); cc.ref = k; t = refs.get(k); } }
+      // a task just deleted that a change names (an X ref): that one task brought back first, nothing else undone ("don't delete 3,
+      // mark it done instead" undid the whole last step, and the Journal 4 added in it went too)
+      if (t && t.gone && !state.tasks[t.id]) { try { applyChanges([{kind: "task", id: t.id, after: clone(t.gone)}], null); log.push(`brought back ${clip(t.gone.title, 60)}`); } catch (e) {} }
       // the ref is checked against the name Claude gives with it ("item"): one pointing at the row next to it ("make it 30 min" changed
       // the clinical orientation instead of the meeting) is put right when exactly one item of that kind has that name
       if (t && cc.item) { const ws = agWords(cc.item), sc = v => { const L = agWords(agLabel(v)); return ws.filter(w => L.includes(w)).length; };
@@ -1685,9 +1702,15 @@ ANSWERING
     // happened instead, so it never says both
     if (fails.length && (A.CLAIMS.test(answer) || /^\s*(done|got it|all set)\b/i.test(answer))) answer = log.length ? `Done: ${log.join("; ")}.` : "";
     if (fails.length) answer = `${answer}${answer ? "\n\n" : ""}I couldn't ${fails.slice(0, 4).join("; ")}, so ${fails.length === 1 ? "that part wasn't" : "those weren't"} changed.`;
-    // ("nothing to undo" only when nothing else was done either: "undo the dark mode" set the theme back and said both)
-    if (undoMiss && !log.length) extra.unshift(undoMiss);
+    // ("nothing to undo" only when nothing else was done either: "undo the dark mode" set the theme back and said both; and then
+    // it's said instead of a reply claiming the undo: "Done, back to Default" beside "There's nothing recent to undo")
+    if (undoMiss && !log.length) { if (A.CLAIMS.test(answer) || CLAIM_A.test(answer)) answer = ""; extra.unshift(undoMiss); }
+    // what was worn, recoloured or opened for a group is said in the companion's and Groups' own words (they know what really
+    // happened: "I put on my Tiny Hat" when it was only recoloured, "I filled in New Group" when it needed a sign-in)
+    if (extra.length && !log.length && (arr("wear").length || (d.group && d.group.do)) && (A.CLAIMS.test(answer) || CLAIM_A.test(answer))) answer = "";
     if (extra.length) answer =`${answer}${answer ? "\n\n" : ""}${extra.join(" ")}`;
+    // a weekday that doesn't match its date ("Mon, Dec 5" when Dec 5 is a Saturday): the date's own weekday
+    answer = agWeekdays(answer);
     answer = answer.replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})?)*/gu, "").trim();
     // the refs are for Claude, never the student ("your Freud notes (N1)", "Transference (F3)")
     answer = answer.replace(/\s*\((?:\s*(?:refs?\s+)?[A-Z]{1,2}\d{1,3}\s*,?)+\)/g, "").replace(/\b[A-Z]{1,2}\d{1,3}\b/g, x => refs.has(x) ? "" : x).replace(/ {2,}/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();

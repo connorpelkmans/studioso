@@ -494,6 +494,16 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     // a discount worked out exactly: the price is its own number ("15% off a $48 jacket" was "$1 with 5% off")
     a = await say("whats 15% off a $48 jacket");
     ok(/\$48 with 15% off is \$40\.8/.test(a), "\"15% off a $48 jacket\" is $40.80: " + a);
+    // a task deleted together with something added: a change on its X ref brings back just that task (undo took the added one too)
+    replyFor = (m, R) => ({answer: "Deleted Care Plan 2 and added Care Plan 3.", changes: [{ref: R("Care Plan 2"), field: "delete", value: "yes"}], newTasks: [{title: "Care Plan 3", type: "Assignment", due: "2030-02-01"}]});
+    await say("delete care plan 2 and add care plan 3 due feb 1 2030");
+    replyFor = () => { const k = (/\b(X\d+) \| Care Plan 2/.exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Brought Care Plan 2 back as done.", changes: [{ref: k, item: "Care Plan 2", field: "status", value: "done"}]}; };
+    a = await say("wait don't delete care plan 2, mark it done instead");
+    ok((await task("t1") || {}).status === "done" && await pc.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => t.title === "Care Plan 3")), "a deleted task is brought back on its own, and what was added with it stays: " + a);
+    // a weekday that doesn't match its date is put right
+    replyFor = () => ({answer: "Your exam is on Mon, Dec 5 2030."});
+    a = await say("when's my exam");
+    ok(/Thu, Dec 5/.test(a) || /Fri, Dec 5|Sat, Dec 5|Sun, Dec 5|Wed, Dec 5|Tue, Dec 5/.test(a) && !/Mon, Dec 5/.test(a), "a wrong weekday is corrected from the date: " + a);
     // a reply written as plain words instead of the JSON is the answer (it was thrown away and asked for again)
     replyFor = () => "Friday has clinical orientation from 8 to 12.";
     a = await say("and the day after?");
