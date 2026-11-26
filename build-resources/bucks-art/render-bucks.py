@@ -78,7 +78,7 @@ def green_logo(img, M, Bm, base=0.76, light=(-0.62, -0.78)):
     col = ramp(t, GREEN)
     edge = np.clip(M - blur(M, 2), 0, 1) * np.clip(sh * 2, 0, 1)
     col = col + np.array([220, 255, 228], np.float32) * (edge * 0.6)[..., None]
-    shadow = blur(np.roll(np.roll(M, 14, 0), 10, 1), 10) * 0.6
+    shadow = blur(np.roll(np.roll(M, 12, 0), 9, 1), 9) * 0.75
     img = over(img, np.array([2, 30, 10], np.float32), np.clip(shadow * (1 - M), 0, 1))
     return over(img, col, M)
 
@@ -98,15 +98,23 @@ img = lerp(img, ramp(bev, GREEN), band)
 # one fine raised line just inside the border
 line = np.exp(-((din - (BAND + 34)) / 4) ** 2)
 img = lerp(img, ramp(0.74 + 0.18 * (light_dir - 0.5) * 2, GREEN), line * 0.85)
-# a slightly lighter green circle behind the logo, with a soft raised edge
-ov = np.sqrt((xx - cxm) ** 2 + (yy - cym) ** 2) / (H * 0.40)
-disc_a = np.clip((1 - ov) * H * 0.40 / 2.5, 0, 1)
-img = lerp(img, ramp(0.52 + 0.10 * (light_dir - 0.5), GREEN), disc_a)
-ring = np.exp(-((ov - 1) * H * 0.40 / 9) ** 2)
-img = lerp(img, ramp(0.66 + 0.22 * (light_dir - 0.5) * 2, GREEN), ring * 0.9)
-# the logo, raised, a little larger
-M, Bm = place_logo(H * 0.68, cxm + 8, cym + 6)
-img = green_logo(img, M, Bm, base=0.82)
+# a slightly lighter green circle behind the logo, inside the fine line, with a crisp raised rim like the coin's
+RC = H * 0.335
+d = np.sqrt((xx - cxm) ** 2 + (yy - cym) ** 2)
+disc_a = np.clip((RC - d) / 1.5 + 0.5, 0, 1)
+# its field: lighter than the bill, a little lighter still toward the top left, with a soft inner shadow under the rim
+inner = np.clip((RC - d) / 40, 0, 1)
+img = lerp(img, ramp(0.50 + 0.10 * (light_dir - 0.5) - 0.06 * (1 - inner), GREEN), disc_a)
+# the rim: a bevelled band (lit top left on its outer slope, bottom right on its inner one)
+RW = 26
+rb = np.clip((d - (RC - RW)) / 1.5, 0, 1) * disc_a
+slope = np.where(d > RC - RW / 2, 1, -1)
+img = lerp(img, ramp(0.62 + 0.26 * (light_dir - 0.5) * 2 * slope, GREEN), rb)
+# a thin dark line where the rim meets the bill
+img = lerp(img, np.array([6, 50, 20], np.float32) * np.ones_like(img), np.exp(-((d - RC) / 2.2) ** 2) * 0.55)
+# the logo, raised, sized to sit well inside the circle; centred on its S (the cap's tassel hangs off to the right)
+M, Bm = place_logo(RC * 1.42, cxm - RC * 0.05, cym + RC * 0.02)
+img = green_logo(img, M, Bm, base=0.86)
 # dark outer edge line
 edge = np.exp(-(din / 4) ** 2)
 img = lerp(img, np.array([4, 40, 16], np.float32) * np.ones_like(img), edge * 0.7)
