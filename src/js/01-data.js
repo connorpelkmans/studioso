@@ -279,6 +279,8 @@ function normTask(t){
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
   }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
+  if (t.pins != null) t.pins = normPins(t.pins);
+  if (t.pins && !t.pins.length) delete t.pins;
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));
@@ -307,6 +309,16 @@ function normTask(t){
     t.remoteSig = String(t.remoteSig || "").slice(0, 12);
   }
   return scrubFields(t, ["title", "location", "team", "reading"], t.synced || t.icsUid || t.src ? ["notes"] : []);
+}
+// Study blocks pinned on Today's Plan (task.pins, from 01-plan-move.js): [{date, s, e}], minutes from that plan day's midnight like the
+// planner's slots (past 1440 for a late end of day; {s: 0, e: 0} means "moved off that day"). They sync like any task field.
+// A pin is only used on its own day, and is dropped here once that day is over (yesterday is kept: just after midnight it can still be the plan day).
+function normPins(p, today){
+  if (!Array.isArray(p)) return [];
+  const keep = addDays(today || todayISO(), -1), seen = new Set();
+  return p.filter(x => x && typeof x === "object" && isDate(x.date) && x.date >= keep && Number.isInteger(x.s) && Number.isInteger(x.e) && x.s >= 0 && x.e <= 2880 && x.e >= x.s && (x.e > x.s || x.s === 0))
+    .map(x => ({date: x.date, s: x.s, e: x.e})).filter(x => { const k = x.date + ":" + x.s + ":" + x.e; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.s - b.s).slice(0, 24);
 }
 // An exam's prep plan settings (task.prep, from the Exam Prep Planner)
 function normPrep(p){
