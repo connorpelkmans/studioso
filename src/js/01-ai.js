@@ -2909,7 +2909,9 @@ function aiPlannerFacts(need){
     P.push(n ? `DO THIS NEXT (the task to work on right now): ${desc(n.x)}${slot(n.x) ? ", scheduled " + slot(n.x) : ""}${n.x.alloc > 0 ? ", " + fmtHM(n.x.alloc) + " planned today" : ""}` : "DO THIS NEXT: nothing right now.");
     P.push("ALSO PLANNED FOR TODAY: " + (today.length ? "\n" + today.map(x => `- ${desc(x)}: ${fmtHM(x.alloc)} today${slot(x) ? ", " + slot(x) : ""}`).join("\n") : "nothing else."));
     // the whole ranking after today, as Full Ranking shows it: open work in order, then work that starts later or waits on something
-    const rest = after.map(x => ({x, note: x.reasons && x.reasons[0] ? x.reasons[0] : ""}))
+    // ("About 1h15 short of time before this is due" was read by the small on-device models as the task being "1 hour 15 minutes short
+    // of the deadline", and repeated in unrelated replies: said plainly instead)
+    const rest = after.map(x => ({x, note: x.reasons && x.reasons[0] ? String(x.reasons[0]).replace(/^About .+? short of time before this is due.*$/, "tight on time, start it soon") : ""}))
       .concat((F.later || []).filter(x => x.t.status !== "done").map(x => ({x, note: x.t.start ? "starts " + x.t.start : "starts later"})))
       .concat((F.blocked || []).filter(x => x.t.status !== "done").map(x => ({x, note: "waiting on " + (blockers(x.t) || []).map(y => y.title).join(", ")})));
     P.push(`THEN, AFTER TODAY'S PLAN IS DONE (the full ranking in this exact order: item 1 is what to do once everything above is finished, item 2 comes after item 1, and so on):${rest.length ? "\n" + rest.slice(0, 40).map((r, i) => `${i + 1}. ${desc(r.x)}${r.note ? ": " + r.note : ""}`).join("\n") : " nothing else is open."}`);

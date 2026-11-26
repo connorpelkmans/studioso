@@ -487,6 +487,26 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     const ev = await p.evaluate(() => Object.values(window.__sbSync.state.events || {}).find(e => /care plan 2/i.test(e.title || "")) || null);
     ok(ev && ev.start === "14:00" && ev.end === "16:00" && await p.evaluate(n => Object.keys(window.__sbSync.state.events || {}).length === n + 1, e0), "\"block 2-4 tomorrow for care plan 2\" is a 2-4pm event: " + JSON.stringify(ev) + " " + a); }
   await p.evaluate(() => { window.__stubIntent = null; });
+  // a deck named without the words around it, then "rename it" renames that deck
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "make_deck", title: "WWI for it"}; });
+  a = await chat("make a new deck called WWI for it");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "WWI")), "\"a new deck called WWI for it\" is named WWI: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("rename it to History Essay Prep");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "History Essay Prep") && !Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "WWI")), "\"rename it to ...\" renames the deck it just made: " + a);
+  // "what notes do i have": every note, not five of them
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("what notes do i have");
+  { const nN = await p.evaluate(() => Object.values(window.__sbSync.state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim()).length);
+    ok(!nN || new RegExp("You have " + nN + " note").test(a), "\"what notes do i have\" lists all " + nN + ": " + a); }
+  // "too dark, go back" right after dark mode: light mode again
+  await p.evaluate(() => { window.__stubIntent = {intent: "set_theme", value: "dark"}; });
+  a = await chat("turn on dark mode");
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("too dark, go back");
+  ok(/light mode/i.test(a) && !/nothing recent to undo/i.test(a), "\"too dark, go back\" after dark mode switches back: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
   // an event's time range ("wednesday 1-2"): from 1 to 2 in the afternoon
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "add_event", title: "Office hours with Prof Ruiz"}; });
