@@ -6831,8 +6831,10 @@ function aiSetupSheet(fromFeature, opts){
   const save = okMsg => {
     const k = keysNow(), bx = $("#aiBackupKey");
     if (bx) { const v = bx.value.trim(); if (v && !kindOk(aiKeyKind(v))) { $("#aiBackupMsg").textContent = `That doesn't look like ${kindsSaid}.`; bx.focus(); return; } }
-    // no key at all (the free on-device AI, or Studyboard AI Pro): the rest of the settings are saved, the AI in use stays
+    // no key at all (the free on-device AI, or Studyboard AI Pro): the rest of the settings are saved, the AI in use stays, and any key
+    // whose box was emptied is deleted from this device (keys from another device with no box here, and blocked paid keys, stay)
     if (!bx && !k.gemini && !k.anthropic && !k.openai) {
+      aiKeysSetLocal(Object.assign({}, k, recv, aiBlockedKeys()));
       const prev0 = state.settings.ai || {}, au = $("#aiAuto"), am = $("#aiAutoModel");
       state.settings = Object.assign({}, state.settings, {ai: Object.assign({}, prev0, au ? {auto: au.checked} : {}, am ? {autoModel: am.value} : {})}); saveSettings(); autoSave();
       if (dlg.open) dlg.close(); toast(okMsg || "AI settings saved"); scheduleRender(); return;
