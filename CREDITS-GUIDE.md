@@ -4,7 +4,7 @@ Studyboard has two currencies, and they never mix:
 
 | | Studyboard Bucks | Studyboard Credits |
 |---|---|---|
-| Looks like | A green bill (`build-resources/bucks-art/bucks-bill.svg`) | A gold coin (`build-resources/credits-art/credits-coin-256.png`) |
+| Looks like | A green bill with the Studyboard logo raised on it, drawn like the coin (`build-resources/bucks-art/render-bucks.py` makes `bucks-bill.webp` and `bucks-stack.webp`) | A gold coin (`build-resources/credits-art/credits-coin-256.png`) |
 | How you get them | Bought with money on the website (Stripe) | Earned by studying |
 | What they buy | Style Shop items: Theme Collections, sticker packs, flashcard styles, pins, note shapes, map styles | Companion accessories in the Wardrobe |
 | Where they live | Supabase (`studyboard_credit_*` tables) | The student's own synced settings (`state.settings.sc`) |

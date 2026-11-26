@@ -36,7 +36,7 @@
 .sbc-stage .sbc-stk{display:grid;grid-template-columns:repeat(4,56px);gap:10px}
 .sbc-stage .sbc-stk .stk-cell{width:56px;height:56px}
 .sbc-price{display:flex;align-items:center;gap:12px}
-.sbc-price-coin{flex:none;width:64px;height:50px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+.sbc-price-coin{flex:none;width:64px;height:46px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
 .sbc-price-t{display:grid;gap:2px;min-width:0}
 .sbc-price-t b{font:800 1.25rem var(--display)}
 .sbc-price-t span{font-size:.86rem;color:var(--muted)}
