@@ -3095,7 +3095,7 @@
           <p style="margin:0">Make a link and short code for this deck. Anyone with the link can open it in a browser, no account needed, and add a copy. They get your cards, not your progress.</p>
           ${qBox}${picNote(d, "link")}${rightsBox()}
           <p class="mini" style="margin:0">They'll see your name as <b>${esc(S.name || "")}</b>. You can update the shared copy or stop sharing any time.</p></div>
-          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
+          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
           if (!rightsOk()) return false;
           const wq = !!($("#grpWithQ") || {}).checked;
           doShare(d, wq, $("#grpMake")); return false;
@@ -3111,7 +3111,7 @@
         ${window.SBSHARE ? SBSHARE.libRow(d, row.code) : ""}
         ${changed ? `<div class="grp-note">You've changed this deck since you shared it. Update the shared copy so new people get the latest cards.</div>` : ""}
         ${qBox}${picNote(d, "link")}${changed ? rightsBox() : ""}
-        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
+        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="grpUpd"${changed ? "" : " hidden"}>Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="grpSend">Send</button>`}</div></form>`);
       // nothing changed: Update appears only if the practice-quiz choice is changed
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
@@ -3654,7 +3654,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (!online()) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Sign in to share ${deck ? "decks" : "quizzes"}`); return true; }
         if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
         if (!gs.length) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Join or start a study group to share ${deck ? "decks" : "quizzes"}`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
-        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
+        const friendRow = window.SBFSHARE ? `<button type="button" data-act="fs-send" data-kind="${deck ? "deck" : "quiz"}" data-ref="${esc(ref)}"><span><b>Your Friends</b><span class="sub">Send it straight to friends, no code needed</span></span></button>` : "";
+        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${friendRow}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
         return true;
       }
       case "qz-share-to": { const gg = groupOf(el.dataset.id); if (gg) (el.dataset.kind === "deck" ? shareDeckToGroupSheet(gg, el.dataset.ref) : shareQuizSheet(gg, el.dataset.ref)); return true; }
