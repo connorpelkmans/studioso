@@ -1,4 +1,4 @@
-(() => { const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+(() => { const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
 const card = (id, f, b, seen, dueIn, right, wrong) => ({id, front: f, back: b, box: seen ? 1 : 0, due: seen ? d(dueIn) : "", seen: seen ? 3 : 0, right: right || 0, wrong: wrong || 0});
 return {v: 2, updated: 1, settings: {}, files: [], events: [{id: "e1", title: "Clinical orientation", date: d(2), start: "08:00", end: "12:00", where: "St. Mary's Hospital"}, {id: "e2", title: "Study group", date: d(1), start: "18:00", end: "19:30", where: "Library room 4"}],
  courses: [

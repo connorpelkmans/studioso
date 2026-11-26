@@ -5,6 +5,13 @@
 window.SBAPPHELP = (() => {
   const low = s => String(s == null ? "" : s).toLowerCase();
   const S = "Settings (the gear at the bottom of the sidebar, or in the top bar on phones)";
+  // what to do to which thing ("change a course's colour", "delete a deck", "mark a task done"): before the single-word topics below
+  const PAIRS = [
+    [/\b(course|class)(?:'?s)?\b[^?]*\b(colou?rs?|name|instructor|prof(?:essor)?|teacher|room|times?|schedule|link)\b|\b(colou?r|rename|instructor|prof(?:essor)?|room)\b[^?]*\b(course|class)\b/, "Open Courses in the sidebar, open the course, tap More, then Edit Course: its name, color, class times, instructor and links are all there. Or just tell me, like \"make psych purple\"."],
+    [/\b(delete|remove|rename|get rid of|erase)\b[^?]*\b(decks?|flash ?card sets?)\b/, "Open Review in the sidebar and tap Edit Deck on that deck: rename it at the top, or tap Delete Deck at the bottom. Or just tell me, like \"delete my heart deck\"."],
+    [/\b(mark|check off|tick off|complete|finish|cross off)\b[^?]*\b(tasks?|assignments?|homework|done|complete|finished)\b/, "Tap the circle next to the task (on the Board, Today, or its course) to mark it done; tap it again to undo. Or just tell me, like \"I finished the lab report\"."],
+    [/\b(add|make|write|put|create)\b[^?]*\bnotes?\b/, "Open Notes in the sidebar and add a sticky note to a board (one board per course if you like), or a whiteboard. Or just tell me: \"make a note that says...\"."],
+  ];
   const FAQ = [
     [/\b(syllabus|syllabi)\b/, `Open ${S}, then School and Calendar, then Import a Syllabus. Pick the PDF and Studyboard turns it into a course with its deadlines; check them and tap Add.`],
     [/\b(theme|themes|colou?rs?|look|style shop|dark mode|light mode|dark|appearance)\b/, `Open ${S}, then Appearance: choose Light, Dark or System. For themes, flashcard styles, note shapes and stickers, open the Style Shop (in Appearance, or from the sidebar Tools).`],
@@ -44,13 +51,16 @@ window.SBAPPHELP = (() => {
       const L = window.SBLOCALANS, nx = L && L.nextLine ? L.nextLine() : "";
       return {answer: `Hi! ${nx ? nx.replace(/\*\*/g, "").replace(/^Today's Plan says to do this next:\s*/i, "Next up: ") + "." : "Nothing is urgent right now."} Ask me what's due, about your notes, or to add a task, start a timer or make flashcards.`, show: []};
     }
-    if (/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b[\w' !.,]{0,20}$/.test(s)) return {answer: "You're welcome! Anything else?", show: []};
+    if (/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b[\w' !.,]{0,20}$/.test(s) && !/\b(can|could|what|how|why|do|does|is|are|will|would|you|u|me|let'?s|now|then|but)\b/.test(s.replace(/^(thanks|thank you|thx|ty|cool|ok(ay)?|great|nice|awesome|perfect|got it)\b/, ""))) return {answer: /^(thanks|thank you|thx|ty)\b/.test(s) ? "You're welcome! Anything else?" : "Okay! Anything else?", show: []};
     if (/\b(what can you do|what do you do|how can you help|what can i ask)\b/.test(s)) return {answer: "I can answer questions about your planner (what's due, grades, classes, exams), explain things from your notes or the web, and do things for you: add or move tasks, start a focus timer, make notes, flashcards, quizzes and concept maps, and find anything in Studyboard. Try \"what's due this week?\" or \"explain the cardiac cycle\".", show: []};
     if (!HOWQ.test(s) && !/\b(settings?|feature|button|tab|page)\b/.test(s)) return null;
     // "can you make..." / "can you add..." are requests, not questions about the app
     if (/^\s*can you (make|add|create|start|set|move|mark|delete|explain|quiz|find|show|tell|help)\b/.test(s)) return null;
-    const hit = FAQ.find(([re]) => re.test(s));
-    if (hit) return {answer: hit[1], show: []};
+    const pair = PAIRS.find(([re]) => re.test(s));
+    if (pair) return {answer: pair[1], show: []};
+    // the topic they name first is what it's about ("how do I add grades for a quiz" is grades; "add a deck to a course" is decks)
+    const hit = FAQ.map(([re, a]) => { const m = re.exec(s); return m ? {a, at: m.index} : null; }).filter(Boolean).sort((x, y) => x.at - y.at)[0];
+    if (hit) return {answer: hit.a, show: []};
     // the guide's own lines that share the most words with the question (only for something clearly about the app)
     if (!/\b(studyboard|app|settings?|page|tab|button|feature|sidebar|board|planner|deck|notes?|calendar|widget|companion|account|sync|search|timer)\b/.test(s)) return null;
     const G = window.SBASSIST && SBASSIST.GUIDE ? String(SBASSIST.GUIDE) : ""; if (!G) return null;

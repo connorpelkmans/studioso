@@ -29,6 +29,8 @@ window.SBFACTS = (() => {
   function grades(s){
     const GQ = /\b(grades?|marks?|average|avg|gpa|mean|overall|standing|passing|failing|fail|pass|best|worst|highest|lowest|strongest|weakest|doing (best|worst|well|badly|poorly)|struggling|percent(age)?|how am i doing|how'?m i doing)\b/;
     if (!GQ.test(s) || /\b(how do i|how to|tips?|study for|best way|way to|should i)\b/.test(s)) return null;
+    // "what does carpe diem mean", "biggest desert overall?", "what does e=mc^2 mean": not about their grades
+    if (!/\b(grades?|marks?|gpa|average|avg|standing|passing|failing|percent(age)?|how am i doing|how'?m i doing|doing (best|worst|well|badly|poorly)|struggling|class|classes|course|courses|subject|subjects|quiz|exam|test|lab|assignment|score|scores)\b/.test(s)) return null;
     // "best", "worst" are about grades only next to a course word
     if (/\b(best|worst|highest|lowest|strongest|weakest)\b/.test(s) && !/\b(grades?|marks?|class|classes|course|courses|subject|subjects|doing|score|scores)\b/.test(s)) return null;
     const rows = gradeRows(), marked = rows.filter(r => r.cur != null && !r.zero);

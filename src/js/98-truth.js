@@ -18,9 +18,14 @@ window.SBTRUTH = (() => {
   /* ---------- facts: the planner's own answers ---------- */
   function range(s, today){
     let m;
-    if (/\boverdue|late|missed|past due|forgot|forget|miss anything|behind on\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
+    if (/\b(overdue|late|missed|past due|forgot|forget|miss(ed)? (any|anything|a deadline|deadlines)|behind on|behind)\b/.test(s)) return {from: "0000-00-00", to: addDays(today, -1), label: "overdue"};
     if (/\btoday|tonight\b/.test(s)) return {from: today, to: today, label: "today"};
+    if (/\bday after tomorrow\b/.test(s)) return {from: addDays(today, 2), to: addDays(today, 2), label: "the day after tomorrow"};
     if (/\btomorrow\b/.test(s)) return {from: addDays(today, 1), to: addDays(today, 1), label: "tomorrow"};
+    if (/\b(week after next|the week after next)\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, (7 - d0 + 1) % 7 || 7) ; return {from: addDays(start, 7), to: addDays(start, 13), label: "the week after next"}; }
+    if ((m = s.match(/\b(?:in )?the next (\d{1,2}) days\b/))) { const n = Math.max(1, Math.min(60, Number(m[1]))); return {from: today, to: addDays(today, n - 1), label: `in the next ${n} days`}; }
+    if (/\b(this )?weekend\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), sat = addDays(today, (6 - d0 + 7) % 7); return {from: d0 === 0 ? today : sat, to: d0 === 0 ? today : addDays(sat, 1), label: "this weekend"}; }
+    if ((m = s.match(/\b(?:on )?the (\d{1,2})(?:st|nd|rd|th)\b/))) { const day = Number(m[1]), now = new Date(today + "T12:00:00"); let y = now.getFullYear(), mo = now.getMonth(); if (day < now.getDate()) { mo++; if (mo > 11) { mo = 0; y++; } } const d = `${y}-${String(mo + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; return {from: d, to: d, label: "on the " + m[1] + (["th", "st", "nd", "rd"][(day % 10 > 3 || [11, 12, 13].includes(day % 100)) ? 0 : day % 10])}; }
     if (/\bnext week\b/.test(s)) { const d0 = new Date(today + "T12:00:00").getDay(), start = addDays(today, 7 - d0 + 1 > 7 ? 1 : 7 - d0 + 1); return {from: start, to: addDays(start, 6), label: "next week"}; }
     if (/\b(this week|the week|rest of the week|7 days|seven days|coming up|upcoming|soon)\b/.test(s)) return {from: today, to: addDays(today, 6), label: "in the next 7 days"};
     if ((m = s.match(/\b(?:on |this |next )?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/))) { const w = WD.indexOf(m[1]), d0 = new Date(today + "T12:00:00").getDay(); let k = (w - d0 + 7) % 7; if (k === 0 && !/\btoday\b/.test(s)) k = 7; const d = addDays(today, k); return {from: d, to: d, label: "on " + m[1][0].toUpperCase() + m[1].slice(1)}; }
@@ -91,10 +96,20 @@ window.SBTRUTH = (() => {
         return {answer: `${list.length} announcement${list.length === 1 ? "" : "s"}${c ? ` from ${c.code || c.name}` : ""}, newest first:\n${list.slice(0, 6).map(x => `- ${x.course}: ${x.title}${x.date ? ` (${when(x.date)})` : ""}`).join("\n")}${list.length > 6 ? `\n…and ${list.length - 6} more under the bell.` : ""}`, show: []};
       return {answer: `Your most recent announcement${c ? ` from ${c.code || c.name}` : ""}:\n${one(list[0])}`, show: []};
     }
+    // what they're working on now: the tasks marked In Progress
+    if (/\b(working on|in progress|started on|doing right now)\b/.test(s) && !/\b(should|next|start)\b/.test(s)) {
+      const dg = tasksArr().filter(t => t.status === "doing"); if (!dg.length) return {answer: "Nothing is marked In Progress right now.", show: []};
+      return {answer: `In progress: ${dg.map(t => L ? L.taskLine(t).replace(/\*\*/g, "") : t.title).join("; ")}.`, show: dg.slice(0, 3).map(t => ({kind: "task", id: t.id}))}; }
+    // "everything due before the psych midterm": from today until that task
+    { const bm = /\b(?:due |left |to do |have )?(?:before|until|ahead of|leading up to|by the time of)\s+(?:the\s+|my\s+)?(.{3,60})$/.exec(s);
+      if (bm && /\b(due|left|to do|have|everything|anything|tasks?|what)\b/.test(s)) { const tk = taskNamed(bm[1]); if (tk && tk.due) {
+        const list = tasksArr().filter(t => t.status !== "done" && t.id !== tk.id && t.due && t.due < tk.due).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
+        return {answer: list.length ? `${list.length} task${list.length === 1 ? "" : "s"} due before ${tk.title} (${fmtDate(tk.due)}):\n${list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n")}` : `Nothing else is due before ${tk.title} (${fmtDate(tk.due)}).`, show: []}; } } }
     // study advice built from their planner (98-advice.js): priorities, a plan, how to study for an exam
     { const A = window.SBADVICE; if (A && (A.ADVICE.test(s) || (A.timePlan && A.timePlan(s)))) { const r = A.answer(s); if (r) return r; } }
     // the wider set of planner questions (98-facts.js): averages, best and worst, classes, the next exam, counts, cards due
-    { const X = window.SBFACTS; if (X && !/\b(say|said|says|mention(ed|s)?|told|tell us|talk(ed)? about|explain(ed)?)\b/.test(s) && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
+    // (a window said in so many words, "due next week", is listed below, not answered with the single next deadline)
+    { const X = window.SBFACTS; if (X && !(/\b(due|deadlines?|have)\b/.test(s) && range(s, today)) && !/\b(say|said|says|mention(ed|s)?|told|tell us|talk(ed)? about|explain(ed)?)\b/.test(s) && !(WRITE.test(s) && !/^\s*(what|when|which|how many|do i|is there|are there|have i|am i)\b/.test(s))) { const r = X.answer(q); if (r) return r; } }
     // an action, not a question ("add a task due tomorrow", "move my exam"): the AI's job
     // about the app itself, hello and thanks (98-apphelp.js): from the app's own guide
     { const H = window.SBAPPHELP; if (H) { const r = H.answer(s); if (r) return r; } }
@@ -122,17 +137,63 @@ window.SBTRUTH = (() => {
       if (t) return {answer: L ? L.taskLine(t).replace(/\*\*/g, "") + "." : `${t.title}: ${t.due ? "due " + t.due : "no due date"}.`, show: [{kind: "task", id: t.id}]};
     }
     // what's due in a window, or overdue
-    if (/\b(due|left|to do|todo|have|homework|assignments?|tasks?|exams?|quiz(zes)?|tests?|anything|deadlines?|overdue|late)\b/.test(s)) {
-      const r = range(s, today); if (!r) return null;
-      const kind = /\bexams?|tests?|midterms?|finals?\b/.test(s) ? t => /exam|midterm|final|test/i.test(t.type + " " + t.title) : /\bquiz(zes)?\b/.test(s) ? t => /quiz/i.test(t.type + " " + t.title) : () => true;
+    if (/\b(due|left|to do|todo|have|homework|assignments?|tasks?|exams?|quiz(zes)?|tests?|labs?|essays?|papers?|readings?|projects?|anything|deadlines?|overdue|late)\b/.test(s)) {
+      const r = range(s.replace(/\bcoming up\b/, "this week"), today) || (/\b(coming up|upcoming|soon|any)\b/.test(s) && /\b(labs?|essays?|papers?|readings?|projects?|exams?|quiz(zes)?|tests?)\b/.test(s) ? {from: today, to: addDays(today, 13), label: "in the next two weeks"} : null); if (!r) return null;
+      const kind = /\bexams?|tests?|midterms?|finals?\b/.test(s) ? t => /exam|midterm|final|test/i.test(t.type + " " + t.title) : /\bquiz(zes)?\b/.test(s) ? t => /quiz/i.test(t.type + " " + t.title) : /\blabs?\b/.test(s) ? t => /\blab\b/i.test(t.type + " " + t.title) : /\bessays?|papers?\b/.test(s) ? t => /essay|paper/i.test(t.title) : /\breadings?\b/.test(s) ? t => /read/i.test(t.type + " " + t.title) : /\bprojects?\b/.test(s) ? t => /project/i.test(t.type + " " + t.title) : () => true;
       const c = courseNamed(s);
       const list = tasksArr().filter(t => t.status !== "done" && t.due && t.due >= r.from && t.due <= r.to && kind(t) && (!c || t.courseId === c.id)).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
       const what = /\bexams?|tests?\b/.test(s) ? "exams" : /\bquiz/.test(s) ? "quizzes" : "tasks";
+      // "do I have anything wednesday": the calendar that day too (events, not classes), not only what's due
+      let evs = ""; if (r.label !== "overdue" &&!/\bdue\b|\bdeadlines?\b|\bexams?\b|\bquiz/.test(s) && /\b(have|anything|plans?|happening|going on|on my (calendar|schedule))\b/.test(s)) {
+        const E = Object.values(state.events || {}).filter(e => e && e.date >= r.from && e.date <= r.to && (!c || e.courseId === c.id)).sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
+        if (E.length) evs = `\nOn your calendar ${r.label}:\n` + E.slice(0, 8).map(e => `- ${e.title}: ${fmtDate(e.date)}${e.start ? `, ${fmtTime(e.start)}${e.end ? "–" + fmtTime(e.end) : ""}` : ""}${e.where ? ", " + e.where : ""}`).join("\n"); }
+      if (!list.length && evs) return {answer: `Nothing is due ${r.label}${c ? " for " + courseLabel(c) : ""}.${evs}`, show: []};
+      if (list.length && evs) return {answer: `${list.length} ${list.length === 1 ? "task" : "tasks"} due ${r.label}:\n${list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n")}${evs}`, show: []};
       if (!list.length) return {answer: `${what === "tasks" ? "Nothing" : "No " + what} ${r.label === "overdue" ? (what === "tasks" ? "is" : "are") + " overdue" : (what === "tasks" ? "is" : "are") + " due " + r.label}${c ? " for " + courseLabel(c) : ""}.${r.label === "overdue" ? " You're all caught up!" : ""}`, show: []};
       const head = r.label === "overdue" ? `${list.length} ${list.length === 1 ? what.replace(/s$/, "") + " is" : what + " are"} overdue` : `${list.length} ${list.length === 1 ? what.replace(/s$/, "") : what} due ${r.label}${c ? " for " + courseLabel(c) : ""}`;
       return {answer: head + ":\n" + list.slice(0, 12).map(t => "- " + (L ? L.taskLine(t).replace(/\*\*/g, "") : t.title)).join("\n") + (list.length > 12 ? `\n…and ${list.length - 12} more.` : ""), show: []};
     }
     return null;
+  }
+
+  /* ---------- follow-ups to a planner question ----------
+     "what about wednesday?", "and the day after?", "which are for a&p", "what about foundations?" after a planner question the app
+     answered: that question again with the new day or course (so it's answered from the planner, never looked up on Wikipedia).
+     "and after that?", "then what?": the next open tasks by due date that the chat hasn't named yet. "" when it isn't one. */
+  const WHEN = /\b(today|tonight|tomorrow|tmrw|the day after(?: tomorrow)?|day after tomorrow|(?:this |next |on )?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|this week|next week|the week after(?: next| that)?|week after next|(?:this |the )?weekend|the \d{1,2}(?:st|nd|rd|th)|(?:in )?the next \d+ days|overdue)\b/;
+  const AFTER = /^\s*(?:and|ok|okay|so|then)?[,\s]*(?:after (?:that|this|it)|then what|what(?:'s| is| comes)? (?:after|next)(?: that| this)?|and next|what else|anything else|next one|the next one)\s*[?!.]*\s*$/;
+  function courseIn(s){
+    const c = courseNamed(s); if (c) return c;
+    // one word that starts a word of exactly one course's name ("foundations", "anatomy", "history")
+    const ws = words(s).filter(w => w.length >= 5), hits = coursesArr().filter(c => words(c.name).some(y => ws.some(w => y.startsWith(w) || w.startsWith(y))));
+    return hits.length === 1 ? hits[0] : null;
+  }
+  function followUp(q, lastQ, said){
+    const s = norm(q).replace(/[?!.]+$/, "").trim(), L = norm(lastQ || "").replace(/[?!.]+$/, "").trim();
+    if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
+    let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
+    if (!r0) return "";
+    if (AFTER.test(s)) return "__AFTER__";
+    // "who teaches that class", "what's my grade in that course": the course the last answer was about
+    if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
+      if (cs.length) return s.replace(/\b(that|this|the same|its) (class|course)\b/, cs[0].c.code || cs[0].c.name); }
+    if (!/^\s*(and|ok|okay|so|but|what about|how about|what of|for|then|also|which|which ones?|any|anything|what)\b|^\s*(the day after|the week after|wednesday|thursday|friday|saturday|sunday|monday|tuesday|tomorrow|today)\b/.test(s)) return "";
+    const t = (s.match(WHEN) || [])[0], c = courseIn(s.replace(WHEN, " "));
+    if (!t && !c) return "";
+    let out = L;
+    if (t) { let tt = t.replace(/^on /, "");
+      if (/^the day after$/.test(tt)) tt = /\btomorrow\b/.test(L) ? "the day after tomorrow" : "tomorrow";
+      if (/^the week after( that)?$/.test(tt)) tt = /\bnext week\b/.test(L) ? "the week after next" : "next week";
+      out = WHEN.test(L) ? L.replace(WHEN, tt) : `${L} ${tt}`; }
+    if (c) { const lc = courseNamed(L); out = out.replace(/\s+(?:for|in|from)\s+(?:my\s+)?[a-z&]+(?:\s+\d{3,4})?\s*$/, "");
+      if (lc) { const k = [lc.code, lc.name].filter(Boolean).map(low).find(x => out.includes(x)); if (k) out = out.replace(k, low(c.code || c.name)); else out += ` for ${c.code || c.name}`; } else out += ` for ${c.code || c.name}`; }
+    return out === L ? "" : out;
+  }
+  function afterThat(said){
+    const S = low(said || ""), open = tasksArr().filter(t => t.status !== "done" && t.due).sort((a, b) => (a.due + (a.time || "")).localeCompare(b.due + (b.time || "")));
+    const rest = open.filter(t => !S.includes(low(t.title))).slice(0, 3); if (!rest.length) return null;
+    const L = window.SBLOCALANS, line = t => L ? L.taskLine(t).replace(/\*\*/g, "") : `${t.title}: due ${t.due}`;
+    return {answer: rest.length === 1 ? `After that: ${line(rest[0])}.` : `After that, by due date:\n${rest.map(t => "- " + line(t)).join("\n")}`, show: []};
   }
 
   /* ---------- steps: one request per thing to do ---------- */
@@ -303,27 +364,78 @@ window.SBTRUTH = (() => {
       return {answer: `${x.k} (from your notes): ${v.charAt(0).toLowerCase() === v.charAt(0) || /^[A-Z][a-z]+ /.test(v) ? v : v}${/[.!?)]$/.test(v) ? "" : "."}`, found: true, sources: [], fromNotes: true, notesSrc: [String(n.text).split("\n")[0].slice(0, 40)]}; } }
     return null;
   }
+  // the level asked for ("like I'm 12", "simply"), for an answer from what the AI knows
+  const level0 = q => /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child)\b|\beli5\b|\bsimpl(e|y|er)\b|\bplain english\b|\bdumb(ed)? (it )?down\b/i.test(q) ? "\n\nThey asked for it simply: short sentences, everyday words, one everyday comparison." : "";
+  // An answer from what the AI itself knows, for a question their notes and the web didn't answer: only what it's sure of
+  async function own(q, o, level){
+    // never about their own things ("who wrote my bio syllabus?", "what's in my notes"): only their data can answer that
+    if (/\b(my|mine|our|i|i'm|i've)\b/i.test(q) && !/\b(how (do|can|should) i|can i|should i|i don'?t (get|understand)|explain)\b/i.test(q)) return null;
+    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
+    const r = await aiCall({task: "assist", fast: true, maxTokens: 600, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
+      system: "You answer a student's school question from your own knowledge, like a good teacher. The first sentence answers exactly what they asked. Then add 1 to 3 sentences with the most useful detail, or list every item when they ask for several things (types, stages, examples, each one). Only state facts you are certain of. If you are not sure, set sure to false. Plain text, no markdown." + (level || ""),
+      parts: [{text: `${prevTxt}THE STUDENT ASKS: ${q}`}]});
+    const d = (r && r.data) || {}, a = String(d.answer || "").trim();
+    if (!a || d.sure === false || nonAnswer(q, a) || /\b(i'?m not sure|i don'?t know|i cannot|i can'?t answer)\b/i.test(a.slice(0, 80))) return null;
+    return {answer: a, sources: [], found: true, own: true};
+  }
+  /* The lines of their own notes that a question is about, word for word, when the AI's answer didn't hold up ("who came up with
+     REBT" -> "Rational-emotive behavior therapy (Albert Ellis)"; "what's the conduction pathway" -> the SA node line). Better than
+     "couldn't find" when the note is right there; null when no line clearly matches. */
+  function noteLines(q){
+    const GEN = /^(work|works|happen|happens|mean|means|use|used|make|made|different|difference|important|example|explain|describe|function|process|role|cause|causes|effect|type|types|kind|part|parts|step|steps|thing|things|way|ways|note|notes|say|says|said|write|wrote|came|come|know|tell|about|does|what|which|who|when|where|why|how)$/;
+    const stem = k => k.length > 5 ? k.slice(0, k.length - 2) : k;
+    const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|av|sa|hr)$/.test(w)) && !GEN.test(w));
+    if (!keys.length) return null;
+    const longest = keys.slice().sort((a, b) => b.length - a.length)[0], need = Math.max(1, Math.ceil(keys.length / 2));
+    const hits = [];
+    Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).forEach(n => { const head = String(n.text).split("\n")[0].trim();
+      String(n.text).split(/\n|(?<=[.!?])\s+(?=[A-Z])/).map(l => l.trim()).filter(l => l.length > 6).forEach(l => {
+        // ("REBT" is "Rational-emotive behavior therapy": the initials of the line's words count as the word)
+        // (only the heading's own initials, from its start: the initials of a whole line spell almost anything, "pure" included)
+        const ini = (head.match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join(""), acr = k => /^[a-z]{3,5}$/.test(k) && ini.startsWith(k);
+        const L = low(head + " " + l), sc = keys.filter(k => L.includes(stem(k)) || acr(k)).length;
+        if (sc >= need && (L.includes(stem(longest)) || acr(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
+    if (!hits.length) return null;
+    hits.sort((a, b) => b.sc - a.sc || b.own - a.own);
+    const top = hits.filter(h => h.sc === hits[0].sc).slice(0, 3);
+    return {answer: `Your notes say:\n${top.map(h => `- ${h.l === h.head ? h.l : `${h.head}: ${h.l}`}`).join("\n")}`, sources: [], found: true, fromNotes: true, notesSrc: [...new Set(top.map(h => h.head.slice(0, 40)))]};
+  }
   async function knowledge(q, o){
     o = o || {};
     { const fn = fromNotes(q); if (fn) return fn; }
+    // pointed at their own notes ("the ABC thing in my notes", "what do my notes say about projection", "from my lecture notes"):
+    // answered from their notes only, and searched without those words, so a web page about another meaning never answers it
+    { const NQ = /\s*\b(?:(?:that|the) (?:\w+ )?(?:thing|stuff|part|bit) )?(?:(?:in|from|on|of|according to) (?:my|the|our) (?:\w+ )?(?:notes?|lecture|slides)|(?:my|the) (?:class |lecture )?notes? (?:say|said|says|on|about|for))\b/i;
+      if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/\b(thing|stuff)\b/gi, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 2 ? s : o.search}); } }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
-    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(q, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
+    // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
+    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
+    const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
     const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     let webP = null;
-    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(q).then(R => (R && R.list) || [], () => []); return webP; };
+    // a word with several meanings that their own notes use ("sublimation", "projection", "conduction"): looked up on the web in the
+    // sense of those notes (the note's heading, or its course), not the chemistry or the film
+    let sense = "";
+    { const k0 = keys.slice().sort((a, b) => b.length - a.length)[0];
+      if (k0 && k0.length >= 6) { const st = k0.slice(0, k0.length - 2), n = Object.values(state.notes || {}).find(x => x && !x.archived && low(x.text || "").includes(st));
+        if (n) { const head = String(n.text).split("\n")[0].trim(), cs = state.courses || {}, c = n.courseId ? (Array.isArray(cs) ? cs.find(x => x.id === n.courseId) : cs[n.courseId]) : null;
+          sense = head && head.length <= 50 && !low(head).includes(st) ? head : c && c.name ? c.name : "";
+          if (sense && low(look).includes(low(sense))) sense = ""; } } }
+    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(sense ? `${look} (${sense})` : look).then(R => (R && R.list) || [], () => []); return webP; };
     if (!o.noWeb) getWeb();
     if (!notes) web = await getWeb();
-    if (!notes && !web.length) return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web. Try other words, or add your notes on it.", sources: [], found: false};
+    if (!notes && !web.length) { const ow = await own(q, o, level0(q)).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
+      return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web, and I'm not sure enough to answer from memory. Try other words, or add your notes on it.", sources: [], found: false}; }
     const deep = /^\s*(explain|describe|how (does|do|did|is|are|can)|why|walk me through|tell me about|compare|what('s| is) the difference)\b/i.test(q);
     const sys = `You answer a student's question using only the sources given. Your first sentence answers exactly what they asked, directly. ${deep ? "Then explain it properly in 3 to 5 more sentences: the main parts or steps in order, how they connect, and why it matters, all from the sources." : "Then add 1 to 3 sentences with the most useful detail: how it works, why it matters, or a short example."} If the question asks for several things (what are the..., types, kinds, phases, stages, causes, steps, examples), list every one the sources give. If it asks for an example, give one. If the question could mean several things, answer the meaning that fits their notes and course. If the sources don't answer it, set found to false and say you couldn't find it. Plain text, no markdown.`;
     const srcOf = () => `${useNotes ? `FROM THE STUDENT'S OWN STUDYBOARD: notes, files, tasks, events, courses (use these first; say "your notes say" when you use a note, never which kind of item it was, like "your flashcard" or "the deck"):\n${useNotes}\n\n` : ""}${useWeb.length ? `FROM THE WEB (say where it's from, like "according to Wikipedia"):\n${webText(useWeb)}` : ""}`;
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\nTHE STUDENT ASKS: ${q}`}]});
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 1200 : 900, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
@@ -378,7 +490,11 @@ window.SBTRUTH = (() => {
     }
     // the AI itself failed (not "nothing found"): that's said, with why, instead of "couldn't find"
     if (!fromN && !fromW && aiFail) throw aiFail;
-    if (!fromN && !fromW) return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web." : "I couldn't find a clear answer to that on the web, and your notes don't cover it.", sources: [], found: false};
+    // neither their notes nor the web answered it: what the AI knows, only when it's sure (a basic school fact: "capital of
+    // australia", "how many chromosomes do humans have"), else said plainly
+    if (!fromN && !fromW) { const nl = noteLines(o.search || q); if (nl) return nl; }
+    if (!fromN && !fromW) { const ow = await own(q, o, level).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
+      return {answer: notes ? "I couldn't find a clear answer to that in your notes or on the web, and I'm not sure enough to answer from memory." : "I couldn't find a clear answer to that on the web, your notes don't cover it, and I'm not sure enough to answer from memory.", sources: [], found: false}; }
     const clean = a => String(a || "").trim().replace(/(?<=[.!?])\s+I (couldn't|could not|can't) find [^.]*(notes|web|sources)[^.]*\.?\s*$/i, "").replace(/^(your notes say(,| that)?|according to (your notes|wikipedia)(,)?)\s*/i, m => m);
     const webName = [...new Set(web.map(x => x.src || "Wikipedia"))].slice(0, 2).join(" and ") || "the web";
     const answer = fromN && fromW ? `From your notes: ${clean(fromN.answer)}\n\nFrom the web (${webName}): ${clean(fromW.answer)}`
@@ -394,6 +510,12 @@ window.SBTRUTH = (() => {
   // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
   const general = q0 => { const q = asked(norm ? norm(q0) : q0);
     if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // nothing to look up: a short reply that leans on the chat ("why", "on what", "which one", "guess", "pleeease", "next question",
+    // "so after thursday?", "which notes", "what's the easiest section"), jokes, tastes and live things (weather, news) are talk
+    if (/\b(jokes?|joke|laugh|funny|puns?|riddles?|knock knock|favou?rite|meaning of life|weather|forecast|news|score last night|coffee order|bored|boring)\b/i.test(q)) return false;
+    { const ws = String(q).toLowerCase().match(/[a-z][a-z']+/g) || [];
+      const content = ws.filter(w => !QSTOP.has(w) && !/^(what|whats|what's|which|when|where|how|who|why|so|and|but|or|then|ok|okay|oh|wait|hmm|um|yeah|yes|no|nah|pls|please|ple+ase+|one|ones|part|section|bit|thing|things|stuff|next|question|guess|again|easiest|hardest|best|worst|first|last|after|before|that|this|it|its|it's|they|them|those|these|notes?|tho|though|really|sure|more|else|other|another|same|like|just|lol|haha|now|still|actually|is|are|was|were|do|does|did|can|could|should|would|will|the|a|an|on|in|at|of|to|for|with|about|from|me|my|you|your|i|i'm|im|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mean|means)$/.test(w));
+      if (!content.length) return false; }
     // advice ("how should I study", "tips to remember", "best way to")
     if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
     // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing
@@ -409,6 +531,8 @@ window.SBTRUTH = (() => {
       const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));
       if (mine || !rest.length) return false;
     }
+    // their own week, day or workload ("make my week less awful", "how do I survive my schedule")
+    if (/\b(my|our)\s+(week|day|weekend|schedule|workload|semester|term|life|plan|time|evening|morning|night|stress|load)\b/i.test(q)) return false;
     // when: their day, not a subject
     if (/\b(today|tonight|tomorrow|tmrw|this (week|weekend|morning|afternoon|evening)|next week|right now|later today)\b/i.test(q)) return false;
     // Mochi itself ("how are you", "do you like me", "what's your name")
@@ -417,5 +541,5 @@ window.SBTRUTH = (() => {
     if (/^\s*(please\s+)?((can|could|would|will) (you|u)\s+)?(add|move|make|create|start|stop|set|delete|remove|remind|schedule|plan|mark|rename|open|show me my|find my|quiz me|test me|generate|write me|draw|put|save|change|turn)\b/i.test(q)) return false;
     return true; };
 
-  return {norm, nonAnswer, knowledge, range, facts, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
+  return {norm, nonAnswer, knowledge, range, facts, followUp, afterThat, courseIn, steps, specifics, unsupported, web, webText, general, research, openAlex, wiktionary, courseNamed};
 })();

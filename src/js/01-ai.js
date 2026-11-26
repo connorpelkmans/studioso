@@ -501,7 +501,15 @@ function aiParseJson(text){
   try { return JSON.parse(t); } catch(e) {}
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch(e) {} }
-  return aiRepairJson(t);
+  return aiRepairJson(t) || aiCutAnswer(t);
+}
+// A written answer the AI ran out of room in the middle of ({"answer": "…cut off): what it wrote, up to its last full sentence
+function aiCutAnswer(t){
+  const m = /^\s*(\{[\s\S]*?"(?:answer|reply|text|summary|explanation)"\s*:\s*")((?:[^"\\]|\\.)*)\\?$/.exec(String(t || ""));
+  if (!m) return null;
+  let v = m[2], s = v.search(/[.!?)](?=[^.!?)]*$)/);
+  if (s > 40) v = v.slice(0, s + 1);
+  try { const o = JSON.parse(m[1] + v + '"}'); return o && typeof o === "object" ? o : null; } catch(e) { return null; }
 }
 /* AI-QUALITY-START: pure helpers (no app globals) that check and repair what the AI sends back. Unit-tested in tests/ai-quality.test.js. */
 // Cut-off or slightly broken JSON
@@ -1529,6 +1537,7 @@ async function aiDevFactQuiz(x, o){
   const F = await aiDevFacts(x, o, Math.max(x.count, 1)), facts = F.facts.slice(0, Math.max(x.count, 1));
   if (!facts.length) return null;
   const label = SBSECT.label(x.section);
+  if (o.onStep) o.onStep(`writing ${facts.length} question${facts.length === 1 ? "" : "s"}…`);
   const b = await aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 2500, schema: DEV_FACT_QUIZ_SCHEMA, system: DEV_FACT_QUIZ_SYSTEM,
     parts: [{text: `${o.devCtx || ""}\nTopic: ${label || x.section.title || "the notes"}\nFacts:\n${facts.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nWrite one question for each of the ${facts.length} facts, numbered the same.`}]}));
   const key = t => aiKeyTokens(t).join(" ") || String(t).toLowerCase().trim();
@@ -1608,20 +1617,37 @@ async function aiCardsBySection(o){
   const missed = res.length - ok.length;
   return {data: {cards: ok.flatMap(x => x.cards), deckTitle: (ok.find(x => x.title) || {}).title || ""}, truncated: ok.some(x => x.truncated), parts: n, missed, vague: ok.reduce((m, x) => m + (x.vague || 0), 0), unsup: ok.reduce((m, x) => m + (x.unsup || 0), 0), fixed: ok.reduce((m, x) => m + (x.fixed || 0), 0)};
 }
+// On the device, a quiz in fewer, bigger parts: each part is three requests (facts, questions, check) and each re-reads its text
+// first, so 10 questions over 8 parts of a slide deck was 24 requests and minutes before the first question. Neighbouring parts
+// are joined until a part asks about 4 questions or its text would crowd the model's memory (E4B's is twice the smaller ones').
+function aiQuizJoin(plan){
+  const room = Math.max(700, Math.floor(((typeof DEVAI !== "undefined" && DEVAI.ctx) || 4096) * 0.28)), out = [];
+  plan.forEach(x => { const l = out[out.length - 1], w = s => s.words || SBSECT.words(s.text || "");
+    if (l && l.count + x.count <= 4 && w(l.section) + w(x.section) <= room) {
+      const a = l.section, b = x.section;
+      l.section = {title: a.title && b.title && a.title !== b.title ? `${a.title} · ${b.title}`.slice(0, 120) : (a.title || b.title), path: a.path, text: a.text + "\n\n" + (b.title && b.title !== a.title ? b.title + "\n" : "") + b.text,
+        words: w(a) + w(b), pages: (a.pages || []).concat(b.pages || []), figs: (a.figs || []).concat(b.figs || [])};
+      l.count += x.count;
+    } else out.push({section: x.section, count: x.count}); });
+  return out;
+}
+window.__sbQuizJoin = aiQuizJoin;
 async function aiQuizBySection(o){
-  const plan = SBSECT.plan(o.secs, o.n, o.kind), n = plan.length, dev = aiOnDevice(), qt0 = Date.now(); let done = 0;
+  const dev = aiOnDevice(), plan0 = SBSECT.plan(o.secs, o.n, o.kind), plan = dev && o.quizOnly ? aiQuizJoin(plan0) : plan0, n = plan.length, qt0 = Date.now(); let done = 0;
   const ask = (x, i, again) => aiRetry(() => aiCall({task: o.light ? "quiz-light" : "quiz", signal: o.signal, maxTokens: 9000, schema: QUIZ_SCHEMA, system: AI_QUIZ_SYSTEM + " " + AI_GROUND,
     parts: [{text: `${o.ctx}\n\n${AI_PART(x, i, n)}`}].concat(aiFigParts(x), {text: `Write exactly ${x.count} practice question${x.count === 1 ? "" : "s"} from this part only. Every question must be answerable from this part, and its rationale must say where.${aiFigAsk(x)}${again ? " Your last answer had too few usable questions: write complete questions with their options, correct answers and rationales." : ""}`})}));
   const res = await aiPool(plan, dev ? 1 : 3, async (x, i) => {
     const corpus = aiCorpus([x.section.text]), gate = r => aiGateQuestions(aiCleanQuestions(r.data.questions), {max: x.count + 1, corpus, copy: o.copy});
     let r = null, g = null;
     // a small model: the facts, then one question per fact (aiDevFactQuiz); the usual way if that gives too few
-    if (dev && DEV_STEPS.facts) { const f = await aiDevFactQuiz(x, o).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
+    // say which step it's on: a small model takes minutes per part, and one unchanging line looks stuck
+    const step = t => { if (o.onStatus) o.onStatus(n > 1 ? `Writing the quiz, part ${i + 1} of ${n}: ${t}` : `Writing the quiz: ${t}`); };
+    if (dev && DEV_STEPS.facts) { step("finding the key facts…"); const f = await aiDevFactQuiz(x, Object.assign({}, o, {onStep: step})).catch(e => { if (e && (e.name === "AbortError" || e.code === "aborted")) throw e; return null; });
       if (f) { const fr = {data: {questions: f.questions, title: f.title}, truncated: f.truncated}, fg = gate(fr); if (fg.questions.length >= Math.min(2, x.count)) { r = fr; g = fg; } } }
-    if (!r) { r = await ask(x, i); g = gate(r); }
+    if (!r) { if (dev) step("writing the questions…"); r = await ask(x, i); g = gate(r); }
     if (g.questions.length < Math.ceil(x.count / 2) && x.count >= 2 && !(dev && DEV_STEPS.facts)) { try { const r2 = await ask(x, i, true), g2 = gate(r2); if (g2.questions.length > g.questions.length) { r = r2; g = g2; } } catch (e) {} }
     let keep = g.questions, wrong = 0;
-    if (dev && DEV_STEPS.solve && keep.length) { const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
+    if (dev && DEV_STEPS.solve && keep.length) { step("checking the answers…"); const c = await aiDevCheckQuiz(x.section, keep, o.signal); keep = c.questions; wrong = c.dropped; }
     if (o.onStatus) o.onStatus(`Writing the quiz: ${++done} of ${n} parts done`);
     if (o.onQuestions && keep.length) try { o.onQuestions(keep); } catch (e) {}
     return {questions: (r.data.questions || []).filter(q => keep.some(k => k.stem === aiTidyText(q.stem))), title: r.data.title, truncated: r.truncated, wrong};
@@ -1751,7 +1777,7 @@ async function aiMakeStudySet(opts, onStatus){
   // a small engine (the AI on this device) always works in short sections
   const kind = opts.engine === "small" || aiOnDevice() ? "small" : "cloud";
   const secs = (cards || quiz) ? await aiSectionsOf(sources, kind) : null;
-  if (secs) onStatus && onStatus(`Reading your material in ${secs.length} parts…`);
+  if (secs) onStatus && onStatus(secs.length === 1 ? "Reading your material…" : `Reading your material in ${secs.length} parts…`);
   // A new student's first set: made free by Studyboard's cloud AI (01-ai-first.js); the device makes it if that isn't available
   const cardsJob = () => secs ? aiCardsBySection({secs, kind: kind, n: nCards, ctx, devCtx, signal, light: opts.light, system: CARD_SYSTEM, copy, onStatus, facts: !!quiz, onCards: opts.onCards}) : null;
   let fromCloud = false;
@@ -1760,7 +1786,7 @@ async function aiMakeStudySet(opts, onStatus){
   else if (cards) jobs.push(cardsOne());
   function cardsOne(){ return aiRetry(() => aiCall({task: opts.light ? "cards-light" : "cards", signal, maxTokens: 24000, onStatus, parts: parts.concat({text: `${ctx}\n\nMake ${nCards ? "exactly " + nCards + " flashcards (a few more is fine if the material truly needs them)" : "as many flashcards as the material supports well: roughly one per key idea, usually 15 to 40, at most 60"} from the material above. Spread them across all of its topics in proportion to how much it says about each.`}),
     schema: aiOnDevice() ? DEV_CARD_SCHEMA : CARD_SCHEMA, system: aiOnDevice() ? CARD_SYSTEM + DEV_CARD_EXAMPLE : CARD_SYSTEM})); }
-  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
+  if (quiz && secs) jobs.push(aiQuizBySection({secs, kind: kind, n: nQuiz, quizOnly: !cards, ctx, devCtx, signal, light: opts.light, copy, onStatus, onQuestions: opts.onQuestions}));
   else if (quiz) jobs.push(aiRetry(() => aiCall({task: opts.light ? "quiz-light" : "quiz", signal, maxTokens: 32000, onStatus, schema: QUIZ_SCHEMA, parts: parts.concat({text: `${ctx}\n\nWrite exactly ${quizCount} practice questions from the material above, spread across all of its topics. Every question must be answerable from the material, and its rationale must say where.`}),
     system: AI_QUIZ_SYSTEM + " " + AI_GROUND})));
   if (cases) jobs.push(aiRetry(() => aiCall({task: opts.light ? "cases-light" : "cases", signal, maxTokens: 24000, onStatus, schema: CASE_SCHEMA, parts: parts.concat({text: `${ctx}\n${aiCaseStyleText(caseStyle, courseName)}\n\nWrite ${caseCount || 1} case stud${Number(caseCount) === 1 ? "y" : "ies"} from the material above.`}), system: CASE_SYSTEM})));
@@ -2414,7 +2440,7 @@ function aiUseCard(){
     <div class="sbai-rows">${bar("Last 7 days", m, monthOut ? "out" : low ? "warn" : "")}${d != null ? bar("Today", d, dayOut ? "out" : "", "today") : ""}</div>
     <p class="sbai-note">${note}</p></div>`;
 }
-/* How much each Studyboard AI can answer: the share of common student questions each one gets right, shown in AI Features.
+/* How much each Studyboard Pro AI can answer: the share of common student questions each one gets right, shown in AI Features.
    The free ones run on the student's own laptop (8 GB of memory or more, or 16 GB or more); Studyboard Pro AI runs on Claude,
    in the cloud, on any device. The one in use is marked. */
 const AI_LEVELS = [
@@ -2790,11 +2816,11 @@ function exportArrays(){ const a = clone(toArrays()); if (a.settings && a.settin
 // Which parts of the planner a question needs, so only those are sent. prev is the question before it, so a follow-up
 // ("and the lowest?") keeps its topic. Course names and codes count as asking about that course's work.
 const AI_NEED_RX = {
-  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback)\b|%/i,
+  grades: /\b(grades?|marks?|marked|scores?|scored|gpa|percent(age)?|averages?|best|worst|highest|lowest|top|pass(ing|ed)?|fail(ing|ed)?|goals?|targets?|how am i doing|how i'm doing|standing|letter grade|results?|feedback|what (?:did|do) i (?:get|got|score)|what i got|how (?:did|do) i do|how did (?:it|that|i) go|did i (?:pass|do (?:ok|well|good|bad))|(?:need|have) to get|out of)\b|%|\b\d+\s*\/\s*\d+\b/i,
   plan: /\b(next|today|tonight|right now|plan|planned|should i|after (that|this|i finish|everything)|priorit(y|ies|i[sz]e)|first|focus|work on|start on|study time|free time|time left|how much time|busy|behind|catch up|rough week|crunch|on track|workload|my week|weekend|overwhelmed|stressed)\b/i,
   tasks: /\b(due|deadlines?|to-?dos?|homework|overdue|late|submit(ted)?|this week|next week|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|left|remaining|coming up|upcoming|finished|done|completed)\b/i,
   work: /\b(assignments?|tasks?|essays?|papers?|projects?|labs?|readings?|reflections?|portfolio|discussions?|posts?|exams?|quiz(zes)?|midterms?|finals?|tests?)\b/i,
-  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule)\b/i,
+  schedule: /\b(class(es)?|lectures?|seminars?|clinicals?|placements?|tutorials?|when is|where is|what time|rooms?|office hours|instructors?|professors?|profs?|teach(es|er)?|calendar|schedule|events?|study group|orientation|what do i have|what(?:'s| is) on|free|busy|my day|look like|tomorrow|tmrw|tonight|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|this week|next week|weekend)\b/i,
   cards: /\b(flash ?cards?|decks?|cards?|review|quiz me|memori[sz]e|spaced)\b/i,
   notes: /\b(notes?|wrote|jotted|sticky|boards?)\b/i,
   files: /\b(files?|pdfs?|slides?|syllabus|documents?|chapters?|uploads?)\b/i

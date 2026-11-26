@@ -9,7 +9,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", plusMonthly: "$2.99", currency: "USD", trialDays: 14}}, at: Date.now()};
+const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices: {monthly: "$4.99", quarterly: "$11.99", yearly: "$39.99", plusMonthly: "$2.99", currency: "USD", trialDays: 14}}, at: Date.now()};
 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";

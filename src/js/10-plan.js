@@ -22,10 +22,10 @@ window.__sbPlanObj = () => PLAN;
   const PLAN_CONFIG = {
     limits: {
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
-      pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
+      pro: {devices: Infinity, fileMB: 5120, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
-    checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
+    prices: {monthly: "$4.99", quarterly: "$11.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
+    checkout_url_monthly: "", checkout_url_quarterly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
     // Studyboard Plus: every Pro feature without Studyboard Pro AI ($2.99 a month, website checkout only)
@@ -56,7 +56,7 @@ window.__sbPlanObj = () => PLAN;
       Object.keys(c.limits[t]).forEach(k => { if (k in src && !PINNED[t].includes(k)) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
-    ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
+    ["checkout_url_monthly", "checkout_url_quarterly", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
     ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
@@ -646,10 +646,10 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    period = ["monthly", "quarterly", "yearly", "plus"].includes(period) ? period : "monthly";
     if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && !semesterOn()) period = "monthly";
+    if (period === "quarterly" && !quarterlyOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (regionOff()) { toast(REGION_OFF_MSG); return false; }
@@ -807,17 +807,16 @@ window.__sbPlanObj = () => PLAN;
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
-  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
-  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
-  const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
-  const semOnce = () => route() === "store";
-  const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
+  // The quarterly plan renews every 3 months. On the website it's on once prices.quarterly is set; in the App Store and
+  // Google Play (a 3-month auto-renewing subscription) once its price is set in studyboard_config prices.storeQuarterly
+  // (see PRO-PLANS-GUIDE.md)
+  const qPrice = () => route() === "store" ? cfg.prices.storeQuarterly : cfg.prices.quarterly;
+  const quarterlyOn = () => typeof qPrice() === "string" && !!qPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${quarterlyOn() ? `, ${qPrice()} every 3 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
     const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
@@ -826,17 +825,17 @@ window.__sbPlanObj = () => PLAN;
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
-    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
+    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), qm = quarterlyOn() ? price(qPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
-    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
-    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const ids = ["monthly"].concat(qm ? ["quarterly"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly"}, AMT = {monthly: pr.monthly, quarterly: qPrice(), yearly: pr.yearly};
     const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
-    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+    return `<div class="plan-prices${qm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
         ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
-        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${qm ? tile("quarterly", "", `<span class="pp-name">Quarterly</span><span class="pp-amt">${esc(qPrice())}<small> / 3 months</small></span><span class="pp-sub">${esc(["Renews every 3 months", trial, "About " + per(qm, 3, qPrice())].filter(Boolean).join(" · "))}</span>`) : ""}
         ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
       <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
@@ -992,10 +991,10 @@ window.__sbPlanObj = () => PLAN;
     entitlement: () => ent() ? Object.assign({}, ent()) : null,
     can, usage,
     openSheet: proSheet,
-    // the Pro sheet with a plan already picked (the exam and term offers pick Semester; with no semester plan it stays on Yearly)
+    // the Pro sheet with a plan already picked (the exam and term offers pick Quarterly; with no quarterly plan it stays on Yearly)
     openSheetPick: (reason, pick) => { P.pick = pick; proSheet(reason); },
-    // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
-    semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
+    // the quarterly plan when it's on sale here: its price (it renews every 3 months everywhere)
+    quarterly: () => { try { return quarterlyOn() ? {price: qPrice()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
     limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, holdTab, dropTab, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,

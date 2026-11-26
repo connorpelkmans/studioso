@@ -4250,7 +4250,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         R.localCopy = true; save({keep: false}); return true;
       }
       case "lec-full-connect": { const tx = $("#lecText"); if (REC && tx) REC.text = tx.value; draftSoon(); if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); toast("Your recording is kept as a draft in the course's Lectures."); return true; }
-      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 10 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
+      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 5 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
       case "lec-file": if (dlg.open) dlg.close(); setTimeout(() => transcriptSheet(id), 0); return true;
       case "lec-file-note": {
         const f = state.files[id]; if (!f || !f.tr) return true;

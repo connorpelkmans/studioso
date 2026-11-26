@@ -32,7 +32,8 @@ function fake(){
       open_access: {oa_url: "https://example.org/aquaporins"}, cited_by_count: 120}]})}); });
   await ctx.addInitScript(([f, T]) => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; (0, eval)(`(${f})`)();
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));
-    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    // (the local date, like the app's own "today": the UTC date is tomorrow's in the evening west of Greenwich)
+    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
     localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, files: [], notes: [{id: "n1", text: "Diffusion lab\nDye spreads from high to low concentration until even.", x: 10, y: 10}], events: [], decks: [], settings: {}, courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}],
       tasks: [{id: "t1", title: "Bio Lab Report", due: d(1), status: "todo", type: "Lab", courseId: "c1"}, {id: "t2", title: "History Essay", due: d(4), status: "todo", type: "Assignment"}, {id: "t3", title: "Chem Problem Set", due: d(-2), status: "todo", type: "Assignment"}]})); }, [fake.toString()]);
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
@@ -82,7 +83,8 @@ function fake(){
   ok(c.asked.length === 0 && /5-minute focus timer is running/.test(c.last) && (await p.evaluate(() => JSON.parse(localStorage.getItem("studioso:pomo") || "{}").running)), "start a timer: it runs, no model");
   await p.evaluate(() => { const S = window.__sbSync; if (S && S.state) { S.state.notes = S.state.notes || {}; } });
   c = await chat("make flashcards on the bio lab report", NONE);
-  ok(c.asked.length === 0 && /Make Flashcards/.test(c.last), "make flashcards: the Make Flashcards button, with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
+  // (asked for in so many words, the cards are made at once; when the AI gives nothing usable, the button with the material is offered)
+  ok(/Make Flashcards|Made \d+ flashcards?/.test(c.last), "make flashcards: made at once, or the Make Flashcards button with material gathered from their stuff: " + c.last.replace(/\n/g, " ").slice(0, 160));
   c = await chat("save a note: lab partners are Sam and Priya", NONE);
   ok(c.asked.length === 0 && /put the note on/.test(c.last), "save a note: made at once: " + c.last.slice(0, 100));
   c = await chat("create a note in my board, put text Hi! in it", NONE);
