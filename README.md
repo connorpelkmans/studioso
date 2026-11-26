@@ -5,6 +5,7 @@ A calm student planner for courses, deadlines, study sessions and flashcards. It
 ## Features
 
 - **Board and Today's Plan:** every task and deadline in one place, with a ranked plan for today that fits your study hours.
+- **Essentials for new students:** a new install starts with just Board, Calendar, Review and Courses (the rest one tap away under More) and a calmer Today's Plan. Features turn on as they become relevant (a first deck, a first note, joining a group, an exam within 14 days), each announced once, and Settings > Appearance > Show Everything turns it off. Existing installs keep everything. Code can ask `SBESS.on()` and `SBESS.shows("groups")` (`src/js/01-essentials.js`).
 - **Plan Ahead:** a Timeline and a Schedule (classes, exams and events) in one tab.
 - **Exam location check:** an exam or quiz is only suggested as Do This Next (or given a focus slot) when it can be taken from home. Studyboard reads your school site (online quiz, paper, location), the instructions and your Schedule, uses AI only when those aren't clear, and asks you once with a one-tap question. In-person exams stay on the calendar and in Crunch, and their study sessions are still suggested. Your own answer (Where is this taken? on the exam) always wins.
 - **Availability blocks:** add work, shifts and placements (including overnight and rotating rosters), travel time, other commitments and protected time. Today's Plan only schedules into the free time left and shows when. Free.
