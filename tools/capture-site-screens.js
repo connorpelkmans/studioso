@@ -157,7 +157,8 @@ const measure = page => page.evaluate(() => {
   return {scene: r(document.getElementById("sceneArt")), comp: r(cp), vw: innerWidth, vh: innerHeight};
 }).then(g => { const k = o => o && {left: +(o.left * SHRINK).toFixed(1), top: +(o.top * SHRINK).toFixed(1), width: +(o.width * SHRINK).toFixed(1), height: +(o.height * SHRINK).toFixed(1)};
   return {scene: k(g.scene), comp: k(g.comp), vw: Math.round(g.vw * SHRINK), vh: Math.round(g.vh * SHRINK)}; });
-const clearArt = page => page.addStyleTag({content: "#sceneArt,.cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important} html,body{background:transparent!important;background-image:none!important}"});
+// (scene themes paint their sky on html::before, so that goes too: left in, it covered the whole live scene on the website's tiles)
+const clearArt = page => page.addStyleTag({content: "#sceneArt,.cp-layer,.cp-front,.cp,.cp-bubble{visibility:hidden!important} html,body,html::before,html::after{background:transparent!important;background-image:none!important}"});
 async function captureOverlays(browser, scheme) {
   for (const th of THEMES) {
     const seed = JSON.parse(JSON.stringify(SEED)); seed.settings.style = {skin: th}; seed.settings.owned = THEMES.map(t => "skin:" + t);

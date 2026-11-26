@@ -59,7 +59,7 @@
       <div class="dlpanel" id="heroDownloads" aria-live="polite"><div class="dlrow"><a class="dl primary app-link" href="account/"><span class="t"><small>Free &middot; works in any browser</small><b>Open Studyboard</b></span></a></div></div>
       <p class="dlnote">Windows comes from the Microsoft Store. The Mac app is coming soon.
     </div>
-    <div class="shot"><img class="logo-l" src="assets/screens/hero-light.webp" alt="The Studyboard Task Board, with courses color-coded and tasks in To Do, In Work and Complete columns" width="1000" height="640"><img class="logo-d" src="assets/screens/hero-dark.webp" alt="" width="1000" height="640" loading="lazy"><div class="wcp-host" data-companion="plain-packy" data-talk data-geo="hero"></div></div>
+    <div class="shot"><img class="logo-l" src="assets/screens/hero-light.webp" alt="The Studyboard Task Board, with courses color-coded and tasks in To Do, In Progress and Complete columns" width="1000" height="640"><img class="logo-d" src="assets/screens/hero-dark.webp" alt="" width="1000" height="640" loading="lazy"><div class="wcp-host" data-companion="plain-packy" data-talk data-geo="hero"></div></div>
   </div>
 </section>
 
@@ -124,8 +124,8 @@
         </div>
         <div class="feat fx" data-fx="board" data-ms="1000,1100,1100,1700">
           <div class="fx-stage s1 s2 s3" aria-hidden="true">
-            <div class="bd-cols"><div><b>To Do</b><i></i><i></i></div><div><b>In Work</b><i></i></div><div><b>Done</b><i></i><i></i></div></div>
-            <div class="bd-card"><b class="cd c-blue"></b>Calc HW<i class="bd-ok">✓</i></div>
+            <div class="bd-cols"><div><b>To Do</b><i></i><i></i></div><div><b>In Progress</b><i></i></div><div><b>Complete</b><i></i><i></i></div></div>
+            <div class="bd-card"><b class="cd c-blue"></b><span class="bd-t">Calc HW</span><i class="bd-ok">✓</i></div>
           </div>
           <h3>Board &amp; Timeline</h3><p>Drag work to Done and see the whole term.</p>
         </div>
@@ -271,7 +271,7 @@
           <li><b>Ask With AI.</b> Search finds things by meaning and tells you where it found them.</li>
           <li><b>Grows with you.</b> Companions unlock accessories as you study and celebrate when you finish things.</li>
         </ul>
-        <p class="note">AI is optional. Paid Pro includes Studyboard AI, with nothing to set up. On any plan you can use your own key instead: a free Google Gemini key, or Claude or ChatGPT, sent straight from your device to the company you chose. Each question sends only the parts of your planner it needs.</p>
+        <p class="note">AI is optional. Paid Pro includes Studyboard AI Pro, with nothing to set up. On any plan you can use your own key instead: a free Google Gemini key, or Claude or ChatGPT, sent straight from your device to the company you chose. Each question sends only the parts of your planner it needs.</p>
       </div>
       <div>
         <div class="shot" data-meet><img class="logo-l" src="assets/screens/companion-mochi-light.webp" alt="The Studyboard companion Mochi, with suggested questions such as What should I work on next" width="1120" height="700" loading="lazy" data-meet-img="light"><img class="logo-d" src="assets/screens/companion-mochi-dark.webp" alt="" width="1120" height="700" loading="lazy" data-meet-img="dark"><div class="wcp-host corner" data-companion="plain-mochi"></div></div>
@@ -308,7 +308,7 @@
     </div>
     <div class="gpanel" role="tabpanel" id="gp-board" aria-labelledby="gt-board" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/board-light.webp" alt="The Studyboard Task Board screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/board-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
-      <p class="cap">Drag work from To Do to In Work to Complete. Every class has its own color and filter.</p>
+      <p class="cap">Drag work from To Do to In Progress to Complete. Every class has its own color and filter.</p>
     </div>
     <div class="gpanel" role="tabpanel" id="gp-calendar" aria-labelledby="gt-calendar" hidden>
       <div class="shot"><img class="logo-l" src="assets/screens/calendar-light.webp" alt="The Studyboard Timeline screen" width="1120" height="700" loading="lazy"><img class="logo-d" src="assets/screens/calendar-dark.webp" alt="" width="1120" height="700" loading="lazy"></div>
@@ -423,10 +423,10 @@
         <a class="btn primary block" href="account/?plan=monthly">Choose Monthly</a>
       </div>
       <div class="card">
-        <h3>Pro Semester</h3>
-        <p class="price">$15.99 <small>/ 4 months</small></p>
-        <ul class="ticks"><li>One payment a semester</li><li>About $3.25 a month</li><li>Everything in Pro, below</li></ul>
-        <a class="btn primary block" href="account/?plan=semester">Choose Semester</a>
+        <h3>Pro Quarterly</h3>
+        <p class="price">$11.99 <small>/ 3 months</small></p>
+        <ul class="ticks"><li>Renews every 3 months</li><li>About $4.00 a month</li><li>Everything in Pro, below</li></ul>
+        <a class="btn primary block" href="account/?plan=quarterly">Choose Quarterly</a>
       </div>
       <div class="card featured">
         <h3>Pro Yearly <span class="badge">Best Value</span></h3>
@@ -446,22 +446,22 @@
         <tr><th scope="row">Autopilot, Smart Reminders, Insights and Version History</th><td>Not included</td><td>Included</td></tr>
         <tr><th scope="row">Focus sounds</th><td>Rain, Brown Noise and Ocean Waves</td><td>Every sound and theme mix</td></tr>
         <tr><th scope="row">Devices that sync</th><td>2</td><td>Unlimited</td></tr>
-        <tr><th scope="row">Cloud file storage</th><td>20 MB</td><td>10 GB</td></tr>
+        <tr><th scope="row">Cloud file storage</th><td>20 MB</td><td>5 GB</td></tr>
         <tr><th scope="row">Synced data</th><td>20 MB</td><td>250 MB</td></tr>
         <tr><th scope="row">Themes and styles</th><td>14 plain themes, plus 3 free 5-minute previews of Pro collections</td><td>All 68 animated themes and every premium flashcard style, pin and sticker pack</td></tr>
         <tr><th scope="row">Study group size and history</th><td>5 members, 60 days of messages, 3 shared whiteboards and concept maps</td><td>Up to 5 Pro groups, each with 100 members, unlimited history and 10 shared whiteboards and concept maps</td></tr>
         <tr><th scope="row">Google Drive and OneDrive (files and hourly backups)</th><td>Included</td><td>Included</td></tr>
         <tr><th scope="row">Online backup history</th><td>Backups stay on your device</td><td>30 days online</td></tr>
-        <tr><th scope="row">Studyboard AI, built in</th><td>Use your own free Gemini key</td><td>Included, with a usage allowance</td></tr>
+        <tr><th scope="row">Studyboard AI Pro, built in</th><td>Use your own free Gemini key</td><td>Included, with a usage allowance</td></tr>
         <tr><th scope="row">PDF editor, Scan to PDF and lecture recording</th><td>Not included</td><td>Included</td></tr>
         <tr><th scope="row">Writing Studio (sources, citations, and a citation check that fixes your Google Doc or Word file)</th><td>Not included</td><td>Included</td></tr>
         <tr><th scope="row">Concept maps</th><td>Included, with 14 plain map styles</td><td>Every theme and subject style, pictures, videos, PDF and lecture links, Scan a Drawing and Colour by Knowledge</td></tr>
       </tbody>
     </table>
     </div>
-    <p class="muted mt16"><b>Founders and Early Supporters.</b> The first 10 people to buy a Semester or Yearly plan become Founders: a Founder badge, 3 one-month Pro codes to give friends, and a theme they suggest built into Studyboard that they keep for good. The first 100 people to buy any plan get an Early Supporter badge and 3 one-month Pro codes for friends. You'll find your place in Settings, Studyboard Pro.</p>
+    <p class="muted mt16"><b>Founders and Early Supporters.</b> The first 10 people to buy a Quarterly or Yearly plan become Founders: a Founder badge, 3 one-month Pro codes to give friends, and a theme they suggest built into Studyboard that they keep for good. The first 100 people to buy any plan get an Early Supporter badge and 3 one-month Pro codes for friends. You'll find your place in Settings, Studyboard Pro.</p>
     <p class="muted mt16">You pay on this website with a card through Stripe. We never see or store your card number. Sign in with the same Studyboard account you use in the app, and Pro appears in the app within moments.</p>
-    <p class="muted"><strong>Subscription details:</strong> Studyboard Pro is an auto-renewing subscription: $4.99 USD per month, $15.99 USD every 4 months, or $39.99 USD per year. Every new account gets two free weeks of Pro without a card. When you choose a plan, your card is charged right away and again at the start of each period until you cancel. Cancel any time from <a href="account/">Manage billing</a>; you keep Pro until the end of the period you paid for. Subscriptions bought in the iPhone or iPad app are billed by Apple (cancel in your App Store account settings). By subscribing you agree to the <a href="terms">Terms of Use</a>; see the <a href="privacy">Privacy Policy</a>.</p>
+    <p class="muted"><strong>Subscription details:</strong> Studyboard Pro is an auto-renewing subscription: $4.99 USD per month, $11.99 USD every 3 months, or $39.99 USD per year. Every new account gets two free weeks of Pro without a card. When you choose a plan, your card is charged right away and again at the start of each period until you cancel. Cancel any time from <a href="account/">Manage billing</a>; you keep Pro until the end of the period you paid for. Subscriptions bought in the iPhone or iPad app are billed by Apple (cancel in your App Store account settings). By subscribing you agree to the <a href="terms">Terms of Use</a>; see the <a href="privacy">Privacy Policy</a>.</p>
   </div>
 </section>
 
@@ -488,11 +488,11 @@
     <details class="faq"><summary>Is there a web version?</summary><p>Yes. Open Studyboard in any modern browser and it works right away. Use your browser's install option, or Add to Home Screen on a phone, to open it like an app.</p></details>
     <details class="faq"><summary>When can I download the apps?</summary><p>The iPhone and iPad app is on the <a href="https://apps.apple.com/us/app/studyboard-student-planner/id6828721365">App Store</a>, and the Windows app is on the Microsoft Store. The Mac, Linux and Android apps are being prepared. The School Sync extension is in the Chrome Web Store, Microsoft Edge Add-ons and Firefox Add-ons. Those buttons switch on as soon as each one is published, and your account and data work the same everywhere.</p></details>
     <details class="faq"><summary>Does it work with Siri?</summary><p>Yes, on iPhone and iPad. Ask Siri to add a task, what's due, when something is due, your grade in a course, your class times or today's plan, mark a task done, or start, pause and stop a focus session. A running focus session shows on the Lock Screen and in the Dynamic Island.</p></details>
-    <details class="faq"><summary>Is the planner really free?</summary><p>Yes. The whole planner, flashcards with smart scheduling, quizzes, Match, concept maps, whiteboards, Grade Tracker, Today's Plan, Focus, Search Everywhere, study groups of 5 and Google Drive and OneDrive are free, with no ads and no time limit. Pro adds Studyboard AI, Writing Studio, the PDF editor and Scan to PDF, lecture recording, unlimited Quiz Me, Teach It Back and Rubric Check, Autopilot, Smart Reminders, Insights, Version History, two-way calendar sync, unlimited devices, more storage, bigger groups, every Focus sound and every theme.</p></details>
+    <details class="faq"><summary>Is the planner really free?</summary><p>Yes. The whole planner, flashcards with smart scheduling, quizzes, Match, concept maps, whiteboards, Grade Tracker, Today's Plan, Focus, Search Everywhere, study groups of 5 and Google Drive and OneDrive are free, with no ads and no time limit. Pro adds Studyboard AI Pro, Writing Studio, the PDF editor and Scan to PDF, lecture recording, unlimited Quiz Me, Teach It Back and Rubric Check, Autopilot, Smart Reminders, Insights, Version History, two-way calendar sync, unlimited devices, more storage, bigger groups, every Focus sound and every theme.</p></details>
     <details class="faq"><summary>Can I find flashcards for my course?</summary><p>Yes. The <a href="/flashcards">Flashcards</a> and <a href="/quizzes">Quizzes</a> pages hold sets shared by students, plus sample sets from @studyboard made from public course materials. Search by course code or school, then study online or add a set to Studyboard in one tap.</p></details>
     <details class="faq"><summary>Do I need an account?</summary><p>You need one Studyboard account to sync between devices and to buy Pro. Create it in the app or on the <a href="account/">account page</a> with your email, or sign in with Apple, Google or Microsoft. The same sign-in works on every device, so an account you made with Apple on your iPhone also works on a Windows computer.</p></details>
-    <details class="faq"><summary>How does the AI work?</summary><p>AI is optional and off until you turn it on. With a paid Pro plan, Studyboard AI is included: it runs on Anthropic's Claude through Studyboard's server, within a usage allowance, and Settings shows how much of it you've used. On any plan you can add your own free Gemini key (or a Claude or ChatGPT key) instead, and then the content for a request goes straight from your device to the company you chose. Your companion is the face of those features.</p></details>
-    <details class="faq"><summary>What happens when my two free weeks of Pro end?</summary><p>You're simply on the free plan again, with nothing to cancel and nothing charged. Everything you made stays, and stays yours to open: your PDF highlights, lecture recordings and transcripts, picture cards, drawings and saved versions. Making new ones is what needs Pro. Pro themes go back to a plain theme the next time you open Studyboard. During the two free weeks, storage, devices and group size stay at the free amounts, so nothing is over a limit when it ends. Studyboard AI comes with paid plans, so during the free weeks AI works with your own free Gemini key.</p></details>
+    <details class="faq"><summary>How does the AI work?</summary><p>AI is optional and off until you turn it on. With a paid Pro plan, Studyboard AI Pro is included: it runs on Anthropic's Claude through Studyboard's server, within a usage allowance, and Settings shows how much of it you've used. On any plan you can add your own free Gemini key (or a Claude or ChatGPT key) instead, and then the content for a request goes straight from your device to the company you chose. Your companion is the face of those features.</p></details>
+    <details class="faq"><summary>What happens when my two free weeks of Pro end?</summary><p>You're simply on the free plan again, with nothing to cancel and nothing charged. Everything you made stays, and stays yours to open: your PDF highlights, lecture recordings and transcripts, picture cards, drawings and saved versions. Making new ones is what needs Pro. Pro themes go back to a plain theme the next time you open Studyboard. During the two free weeks, storage, devices and group size stay at the free amounts, so nothing is over a limit when it ends. Studyboard AI Pro comes with paid plans, so during the free weeks AI works with your own free Gemini key.</p></details>
     <details class="faq"><summary>What if I cancel?</summary><p>You keep Pro until the end of the time you paid for. Nothing you made is deleted; free accounts just have the free limits.</p></details>
     <details class="faq"><summary>How do I manage billing?</summary><p>Sign in on the <a href="account/">account page</a> and choose Manage billing to change your card, see invoices or cancel.</p></details>
     <details class="faq"><summary>I need help.</summary><p>Write to <a class="support-email" href="mailto:support@studyboardapp.com">support@studyboardapp.com</a>.</p></details>

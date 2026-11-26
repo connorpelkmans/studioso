@@ -465,7 +465,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     ok(/attach/i.test(a) && await p.evaluate(n => Object.keys(window.__sbSync.state.decks).length === n, d0), "slides that aren't here are said, no empty deck: " + a); }
   await p.evaluate(() => { window.__stubIntent = null; });
   }
-  // ---- With Claude (a Claude key in Studyboard AI Mode): one step reads the whole planner and lists the changes; the app makes them
+  // ---- With Claude (a Claude key in Studyboard AI Pro Mode): one step reads the whole planner and lists the changes; the app makes them
   {
     const SEEDC = {v: 2, updated: 1, files: [], notes: [{id: "n1", x: 0, y: 0, created: 1, text: "Freud\nId: wants it now\nEgo: reality\nSuperego: conscience"}], events: [], settings: {ai: {provider: "anthropic", model: "studyboard"}},
       courses: [{id: "c1", name: "Anatomy and Physiology", code: "BIOS 230", color: "#3B6FE0"}, {id: "c2", name: "World History", code: "HIST 1010", color: "#DC2626"}],
@@ -567,6 +567,12 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     replyFor = () => ({answer: "Putting it on!", wear: [{item: "festive beanie", on: true}]});
     a = await say("put the festive beanie on");
     ok(/haven't (unlocked|earned)/i.test(a) && !/Tiny Hat is on/i.test(a), "an accessory it doesn't have is said, not swapped: " + a);
+    // no accessory named: nothing worn or recoloured in its place ("make packy purple", "darker" dyed the Tiny Hat)
+    replyFor = () => ({answer: "I can't change my own colour."});
+    await say("make packy purple");
+    replyFor = () => ({answer: "Done, I've made my Tiny Hat dark plum.", wear: [{item: "Tiny Hat", color: "dark plum"}]});
+    a = await say("darker");
+    ok(/own colour can't change/i.test(a) && !/Tiny Hat dark plum/.test(a), "an accessory nobody named isn't recoloured instead: " + a);
     // a study session on a deck
     replyFor = (m, R) => ({answer: "Opening Heart to study.", study: R("Heart")});
     a = await say("study my heart deck");
@@ -594,6 +600,16 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     // a discount worked out exactly: the price is its own number ("15% off a $48 jacket" was "$1 with 5% off")
     a = await say("whats 15% off a $48 jacket");
     ok(/\$48 with 15% off is \$40\.8/.test(a), "\"15% off a $48 jacket\" is $40.80: " + a);
+    // a task deleted together with something added: a change on its X ref brings back just that task (undo took the added one too)
+    replyFor = (m, R) => ({answer: "Deleted Care Plan 2 and added Care Plan 3.", changes: [{ref: R("Care Plan 2"), field: "delete", value: "yes"}], newTasks: [{title: "Care Plan 3", type: "Assignment", due: "2030-02-01"}]});
+    await say("delete care plan 2 and add care plan 3 due feb 1 2030");
+    replyFor = () => { const k = (/\b(X\d+) \| Care Plan 2/.exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Brought Care Plan 2 back as done.", changes: [{ref: k, item: "Care Plan 2", field: "status", value: "done"}]}; };
+    a = await say("wait don't delete care plan 2, mark it done instead");
+    ok((await task("t1") || {}).status === "done" && await pc.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => t.title === "Care Plan 3")), "a deleted task is brought back on its own, and what was added with it stays: " + a);
+    // a weekday that doesn't match its date is put right
+    replyFor = () => ({answer: "Your exam is on Mon, Dec 5 2030."});
+    a = await say("when's my exam");
+    ok(/Thu, Dec 5/.test(a) || /Fri, Dec 5|Sat, Dec 5|Sun, Dec 5|Wed, Dec 5|Tue, Dec 5/.test(a) && !/Mon, Dec 5/.test(a), "a wrong weekday is corrected from the date: " + a);
     // a reply written as plain words instead of the JSON is the answer (it was thrown away and asked for again)
     replyFor = () => "Friday has clinical orientation from 8 to 12.";
     a = await say("and the day after?");

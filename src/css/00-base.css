@@ -1590,6 +1590,38 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .kho{display:grid;justify-items:center;gap:10px;text-align:center}
 .kho .qr{width:min(240px,70vw);height:auto;border-radius:10px;border:1px solid var(--line)}
 .kho-code{font:700 1.6rem/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.08em;user-select:all;word-break:break-all}
+.ai-tiers{display:grid;gap:10px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.ai-tiers-h{margin:0;font-weight:700}
+.ai-tier{border-radius:10px;border:1px solid transparent}
+.ai-tier>summary{display:grid;gap:4px;padding:8px 10px;cursor:pointer;list-style:none;border-radius:10px}
+.ai-tier>summary::-webkit-details-marker{display:none}
+.ai-tier>summary:hover{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.ai-tier>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ai-tier[open]{border-color:var(--line)}
+.ai-tier-chev{width:16px;height:16px;flex:none;fill:none;stroke:var(--muted);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.ai-tier[open] .ai-tier-chev{transform:rotate(180deg)}
+.ai-tier-more{display:grid;gap:12px;padding:4px 10px 12px}
+.ai-tier-fact{display:grid;gap:2px;font-size:.88rem;line-height:1.45}
+.ai-tier-fact>b{font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ai-tier-fact a{color:var(--accent)}
+.ai-tier-cats{display:grid;gap:6px;margin-top:2px}
+.ai-tier-cat{display:grid;grid-template-columns:minmax(0,1fr) 30% 3em;align-items:center;gap:8px;font-size:.84rem}
+.ai-tier-cat>b{text-align:right;font-variant-numeric:tabular-nums}
+.ai-tier-bar{display:block}
+.ai-tier-bar.sm{height:6px}
+.ai-tier-soon{color:var(--muted)}
+.ai-tier-incl{margin:0;font-weight:700}
+.btn.ai-tier-get{justify-self:start;background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:700}
+.btn.ai-tier-get:hover{filter:brightness(1.06)}
+.ai-tier .pro-badge{font-size:.56rem}
+.ai-tier.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.ai-tier-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ai-tier-chip{font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#fff)}
+.ai-tier-pct{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.ai-tier-bar{height:8px;border-radius:999px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}
+.ai-tier-bar i{display:block;height:100%;border-radius:inherit;background:var(--accent)}
+.ai-tier-where{color:var(--muted)}
+.ai-tiers-foot{margin:0;color:var(--muted)}
 .ai-disclaimer{background:color-mix(in srgb,var(--warn) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 35%,var(--line));border-radius:10px;padding:8px 10px}
 /* Studyboard AI usage, in the AI menu: percentages only. Month bar blue into purple, Today and the icon in the AI purple */
 .sbai-use{--sb-warn:#C77700;--sb-out:#C2410C;display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink)}
@@ -2393,7 +2425,7 @@ body.sch-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
 .sch-legend .k-event::before{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-left:4px solid var(--accent)}
 .sch-nav{flex-wrap:wrap;justify-content:flex-end}
 /* wide screens: the week selector on the left */
-@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-today"] + *{margin-left:auto}}
+@media (min-width:640px){.view-head > .sch-nav{flex:1 1 100%;justify-content:flex-start}.sch-nav > [data-act="sch-today"] + *,.sch-nav > [data-act="sch-mtoday"] + *{margin-left:auto}}
 /* Availability blocks */
 .sch-b.k-av-class{background:var(--c);color:#fff}
 .sch-b.k-av-work{background:color-mix(in srgb,var(--c) 24%,var(--surface));color:var(--ink);border-left:5px solid var(--c);box-shadow:0 1px 4px rgba(8,20,50,.12)}
@@ -2752,3 +2784,5 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-ready-sheet .sh-ring .cp-ai-face{width:74%!important;height:74%!important;display:block!important;transform:none!important;inset:auto!important}.ai-ready-sheet .sh-ring .cp-ai-face svg{width:100%!important;height:100%!important;display:block}
 .ai-ready-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .ai-ready-line > span{flex:1;min-width:200px}
+.ai-device .mi-check .sub{display:block}
+.ai-tier>summary::after{content:none!important;display:none!important}

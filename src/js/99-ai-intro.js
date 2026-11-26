@@ -1,5 +1,5 @@
 /* ===== module: 99-ai-intro.js ===== */
-/* "Introducing Studyboard AI": a one-time popup, for a limited time only.
+/* "Introducing Studyboard AI Pro": a one-time popup, for a limited time only.
    - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
    - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
    - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
@@ -73,13 +73,13 @@
     const li = ([b, s]) => `<li><span class="aii-tick">${CHECK}</span><span><b>${esc(b)}</b> ${esc(s)}</span></li>`;
     return `<div class="aii-badge" aria-hidden="true">${SPARK}</div>
       <div class="qod-eyebrow">New</div>
-      <h2 id="qodT">Introducing Studyboard AI!</h2>
+      <h2 id="qodT">Introducing Studyboard AI Pro!</h2>
       <p class="aii-sub">Now included with Studyboard Pro.</p>
       <p class="aii-vs">Compared to free Gemini:</p>
       <ul class="aii-list">${POINTS.map(li).join("")}</ul>
       <div class="qod-foot">${has
         ? `<button type="button" class="btn primary" data-qod-close>Got It</button>`
-        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
+        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI Pro is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
       <p class="aii-fine">Only for users with paid Pro.</p>`;
   }
 

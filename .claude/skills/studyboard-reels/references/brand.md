@@ -43,7 +43,7 @@ Lines already in use that can be reused: "Your whole semester on one board." · 
 
 Check the repo `README.md` (features) and `PRO-PLANS-GUIDE.md` (Free vs Pro) before stating anything specific. In particular:
 - **Free:** the Board, Today's Plan, Quick Add, Exam Prep Planner, Exam Mode, Crunch Forecast, assignment breakdown, flashcards and quizzes, Match game, Focus timer and companion, school-site sync (Canvas, Brightspace, Blackboard), imports (Anki, Quizlet, Notion, Todoist), works offline, no account needed.
-- **Pro** ($4.99/month, $15.99/semester, $39.99/year; two free weeks for new accounts): Studyboard AI, Record a Lecture, the PDF reader and editing, Autopilot, Smart Reminders, Quiz Me, Writing Studio, Concept Maps, two-way calendar sync and more. If a reel features a Pro feature, don't call it free; "try it free for two weeks" is accurate.
+- **Pro** ($4.99/month, $11.99/quarter (every 3 months), $39.99/year; two free weeks for new accounts): Studyboard AI, Record a Lecture, the PDF reader and editing, Autopilot, Smart Reminders, Quiz Me, Writing Studio, Concept Maps, two-way calendar sync and more. If a reel features a Pro feature, don't call it free; "try it free for two weeks" is accurate.
 - AI is optional in Studyboard. Don't make "AI" the headline of a reel about a feature that works without it.
 - Don't invent numbers (users, grades improved, hours saved) or testimonials. Hypothetical student situations are fine and expected.
 - Don't use other companies' logos or trademarked app UI. Naming the school sites it syncs with in text is fine.

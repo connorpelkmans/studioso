@@ -699,7 +699,7 @@
     return {left: right - m.w, top: bottom - m.h, right, bottom, w: m.w, h: m.h, shown: false};
   }
   /* Where it can stand */
-  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront");
+  const SKIP = el => !el || el === document.documentElement || el === document.body || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,#toast");
   const INTERACTIVE = /^(BUTTON|A|INPUT|SELECT|TEXTAREA|LABEL|IMG|VIDEO|CANVAS|IFRAME|DIALOG)$/;
   function contentAt(x, y){
     let surface = false;
@@ -727,7 +727,7 @@
   const BAND_PAD = 48;
   function contentRects(band){
     const out = [], W = innerWidth, H = innerHeight, T = band ? Math.max(0, band.t) : 0, B = band ? Math.min(H, band.b) : H;
-    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab");
+    const skip = el => !el || (layer && layer.contains(el)) || (front && front.contains(el)) || !!el.closest("#sceneArt,#compLayer,#compFront,nav.tabs,.fab,#fab,#toast");
     const vis = r => r.width > 1 && r.height > 1 && r.bottom > T && r.right > 0 && r.top < B && r.left < W;
     const els = [], svgs = [];
     const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {acceptNode: n => {
@@ -765,8 +765,7 @@
     const rg = range(px);
     if (c.left < rg.L - 0.5 || c.left > rg.R + 0.5 || c.top < rg.T - 0.5 || c.top > rg.B + 0.5) return {hard: true};
     if (f.shown && c.left + px * 0.9 > f.left - 4 && c.left + px * 0.1 < f.right + 4 && c.top + px > f.top - 4 && c.top < f.bottom + 4) return {hard: true};
-    const t = document.getElementById("toast");
-    if (t && t.classList.contains("show")) { const q = t.getBoundingClientRect(); if (c.left < q.right && c.left + px > q.left && c.top < q.bottom && c.top + px > q.top) return {hard: true}; }
+    // (a toast isn't a reason to find a new spot: it's there a moment, and duck() steps it aside just far enough)
     // the drawing's own outline with a little room (not a fixed box: a slim companion fits a narrower gap)
     const e = vext || measureArt() || DEF_ART;
     const a = {l: c.left + px * e.l - 3, r: c.left + px * e.r + 3, t: c.top + px * Math.max(0.1, e.t) - 6, b: c.top + px * 0.97 + 4};
@@ -1161,17 +1160,44 @@
     // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
     clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
-  // A toast that overlaps it
+  // A toast that overlaps it: it steps sideways, left or right (whichever is the shorter step that stays on screen and clear of
+  // the Add Task button), and only hops up over it where neither side has room
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
-    let hit = false, lift = 0;
-    // (measured where it stands, without the hop: the hop itself would make it stop overlapping)
-    if (on) { const a = t.getBoundingClientRect(), b = box.getBoundingClientRect(), up = box.classList.contains("cp-duck") ? Number(box.dataset.lift || 0) : 0, bt = b.top + up, bb = b.bottom + up;
-      hit = a.left < b.right && a.right > b.left && a.top < bb && a.bottom > bt; lift = Math.ceil(bb - a.top + 8); }
-    if (hit) { box.style.setProperty("--cp-lift", -lift + "px"); box.dataset.lift = String(lift); }
+    let hit = false, dx = 0, lift = 0;
+    // (measured where it stands, without the step: the step itself would make it stop overlapping)
+    if (on) {
+      // where it rests: its place in its layer, without the step (mid-step, its drawn box is somewhere along the way)
+      const a = t.getBoundingClientRect(), fr = front.getBoundingClientRect(), z0 = zf(), l0 = fr.left + box.offsetLeft * z0, t0 = fr.top + box.offsetTop * z0;
+      const b = {left: l0, right: l0 + box.offsetWidth * z0, top: t0, bottom: t0 + box.offsetHeight * z0};
+      hit = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      if (hit) {
+        // never onto the Add Task button or the tab bar (the sidebar on a computer)
+        const W = document.documentElement.clientWidth || innerWidth, rect = el => el && el.getClientRects().length ? el.getBoundingClientRect() : null;
+        const walls = [rect(document.getElementById("fab")), rect(document.querySelector("nav.tabs"))].filter(r => r && r.width && r.height);
+        const clear = d => b.left + d >= 6 && b.right + d <= W - 6 && !walls.some(r => b.left + d < r.right && b.right + d > r.left && b.top < r.bottom && b.bottom > r.top);
+        const opts = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(clear).sort((x, y) => Math.abs(x) - Math.abs(y));
+        if (opts.length) dx = opts[0]; else lift = Math.ceil(b.bottom - a.top + 8);
+      }
+    }
+    // (the companion's layer can be zoomed, so the step is set in its own pixels)
+    const z = zf();
+    if (hit) { box.style.setProperty("--cp-dx", (dx / z).toFixed(1) + "px"); box.style.setProperty("--cp-lift", (-lift / z).toFixed(1) + "px"); box.dataset.dx = String(dx); box.dataset.lift = String(lift); }
+    // when the toast goes, it stays where it stepped to (its step becomes its place) and carries on as usual from there
+    if (!hit && box.classList.contains("cp-duck")) {
+      const z = zf(), dx0 = Number(box.dataset.dx || 0) / z, dy0 = -Number(box.dataset.lift || 0) / z;
+      const l = parseFloat(box.style.left) + dx0, tp = parseFloat(box.style.top) + dy0;
+      box.style.transition = "none"; box.classList.remove("cp-duck", "cp-h-fab");
+      if (Number.isFinite(l) && Number.isFinite(tp)) { box.style.left = l.toFixed(1) + "px"; box.style.top = tp.toFixed(1) + "px"; box.dataset.x = String(Math.round(l)); box.dataset.y = String(Math.round(tp)); }
+      void box.offsetWidth; box.style.transition = "";
+      return;
+    }
     box.classList.toggle("cp-duck", hit);
+    // when it's moved to a new place (it finds its own spot clear of a toast too), the step is worked out again from there
+    if (box !== duckSeen) { duckSeen = box; let at = ""; new MutationObserver(() => { const k = box && box.style.left + "," + box.style.top; if (k !== at) { at = k; requestAnimationFrame(duck); } }).observe(box, {attributes: true, attributeFilter: ["style"]}); }
   }
+  let duckSeen = null;
   { const t = document.getElementById("toast"); if (t) new MutationObserver(() => requestAnimationFrame(duck)).observe(t, {attributes: true, attributeFilter: ["class", "style"], childList: true, subtree: true, characterData: true}); }
   { const f = document.getElementById("fab"); if (f) new MutationObserver(() => placeSoon(60)).observe(f, {attributes: true, attributeFilter: ["class", "style", "hidden"]}); }
 
@@ -2143,7 +2169,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return SPEECH.ok(pickL.text) ? pickL.text : "";
   }
   // Ask Me
-  // Ask Me works with any AI: free Gemini and Studyboard AI share the daily allowance for lines; with another key (Claude, ChatGPT, or
+  // Ask Me works with any AI: free Gemini and Studyboard AI Pro share the daily allowance for lines; with another key (Claude, ChatGPT, or
   // Gemini with automatic AI off) each question is an ordinary request the student makes, on their own key
   const askMode = () => { const m = aiMode(); if (m === "lite" || m === "studyboard") return m; try { return smartOn() && aiReady() ? "manual" : ""; } catch (e) { return ""; } };
   const linesAsk = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
@@ -2621,7 +2647,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
-      : u.mode === "studyboard" ? `Studyboard AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
+      : u.mode === "studyboard" ? `Studyboard AI Pro writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
       : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;
@@ -3092,6 +3118,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { return "I couldn't change that colour just now."; } },
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
+    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
