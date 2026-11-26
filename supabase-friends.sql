@@ -187,13 +187,14 @@ end $$;
 -- Your friends and requests. mine: you sent the request. Blocked people (either way) and expired requests are left out.
 drop function if exists public.my_friends();
 create or replace function public.my_friends()
-returns table (user_id uuid, display_name text, username text, status text, mine boolean, via text, since timestamptz)
+returns table (user_id uuid, display_name text, username text, status text, mine boolean, via text, since timestamptz, face text)
 language plpgsql stable security definer set search_path = public as $$
 declare me uuid := auth.uid();
 begin
   if me is null then raise exception 'Sign in first'; end if;
   return query
-    select o.id, coalesce(p.display_name, 'Classmate'), p.username, f.status, f.requested_by = me, f.via, coalesce(f.accepted_at, f.created_at)
+    select o.id, coalesce(p.display_name, 'Classmate'), p.username, f.status, f.requested_by = me, f.via, coalesce(f.accepted_at, f.created_at),
+      (to_jsonb(p) ->> 'face')   -- their companion (supabase-groups.sql keeps it on the profile), shown as their picture
     from public.friendships f
     cross join lateral (select case when f.a = me then f.b else f.a end as id) o
     left join public.study_profiles p on p.user_id = o.id

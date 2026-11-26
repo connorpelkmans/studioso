@@ -397,12 +397,16 @@ dlg.addEventListener("close", () => {
   if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
 // A sheet's one-line band title that doesn't fit (a long name on a phone) is made smaller until it does, down to 70%, rather than cut off
+// Fitted at once (before the sheet is first drawn, so a long title never shows full size for a moment), and again a moment
+// later in case the sheet's layout settled differently
 function fitSheetTitle(){
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h) return;
+  const fit = () => {
+    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h || !h.clientWidth) return;
+    const key = h.clientWidth + "|" + h.textContent; if (h.dataset.fit === key) return; h.dataset.fit = key;
     h.style.fontSize = ""; const base = parseFloat(getComputedStyle(h).fontSize) || 20;
     for (let f = base; h.scrollWidth > h.clientWidth + 1 && f > base * 0.7; ) { f -= 1; h.style.fontSize = f + "px"; }
-  }));
+  };
+  fit(); requestAnimationFrame(() => requestAnimationFrame(fit));
 }
 function openSheet(html, onSubmit){
   // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go

@@ -17840,12 +17840,16 @@ dlg.addEventListener("close", () => {
   if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
 // A sheet's one-line band title that doesn't fit (a long name on a phone) is made smaller until it does, down to 70%, rather than cut off
+// Fitted at once (before the sheet is first drawn, so a long title never shows full size for a moment), and again a moment
+// later in case the sheet's layout settled differently
 function fitSheetTitle(){
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h) return;
+  const fit = () => {
+    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h || !h.clientWidth) return;
+    const key = h.clientWidth + "|" + h.textContent; if (h.dataset.fit === key) return; h.dataset.fit = key;
     h.style.fontSize = ""; const base = parseFloat(getComputedStyle(h).fontSize) || 20;
     for (let f = base; h.scrollWidth > h.clientWidth + 1 && f > base * 0.7; ) { f -= 1; h.style.fontSize = f + "px"; }
-  }));
+  };
+  fit(); requestAnimationFrame(() => requestAnimationFrame(fit));
 }
 function openSheet(html, onSubmit){
   // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
@@ -21887,6 +21891,12 @@ const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pa
 function rvFit(root){
   const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
   (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    // A title is fitted again only when its card's size or its text changed: other redraws around it (a pop-up opening,
+    // the page's scrollbar going away) used to reset it and sometimes leave it at full size, so titles jumped behind pop-ups
+    const box = el.parentElement, key = box ? `${box.clientWidth}x${box.clientHeight}|${el.textContent}` : "";
+    if (!box || !box.clientWidth || !box.clientHeight) return;   // not laid out right now: leave it as it is
+    if (el.dataset.fit === key) return;
+    el.dataset.fit = key;
     el.style.fontSize = "";
     if (!el.clientHeight || fits(el)) return;
     const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
@@ -21898,10 +21908,15 @@ function rvFit(root){
 (() => {
   if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
   let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
-  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  // New titles are sized at once, in the observer's own step, which runs before the browser paints. Waiting a frame let a redraw
+  // made inside an animation frame (the scene themes redraw often) paint every long title at full size for one frame before it
+  // shrank: the titles flickered and spilled out of their cards. Only additions that hold a title are measured.
+  const holds = n => n.nodeType === 1 && (n.matches(RV_FIT) || !!n.querySelector(RV_FIT));
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(holds))) rvFit(); }).observe(document.body, {childList: true, subtree: true}); go(); };
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
   addEventListener("resize", go);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+  // once the fonts arrive, text has new widths in the same boxes: fit everything again
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { document.querySelectorAll(RV_FIT).forEach(el => { delete el.dataset.fit; }); go(); });
 })();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
@@ -38663,6 +38678,10 @@ hook("boot", boot);
     if (!uid2) return "";
     let id = "";
     for (const k in S.members) { const m = (S.members[k] || []).find(x => x.user_id === uid2 && x.face); if (m) { id = m.face; break; } }
+    return faceHtml(id);
+  }
+  // A companion's face by its id (a friend's, from their profile)
+  function faceHtml(id){
     if (!id || !/^[a-z0-9-]{1,40}$/.test(id)) return "";
     if (faceCache[id] == null) {
       let h = ""; try { const C = window.SBCOMP; h = C && typeof C.head === "function" ? C.head(id) : ""; } catch(e) { h = ""; }
@@ -38707,7 +38726,7 @@ hook("boot", boot);
   };
   // A member's picture (their companion, or initials) in their colour
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
-  const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
+  const av = (name, id, gid, face) => { const f = id && id === myId() ? myFace() : faceHtml(face) || faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
   // Rows that belong to one person learn that person's colour (--mc)
   function paintRows(root){
@@ -39450,6 +39469,7 @@ hook("boot", boot);
     return `<div class="grp-err" role="alert"><span>${esc(msg)}</span><button class="btn small" data-act="grp-retry">Try Again</button>${""}</div>`;
   }
   const isProj = g => !!g && g.kind === "project";
+  const I_PROFILE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.3-2.2 3.4-3.4 5.8-3.4s4.5 1.2 5.8 3.4"/></svg>';
   function listView(){
     const gOrd = (() => { try { return JSON.parse(localStorage.getItem("studyboard:grpOrder") || "[]"); } catch (e) { return []; } })();
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
@@ -39467,7 +39487,9 @@ hook("boot", boot);
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}</div>
+    // Profile (the name and picture classmates see), beside Friends at the top
+    const prof = `<button type="button" class="btn small grp-prof-btn" data-act="grp-name" title="${esc(name ? `Classmates see you as ${name}` : "Choose the name classmates see")}" aria-label="Profile${name ? `: classmates see you as ${esc(name)}` : ""}">${I_PROFILE}<span>Profile</span></button>`;
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}${prof}</div>
       ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
@@ -39478,8 +39500,7 @@ hook("boot", boot);
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
           <div class="grp-item-btns"><button class="btn small" data-act="grp-restore" data-id="${esc(b.id)}">Restore</button></div></li>`).join("")}</ul></section>` : ""}
-      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>
-      <p class="hint-line">${name ? `Classmates see you as <b>${esc(name)}</b>. <button class="link-btn" data-act="grp-name">${window.SBUNAME && SBUNAME.live && SBUNAME.live() ? "Edit Profile" : "Change"}</button>` : `You'll pick the name classmates see the first time you share or join.`}</p>`;
+      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>`;
   }
   function sharesHtml(){
     const list = S.shares;
@@ -41399,7 +41420,7 @@ hook("boot", boot);
           <p style="margin:0">Make a link and short code for this deck. Anyone with the link can open it in a browser, no account needed, and add a copy. They get your cards, not your progress.</p>
           ${qBox}${picNote(d, "link")}${rightsBox()}
           <p class="mini" style="margin:0">They'll see your name as <b>${esc(S.name || "")}</b>. You can update the shared copy or stop sharing any time.</p></div>
-          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
+          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
           if (!rightsOk()) return false;
           const wq = !!($("#grpWithQ") || {}).checked;
           doShare(d, wq, $("#grpMake")); return false;
@@ -41415,7 +41436,7 @@ hook("boot", boot);
         ${window.SBSHARE ? SBSHARE.libRow(d, row.code) : ""}
         ${changed ? `<div class="grp-note">You've changed this deck since you shared it. Update the shared copy so new people get the latest cards.</div>` : ""}
         ${qBox}${picNote(d, "link")}${changed ? rightsBox() : ""}
-        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
+        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="grpUpd"${changed ? "" : " hidden"}>Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="grpSend">Send</button>`}</div></form>`);
       // nothing changed: Update appears only if the practice-quiz choice is changed
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
@@ -41958,7 +41979,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (!online()) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Sign in to share ${deck ? "decks" : "quizzes"}`); return true; }
         if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
         if (!gs.length) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Join or start a study group to share ${deck ? "decks" : "quizzes"}`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
-        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
+        const friendRow = window.SBFSHARE ? `<button type="button" data-act="fs-send" data-kind="${deck ? "deck" : "quiz"}" data-ref="${esc(ref)}"><span><b>Your Friends</b><span class="sub">Send it straight to friends, no code needed</span></span></button>` : "";
+        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${friendRow}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
         return true;
       }
       case "qz-share-to": { const gg = groupOf(el.dataset.id); if (gg) (el.dataset.kind === "deck" ? shareDeckToGroupSheet(gg, el.dataset.ref) : shareQuizSheet(gg, el.dataset.ref)); return true; }
@@ -42305,9 +42327,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     let cur = ""; try { cur = (window.SBCOMP && SBCOMP.current && SBCOMP.current()) || ""; } catch(e) {}
     if (!/^[a-z0-9-]{1,40}$/.test(cur)) cur = "";
     const mine = Object.values(S.members).flat().filter(m => m && m.user_id === myId());
-    if (!mine.length || !mine.some(m => "face" in m) || faceSent === cur || mine.every(m => (m.face || "") === cur)) return;
+    // also kept on your profile, so friends you share no group with see it: sent once per change, even with no groups
+    const PK = "studyboard:faceSent:" + myId(), prof = (() => { try { return localStorage.getItem(PK); } catch(e) { return null; } })();
+    const groupsOk = !mine.length || !mine.some(m => "face" in m) || mine.every(m => (m.face || "") === cur);
+    if (faceSent === cur || (groupsOk && prof === cur)) return;
     faceSent = cur;
-    api.setFace(cur).then(() => mine.forEach(m => { m.face = cur || null; })).catch(() => { faceSent = null; });
+    api.setFace(cur).then(() => { mine.forEach(m => { m.face = cur || null; }); try { localStorage.setItem(PK, cur); } catch(e) {} }).catch(() => { faceSent = null; });
   }
   hook("render", tab => { if (tab === "groups") setTimeout(syncMyFace, 1200); });
   async function gxLoad(ids){
@@ -42939,7 +42964,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
-    avatar: (gid, id, name) => av(name, id, gid),
+    avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
     profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
@@ -43359,7 +43384,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
   const avatar = r => {
     const G = window.SBGROUPS && SBGROUPS.share;
-    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name); } catch (e) {} }
+    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name, r.face || ""); } catch (e) {} }
     const w = String(r.display_name || "?").trim().split(/\s+/).filter(Boolean);
     return `<span class="grp-av" aria-hidden="true">${esc(((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase())}</span>`;
   };
@@ -43546,6 +43571,179 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   setInterval(() => { if (takeLink()) checkLink(); }, 3000);
 
   window.SBFRIENDS = {open: openFriends, load, T: {FRIENDS}};
+})();
+/* ===== module: 82-friend-share.js ===== */
+/* Send a deck, quiz or concept map straight to friends, no code needed (supabase-friend-shares.sql). The friend sees it the
+   next time they open Studyboard, or at once if they're online, and chooses Add or No Thanks. */
+(() => {
+  /*FS-START*/
+  const FS = (() => {
+    const WHAT = {deck: "deck", quiz: "quiz", map: "concept map"};
+    const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+    // "Ann sent you a deck", "Ann and 2 others sent you things"
+    const line = r => `${r.from_name || "A friend"} sent you ${r.kind === "quiz" ? "a quiz" : r.kind === "map" ? "a concept map" : "a deck"}`;
+    // Which waiting ones to show now: not already shown (or put off) this session, newest first, at most 5
+    const fresh = (rows, seen) => (Array.isArray(rows) ? rows : []).filter(r => r && r.id && !seen.has(r.id)).slice(0, 5);
+    return {WHAT, plural, line, fresh};
+  })();
+  /*FS-END*/
+
+  /* Connection (the Study Groups test stand-in works here too) */
+  const stub = () => window.__sbGroupsStub || null;
+  const cli = () => { const s = stub(); return s ? s.client : (typeof sbActive === "function" && sbActive() ? sb : null); };
+  const me = () => { const s = stub(); return s ? s.user : (typeof sbUser !== "undefined" ? sbUser : null); };
+  const live = () => !(typeof inPreview === "function" && inPreview()) && !!cli() && !!me() && !me().is_anonymous;
+  const G = () => (window.SBGROUPS && SBGROUPS.share) || null;
+  const missing = e => { const m = String((e && (e.message || e.details)) || ""), c = String((e && e.code) || ""); return ["42883", "PGRST202", "42P01", "PGRST205"].includes(c) || /Could not find the function|schema cache|does not exist/i.test(m); };
+  const words = e => String((e && (e.message || e.details)) || e || "").replace(/^SB_[A-Z0-9_]+:\s*/, "").slice(0, 200) || "Something went wrong. Try again.";
+  async function rpc(fn, args){
+    const c = cli(); if (!c) throw new Error("Sign in to Studyboard first, then try again.");
+    let r; try { r = await c.rpc(fn, args || {}); } catch (e) { throw new Error(/fetch|network|Load failed/i.test(String(e && e.message)) ? "Couldn't reach Studyboard. Check your connection and try again." : words(e)); }
+    if (r && r.error) { const err = new Error(missing(r.error) ? srvSetup("Sending to friends", "friend-shares.sql") : words(r.error)); err.setup = missing(r.error); throw err; }
+    return r ? r.data : null;
+  }
+  const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0};
+
+  /* What goes */
+  function payloadOf(kind, ref){
+    const g = G(); if (!g) return null;
+    if (kind === "deck") {
+      const d = state.decks[ref]; if (!d) return null;
+      const data = g.deckPayload(d, true, false); if (!data.cards.length && !data.quizzes.length) return null;
+      return {title: d.name || "Deck", info: FS.plural(data.cards.length, "card"), data};
+    }
+    if (kind === "quiz") {
+      const [did, qid] = String(ref).split(":"), d = state.decks[did], qz = d && (d.aiQuizzes || []).find(x => x.id === qid); if (!qz) return null;
+      const data = g.quizPayload(qz, d.courseId);
+      return {title: qz.title || "Practice Quiz", info: FS.plural((qz.questions || []).length, "question"), data};
+    }
+    if (kind === "map") {
+      const [cid, mid] = String(ref).split(":"); if (!window.SBCMAPG || !SBCMAPG.friendPayload) return null;
+      return SBCMAPG.friendPayload(cid, mid || "main");
+    }
+    return null;
+  }
+
+  /* Sending */
+  async function send(kind, ref){
+    if (!live()) { toast("Sign in to send things to friends.", null, window.SBGUEST && SBGUEST.signUp ? {label: "Sign In", fn: () => SBGUEST.signUp()} : undefined); return; }
+    const p = payloadOf(kind, ref); if (!p) { toast(kind === "map" ? "Add something to the map first, then send it." : `That ${FS.WHAT[kind]} is empty. Add to it first.`); return; }
+    openSheet(`<div class="sheet fs-sheet">${head("Send to Friends")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading your friends…</p></div></div>`);
+    let rows = null;
+    try { rows = window.SBFRIENDS && SBFRIENDS.load ? await SBFRIENDS.load(true) : null; } catch (e) { rows = null; }
+    if (!dlg.open || !dlg.querySelector(".fs-sheet")) return;
+    const friends = (Array.isArray(rows) ? rows : []).filter(r => r && r.status === "accepted");
+    if (!friends.length) {
+      openSheet(`<div class="sheet fs-sheet">${head("Send to Friends")}<div class="sheet-body"><p style="margin:0">Add a friend first. Then you can send them decks, quizzes and concept maps without a code.</p></div>
+        <div class="sheet-foot"><button type="button" class="btn" data-act="close">Not Now</button><span class="spacer"></span><button type="button" class="btn primary" id="fsAdd">Add a Friend</button></div></div>`);
+      const b = $("#fsAdd"); if (b) b.addEventListener("click", () => { dlg.close(); if (window.SBFRIENDS && SBFRIENDS.open) SBFRIENDS.open(); });
+      return;
+    }
+    const g = G(), av = r => { try { return g && g.avatar ? g.avatar("", r.user_id, r.display_name, r.face || "") : ""; } catch (e) { return ""; } };
+    openSheet(`<form class="sheet fs-sheet">${head("Send to Friends")}<div class="sheet-body">
+      <p style="margin:0">Send <b>${esc(p.title)}</b> (${esc(p.info)}). They'll see it the next time they open Studyboard, or right away if they're on now. Nothing changes on your copy.</p>
+      ${p.priv ? `<p class="mini" style="margin:0">Boxes for your own notes, files and decks go as plain ideas with just their names.</p>` : ""}
+      <ul class="fs-list">${friends.map(r => `<li><label class="fs-pick">${av(r)}<span class="fs-who"><b>${esc(r.display_name || "Friend")}</b>${r.username ? `<span class="mini">@${esc(r.username)}</span>` : ""}</span><input type="checkbox" name="to" value="${esc(r.user_id)}"${friends.length === 1 ? " checked" : ""}></label></li>`).join("")}</ul>
+      ${g && g.rightsBox ? g.rightsBox() : ""}
+      <p class="mini" id="fsMsg" role="status" style="margin:0"></p></div>
+      <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="fsGo">Send</button></div></form>`, fd => {
+      const to = fd.getAll("to").map(String).filter(Boolean);
+      if (!to.length) { $("#fsMsg").textContent = "Pick at least one friend."; return false; }
+      if (g && g.rightsOk && !g.rightsOk()) return false;
+      const btn = $("#fsGo"); if (btn) btn.disabled = true;
+      rpc("send_to_friends", {p_kind: kind, p_title: p.title, p_info: p.info, p_data: p.data, p_to: to}).then(n => {
+        if (dlg.open) dlg.close();
+        const names = friends.filter(r => to.includes(r.user_id)).map(r => r.display_name || "your friend");
+        toast(n ? `Sent to ${names.length === 1 ? names[0] : names.length + " friends"}. They'll see it when they open Studyboard.` : "Couldn't send it. They may not be your friend any more.", null, null, n ? {done: true} : {error: true});
+      }).catch(e => { if (btn) btn.disabled = false; const m = $("#fsMsg"); if (m) m.textContent = e.message; });
+      return false;
+    });
+  }
+
+  /* Receiving */
+  async function check(){
+    if (!live() || S.busy || S.setup) return;
+    const id = me().id; if (S.uid !== id) { S.uid = id; S.seen = new Set(); listen(); }
+    S.busy = true;
+    try {
+      const rows = await rpc("my_friend_shares");
+      const todo = FS.fresh(rows, S.seen);
+      if (todo.length) offer(todo);
+    } catch (e) { if (e.setup) S.setup = true; }
+    finally { S.busy = false; S.at = Date.now(); }
+  }
+  // One at a time; if something else is open, a note with View instead of taking over the screen
+  function offer(list){
+    const r = list[0]; if (!r) return;
+    S.seen.add(r.id);
+    if (dlg.open) { toast(`${FS.line(r)}: ${r.title}`, null, {label: "View", fn: () => sheet(r, list.slice(1))}); return; }
+    sheet(r, list.slice(1));
+  }
+  function sheet(r, rest){
+    const g = G(), pic = (() => { try { return g && g.avatar ? g.avatar("", r.from_user, r.from_name, r.from_face || "") : ""; } catch (e) { return ""; } })();
+    const where = r.kind === "map" ? "your concept maps" : r.kind === "quiz" ? "your quizzes" : "your flashcards";
+    openSheet(`<div class="sheet fs-sheet fs-in">${head(FS.line(r))}<div class="sheet-body">
+      <div class="fs-card">${pic}<div class="fs-who"><b>${esc(r.title)}</b><span class="mini">${esc(r.info || FS.WHAT[r.kind])}${r.from_username ? ` · from @${esc(r.from_username)}` : ""}</span></div></div>
+      <p class="mini" style="margin:0">Add puts your own copy in ${where}. If you don't answer now, it waits for 30 days.</p></div>
+      <div class="sheet-foot"><button type="button" class="btn" id="fsNo">No Thanks</button><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" id="fsYes">Add</button></div></div>`);
+    const done = () => { if (rest && rest.length) setTimeout(() => offer(rest), 350); };
+    const go = add => async e => {
+      e.currentTarget.disabled = true;
+      try {
+        const res = await rpc("take_friend_share", {p_id: r.id, p_add: add});
+        if (dlg.open) dlg.close();
+        if (add) take(r, res); else toast("Okay, not added.");
+      } catch (err) { if (dlg.open) dlg.close(); toast(err.message, null, null, {error: true}); }
+      done();
+    };
+    $("#fsYes").addEventListener("click", go(true)); $("#fsNo").addEventListener("click", go(false));
+    dlg.addEventListener("close", function once(){ dlg.removeEventListener("close", once); }, {once: true});
+  }
+  // Their copy, made yours
+  function take(r, res){
+    const g = G(), data = res && res.data, by = String((res && res.from) || r.from_name || "A friend").slice(0, 60), meta = {by, v: r.created_at, friend: 1};
+    if (!data || !g) { toast("That couldn't be added. Ask them to send it again."); return; }
+    if (r.kind === "deck") {
+      const p = g.cleanPayload(data); if (!p) { toast("That deck couldn't be read. Ask them to send it again."); return; }
+      p.name = String(r.title || p.name).slice(0, 120);
+      g.addDeckCopy(p, meta, g.matchCourse(p.course), null, false);
+      return;
+    }
+    if (r.kind === "quiz") {
+      const cq = g.cleanQuizPayload(data); if (!cq || !cq.quiz.questions.length) { toast("That quiz couldn't be read. Ask them to send it again."); return; }
+      g.addDeckCopy({name: String(r.title || cq.quiz.title || "Practice Quiz").slice(0, 120), cards: [], quizzes: [cq.quiz]}, Object.assign({q: 1}, meta), g.matchCourse(cq.course),
+        nd => { toast(`Added ${r.title} to your quizzes`, null, nd && nd.aiQuizzes && nd.aiQuizzes[0] && typeof startAiQuiz === "function" ? {label: "Take It", fn: () => startAiQuiz(nd.id, nd.aiQuizzes[0].id)} : null); }, true);
+      return;
+    }
+    if (r.kind === "map") {
+      const rec = window.SBCMAPG && SBCMAPG.friendRec ? SBCMAPG.friendRec(data) : null;
+      if (!rec || !window.SBCMAP || !SBCMAP.addMapCopy) { toast("That map couldn't be read. Ask them to send it again."); return; }
+      if (r.title) rec.name = String(r.title).slice(0, 80);
+      try {
+        const w = SBCMAP.addMapCopy(rec, data.course, `Added ${rec.name} from ${by}`);
+        toast(`Added ${rec.name} to ${w.where}`, null, {label: "Open", fn: () => SBCMAP.open("course", w.course, w.map)});
+      } catch (e) { toast(e.message || "Couldn't add the map."); }
+    }
+  }
+  // Online: hear about a new one the moment it's sent
+  function listen(){
+    const c = cli(); if (S.chan && c && c.removeChannel) { try { c.removeChannel(S.chan); } catch (e) {} } S.chan = null;
+    if (!c || !c.channel || !me()) return;
+    try {
+      S.chan = c.channel("friend-shares-" + me().id).on("postgres_changes", {event: "INSERT", schema: "public", table: "friend_shares", filter: "to_user=eq." + me().id}, () => setTimeout(check, 400)).subscribe();
+    } catch (e) { S.chan = null; }
+  }
+
+  // When it opens, when it comes back to the front, and every minute while it's in front (in case the live note was missed)
+  hook("boot", () => setTimeout(check, 2500));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - S.at > 15000) check(); });
+  setInterval(() => { if (!document.hidden && (S.uid !== ((me() || {}).id || "") || Date.now() - S.at > 60000)) check(); }, 20000);
+  hook("act", (act, el) => {
+    if (act !== "fs-send") return false;
+    send(el.dataset.kind, el.dataset.ref || el.dataset.id || "");
+    return true;
+  });
+  window.SBFSHARE = {send, check, T: {FS, payloadOf}};
 })();
 /* ===== module: 97-sharing.js ===== */
 /* Public share links and the Course Library */
@@ -43782,7 +43980,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       openSheet(`<div class="sheet">${head(title)}<div class="sheet-body">
         <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Pictures on the board are shared too, so only share pictures you have the right to." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : kind === "quiz" ? " They get the questions, not your scores." : ""}</p>
         <p class="mini" style="margin:0">They'll see your name as <b>${esc(g.myName())}</b>. You can update it or stop sharing any time.</p></div>
-        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
+        <div class="sheet-foot">${kind === "quiz" && window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="quiz" data-ref="${esc(ref)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
       $("#shMake").addEventListener("click", e => make(kind, ref, e.currentTarget));
       return;
     }
@@ -43794,7 +43992,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <p class="mini" style="margin:0">Shared ${esc(ago(row.updated_at))}${row.saves ? `. ${plural(row.saves, "person", "people")} saved a copy` : ""}.</p>
       ${kind === "quiz" ? pubRow("quiz", row.code, src.title) : ""}
       ${row.hidden ? `<div class="grp-note">This link is paused while a report is reviewed.</div>` : changed ? `<div class="grp-note">You've changed this ${what} since you shared it. Update the shared copy so new people get the latest.</div>` : ""}
-      <div class="grp-sub"><button type="button" class="link-btn grp-stop" id="shStop">Stop Sharing</button></div></div>
+      <div class="grp-sub">${kind === "quiz" && window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="quiz" data-ref="${esc(ref)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="shStop">Stop Sharing</button></div></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="shUpd">Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="shSend">Send</button>`}</div></div>`);
     const cp = $("#shCopy"); if (cp) cp.addEventListener("click", () => g.copyText(link, "Link copied"));
     const li = $("#shLinkIn"); if (li) li.addEventListener("focus", () => li.select());
@@ -73820,20 +74018,30 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // the companion says "On it" once, and one line at the end for how the whole job went, not one per request
   let cpAiBusy = 0, cpAiTalkT = 0, cpJobT = 0, cpJobTalked = false;
   const CP_JOB_GAP = (window.__SB_TEST && window.__SB_CP_GAP) || 1500;
+  // A request that failed isn't a job that failed: most features try again, try another AI or use the app's own reading, and
+  // the result still arrives (it used to say "that didn't work" and then the result popped up). So after a failed request it
+  // waits longer, and stays quiet if anything worked or a result was shown on screen in the meantime.
+  const CP_FAIL_GAP = (window.__SB_TEST && window.__SB_CP_FAIL_GAP) || 6000;
+  const dlgSig = () => { try { return dlg.open ? dlg.innerHTML.length + ":" + ((dlg.firstElementChild || {}).className || "") : "closed"; } catch (e) { return ""; } };
+  let cpOkAt = 0;
   try {
     const origAI = aiCall;
     const settle = ok => {
+      if (ok) cpOkAt = Date.now();
       cpAiBusy = Math.max(0, cpAiBusy - 1);
       if (cpAiBusy) return;
       clearTimeout(cpAiTalkT); clearTimeout(cpJobT);
+      const failAt = Date.now(), sig0 = dlgSig();
       cpJobT = setTimeout(() => {
         if (cpAiBusy) return;
         cpJobTalked = false;
         if (!act || quietNow2() || ok === null) return;
         if (ok && Date.now() - cpJobFail < CP_JOB_GAP + 500) ok = false;
-        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
-        else say(pickFrom("ai:oops", OOPS), {ms: 4000});
-      }, CP_JOB_GAP);
+        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); return; }
+        // it came through after all (a later request worked, or its result is on screen): nothing to apologise for
+        if (cpOkAt > failAt || dlgSig() !== sig0) return;
+        say(pickFrom("ai:oops", OOPS), {ms: 4000});
+      }, ok === false ? CP_FAIL_GAP : CP_JOB_GAP);
     };
     // the AI answered but the job still failed: "didn't work" instead of the "done" line that was waiting
     let cpJobFail = 0;
@@ -79982,7 +80190,20 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (tab !== "companion") { try { SBCOMP.tab.stopPreviews(); } catch (e) {} return; }
     const root = $(".cpt"); if (!root) return;
     try { SBCOMP.tab.wirePreviews(root); } catch (e) { console.warn("companion tab", e); }
-    const log = $("#cptLog"); if (log) { toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); }); }
+    // The chat jumps to the newest answer only when something new arrived (another chat, a new message, thinking started or
+    // ended). Any other redraw keeps where you'd scrolled to: redraws for other reasons (a sync, a theme's scene) kept pulling
+    // the chat back down while you scrolled up. While an answer is being written, it follows along if you're at the bottom.
+    const log = $("#cptLog");
+    if (log) {
+      const c = rd().find(x => x.id === T.id), m = c && c.msgs[c.msgs.length - 1];
+      const sig = [T.id, c ? c.msgs.length : 0, T.busy ? 1 : 0, m && m.err ? 1 : 0].join(":");
+      const fresh = sig !== T.logSig || T.logTop == null;
+      const place = () => { if (!log.isConnected) return; if (fresh || (T.busy && T.logEnd)) toLatest(log); else log.scrollTop = T.logTop; };
+      T.logSig = sig; place(); requestAnimationFrame(place);
+      const keep = () => { T.logTop = log.scrollTop; T.logEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 40; };
+      keep(); requestAnimationFrame(keep);
+      log.addEventListener("scroll", keep, {passive: true});
+    }
     const cin = $("#cptIn"); if (cin && cin.value) cptGrow(cin);
   });
 
@@ -120937,7 +121158,19 @@ async function expandFrom(cid, mid, ask){
   applyChanges([{kind: "course", id: c.id, after}], `Added ${add.length} ideas to ${m.name}`, null, {quiet: true});
   return {course: cid, map: mid, name: m.name, where: courseName(c), added: add.length, ideas: rec.add.length};
 }
-window.SBCMAP = {createFrom, expandFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
+/* A copy of a map someone sent (a friend): saved in the course with the same code or name, else General. Returns where it went. */
+function addMapCopy(rec, course, label){
+  const code = String((course && course.code) || "").trim().toLowerCase(), nm = String((course && course.name) || "").trim().toLowerCase();
+  let c = (code && allCourses().find(x => !x.gen && String(x.code || "").trim().toLowerCase() === code)) || (nm && allCourses().find(x => !x.gen && String(x.name || "").trim().toLowerCase() === nm)) || null;
+  if (!c) c = state.courses[GEN_ID] || genRec();
+  if (mapsOf(c).length >= MAX_MAPS) throw new Error(`${courseName(c)} already holds ${MAX_MAPS} maps. Delete one first.`);
+  const now = Date.now(), name = String((rec && rec.name) || "Concept Map").slice(0, 80);
+  const copy = Object.assign({}, rec, {id: uid(), name, auto: false, created: now, at: now}); delete copy.g;
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([copy])}); delete after.cmap;
+  applyChanges([{kind: "course", id: c.id, after}], label || `Added the map ${name}`, null, {quiet: true});
+  return {course: c.id, map: copy.id, where: courseName(c)};
+}
+window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
 })();
 /* ===== module: 99-present.js ===== */
 /* Presentation practice: practice a talk on your own slides, timed.
@@ -123383,6 +123616,23 @@ function quietSave(ch){ if (!ch) return; REMOTE = true; try { applyChanges([ch],
 
 /* For 99-concept-map.js: undo and redo item by item */
 const GM = window.SBCMAPG = {
+  // Sending a map to friends: its ideas, links, places and styles only (like a group's copy), plus its name and course
+  friendPayload: (cid, mid) => {
+    const sp = sharePlan(cid, mid); if (!sp) return null;
+    const ops = CMG.steps({}, sp.plan.rec).after, c = sp.c;
+    const data = {v: 1, type: "map", name: cut(sp.rec.name || "Concept Map", 80), ops, course: c && !c.gen ? {code: cut(c.code || "", 40), name: cut(c.name || "", 120)} : null};
+    if (/^[\w-]{1,40}$/.test(String(sp.rec.pack || ""))) data.pack = sp.rec.pack;
+    return {title: data.name, info: `${(sp.plan.rec.add || []).length + 1} ideas`, data, priv: sp.plan.priv, pics: sp.plan.pics};
+  },
+  // ...and a friend's map back into a map of your own (everything checked the way a group's changes are)
+  friendRec: p => {
+    if (!p || typeof p !== "object" || !Array.isArray(p.ops)) return null;
+    let ok = []; for (let i = 0; i < Math.min(p.ops.length, 4000); i += 200) ok = ok.concat(CMG.clean(p.ops.slice(i, i + 200)));
+    const rec = CMG.apply({}, ok);
+    rec.name = cut(String(p.name || "Concept Map"), 80);
+    if (/^[\w-]{1,40}$/.test(String(p.pack || ""))) rec.pack = p.pack;
+    return rec;
+  },
   snap: o => { const r = recOf(o); return live(r) ? clone(r) : null; },
   steps: (a, b) => CMG.steps(a, b),
   change: (o, ops) => { const r = recOf(o); if (!live(r) || !ops || !ops.length) return null; return courseWith(o.id, ms => ms.map(m => m.id === r.id ? CMG.apply(m, ops) : m)); },
@@ -123630,7 +123880,8 @@ hook("cm-tools", o => chipHtml(o));
 hook("cm-more", o => {
   const it = (cm, label) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}">${label}</button>`;
   if (!o || o.kind !== "course") return "";
-  return liveOf(o) ? it("g-who", "Who Has This Map") + (G() && G().openBoards ? it("g-go", "Go to the Group") : "") : it("g-share", "Share With a Group…");
+  return (liveOf(o) ? it("g-who", "Who Has This Map") + (G() && G().openBoards ? it("g-go", "Go to the Group") : "") : it("g-share", "Share With a Group…"))
+    + (window.SBFSHARE ? it("f-send", "Send to Friends…") : "");
 });
 // a box someone else just changed: outlined in their colour, with their name, for a few seconds
 const PEER_MS = 6000;
@@ -123667,6 +123918,7 @@ const PRIVATE = new Set(["mat", "at", "atpdf", "atlec", "evp", "matchall"]);
 hook("cm-act", (a, o, btn) => {
   const M = B.state(), g = liveOf(o);
   if (a === "g-share") { shareSheet(o); return true; }
+  if (a === "f-send") { if (window.SBFSHARE) SBFSHARE.send("map", o.id + ":" + (o.map || "main")); return true; }
   if (a === "g-who") { if (!g) return true; M.gWho = !M.gWho; M.sel = ""; M.selE = ""; M.looks = false; access(g.bid, true).then(() => { if (G() && G().loadMembers) return G().loadMembers(g.gid); }).then(repaint).catch(() => {}); B.redraw(); return true; }
   if (a === "g-who-x") { M.gWho = false; B.redraw(); return true; }
   if (a === "g-go") { if (g && G() && G().openBoards) { if (dlg.open) dlg.close(); G().openBoards(g.gid); } return true; }
@@ -126156,6 +126408,11 @@ const AUTOPILOT = (() => {
   const tipText = el => {
     if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // the full text of something cut off ("…"), only while it is
+    if (el.dataset && el.dataset.tipfull) {
+      const cut = x => x && (x.scrollWidth > x.clientWidth + 1 || x.scrollHeight > x.clientHeight + 1);
+      return cut(el) || [...el.querySelectorAll("*")].slice(0, 12).some(cut) ? el.dataset.tipfull : "";
+    }
     // the companion speaks for itself: its long screen-reader label isn't shown as a hover message
     if (el.closest && el.closest(".cp, [data-notip]")) return "";
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
@@ -126197,7 +126454,7 @@ const AUTOPILOT = (() => {
   };
   document.addEventListener("pointerover", e => {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const el = e.target.closest && e.target.closest("[data-why],[data-tip],button,a[href],[role=button],[role=tab]");
+    const el = e.target.closest && e.target.closest("[data-why],[data-tip],[data-tipfull],button,a[href],[role=button],[role=tab]");
     if (!el || el === tipFor) return;
     if (tipFor) hideTip();
     want(el, 500);
@@ -126428,6 +126685,22 @@ const AUTOPILOT = (() => {
       for (let n = w.nextNode(); n; n = w.nextNode()) { s += n.data; if (s.trim().length > t.length) return false; }
       return s.trim() === t;
     };
+    // Which hover boxes are worth showing (most titles only repeated or explained what's already on screen, and every one of
+    // them used to pop up): a disabled control's reason, a keyboard shortcut, a short value on something with no words (a
+    // progress bar: just its first sentence), and the full text of text that's cut off (shown only while it's cut off). An
+    // icon-only button shows just its name (102-qol.js), never a description.
+    const SHORTCUT = /\b(Ctrl|Cmd|Alt|Shift|Option)\s*[+\-]|[⌘⌃⌥⇧]|\bpress\s+\S{1,3}\b|\(\s*[A-Z?/]\s*\)$/i;
+    const firstSentence = t => { const m = /^(.{3,90}?[.!?])(\s|$)/.exec(t); return (m ? m[1] : t.slice(0, 90)).trim(); };
+    const ownText = el => { let s2 = ""; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { if (n.parentElement && n.parentElement.closest("svg")) continue; s2 += n.data; if (s2.length > 300) break; } return s2.replace(/\s+/g, " ").trim(); };
+    const tipKind = (el, t) => {
+      if (el.disabled || el.getAttribute("aria-disabled") === "true") return "tip";
+      if (SHORTCUT.test(t)) return "tip";
+      const own = ownText(el), interactive = el.matches("button,a[href],[role=button],[role=tab],input,select,textarea,label");
+      if (!/[\p{L}\p{N}]/u.test(own)) return interactive ? "" : "first";
+      const a2 = own.replace(/[….]+$/, "").toLowerCase(), b2 = t.toLowerCase();
+      if (a2.length >= 2 && (b2.startsWith(a2) || b2.includes(a2))) return "full";   // the same text, or more of it: only while it's cut off
+      return "";
+    };
     // (labels last: finding a control's <label>s looks through the whole page)
     const named = el => el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || (!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && hasText(el)) || (el.labels && el.labels.length);
     const strip = el => {
@@ -126435,7 +126708,7 @@ const AUTOPILOT = (() => {
       if (el.hasAttribute("title")) {
         const t = (el.getAttribute("title") || "").trim(); el.removeAttribute("title");
         if (t && !named(el)) el.setAttribute("aria-label", t);
-        else if (t && (el.getAttribute("aria-label") ? t !== el.getAttribute("aria-label") : !textIs(el, t))) el.dataset.tip = t;
+        else if (t) { const k = tipKind(el, t); if (k === "tip") el.dataset.tip = t; else if (k === "first") el.dataset.tip = firstSentence(t); else if (k === "full") el.dataset.tipfull = t; }
       }
       if (el.tagName === "title" && el.parentNode && el.parentNode.tagName && el.parentNode.tagName.toLowerCase() === "svg") {
         const svg = el.parentNode, t = (el.textContent || "").trim(); el.remove();

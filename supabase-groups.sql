@@ -1276,6 +1276,12 @@ notify pgrst, 'reload schema';
 alter table public.group_members add column if not exists face text;
 alter table public.group_members drop constraint if exists group_members_face_check;
 alter table public.group_members add constraint group_members_face_check check (face is null or face ~ '^[a-z0-9-]{1,40}$');
+-- The same companion on your profile, for people you share no group with (Friends)
+alter table public.study_profiles add column if not exists face text;
+alter table public.study_profiles drop constraint if exists study_profiles_face_check;
+alter table public.study_profiles add constraint study_profiles_face_check check (face is null or face ~ '^[a-z0-9-]{1,40}$');
+update public.study_profiles p set face = (select m.face from public.group_members m where m.user_id = p.user_id and m.face is not null order by m.joined_at desc limit 1)
+  where p.face is null and exists (select 1 from public.group_members m where m.user_id = p.user_id and m.face is not null);
 revoke update (face) on public.group_members from authenticated;
 create or replace function public.set_my_face(p_face text) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -1284,6 +1290,7 @@ begin
   if me is null then raise exception 'Sign in first'; end if;
   if v is not null and v !~ '^[a-z0-9-]{1,40}$' then raise exception 'That companion isn''t valid'; end if;
   update public.group_members set face = v where user_id = me and face is distinct from v;
+  update public.study_profiles set face = v where user_id = me and face is distinct from v;   -- friends see it too (supabase-friends.sql)
 end $$;
 revoke all on function public.set_my_face(text) from public, anon;
 grant execute on function public.set_my_face(text) to authenticated;
