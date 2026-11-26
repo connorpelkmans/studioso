@@ -85,37 +85,34 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const params = new URLSearchParams({ customer, return_url: ret });
     const conf = d.env("STRIPE_PORTAL_CONFIG");
     if (/^bpc_[A-Za-z0-9]+$/.test(conf)) params.set("configuration", conf);
-    // Easy cancel (flow: "cancel"): open the portal straight on Stripe's "Cancel your plan" step for this customer's
-    // subscription that's still set to renew. Stripe asks to confirm there, and the person comes back here after.
-    let canceling = false;
+    // Easy cancel (flow: "cancel"): stop the renewing subscription from charging again, and nothing more. It's set to cancel
+    // at the end of the period already paid for: no refund, no proration, Pro stays until then. (Done here rather than in
+    // Stripe's portal, whose cancel step can be set to cancel at once with a prorated refund.) The webhook then records
+    // will_renew = false, as for any cancellation.
     if (body.flow === "cancel") {
       const lr = await d.fetch(`https://api.stripe.com/v1/subscriptions?${new URLSearchParams({ customer, status: "all", limit: "20" })}`, { headers: stripeAuth });
-      const list = lr.ok ? ((await lr.json().catch(() => ({}))) as { data?: { id?: string; status?: string; cancel_at_period_end?: boolean }[] }).data || [] : [];
+      if (!lr.ok) throw new Error(`stripe subscriptions ${lr.status}`);
+      type Sub = { id?: string; status?: string; cancel_at_period_end?: boolean; cancel_at?: number | null; current_period_end?: number; trial_end?: number | null; items?: { data?: { current_period_end?: number }[] } };
+      const list = ((await lr.json().catch(() => ({}))) as { data?: Sub[] }).data || [];
       const live = list.filter(x => typeof x.id === "string" && /^sub_[A-Za-z0-9]+$/.test(x.id) && ["active", "trialing", "past_due", "unpaid"].includes(String(x.status)));
-      const sub = live.find(x => !x.cancel_at_period_end);
-      if (lr.ok && !sub) {
+      const sub = live.find(x => !x.cancel_at_period_end && !x.cancel_at);
+      const endOf = (x: Sub) => { const t = Number(x.current_period_end || x.items?.data?.[0]?.current_period_end || (x.status === "trialing" ? x.trial_end : 0) || x.cancel_at || 0); return t > 0 ? new Date(t * 1000).toISOString() : null; };
+      if (!sub) {
         return live.length
-          ? json({ error: "already_canceled", message: "Your plan is already canceled. You keep Pro until the end of the time you paid for." }, 409, cors)
+          ? json({ error: "already_canceled", message: "Your plan is already canceled. You keep Pro until the end of the time you paid for.", ends_at: endOf(live[0]) }, 409, cors)
           : json({ error: "no_subscription", message: "There's no subscription to cancel on this account." }, 404, cors);
       }
-      if (sub) {
-        params.set("flow_data[type]", "subscription_cancel");
-        params.set("flow_data[subscription_cancel][subscription]", sub.id as string);
-        params.set("flow_data[after_completion][type]", "redirect");
-        params.set("flow_data[after_completion][redirect][return_url]", ret);
-        canceling = true;
-      }
+      const cr = await d.fetch(`https://api.stripe.com/v1/subscriptions/${encodeURIComponent(sub.id as string)}`, {
+        method: "POST", headers: { ...stripeAuth, "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ cancel_at_period_end: "true" }).toString(),
+      });
+      if (!cr.ok) { const e = await cr.json().catch(() => ({})) as { error?: { code?: string } }; throw new Error(`stripe cancel ${cr.status} ${e.error?.code || ""}`.trim()); }
+      const done = await cr.json().catch(() => ({})) as Sub;
+      return json({ ok: true, canceled: true, ends_at: endOf(done) || endOf(sub) }, 200, cors);
     }
     const portal = (p: URLSearchParams) => d.fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST", headers: { ...stripeAuth, "Content-Type": "application/x-www-form-urlencoded" }, body: p.toString(),
     });
-    let r = await portal(params);
-    // A portal set up without cancelling turned on refuses the cancel step: open the normal billing page instead
-    if (!r.ok && canceling) {
-      for (const k of [...params.keys()]) if (k.startsWith("flow_data")) params.delete(k);
-      canceling = false;
-      r = await portal(params);
-    }
+    const r = await portal(params);
     if (!r.ok) {
       const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
       if (e.error?.code === "resource_missing") return json({ error: "billing_unavailable", message: "We couldn't find a card subscription for this account in live billing. If you subscribed during testing, it no longer applies. Start a new subscription from the account page, or write to support." }, 409, cors);
@@ -123,7 +120,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     }
     const s = await r.json() as { url?: string };
     if (typeof s.url !== "string" || !/^https:\/\/billing\.stripe\.com\//.test(s.url)) throw new Error("no portal url");
-    return json({ url: s.url, cancel: canceling }, 200, cors);
+    return json({ url: s.url }, 200, cors);
   } catch (err) {
     d.log("create-portal-session failed", err instanceof Error ? err.message : "error");
     return json({ error: "server error", message: "Something went wrong opening billing. Please try again." }, 500, cors);

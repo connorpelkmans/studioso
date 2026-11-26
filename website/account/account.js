@@ -136,17 +136,35 @@
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
 
-  // Easy cancel: straight to Stripe's "Cancel your plan" step
+  // Easy cancel: stops renewal only. Pro stays until the end of the time already paid for, and nothing is refunded.
+  // The first click asks to confirm (the button changes), the second cancels.
+  var cancelArmed = false;
   function openCancel() {
-    if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening cancellation...", "");
-    fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname, flow: "cancel" }).then(function (r) {
-      var url = r.status === 200 ? stripeUrl(r.body && r.body.url, "billing.stripe.com") : null;
-      if (url) { location.assign(url); return; }
-      var code = r.body && r.body.error;
-      msg($("acct-msg"), code === "already_canceled" || code === "no_subscription" ? r.body.message : r.status === 404 ? "There's no card subscription on this account." : (r.body && r.body.message) || "Something went wrong opening billing.", code === "already_canceled" ? "ok" : "error");
-      if (code === "already_canceled" && $("btn-cancel")) $("btn-cancel").hidden = true;
-      state.busy = false; setBuyDisabled(false);
-    }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
+    if (state.busy) return;
+    var b = $("btn-cancel");
+    if (!cancelArmed) {
+      cancelArmed = true; b.textContent = "Yes, cancel subscription";
+      msg($("acct-msg"), "Your plan will stop renewing, so you won't be charged again. You keep Pro until the end of the time you've paid for. Payments already made aren't refunded.", "");
+      return;
+    }
+    state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Canceling...", "");
+    fn(functions.portal || "create-portal-session", { flow: "cancel" }).then(function (r) {
+      state.busy = false; setBuyDisabled(false); cancelArmed = false; b.textContent = "Cancel subscription";
+      var body = r.body || {}, end = body.ends_at ? fmt(body.ends_at) : "";
+      if (r.status === 200 && body.canceled) {
+        b.hidden = true;
+        msg($("acct-msg"), "Canceled. You won't be charged again" + (end ? ", and you keep Pro until " + end : "") + ".", "ok");
+        setTimeout(renderPlanOnly, 4000);
+        return;
+      }
+      if (body.error === "already_canceled") { b.hidden = true; return msg($("acct-msg"), "Your plan is already canceled" + (end ? ". You keep Pro until " + end : "") + ".", "ok"); }
+      msg($("acct-msg"), body.error === "no_subscription" || r.status === 404 ? "There's no card subscription on this account to cancel." : typeof body.message === "string" ? body.message : "Couldn't cancel just now. Please try again.", "error");
+    }).catch(function () { state.busy = false; setBuyDisabled(false); msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); });
+  }
+  // Read the plan again (after a cancel, once the webhook has recorded it) without clearing the message
+  function renderPlanOnly() {
+    state.sb.from("studyboard_entitlements").select("plan,pro_until,trial_until,source,will_renew,grant_until,grant_lifetime").eq("user_id", state.session.user.id).maybeSingle()
+      .then(function (r) { var d = describe(r && r.data); $("plan-tag").textContent = d.tag; $("plan-detail").textContent = d.detail; if ($("btn-cancel")) $("btn-cancel").hidden = !d.cancel; }, function () {});
   }
 
   // Signed-in view
@@ -165,7 +183,7 @@
         state.sb.from("studyboard_config").select("value").eq("key", "plus_plan").maybeSingle().then(function (c) { if ($("plus-card")) $("plus-card").hidden = !(c && c.data && c.data.value === true); }, function () {});
         $("manage-panel").hidden = !d.manage;
         if ($("btn-cancel")) $("btn-cancel").hidden = !d.cancel;
-        if (wantCancel && d.cancel && $("btn-cancel")) { wantCancel = false; $("btn-cancel").focus(); msg($("acct-msg"), "To cancel, choose Cancel subscription. Stripe asks you to confirm, and you keep Pro until the end of the time you paid for.", ""); }
+        if (wantCancel && d.cancel && $("btn-cancel")) { wantCancel = false; $("btn-cancel").focus(); msg($("acct-msg"), "To cancel, choose Cancel subscription. Your plan stops renewing; you keep Pro until the end of the time you paid for, and payments already made aren't refunded.", ""); }
         maybeAutoCheckout(d);
       }, function () { $("plan-detail").textContent = "Couldn't load your plan right now."; maybeAutoCheckout({ subscribed: false }); });
   }
