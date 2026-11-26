@@ -14233,6 +14233,8 @@ function computeFocusNow(){
     }
   }
   const crunch = byDue.map(t => info[t.id]).find(x => x.behind >= 0.5 && !x.past && !x.dead);
+  // Time Cushion (92-cushion.js): the study time left over, or missing, at the tightest deadline in the next 14 days, from the numbers above
+  let cushion = null; if (window.SBCUSH) { try { cushion = SBCUSH.fromPlan({byDue, info, today, th, thSet, doneToday, leftH, av, dh}); } catch(e) { console.warn("cushion", e); } }
   const pct = n => Math.round(n * 10) / 10;
   Object.values(info).forEach(x => {
     const t = x.t, r = [], sw = shownWeight(t), SW = sw && !(t.xs || t.prepFor) ? sw.w : 0;
@@ -14291,7 +14293,7 @@ function computeFocusNow(){
   });
   let avail = null; if (av) { try { avail = availPlan(av, ranked, th0, needToday, day, today, now, nuLead({ranked, info})); } catch(e) { console.warn(e); } }
   const lateCap = thSet - doneToday > leftH + 0.01;
-  FOCUS = {sd, info, ranked, blocked, later, today, over, overAll: !!(overF && overF.all), overEnded: overF ? overF.ended : [], th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
+  FOCUS = {sd, info, ranked, blocked, later, today, over, overAll: !!(overF && overF.all), overEnded: overF ? overF.ended : [], th, thSet, doneToday, dh: dh0, planned: avail && avail.active ? avail.planned : th - Math.max(0, left), needToday, crunch, cushion, drop, busyAhead, busy: B, day, avail, slotsBy: avail ? avail.by : {}, av, th0, now, lateCap};
   FOCUS.gapWhy = planGapWhy(FOCUS);
   return FOCUS;
 }
@@ -23497,10 +23499,12 @@ function pomoAlarm(done, next, auto, missed){
   const t = done === "focus" && pomo.taskId && state.tasks[pomo.taskId], task = t && t.status !== "done" ? t : null;
   const short = task ? (task.title.length > 30 ? task.title.slice(0, 29) + "…" : task.title) : "";
   const ad = $("#alarmDlg");
+  // Focus Sprout: the plant this session grew (01-focus-sprout.js)
+  const grown = done === "focus" && typeof SBSPROUT !== "undefined" ? SBSPROUT.alarmArt() : "", grownLine = grown ? SBSPROUT.alarmLine() : "";
   ad.innerHTML = `<div class="alarm-card ${done === "focus" ? "is-focus" : "is-break"}">
-    <div class="alarm-ring" aria-hidden="true">${TOMATO}</div>
+    <div class="alarm-ring${grown ? " sp-ring" : ""}" aria-hidden="true">${grown || TOMATO}</div>
     <h2>${missed ? "Your timer finished while Studyboard was closed" : esc(title)}</h2>
-    <p>${esc(body)}</p>
+    <p>${esc(body)}</p>${grownLine ? `<p class="sp-alarm-line">${esc(grownLine)}</p>` : ""}
     <div class="row-actions">${!auto ? `<button class="btn primary" id="alStart">Start ${esc(MODE_LABEL[next])}</button>` : ""}<button class="btn ${auto ? "primary" : ""}" id="alOk">${auto ? "Got It" : "Not Yet"}</button></div>
     ${task || (auto && next !== "focus") ? `<div class="row-actions alarm-more">${task ? `<button class="btn" id="alDone" data-act="toggle" data-id="${esc(task.id)}">Mark “${esc(short)}” Done</button><button class="btn" id="alAgain">Another Session on It</button>` : ""}${auto && next !== "focus" ? `<button class="btn" id="alSkip">Skip Break</button>` : ""}</div>` : ""}
   </div>`;
@@ -23687,9 +23691,9 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
+        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
+      ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
         <button class="btn primary big pomo-go" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? POMO_IC.pause : POMO_IC.play}<span class="sr">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</span></button>
@@ -23697,7 +23701,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>
+      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>${typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml() : ""}
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -23715,6 +23719,7 @@ function renderPomo(){
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
           <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a notification</label>
           <p class="mini" style="margin:0">${notifyNote} ${phoneNow ? "Keep Studyboard open so the alarm can ring; the phone pauses it when the screen turns off." : "Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off."}</p>
+          ${typeof SBSPROUT !== "undefined" ? SBSPROUT.settingsHtml() : ""}
         </div>
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
@@ -23782,6 +23787,299 @@ function pomoAction(act, el){
 
 // Test handle (only when a test page sets window.__SB_TEST)
 if (window.__SB_TEST) window.__sbPomo = {get pomo(){ return pomo; }, save: pomoSave, render: renderPomo, finish: pomoFinish};
+/* ===== module: 01-focus-sprout.js: Focus Sprout, the Focus Garden, and Block Distracting Apps on phones ===== */
+/* 1. Focus Sprout (free, every platform): a seedling in the Focus timer's dial grows through five stages (seed, sprout,
+      seedling, young plant, in bloom) as a focus session runs. Only time spent in Studyboard counts: leaving the app or tab pauses
+      the growth (absences under 5 seconds are ignored), and coming back says "Welcome back. Your sprout waited for you."
+      Strict Sprout (Timer Settings, off by default) wilts it instead after 60 seconds away; it stays wilted for that session.
+      The sprout being grown lives on this device only ("studioso:sprout"), so a reload carries on where it was.
+   2. Focus Garden: a finished focus session plants its sprout (at the stage it reached, or as a dry sprout) on the week's shelf,
+      in its course's colour. Kept in state.settings.garden next to the other focus stats (SBSTATS: state.settings.focusDays):
+      {"YYYY-MM-DD": ["5bio", "3", "wpsy"]}, the stage (1 to 5, or w for wilted) then the course id, for the last 9 weeks.
+      Shown in the Focus sheet and in Insights > This Week, only once there is something on it.
+   3. Block Distracting Apps (phone apps, opt in, Timer Settings): calls window.StudyboardNative.focusGuard, which native-bridge.js
+      defines only when the phone app has the plugin. Android turns on Do Not Disturb; iPhone shields the apps chosen with
+      Choose Apps (Screen Time). start({until, apps, dnd}) when a focus session runs, stop() when it pauses, stops or ends.
+      The row is hidden when the plugin is missing or says neither is available. The choice is kept on this device
+      ("studioso:focusguard"), since it depends on the phone. The desktop's site blocking (99-pro.js) is separate. */
+var SBSPROUT = (() => {
+  const LS = "studioso:sprout", GLS = "studioso:focusguard", GRACE = 5000, WILT = 60000, KEEP_DAYS = 63, PER_DAY = 24;
+  const STAGE = ["", "seed", "sprout", "seedling", "young plant", "in bloom"];
+  const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const p2 = n => String(n).padStart(2, "0");
+  const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+  const cfg = () => Object.assign({strict: false}, state.settings && state.settings.sprout);
+  const active = () => pomo.mode === "focus" && (pomo.running || pomo.left > 0);
+  const running = () => pomo.mode === "focus" && pomo.running;
+
+  /* ---------- The sprout being grown ---------- */
+  // {len: session length (ms), endAt, away: ms away counted so far, hidAt: when the page was left (0 when here), wilted}
+  let sp = lsGet(LS);
+  if (sp && typeof sp !== "object") sp = null;
+  const save = () => lsSet(LS, sp);
+  const pending = (s, now) => s && s.hidAt ? Math.max(0, Math.min(now, Number(s.endAt) || now) - s.hidAt) : 0;
+  function progress(now){
+    if (!sp) return 0;
+    now = now || Date.now();
+    const len = Math.max(60000, Number(sp.len) || pomoLen());
+    // a finished session has run its whole length
+    const left = !active() ? 0 : pomo.running ? Math.max(0, pomo.endAt - now) : pomo.left;
+    const done = len - Math.min(len, left), away = (Number(sp.away) || 0) + pending(sp, now);
+    return Math.max(0, Math.min(1, (done - away) / len));
+  }
+  // five stages over the session: the bloom opens for the last fifth
+  const stageOf = p => Math.max(1, Math.min(5, 1 + Math.floor(p * 5 + 1e-9)));
+  const stageNow = () => sp && sp.wilted ? "w" : sp ? stageOf(progress()) : 1;
+  const courseIdOf = id => { const t = id && state.tasks && state.tasks[id]; return t && t.courseId && courseOf(t.courseId) ? t.courseId : ""; };
+  const potOf = cid => cid && courseOf(cid) ? colorOf(cid) : "";
+  // Time away is added on coming back, once it's over 5 seconds
+  function settle(now){
+    if (!sp || !sp.hidAt) return 0;
+    const gone = pending(sp, now); sp.hidAt = 0;
+    if (gone >= GRACE) {
+      sp.away = (Number(sp.away) || 0) + gone;
+      if (cfg().strict && gone >= WILT) sp.wilted = true;
+    }
+    save();
+    return gone >= GRACE ? gone : 0;
+  }
+  function sync(){
+    if (active()) {
+      if (!sp || Number(sp.len) !== pomoLen()) { sp = {len: pomoLen(), endAt: pomo.running ? pomo.endAt : 0, away: 0, hidAt: 0, wilted: false}; save(); }
+      else if (pomo.running && sp.endAt !== pomo.endAt) { sp.endAt = pomo.endAt; save(); }
+      if (!pomo.running && sp.hidAt) settle(Date.now());
+    } else if (sp) {
+      // a finished session plants it first ("end" comes right after the timer stops): only a stopped one is dropped here
+      const was = sp; setTimeout(() => { if (sp === was && !active()) { sp = null; save(); } }, 0);
+    }
+  }
+  function leave(){ if (sp && running() && !sp.hidAt) { sp.hidAt = Date.now(); save(); } }
+  let NOTE = null;
+  function back(quiet){
+    if (!sp || !sp.hidAt) return;
+    const wasWilted = !!sp.wilted, gone = settle(Date.now());
+    // the session ended while away: the alarm says what happened
+    if (!gone || !active() || (pomo.running && Date.now() >= pomo.endAt)) return;
+    if (sp.wilted && !wasWilted) note("wilt", quiet);
+    else if (!sp.wilted) note("back", quiet);
+    draw(true);
+  }
+  const NOTES = {back: "Welcome back. Your sprout waited for you.", wilt: "Your sprout wilted while you were away. It keeps its spot on your shelf, and a new seed is ready next session."};
+  function note(kind, quiet){
+    NOTE = {kind, until: Date.now() + 15000};
+    // the timer sheet shows it under the dial; otherwise a toast
+    if (!quiet && !$("#pomoDlg").open) toast(NOTES[kind]);
+    const n = document.getElementById("spNote"); if (n) { n.textContent = NOTES[kind]; n.hidden = false; }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.hidden) leave(); else back(); });
+  window.addEventListener("pagehide", leave);
+
+  /* ---------- Planting ---------- */
+  const garden = () => { const g = state.settings && state.settings.garden; return g && typeof g === "object" ? g : {}; };
+  function finalPlant(){
+    if (!sp) return null;
+    const p = progress(), st = sp.wilted ? "w" : stageOf(p);
+    return {stage: st, courseId: courseIdOf(pomo.taskId)};
+  }
+  function plant(code, day){
+    const g = Object.assign({}, garden()), cut = addDays(todayISO(), -KEEP_DAYS);
+    g[day] = (Array.isArray(g[day]) ? g[day] : []).concat([code]).slice(-PER_DAY);
+    Object.keys(g).forEach(k => { if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || k < cut) delete g[k]; });
+    state.settings = Object.assign({}, state.settings, {garden: g}); saveSettings();
+  }
+  hook("focus", e => {
+    if (!e || e.type !== "end" || e.mode !== "focus" || !sp) return;
+    const end = Math.min(Date.now(), Number(sp.endAt) || Date.now());
+    if (sp.hidAt) settle(end);
+    const f = finalPlant();
+    sp = null; save(); NOTE = null;
+    if (!f) return;
+    try { plant(`${f.stage}${f.courseId}`, dayOf(end)); } catch (err) { console.warn("garden", err); }
+    fire("garden", f);
+    if ($("#pomoDlg").open) renderPomo();
+  });
+  hook("focus-state", () => { sync(); guardSync(); });
+
+  /* ---------- Drawing ---------- */
+  // A leaf pointing right from (0,0), about 10.5 long
+  const LEAF = "M0 0C2.5-4.2 7.5-5 10.5-3.2C8 .8 3.6 2.2 0 0Z";
+  const leaf = (x, y, a, s, left, cls) => `<g transform="translate(${x} ${y})${left ? " scale(-1 1)" : ""} rotate(${a}) scale(${s})"><path class="${cls || "sp-leaf"}" d="${LEAF}"/><path class="sp-rib" d="M.8 -.2C3.6-1.4 6.4-2.1 9.2-2.6"/></g>`;
+  const stem = (d, cls) => `<path class="${cls || "sp-stem"}" d="${d}"/>`;
+  const POT = `<path class="sp-pot" d="M9.6 37H30.4L28.6 45.4Q28.3 47 26.7 47H13.3Q11.7 47 11.4 45.4Z"/><path class="sp-shade" d="M24.5 37H30.4L28.6 45.4Q28.3 47 26.7 47H23.2Z"/><rect class="sp-rim" x="7.2" y="32.4" width="25.6" height="5.4" rx="2.2"/><rect class="sp-hi" x="9" y="33.5" width="9" height="1.2" rx=".6"/><ellipse class="sp-soil" cx="20" cy="32.6" rx="11.2" ry="1.7"/>`;
+  const ART = {
+    1: `<ellipse class="sp-seed" cx="20" cy="31.2" rx="2.7" ry="1.9" transform="rotate(-18 20 31.2)"/><path class="sp-stem" d="M20.9 30C21.3 28.7 22.1 27.9 23.2 27.6"/>`,
+    2: stem("M20 32.4C20 30 19.8 28.2 20 26.4") + leaf(20, 26.6, -28, .5, true) + leaf(20, 26.6, -28, .5, false),
+    3: stem("M20 32.4C20 28.6 19.1 24.8 20 20.6") + leaf(20, 21, -24, .82, true) + leaf(20, 21, -30, .9, false),
+    4: stem("M20 32.4C20 27 19.2 21 20 14.4") + leaf(19.9, 25.6, -12, .8, true) + leaf(19.9, 24.2, -16, .86, false) + leaf(20, 15, -30, .62, true) + leaf(20, 15, -34, .66, false) + `<ellipse class="sp-bud" cx="20" cy="13.4" rx="1.7" ry="2.3"/>`,
+    5: stem("M20 32.4C20 26 19.2 19 20 12.6") + leaf(19.9, 26.6, -10, .84, true) + leaf(19.9, 25.2, -14, .9, false) + leaf(19.9, 20.4, -24, .56, true) + leaf(19.9, 19.6, -28, .6, false)
+      + [0, 72, 144, 216, 288].map(a => `<ellipse class="sp-petal" cx="20" cy="6.4" rx="2.8" ry="3.7" transform="rotate(${a} 20 10.2)"/>`).join("") + `<circle class="sp-eye" cx="20" cy="10.2" r="2.3"/>`,
+    w: stem("M20 32.4C20 27.4 20.6 23.6 23.4 22.2C25.4 21.2 27.2 22.4 27.4 24.6", "sp-stem dry") + leaf(20.2, 27.2, 34, .8, true, "sp-leaf dry") + leaf(20.6, 25.4, 40, .76, false, "sp-leaf dry") + `<ellipse class="sp-seed dry" cx="27.5" cy="26.2" rx="1.5" ry="2"/>`
+  };
+  function plantSvg(stage, color, cls){
+    const st = ART[stage] ? stage : 1;
+    return `<svg class="sp-plant ${cls || ""} s-${st}" viewBox="0 0 40 48" aria-hidden="true" focusable="false"${color ? ` style="--pot:${esc(color)}"` : ""}>${POT}${ART[st]}</svg>`;
+  }
+  const stageWord = st => st === "w" ? "a dry sprout" : st === 5 ? "in bloom" : `a ${STAGE[st]}`;
+  const ariaNow = st => st === "w" ? "Your sprout wilted this session" : `Your sprout: ${STAGE[st]}, stage ${st} of 5`;
+  // In the timer's dial (focus mode only)
+  function dialHtml(){
+    if (pomo.mode !== "focus") return "";
+    const st = stageNow(), color = potOf(courseIdOf(pomo.taskId));
+    return `<span class="sp-dial${st === "w" ? " wilted" : ""}" id="spDial" role="img" aria-label="${esc(ariaNow(st))}" data-k="${st}" data-c="${esc(color)}">${plantSvg(st, color)}</span>`;
+  }
+  function noteHtml(){
+    const on = pomo.mode === "focus" && NOTE && NOTE.until > Date.now();
+    return `<p class="sp-note" id="spNote" role="status"${on ? "" : " hidden"}>${on ? esc(NOTES[NOTE.kind]) : ""}</p>`;
+  }
+  // Keeps the dial's sprout up to date (a full redraw of the sheet isn't needed for it)
+  function draw(force){
+    const el = document.getElementById("spDial"); if (!el) return;
+    const st = String(stageNow()), color = potOf(courseIdOf(pomo.taskId));
+    if (!force && el.dataset.k === st && el.dataset.c === color) return;
+    const grew = el.dataset.k !== st;
+    el.dataset.k = st; el.dataset.c = color;
+    el.innerHTML = plantSvg(st === "w" ? "w" : Number(st), color, grew ? "sp-new" : "");
+    el.classList.toggle("wilted", st === "w");
+    el.setAttribute("aria-label", ariaNow(st === "w" ? "w" : Number(st)));
+    const n = document.getElementById("spNote");
+    if (n && !n.hidden && !(NOTE && NOTE.until > Date.now())) { n.hidden = true; n.textContent = ""; }
+  }
+  setInterval(() => { if (pomo.mode === "focus" && document.getElementById("spDial")) draw(); }, 1000);
+
+  // The alarm at the end of a focus session shows what was grown (called before it's planted)
+  function alarmArt(){
+    const f = finalPlant(); if (!f) return "";
+    return plantSvg(f.stage, potOf(f.courseId), "sp-alarm");
+  }
+  function alarmLine(){
+    const f = finalPlant(); if (!f) return "";
+    return f.stage === "w" ? "Your dry sprout is on your Focus Garden shelf. A new seed is ready next session."
+      : f.stage === 5 ? "Your sprout bloomed. It's on your Focus Garden shelf." : `Your sprout grew into ${stageWord(f.stage)}. It's on your Focus Garden shelf.`;
+  }
+
+  /* ---------- The week's shelf ---------- */
+  const weekDays = () => { const t = todayISO(), mon = addDays(t, -((parse(t).getDay() + 6) % 7)); return [0, 1, 2, 3, 4, 5, 6].map(i => addDays(mon, i)); };
+  const decode = code => { const s = String(code || ""), c = s.charAt(0); return {stage: c === "w" ? "w" : Math.max(1, Math.min(5, Number(c) || 1)), courseId: s.slice(1)}; };
+  const nOf = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  function weekData(){
+    const g = garden(), days = weekDays();
+    const cols = days.map(d => ({d, list: (Array.isArray(g[d]) ? g[d] : []).map(decode)}));
+    const all = cols.flatMap(c => c.list), dry = all.filter(x => x.stage === "w").length;
+    return {cols, n: all.length, grown: all.length - dry, dry, bloom: all.filter(x => x.stage === 5).length};
+  }
+  function summary(W){
+    const bits = [];
+    if (W.grown) bits.push(nOf(W.grown, "plant", "plants"));
+    if (W.dry) bits.push(nOf(W.dry, "dry sprout", "dry sprouts"));
+    return bits.join(" and ") + " this week";
+  }
+  function gardenHtml(where){
+    const W = weekData(); if (!W.n) return "";
+    const today = todayISO(), MAX = 3;
+    const cols = W.cols.map(c => {
+      const shown = c.list.slice(0, MAX), more = c.list.length - shown.length, wd = parse(c.d).toLocaleDateString(undefined, {weekday: "narrow"});
+      return `<span class="sg-day${c.d === today ? " sg-today" : ""}${c.list.length > 2 ? " sg-many" : c.list.length === 2 ? " sg-two" : ""}"><span class="sg-pots">${shown.map(x => plantSvg(x.stage, potOf(x.courseId), "sg-p")).join("")}</span>${more > 0 ? `<span class="sg-more">+${more}</span>` : ""}<span class="sg-lbl">${esc(wd)}</span></span>`;
+    }).join("");
+    const aria = `Focus Garden: ${summary(W)}. ` + W.cols.filter(c => c.list.length).map(c => `${parse(c.d).toLocaleDateString(undefined, {weekday: "long"})}: ${c.list.length}`).join(", ") + ".";
+    const head = `<div class="sg-head"><h3>Focus Garden</h3><span class="sg-sum">${esc(summary(W))}</span></div>`;
+    const shelf = `<div class="sg-shelf" role="img" aria-label="${esc(aria)}">${cols}</div>`;
+    return where === "ins" ? `<section class="pro-card sp-garden in-ins">${head}${shelf}<p class="mini" style="margin:0">One plant for each finished Focus timer session, in its course's colour.</p></section>`
+      : `<section class="sp-garden">${head}${shelf}</section>`;
+  }
+
+  /* ---------- Settings: Strict Sprout and Block Distracting Apps ---------- */
+  const guardApi = () => { const N = window.StudyboardNative; return N && N.focusGuard && typeof N.focusGuard.start === "function" ? N.focusGuard : null; };
+  const gGet = () => Object.assign({on: false, picked: false, until: 0}, lsGet(GLS) || {});
+  const gSet = patch => { const g = Object.assign(gGet(), patch); lsSet(GLS, g); return g; };
+  let AV = null, avAt = 0;   // what the plugin says is available: {dnd, apps}
+  function refreshAvail(force){
+    const G = guardApi(); if (!G) { AV = null; return Promise.resolve(null); }
+    if (!force && AV && Date.now() - avAt < 30000) return Promise.resolve(AV);
+    avAt = Date.now();
+    return Promise.resolve().then(() => G.available()).then(r => {
+      const was = JSON.stringify(AV); AV = {dnd: !!(r && r.dnd), apps: !!(r && r.apps)};
+      if (JSON.stringify(AV) !== was) { drawGuard(); guardSync(); }
+      return AV;
+    }, () => { AV = {dnd: false, apps: false}; drawGuard(); return AV; });
+  }
+  const canGuard = () => !!(guardApi() && AV && (AV.dnd || AV.apps));
+  function guardRowHtml(){
+    if (!canGuard()) return "";
+    const g = gGet(), onlyApps = AV.apps && !AV.dnd;
+    const what = AV.dnd && !AV.apps ? "Turns on Do Not Disturb while you focus. It goes back to how it was when the session ends, or when you pause or stop."
+      : onlyApps ? "Blocks the apps you choose while you focus. They open again when the session ends, or when you pause or stop."
+      : "Turns on Do Not Disturb and blocks the apps you choose while you focus, until the session ends or you pause or stop.";
+    return `<div class="fg-row"><label class="mi-check"><input type="checkbox" id="psGuard" ${g.on ? "checked" : ""}> Block distracting apps</label>
+      <p class="mini">${esc(what)}${AV.apps ? ` <button type="button" class="link-btn" data-act="fg-pick">${g.picked ? "Change Apps" : "Choose Apps"}</button>` : ""}</p></div>`;
+  }
+  function drawGuard(){ const s = document.getElementById("fgSlot"); if (s) s.innerHTML = guardRowHtml(); }
+  function settingsHtml(){
+    const c = cfg();
+    if (guardApi()) refreshAvail();
+    return `<div class="sp-set"><label class="mi-check"><input type="checkbox" id="psStrict" ${c.strict ? "checked" : ""}> Strict Sprout</label>
+      <p class="mini">Your sprout wilts if you leave Studyboard for more than a minute during a focus session. When it's off, leaving just pauses the growth.</p></div>
+      <div class="fg-slot" id="fgSlot">${guardRowHtml()}</div>`;
+  }
+  const hhmm = ms => new Date(ms).toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"});
+  let gBusy = false;
+  function guardSync(){
+    const G = guardApi(); if (!G || !AV || gBusy) return;
+    const g = gGet(), apps = !!(AV.apps && g.picked), dnd = !!AV.dnd;
+    const want = g.on && (apps || dnd) && running() && pomo.endAt > Date.now() + 5000;
+    if (want && g.until !== pomo.endAt) {
+      const until = pomo.endAt; gSet({until}); gBusy = true;
+      Promise.resolve().then(() => G.start({until, apps, dnd})).then(ok => {
+        gBusy = false;
+        if (ok) toast(dnd && !apps ? `Do Not Disturb is on until ${hhmm(until)}.` : `Distracting apps are blocked until ${hhmm(until)}.`);
+        else { gSet({until: 0}); toast(dnd && !apps ? "Do Not Disturb wasn't turned on. Studyboard may need permission in your phone's settings." : "Apps weren't blocked this time."); }
+        guardSync();
+      }, () => { gBusy = false; gSet({until: 0}); toast("Couldn't block apps this time."); });
+    } else if (!want && g.until) {
+      gSet({until: 0}); gBusy = true;
+      Promise.resolve().then(() => G.stop()).then(() => { gBusy = false; guardSync(); }, () => { gBusy = false; });
+    }
+  }
+  function pickApps(){
+    const G = guardApi(); if (!G || typeof G.pickApps !== "function") return Promise.resolve(false);
+    return Promise.resolve().then(() => G.pickApps()).then(ok => { if (ok) gSet({picked: true}); return !!ok; }, () => false);
+  }
+  document.addEventListener("change", e => {
+    const t = e.target; if (!t || !t.id) return;
+    if (t.id === "pomoTask") draw();   // the pot takes the new task's course colour
+    else if (t.id === "psStrict") {
+      state.settings = Object.assign({}, state.settings, {sprout: Object.assign({}, cfg(), {strict: !!t.checked})}); saveSettings();
+      toast(t.checked ? "Strict Sprout is on. Your sprout wilts after a minute away." : "Strict Sprout is off. Leaving just pauses your sprout.");
+    } else if (t.id === "psGuard") {
+      if (!t.checked) { gSet({on: false}); guardSync(); toast("Apps won't be blocked during focus sessions."); drawGuard(); return; }
+      const g = gGet();
+      if (AV && AV.apps && !AV.dnd && !g.picked) {
+        pickApps().then(ok => {
+          if (ok) { gSet({on: true}); toast("Your chosen apps will be blocked during focus sessions."); }
+          else toast("No apps were chosen, so nothing will be blocked.");
+          drawGuard(); guardSync();
+        });
+        return;
+      }
+      gSet({on: true}); drawGuard(); guardSync();
+      toast(AV && AV.dnd && !AV.apps ? "Do Not Disturb will turn on during focus sessions." : "Your chosen apps will be blocked during focus sessions.");
+    }
+  });
+  hook("act", act => {
+    if (act !== "fg-pick") return false;
+    pickApps().then(ok => { if (ok) toast("Apps chosen."); drawGuard(); guardSync(); });
+    return true;
+  });
+  hook("boot", () => setTimeout(() => {
+    sync(); back();   // reopened after being closed mid-session
+    // a block left on from a session that has ended (the app was closed) is cleared once the plugin answers
+    if (guardApi()) refreshAvail(true).then(() => guardSync());
+  }, 0));
+
+  const api = {dialHtml, noteHtml, gardenHtml, settingsHtml, alarmArt, alarmLine, plantSvg, weekData};
+  if (window.__SB_TEST) window.__sbSprout = Object.assign({get sp(){ return sp; }, progress, stageNow, settle, back, leave, refreshAvail, guardSync, get avail(){ return AV; }}, api);
+  return api;
+})();
 /* ===== module: 01-files-io.js: the app's core, calendar export, zip archives, automatic backups, the desktop app's folder ===== */
 /* Calendar export (.ics inside a .zip) */
 function icsEscape(s){ return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
@@ -38077,12 +38375,15 @@ hook("boot", boot);
       focus = {mode: pomo.mode === "focus" ? "focus" : "break", running: !!pomo.running, endsAt: pomo.running ? Number(pomo.endAt) || 0 : 0,
         left: pomo.running ? 0 : Math.round((Number(pomo.left) || 0) / 1000), task: t ? cut(t.title, 60) : ""};
     } } catch (e) {}
+    // Time Cushion: minutes to spare (or short, below 0) at the tightest deadline in the next 14 days
+    let cushion = {mins: 0, by: "", state: "none"};
+    try { const c = window.SBCUSH && SBCUSH.now(); if (c && c.state !== "none") cushion = {mins: Math.round(Number(c.mins) || 0), by: c.by || "", state: c.state}; } catch (e) {}
     const th = d.theme || {};
     return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
       next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
       // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
-      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days, cushion,
       theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
   }
   let phoneSent = "";
@@ -47197,6 +47498,184 @@ var SBEST = (() => {
 window.SBEST = SBEST;
 
 
+/* ===== module: 92-cushion.js ===== */
+/* Time Cushion: one number for "ahead or behind". Today's Plan already works out, for every deadline, the study time you have
+   until then (A, scaled by planning accuracy) and all the work due by then (L). The cushion is A - L at the tightest deadline
+   in the next 14 days. A pill next to Time Today shows it; tapping it opens a sheet with every deadline and a fix or two. */
+var SBCUSH = (() => {
+/*CUSH-START*/
+const CUSH = (() => {
+  const WINDOW = 14, TIGHT = 30;
+  // to the nearest 5 minutes, so "have - need" always equals the cushion shown
+  const m5 = h => Math.round((Number(h) || 0) * 12) * 5;
+  /* o.rows: [{id, title, due, dl, R, L, A, noEst}] in due order: R work left on it, L all work due up to and including it,
+     A study time until it is due (hours). o.overdue: hours of late work still to do (already inside L).
+     o.roomToday: hours more Time Today would really add. o.offDays: [{date, i, h}] days off in the next two weeks.
+     Returns {state: spare|tight|short|none, mins, by, dl, groups, tight, noEst, overdueM, fixes} */
+  function calc(o){
+    o = o || {};
+    const rows = (o.rows || []).filter(r => r && r.dl >= 0 && r.dl <= WINDOW && r.R > 0);
+    const res = {state: "none", mins: 0, by: "", dl: -1, groups: [], tight: -1, noEst: 0, overdueM: m5(o.overdue), fixes: []};
+    if (!rows.length) return res;
+    const byDay = {};
+    rows.forEach(r => {
+      const needM = m5(r.L), haveM = m5(r.A), c = haveM - needM;
+      let g = byDay[r.due];
+      if (!g) { g = byDay[r.due] = {due: r.due, dl: r.dl, ids: [], titles: [], needM, haveM, mins: c, big: null}; res.groups.push(g); }
+      g.ids.push(r.id); g.titles.push(r.title || "");
+      // the day's figure is its tightest due time (the last thing due that day, or an early due time)
+      if (c < g.mins) { g.needM = needM; g.haveM = haveM; g.mins = c; }
+      if (r.R >= 2 && (!g.big || r.R > g.big.R)) g.big = {id: r.id, title: r.title || "", R: r.R};
+      if (r.noEst) res.noEst++;
+    });
+    res.groups.sort((a, b) => a.dl - b.dl || (a.due < b.due ? -1 : 1));
+    res.groups.forEach((g, i) => { if (res.tight < 0 || g.mins < res.groups[res.tight].mins) res.tight = i; });
+    const T = res.groups[res.tight];
+    res.mins = T.mins; res.by = T.due; res.dl = T.dl;
+    res.state = T.mins < 0 ? "short" : T.mins < TIGHT ? "tight" : "spare";
+    if (res.state === "spare") return res;
+    // Fixes: more time before the tightest deadline (today first, else a day off before it), then starting big work earlier
+    const gap = res.state === "short" ? -T.mins : TIGHT - T.mins, want = Math.max(30, Math.ceil(gap / 30) * 30);
+    const room = Math.floor(Math.max(0, Number(o.roomToday) || 0) * 60 / 30) * 30;
+    if (room >= 30) res.fixes.push({kind: "today", mins: Math.min(want, room), all: room >= want});
+    const off = (o.offDays || []).filter(d => d && d.i >= 0 && d.i < T.dl && d.h > 0).sort((a, b) => a.i - b.i)[0];
+    if (off) res.fixes.push({kind: "dayoff", date: off.date, mins: m5(off.h)});
+    let big = null; res.groups.slice(0, res.tight + 1).forEach(g => { if (g.big && (!big || g.big.R > big.R)) big = Object.assign({due: g.due}, g.big); });
+    if (big && res.fixes.length < 2) res.fixes.push({kind: "earlier", id: big.id, title: big.title, due: big.due, mins: m5(big.R)});
+    return res;
+  }
+  return {calc, m5, WINDOW, TIGHT};
+})();
+/*CUSH-END*/
+
+/* From Today's Plan's own numbers (computeFocusNow calls this) */
+function fromPlan(p){
+  const rows = []; let overdue = 0;
+  (p.byDue || []).forEach(t => {
+    const x = p.info[t.id]; if (!x || x.dead) return;
+    if (x.past) { overdue += x.R || 0; return; }
+    if (x.dl > CUSH.WINDOW) return;
+    const own = !!state.tasks[t.id];
+    rows.push({id: t.id, title: t.title || "", due: t.due, dl: x.dl, R: x.R, L: x.L, A: x.A, noEst: own && !!(window.SBEST && SBEST.needs(t))});
+  });
+  const today = p.today, offToday = dayIsOff(today);
+  const avTot = p.av && p.av.active && p.av.res ? (p.av.res.total || 0) / 60 : Infinity;
+  const roomToday = offToday ? 0 : Math.max(0, Math.min(p.leftH, avTot, 16 - p.doneToday) - p.th);
+  const offDays = [];
+  for (let i = 0; i <= CUSH.WINDOW; i++) { const d = addDays(today, i); if (dayIsOff(d)) offDays.push({date: d, i, h: p.dh}); }
+  const r = CUSH.calc({rows, overdue, roomToday, offDays});
+  r.offToday = offToday;
+  return r;
+}
+
+/* Words */
+// to 5 minutes under half an hour, else to 15 minutes like the rest of Today's Plan (so it reads the same as Heads Up)
+const fm = m => { const a = Math.abs(Number(m) || 0); return fmtMins(a < 30 ? Math.round(a / 5) * 5 : Math.round(a / 15) * 15) || "0m"; };
+const byWord = (d, dl) => dl === 0 ? tr("cush.byToday", "today") : dl === 1 ? tr("cush.byTomorrow", "by tomorrow") : dl < 7 ? tr("cush.byDay", "by {day}", {day: parse(d).toLocaleDateString(undefined, {weekday: "short"})}) : tr("cush.byDay", "by {day}", {day: fmtShort(d)});
+function pillText(c){
+  if (c.state === "spare") return tr("cush.spare", "{time} to spare", {time: fm(c.mins)});
+  if (c.state === "tight") return c.mins > 0 ? tr("cush.tight", "Tight: {time} spare {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)}) : tr("cush.tight0", "Tight: no spare time {by}", {by: byWord(c.by, c.dl)});
+  return tr("cush.short", "{time} short {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)});
+}
+const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
+const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
+const rowCush = m => m < 0 ? tr("cush.rowShort", "{time} short", {time: fm(m)}) : tr("cush.rowSpare", "{time} spare", {time: fm(m)});
+const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>';
+const COLOR = {spare: "#1E9E74", tight: "#D9A21B", short: "#D3352A"};
+
+const cur = () => { try { const F = computeFocus(); return F && F.cushion; } catch (e) { return null; } };
+function pillHtml(c){
+  return `<button type="button" class="cush-pill cush-${c.state}" data-act="cush-open" aria-haspopup="dialog" aria-label="${esc(tr("cush.aria", "Time cushion: {what}. Show details", {what: pillText(c)}))}"><i class="cush-dot" aria-hidden="true"></i><span>${esc(pillText(c))}</span></button>`;
+}
+// Next to each Time Today control on the page (the plan's header, the bar above it, the Planned Today tile)
+hook("render", tab => {
+  if (tab !== "board") return;
+  document.querySelectorAll(".cush-pill").forEach(e => e.remove());
+  const c = cur(); if (!c || c.state === "none" || c.offToday) return;
+  const html = pillHtml(c);
+  document.querySelectorAll(".bv-hours > .hours-ctl").forEach(h => h.insertAdjacentHTML("beforebegin", html));
+  // on a phone it goes in the Time Today row, or on its own line under it when the row has no room for it
+  document.querySelectorAll(".plan .fh-ctl > .hours-ctl").forEach(h => {
+    const lb = h.querySelector(".mini"); if (!lb) return;
+    lb.insertAdjacentHTML("afterend", html);
+    const p = lb.nextElementSibling;
+    if (!h.offsetWidth) return;
+    const g = document.createRange(); g.selectNodeContents(lb);
+    const btn = h.querySelector('[data-act="today-h"]'), pr = p.getBoundingClientRect();
+    if (h.scrollWidth > h.clientWidth + 1 || g.getClientRects().length > 1 || (btn && pr.right > btn.getBoundingClientRect().left + 1) || pr.height > 34) { p.classList.add("cush-below"); h.after(p); }
+  });
+  document.querySelectorAll(".plan .pt-hours").forEach(h => h.insertAdjacentHTML("beforeend", html));
+});
+
+/* The sheet */
+function body(c){
+  const T = c.groups[c.tight], when = dayIn(T.due, T.dl);
+  const big = c.state === "spare" ? tr("cush.sumSpare", "to spare at your tightest point, {day}", {day: when})
+    : c.state === "tight" ? tr("cush.sumTight", "spare at your tightest point, {day}", {day: when})
+    : tr("cush.sumShort", "short for what's due by {day}", {day: when});
+  const rows = c.groups.map((g, i) => {
+    const what = g.titles.length > 1 ? tr("cush.andMore", "{title} and {n} more", {title: g.titles[0], n: g.titles.length - 1}) : g.titles[0];
+    const tight = i === c.tight;
+    return `<li class="cush-row${tight ? " is-tight cush-" + c.state : ""}${g.mins < 0 ? " is-short" : ""}"><div class="cush-when"><b>${esc(dayName(g.due, g.dl))}${tight ? ` <span class="cush-tag">${esc(tr("cush.tightest", "Tightest"))}</span>` : ""}</b><span class="mini">${esc(what)}</span></div>
+      <dl class="cush-nums"><div><dt>${esc(tr("cush.work", "Work due"))}</dt><dd>${esc(fm(g.needM))}</dd></div><div><dt>${esc(tr("cush.time", "Study time"))}</dt><dd>${esc(fm(g.haveM))}</dd></div><div class="cush-c"><dt>${esc(tr("cush.cushion", "Cushion"))}</dt><dd>${esc(rowCush(g.mins))}</dd></div></dl></li>`;
+  }).join("");
+  const fixes = c.fixes.map(f => {
+    if (f.kind === "today") return `<li><span>${esc(f.all ? tr("cush.fixToday", "{time} more study time today covers it.", {time: fm(f.mins)}) : tr("cush.fixTodaySome", "Today has room for {time} more study time, which covers part of it.", {time: fm(f.mins)}))}</span><button type="button" class="btn small primary" data-act="cush-add" data-id="${f.mins}">${esc(tr("cush.add", "Add {time} Today", {time: fm(f.mins)}))}</button></li>`;
+    if (f.kind === "dayoff") return `<li><span>${esc(tr("cush.fixOff", "{day} is a day off. Studying then adds about {time}.", {day: fmtDate(f.date), time: fm(f.mins)}))}</span><button type="button" class="btn small" data-act="cush-off" data-id="${esc(f.date)}">${esc(tr("cush.study", "Study {day}", {day: parse(f.date).toLocaleDateString(undefined, {weekday: "long"})}))}</button></li>`;
+    if (f.kind === "earlier") return `<li><span>${esc(tr("cush.fixEarlier", "“{title}” is about {time} of work. Starting big work earlier spreads it over more days.", {title: f.title, time: fm(f.mins)}))}</span><button type="button" class="btn small" data-act="cush-earlier" data-id="${esc(f.due)}">${esc(tr("cush.earlier", "Start Earlier"))}</button></li>`;
+    return "";
+  }).join("");
+  const notes = [];
+  if (c.noEst) notes.push(`<p class="cush-note">${esc(trn("cush.noEst", c.noEst, "{n} task has no time estimate, so a typical time is counted for it.|{n} tasks have no time estimate, so a typical time is counted for them."))} <button type="button" class="link-btn" data-act="est-open">${esc(tr("cush.checkEst", "Check Estimates"))}</button></p>`);
+  if (c.overdueM >= 5) notes.push(`<p class="cush-note">${esc(tr("cush.overdue", "Includes {time} of overdue work.", {time: fm(c.overdueM)}))}</p>`);
+  // planning accuracy: the study time and the work are both scaled by how long your work really takes, once there's history
+  const A = accOf(), on = !!(A && A.on && A.on()), g = on && A.global ? A.global() : null, learnt = on && (A.capScale() !== 1 || !!(g && g.level && g.level !== "none"));
+  const acc = learnt ? tr("cush.acc", "Based on how long your work really takes.") : on ? tr("cush.accSoon", "It gets more exact as you time your work.") : "";
+  return `<div class="cush-sum cush-${c.state}"><b>${esc(fm(c.mins))}</b><span>${esc(big)}</span></div>
+    <p class="mini cush-lede">${esc(tr("cush.lede", "Each deadline in the next 2 weeks, with all the work due by then and the study time you have until then."))}${acc ? " " + esc(acc) : ""}</p>
+    ${fixes ? `<div class="cush-fix"><h3>${esc(tr("cush.fixH", "Ways to Make Room"))}</h3><ul>${fixes}</ul></div>` : ""}
+    <ol class="cush-list" aria-label="${esc(tr("cush.listLbl", "Deadlines in the next 2 weeks"))}">${rows}</ol>
+    ${notes.join("")}`;
+}
+function open(){
+  const c = cur(); if (!c || c.state === "none") return;
+  openSheet(`<div class="sheet cush-sheet">${bandHead(tr("cush.title", "Time Cushion"), ICON, COLOR[c.state], esc(tr("cush.sub", "Ahead or behind, over the next 2 weeks")))}<div class="sheet-body cush-body">${body(c)}</div>
+    <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">${esc(tr("cush.done", "Done"))}</button></div></div>`);
+}
+// after a fix: the plan is worked out again, and the open sheet shows the new numbers
+function redraw(){
+  render();
+  if (!dlg.open || !dlg.querySelector(".cush-sheet")) return;
+  const c = cur();
+  if (!c || c.state === "none") { dlg.close(); return; }
+  open();
+}
+hook("act", (a, el) => {
+  if (!a || a.slice(0, 5) !== "cush-") return false;
+  const id = el && el.dataset ? el.dataset.id : "";
+  if (a === "cush-open") open();
+  else if (a === "cush-add") {
+    const prev = todayHours(), add = Math.max(0, Number(id) || 0) / 60;
+    setTodayHours(Math.min(16, prev + add)); focusStale(); redraw();
+    toast(tr("cush.added", "Added {time} to Time Today", {time: fm(add * 60)}), () => { setTodayHours(prev); focusStale(); redraw(); });
+  }
+  else if (a === "cush-off") {
+    const was = Object.assign({}, (state.settings && state.settings.daysOff) || {}), cur2 = Object.assign({}, was); delete cur2[id];
+    const set = v => { state.settings = Object.assign({}, state.settings, {daysOff: v}); saveSettings(); focusStale(); redraw(); };
+    set(cur2);
+    toast(tr("cush.studyDay", "{day} is a study day again", {day: fmtDate(id)}), () => set(was));
+  }
+  else if (a === "cush-earlier") {
+    if (dlg.open) dlg.close();
+    const ws = addDays(id, -((parse(id).getDay() + 6) % 7));
+    setTimeout(() => { try { if (!(window.SBCRUNCH && SBCRUNCH.openWeek(ws, {focus: true, stay: true}))) toast(tr("cush.noCrunch", "Nothing can usefully move earlier right now")); } catch (e) { console.warn(e); } }, 30);
+  }
+  return true;
+});
+
+return {calc: CUSH.calc, fromPlan, pillText, open, now: cur};
+})();
+window.SBCUSH = SBCUSH;
 /* ===== module: 95-lms.js ===== */
 /* Studyboard 1.11.0 */
 /* LMS-GRAB-START: generated by `node scripts/build-lms-mobile.js --grab` from lms.js (the cleaning the extension's reads go through). Don't edit by hand. */
@@ -95369,16 +95848,18 @@ var SBPRO = null;
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    // the week's Focus Garden (free, 01-focus-sprout.js) follows the first card
+    const garden = I.kind === "week" && typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml("ins") : "";
     if (preview) {
       // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
       const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
-      return sec("Study Time and Grades", study)
+      return sec("Study Time and Grades", study) + garden
         + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
         + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
         + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
         + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
     }
-    return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
+    return sec("Study Time and Grades", study) + garden + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
   const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
