@@ -738,7 +738,7 @@ function dayTimelineHtml(F, todayList, heroId){
   const early = sd.night && sd.now >= (sd.end - 1440 + sd.start) / 2;
   if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>${early ? "Your day hasn't started yet" : "Past your end of day"}</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
-  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t, pin: !!sl.pin}); }));
   try {
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
@@ -765,7 +765,7 @@ function dayTimelineHtml(F, todayList, heroId){
   items.sort((p, q) => p.s - q.s || p.e - q.e);
   for (let i = items.length - 1; i > 0; i--) {
     const cur = items[i], prev = items[i - 1];
-    if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
+    if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15 && !cur.pin && !prev.pin) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
   }
   // Anything between the day's start and end with no task, class or event in it is shown as Free
   const dayS = sd.start, dayE = sd.end;
@@ -779,7 +779,7 @@ function dayTimelineHtml(F, todayList, heroId){
   const rows = [];
   items.forEach(x => {
     const last = rows[rows.length - 1];
-    if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
+    if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15 && !x.pin && !last.pin) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
     else { if (x.k === "tk") x.min = x.mn || x.e - x.s; rows.push(x); }
   });
   const nowM = sd.now;
@@ -787,9 +787,12 @@ function dayTimelineHtml(F, todayList, heroId){
   const cards = rows.map((x, i) => {
     const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
     const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
-    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
-    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
+    // data-s/data-e: each card's times, so a block dragged along the strip (01-plan-move.js) knows the time under it
+    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" data-s="${x.s}" data-e="${x.e}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
+    if (x.k === "ev") return `<div class="${cls.trim()} ev" data-s="${x.s}" data-e="${x.e}" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
+    // A study block still to come can be moved: dragged along the strip, or with its Move To… menu (01-plan-move.js)
+    if (!past && typeof planMoveCard === "function" && planPinHost(x.t)) return planMoveCard(x, {cls: cls.trim(), hero, on, when, len, at});
     return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;

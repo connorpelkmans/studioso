@@ -58,7 +58,8 @@
   "99-launch.css",
   "01-study-rewards.css",
   "99-focus-sprout.css",
-  "99-essentials.css"
+  "99-essentials.css",
+  "01-plan-move.css"
  ],
  "js": [
   "00-core.js",
@@ -87,6 +88,7 @@
   "01-helpers.js",
   "01-board.js",
   "01-courses.js",
+  "01-plan-move.js",
   "01-calendar.js",
   "01-render.js",
   "01-math.js",
