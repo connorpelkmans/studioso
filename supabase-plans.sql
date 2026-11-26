@@ -20,8 +20,8 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 14, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
+  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
   ('manage_url', '""'),
@@ -147,9 +147,9 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' when public.studyboard_limits_lite(uid) then 'lite' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
-                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
+                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "dataReserveMB": 8, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
 begin
@@ -281,10 +281,19 @@ begin
 end $$;
 revoke all on function public.plans_item_limits(uuid) from public, anon, authenticated;
 
+-- How much of an item is pictures (and other files) kept inside it as data: URLs, in bytes. Pictures pasted into a note's
+-- whiteboard, a concept map and so on are saved this way; everything else in an item is text the student wrote or synced.
+create or replace function public.plans_media_bytes(t text) returns bigint
+language sql immutable set search_path = public, pg_temp as $$
+  select coalesce(sum(octet_length(m[1])), 0)::bigint
+  from regexp_matches(coalesce(t, ''), '(data:[a-z]+/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+)', 'g') m
+$$;
+revoke all on function public.plans_media_bytes(text) from public, anon, authenticated;
+
 create or replace function public.plans_items_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
-  lim bigint; blim bigint; used bigint; bused bigint; nrows bigint; d_data bigint; d_bk bigint;
+  lim bigint; blim bigint; used bigint; bused bigint; nrows bigint; d_data bigint; d_bk bigint; reserve bigint; d_media bigint;
   n_data bigint := 0; n_bk bigint := 0; o_data bigint := 0; o_bk bigint := 0; sz bigint; new_row boolean := false;
   pw boolean := public.studyboard_paywall();
   item_max constant bigint := 10485760;   -- 10 MB per item
@@ -326,6 +335,24 @@ begin
       end if;
       raise exception 'SB_DATA_LIMIT: Your synced data is over the % MB storage limit. Delete some old items or export a backup.', lim
         using errcode = 'P0001';
+    end if;
+    -- The reserve: the last dataReserveMB of the limit is kept for the planner itself (tasks, notes, courses, decks, events,
+    -- settings). Once the account is inside it, Recently Deleted and pictures saved inside items can't grow any more; typing,
+    -- new tasks and every other change still can, up to the limit. Only measured inside the reserve, so normal saves pay nothing.
+    reserve := least(coalesce(public.studyboard_limit(new.user_id, 'dataReserveMB'), 0), coalesce(lim, 0));
+    if lim is not null and reserve > 0 and used + d_data > (lim - reserve) * 1048576 then
+      if new.kind = 'trash' then
+        raise exception 'SB_DATA_RESERVE: Recently Deleted is kept on this device only now, because the last % MB of your synced data is kept for your tasks, notes and courses.', reserve
+          using errcode = 'P0001';
+      end if;
+      d_media := public.plans_media_bytes(new.data::text);
+      if d_media > 0 then
+        if tg_op = 'UPDATE' and old.user_id = new.user_id and old.kind <> 'backup' then d_media := d_media - public.plans_media_bytes(old.data::text); end if;
+        if d_media > 0 then
+          raise exception 'SB_DATA_RESERVE: Pictures saved inside notes can''t sync now, because the last % MB of your synced data is kept for your tasks, notes and courses. Move pictures into Files, or delete some.', reserve
+            using errcode = 'P0001';
+        end if;
+      end if;
     end if;
   end if;
   if d_bk > 0 then
