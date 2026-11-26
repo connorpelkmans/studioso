@@ -281,6 +281,8 @@ function normTask(t){
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
   if (t.pins != null) t.pins = normPins(t.pins);
   if (t.pins && !t.pins.length) delete t.pins;
+  // Wrap Up Today (01-wrap-up.js): the day this task goes first in Do This Next; dropped once that day is over
+  if (t.firstOn != null && (!isDate(t.firstOn) || t.firstOn < addDays(todayISO(), -1))) delete t.firstOn;
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));

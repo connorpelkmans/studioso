@@ -60,7 +60,8 @@
   "99-focus-sprout.css",
   "99-essentials.css",
   "01-plan-move.css",
-  "99-heatmap.css"
+  "99-heatmap.css",
+  "01-wrap-up.css"
  ],
  "js": [
   "00-core.js",
@@ -95,6 +96,7 @@
   "01-math.js",
   "01-syllabus.js",
   "01-notes.js",
+  "01-wrap-up.js",
   "01-flashcards.js",
   "01-study-rewards.js",
   "01-ai-sections.js",

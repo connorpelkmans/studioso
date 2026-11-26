@@ -259,6 +259,8 @@ function nuLead(F){
   const keep = ui.nextShown;
   try {
     const r = nuScore(F); if (!r.scored.length) return "";
+    // the task chosen in Wrap Up Today as this day's first leads the timeline too
+    const first = typeof wrapFirst === "function" ? r.scored.find(y => wrapFirst(y.x.t)) : null; if (first) return first.x.t.id;
     const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, r.scored, r.pool, r.focusLen) : null;
     if (exm && exm.study) return "";
     // Today's Plan decides what gets time today; right now picks among that
@@ -268,15 +270,17 @@ function nuLead(F){
 }
 function nextUp(F){
   const {pool, scored, gapMin, focusLen, now} = nuScore(F), hr = now.getHours();
+  // Wrap Up Today's choice of this day's first task comes first, until a focus session on it (01-wrap-up.js)
+  const first = typeof wrapFirst === "function" ? scored.find(y => wrapFirst(y.x.t)) || null : null;
   if (!pool.length) { const em = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, [], pool, focusLen) : null; return (em && em.study) || nextUpStudy(F, null, pool, focusLen); }
-  const exm = typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
+  const exm = first ? null : typeof SBEXAM !== "undefined" ? SBEXAM.rankNext(F, scored, pool, focusLen) : null;
   if (exm && exm.study) return exm.study;
-  let aiPick = nuAiPick(scored, exm);
+  let aiPick = first ? null : nuAiPick(scored, exm);
   // Do This Next is whatever the day's timeline has scheduled now, or next: the two always agree
   const nowM = hr * 60 + now.getMinutes(), sb = F.slotsBy || {};
-  const planned = scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
+  const planned = first ? null : scored.map(y => { const l = (sb[y.x.t.id] || []).filter(sl => sl && sl.e > nowM); return {y, at: l.length ? Math.min(...l.map(sl => Math.max(sl.s, nowM))) : null}; }).filter(o => o.at != null).sort((a, b) => a.at - b.at)[0];
   if (planned && !(aiPick && aiPick.id === planned.y.x.t.id)) aiPick = null;
-  const pick = planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
+  const pick = first ? first : planned ? planned.y : aiPick ? scored.find(y => y.x.t.id === aiPick.id) : scored[0];
   ui.nextShown = pick.x.t.xs ? pick.x.t.xs.id : pick.x.t.id;
   const L = ui.nuLast, sig = nuSig();
   ui.nuLast = {id: pick.x.t.id, sig, at: L && L.id === pick.x.t.id && L.sig === sig ? L.at : Date.now()};
@@ -288,15 +292,15 @@ function nextUp(F){
   let mins = cap >= 5 && cap < focusLen ? cap : focusLen;
   if (submit) mins = Math.min(mins, 15);
   if (gapMin != null && gapMin >= 15) mins = Math.max(10, Math.min(mins, Math.floor((gapMin - 5) / 5) * 5));
-  const why = (aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
+  const why = (aiPick && aiPick.why ? [aiPick.why] : (first ? ["You chose it to start your day"] : []).concat(pick.why, pick.x.reasons)).filter((r, i, a) => a.indexOf(r) === i && !(r === "Due today" && a.some(y => /^Due at .* today$/.test(y)))).slice(0, aiPick ? 1 : 3);
   // Studying for an in-person exam: the study card, with this plan's time for it
   if (pick.x.t.xs) {
     const t = pick.x.t, ex = state.tasks[t.xs.id] || {title: t.title.replace(/^Study for /, "")};
-    const w2 = aiPick && aiPick.why ? [aiPick.why] : pick.why.concat(pick.x.reasons).filter((r, i, a) => a.indexOf(r) === i && !a.some(o => o !== r && o.startsWith(r))).slice(0, 3);
+    const w2 = aiPick && aiPick.why ? [aiPick.why] : (first ? ["You chose it to start your day"] : []).concat(pick.why, pick.x.reasons).filter((r, i, a) => a.indexOf(r) === i && !a.some(o => o !== r && o.startsWith(r))).slice(0, 3);
     return {x: pick.x, why: w2, step: null, mins, left: pool.length - 1, ai: !!aiPick, study: true, xs: true, hasPlan: false, label: "Study for " + ex.title};
   }
   // Exam study only steps in when no timeline is deciding, so the card and the timeline never disagree
-  return (exm || planned ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
+  return (exm || planned || first ? null : nextUpStudy(F, pick, pool, focusLen)) || {x: pick.x, why, step, mins, left: pool.length - 1, ai: !!aiPick};
 }
 // An in-person exam or quiz can't be done now, but studying for it can
 function nextUpStudy(F, top, pool, focusLen){
