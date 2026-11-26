@@ -377,7 +377,11 @@ function rvFit(root){
 (() => {
   if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
   let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
-  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  // New titles are sized at once, in the observer's own step, which runs before the browser paints. Waiting a frame let a redraw
+  // made inside an animation frame (the scene themes redraw often) paint every long title at full size for one frame before it
+  // shrank: the titles flickered and spilled out of their cards. Only additions that hold a title are measured.
+  const holds = n => n.nodeType === 1 && (n.matches(RV_FIT) || !!n.querySelector(RV_FIT));
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(holds))) rvFit(); }).observe(document.body, {childList: true, subtree: true}); go(); };
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
   addEventListener("resize", go);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
