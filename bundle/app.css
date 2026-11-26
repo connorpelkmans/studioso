@@ -6576,6 +6576,19 @@ details.pp-group[open]>summary::before{content:"▾"}
 .gs-row.ok .gs-btn{min-height:36px;padding-block:4px}
 .gs-row.ok .gs-ck{width:20px;height:20px;margin-inline:2px}
 #view .gs-list li{border:0}
+/* Essentials: what turns on as you go, as small links under the list */
+.gs-unl{margin:8px 0 2px;padding:10px 8px 2px;border-top:1px solid color-mix(in srgb,var(--accent) 18%,var(--line))}
+.gs-unl-h{margin:0 0 6px;font:800 .72rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gs-unl-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+#view .gs-unl-list li{border:0}
+.gs-unl-b{width:100%;display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px 6px 8px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:12px;background:var(--surface);color:inherit;font:inherit;text-align:start;cursor:pointer}
+.gs-unl-b:hover{border-color:var(--accent)}
+.gs-unl-b:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gs-unl-ck{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent)}
+.gs-unl-b.ok .gs-unl-ck{background:var(--leaf);color:#fff}
+.gs-unl-t{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.gs-unl-t b{font-size:.9rem;color:var(--ink)}
+.gs-unl-t .mini{color:var(--muted)}
 /* ===== module: 99-motion-a11y-tz.css ===== */
 /* Text size: everything in rem scales with the root */
 html{font-size:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%}
@@ -11216,3 +11229,71 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .sp-set .mini,.fg-row .mini{margin:0 0 0 30px}
 .fg-slot:empty{display:none}
 .sp-plant .sp-seed.dry{fill:var(--sp-dry-d)}
+/* ===== module: 99-essentials.css ===== */
+/* Essentials (99-essentials.js): the tabs that wait, the More button, its sheet and the Exam Prep card */
+html[data-ess="on"] nav.tabs .in [data-tab].ess-hide{display:none!important}
+html[data-ess="on"] nav.tabs .nav-foot :is(.calc-btn,.style-btn){display:none!important}
+nav.tabs .in .ess-more{position:relative}
+html:not([data-ess="on"]) nav.tabs .in .ess-more,nav.tabs .in .ess-more[hidden]{display:none!important}
+@media (max-width:979px){nav.tabs .in .ess-more{order:8}}
+/* phones: no seat in the bar for the companion while its tab is under More, so it waits there too (it still shows on its own page) */
+@media (max-width:639px){html.ess-no-seat body:not([data-view="companion"]) :is(#compLayer,#compFront){display:none!important}}
+/* a tab that just came back to the menu: a small dot until it's opened */
+nav.tabs .in .ess-new{position:relative}
+nav.tabs .in .ess-new::before{content:"";position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--spine,var(--surface));pointer-events:none}
+
+/* More */
+.ess-sheet .ess-lead{margin:0 0 8px;color:var(--muted);font-size:.92rem;line-height:1.45}
+.ess-sheet .menu-list button{min-height:60px;padding:10px 4px}
+.ess-sheet .menu-list button .ess-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));color:var(--accent)}
+.ess-sheet .ess-ic svg{width:22px;height:22px;display:block}
+.ess-sheet .menu-list button .ess-tx{font-weight:600}
+.ess-sheet .ess-all{display:grid;gap:6px;justify-items:start;margin-top:16px}
+.ess-sheet .ess-all .btn{min-height:44px}
+.ess-sheet .ess-all .mini{color:var(--muted);line-height:1.4}
+
+/* Exam Prep, introduced once */
+.ess-card{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:8px;padding:10px 10px 10px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line))}
+.ess-card-ic{display:grid;place-items:center;color:var(--accent)}
+.ess-card-t{flex:1 1 220px;margin:0;font-size:.92rem;line-height:1.4}
+.ess-card-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
+.ess-card-acts .btn{min-height:40px}
+.ess-card-acts .ess-card-x{width:40px;height:40px}
+@media (max-width:639px){.ess-card{border-radius:18px;background:var(--surface);border-color:var(--line);box-shadow:0 2px 8px rgba(14,42,86,.07)}.ess-card-ic{align-self:flex-start;padding-top:2px}.ess-card-t{flex-basis:calc(100% - 40px)}}
+/* Today's Plan time strip: moving study blocks (src/js/01-plan-move.js) */
+.dtl{position:relative}
+/* A movable block: the whole card opens the task (a button laid over it); the ⋯ button in its corner opens Move To… */
+.dtl-c.pm-card{cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:pan-x pan-y}
+.dtl-c.pm-card .dtl-t{padding-inline-end:22px}
+.dtl-open{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:inherit;background:transparent;cursor:inherit;color:inherit;font:inherit}
+.dtl-open:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dtl-mv{position:absolute;top:3px;inset-inline-end:3px;z-index:1;display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:999px;background:transparent;color:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--ink));cursor:pointer}
+.dtl-mv svg{width:15px;height:15px}
+.dtl-mv:hover,.dtl-mv[aria-expanded="true"]{background:color-mix(in srgb,var(--c,var(--accent)) 18%,var(--surface))}
+.dtl-mv:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (pointer:coarse){.dtl-mv{top:0;inset-inline-end:0;width:36px;height:36px}.dtl-c.pm-card .dtl-t{padding-inline-end:26px}}
+/* Pinned for today */
+.dtl-pin{width:11px;height:11px;flex:none;vertical-align:-1px;margin-inline-end:3px;color:var(--cb,var(--c,var(--accent)))}
+.dtl-c.pm-card.pinned{border-style:solid;border-width:1.5px}
+/* While dragging: the block lifts and follows the pointer; a line and a label show where it will land */
+.dtl.pm-on .dtl-rail{scroll-snap-type:none;cursor:grabbing}
+.dtl-c.pm-drag{z-index:3;cursor:grabbing;opacity:.94;box-shadow:0 10px 24px rgba(8,20,50,.28),0 0 0 2px var(--c,var(--accent));transition:none}
+.pm-ind{position:absolute;top:2px;bottom:4px;width:0;z-index:4;pointer-events:none}
+.pm-ind i{position:absolute;top:0;bottom:0;left:-1.5px;width:3px;border-radius:2px;background:var(--accent)}
+.pm-ind i::before{content:"";position:absolute;top:-3px;left:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.pm-ind span{position:absolute;bottom:calc(100% + 6px);left:0;white-space:nowrap;padding:4px 9px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font:700 .74rem/1.2 var(--display);box-shadow:0 4px 12px rgba(8,20,50,.22)}
+.pm-ind.snap i,.pm-ind.snap i::before,.pm-ind.snap span{background:#B26A00;color:#fff}
+.pm-ind.none i,.pm-ind.none i::before,.pm-ind.none span{background:var(--late);color:#fff}
+/* Move To… */
+.pm-menu{position:fixed;z-index:1000;display:grid;gap:2px;min-width:216px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;padding:6px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 12px 28px rgba(8,20,50,.22)}
+.pm-menu [role="group"]{display:grid;gap:2px}
+.pm-h{margin:4px 10px 2px;font:800 .7rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pm-g{margin:4px 10px 2px;font:600 .74rem/1.3 var(--body);color:var(--muted)}
+.pm-none{margin-bottom:4px}
+.pm-it{display:flex;align-items:center;width:100%;min-height:40px;padding:6px 12px;border:0;border-radius:10px;background:transparent;color:var(--ink);font:600 .9rem/1.2 var(--body);text-align:start;cursor:pointer}
+.pm-it:hover,.pm-it:focus-visible{background:var(--soft);outline:none}
+.pm-it:focus-visible{box-shadow:inset 0 0 0 2px var(--accent)}
+.pm-sep{height:1px;margin:4px 6px;background:var(--line)}
+@media (pointer:coarse){.pm-it{min-height:44px}}
+html[data-hc="1"] .pm-ind span{outline:2px solid var(--ink)}
+@media (prefers-reduced-motion:reduce){.dtl-c.pm-drag{box-shadow:0 0 0 2px var(--c,var(--accent))}}

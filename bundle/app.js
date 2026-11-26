@@ -198,6 +198,90 @@ const hook = (name, fn) => { (HOOK[name] = HOOK[name] || []).push(fn); };
 const fire = (name, ...a) => (HOOK[name] || []).map(fn => { try { return fn(...a); } catch(e) { console.warn("hook " + name, e); return undefined; } });
 window.__sbFire = fire;
 const clone = o => o == null ? o : JSON.parse(JSON.stringify(o));
+/* ===== module: 01-essentials.js ===== */
+/* Essentials: the switch for a calmer first week (the screens that follow it are in 99-essentials.js).
+   A new install starts in Essentials: the main tabs only (Board, Calendar, Review, Courses), the rest one tap away under More,
+   and the advanced parts of Today's Plan waiting until they're relevant. Features turn on by themselves as they become
+   relevant ("unlocks"), and Settings > Show Everything turns Essentials off (or back on).
+   Existing students keep everything they see today: the choice is made once per device, before any other code runs, and any
+   trace of an earlier run (a saved planner or any of the app's own settings) means this isn't a new install.
+
+   Other code asks it one question: SBESS.shows("groups") is true unless Essentials is hiding that feature right now.
+   SBESS.on() says whether Essentials is on at all. Unknown names always show, so asking never hides anything by mistake. */
+const SBESS = (() => {
+  const KEY = "sb:ess";
+  // What Essentials hides until it's relevant or switched on, and what turns each one on
+  const FEATURES = [
+    {id: "notes", kind: "tab", label: "Notes", when: "your first note"},
+    {id: "groups", kind: "tab", label: "Groups", when: "joining a study group"},
+    {id: "companion", kind: "tab", label: "Companion", when: "opening it from Search"},
+    {id: "decks", kind: "review", label: "Flashcard extras", when: "your first deck"},
+    {id: "examprep", kind: "today", label: "Exam Prep", when: "an exam in the next 14 days"},
+    {id: "crunch", kind: "today", label: "Crunch Forecast", when: "being short of time before a deadline"},
+    {id: "companion-lines", kind: "today", label: "Companion lines", when: "opening the Companion", follows: "companion"},
+    {id: "plan-extras", kind: "today", label: "Today's Plan extras", when: "Show Everything"},
+    {id: "tools", kind: "nav", label: "Calculator and Style", when: "Show Everything"}
+  ];
+  const BY = Object.fromEntries(FEATURES.map(f => [f.id, f]));
+  // Always shown, Essentials or not
+  const MAIN = ["board", "plan", "calendar", "timeline", "schedule", "flashcards", "review", "courses", "files", "today", "focus", "search", "settings"];
+  const read = () => { try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); return s && typeof s === "object" && typeof s.on === "boolean" ? s : null; } catch (e) { return null; } };
+  const write = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+  // Any trace of an earlier run: a saved planner with anything in it, or any of the app's own keys
+  function earlierRun(){
+    try {
+      const raw = localStorage.getItem("coursework:v2");
+      if (raw) {
+        const s = JSON.parse(raw) || {}, n = o => Array.isArray(o) ? o.length : o && typeof o === "object" ? Object.keys(o).length : 0;
+        if (["tasks", "courses", "decks", "notes", "events", "files"].some(k => n(s[k]) > 0)) return true;
+      }
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i) || ""; if (/^(coursework|studyboard|studioso|sb|device)[:-]/.test(k)) return true; }
+      return false;
+    } catch (e) { return true; }   // can't tell: keep everything, as before
+  }
+  let S = read();
+  if (!S) { const old = earlierRun(); S = {on: !old, why: old ? "existing" : "new", at: Date.now(), unl: {}, said: {}}; write(); }
+  S.unl = S.unl || {}; S.said = S.said || {};
+  const subs = [];
+  function mark(){ try { if (S.on) document.documentElement.dataset.ess = "on"; else delete document.documentElement.dataset.ess; } catch (e) {} }
+  mark();
+  function changed(what){
+    mark();
+    subs.slice().forEach(fn => { try { fn(what, api.state()); } catch (e) { console.warn("essentials", e); } });
+    try { window.dispatchEvent(new CustomEvent("sb:essentials", {detail: what})); } catch (e) {}
+  }
+  const unlocked = id => { const f = BY[id]; return !!(S.unl[id] || (f && f.follows && S.unl[f.follows])); };
+  const api = {
+    // Is Essentials on?
+    on: () => S.on,
+    // Should this feature show right now? (true when Essentials is off, for the main tabs, for anything unlocked, and for names it doesn't know)
+    shows: id => !S.on || MAIN.includes(id) || !BY[id] || unlocked(id),
+    // Has this feature been turned on by being relevant (or opened from Search)?
+    unlocked,
+    // Turn a feature on. Returns true the first time. {by} says why ("deck", "search", "exam" ...)
+    unlock(id, o){
+      if (!BY[id] || S.unl[id]) return false;
+      S.unl[id] = {at: Date.now(), by: (o && o.by) || ""}; write(); changed({unlock: id, by: S.unl[id].by, quiet: !!(o && o.quiet)});
+      return true;
+    },
+    // Essentials on or off. why: "user" (Settings or More), "account" (signed in to a planner already in use)
+    set(on, why){
+      on = !!on; if (on === S.on) return false;
+      S.on = on; S.why = why || "user"; S.setAt = Date.now(); write(); changed({set: on, why: S.why});
+      return true;
+    },
+    // One-time messages (each unlock is announced once): said(k) asks, said(k, true) records it
+    said(k, now){ if (now) { if (!S.said[k]) { S.said[k] = Date.now(); write(); } return true; } return !!S.said[k]; },
+    features: () => FEATURES.map(f => Object.assign({}, f, {unlocked: unlocked(f.id), shows: api.shows(f.id)})),
+    feature: id => BY[id] ? Object.assign({}, BY[id], {unlocked: unlocked(id), shows: api.shows(id)}) : null,
+    state: () => JSON.parse(JSON.stringify(S)),
+    // Called with ({unlock|set}, state) whenever something changes; returns a function that stops it
+    subscribe(fn){ subs.push(fn); return () => { const i = subs.indexOf(fn); if (i >= 0) subs.splice(i, 1); }; },
+    MAIN: MAIN.slice()
+  };
+  return api;
+})();
+window.SBESS = SBESS;
 /* ===== module: 01-i18n.js: localization groundwork =====
    Every user-facing string in NEW code goes through tr(key, englishText, vars) (or trn for plurals).
    English is the source of truth and lives right in the call, so a missing translation is never a blank: it falls back to English.
@@ -1001,6 +1085,8 @@ function normTask(t){
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
   }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
+  if (t.pins != null) t.pins = normPins(t.pins);
+  if (t.pins && !t.pins.length) delete t.pins;
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));
@@ -1029,6 +1115,16 @@ function normTask(t){
     t.remoteSig = String(t.remoteSig || "").slice(0, 12);
   }
   return scrubFields(t, ["title", "location", "team", "reading"], t.synced || t.icsUid || t.src ? ["notes"] : []);
+}
+// Study blocks pinned on Today's Plan (task.pins, from 01-plan-move.js): [{date, s, e}], minutes from that plan day's midnight like the
+// planner's slots (past 1440 for a late end of day; {s: 0, e: 0} means "moved off that day"). They sync like any task field.
+// A pin is only used on its own day, and is dropped here once that day is over (yesterday is kept: just after midnight it can still be the plan day).
+function normPins(p, today){
+  if (!Array.isArray(p)) return [];
+  const keep = addDays(today || todayISO(), -1), seen = new Set();
+  return p.filter(x => x && typeof x === "object" && isDate(x.date) && x.date >= keep && Number.isInteger(x.s) && Number.isInteger(x.e) && x.s >= 0 && x.e <= 2880 && x.e >= x.s && (x.e > x.s || x.s === 0))
+    .map(x => ({date: x.date, s: x.s, e: x.e})).filter(x => { const k = x.date + ":" + x.s + ":" + x.e; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.s - b.s).slice(0, 24);
 }
 // An exam's prep plan settings (task.prep, from the Exam Prep Planner)
 function normPrep(p){
@@ -14339,7 +14435,7 @@ function dayTimelineHtml(F, todayList, heroId){
   const early = sd.night && sd.now >= (sd.end - 1440 + sd.start) / 2;
   if (sd.past) return `<div class="dtl dtl-over" role="group" aria-label="Today's schedule"><div class="dtl-rail"><div class="dtl-c fr dtl-end" data-anchor><span>${early ? "Your day hasn't started yet" : "Past your end of day"}</span><b>${esc(sd.night ? `Your day starts at ${atT(sd.start)}` : `Your day ended at ${atT(sd.end)}`)}</b></div></div></div>`;
   const sb = (F && F.slotsBy) || {}, a = F && F.avail, items = [];
-  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t}); }));
+  (todayList || []).forEach(x => (sb[x.t.id] || []).forEach(sl => { if (sl && sl.e - sl.s >= 10) items.push({k: "tk", s: sl.s, e: sl.e, t: x.t, pin: !!sl.pin}); }));
   try {
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
@@ -14366,7 +14462,7 @@ function dayTimelineHtml(F, todayList, heroId){
   items.sort((p, q) => p.s - q.s || p.e - q.e);
   for (let i = items.length - 1; i > 0; i--) {
     const cur = items[i], prev = items[i - 1];
-    if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
+    if (cur.k === "tk" && prev.k === "tk" && cur.t.id === prev.t.id && cur.s - prev.e <= 15 && !cur.pin && !prev.pin) { prev.mn = (prev.mn || prev.e - prev.s) + (cur.mn || cur.e - cur.s); prev.e = Math.max(prev.e, cur.e); items.splice(i, 1); }
   }
   // Anything between the day's start and end with no task, class or event in it is shown as Free
   const dayS = sd.start, dayE = sd.end;
@@ -14380,7 +14476,7 @@ function dayTimelineHtml(F, todayList, heroId){
   const rows = [];
   items.forEach(x => {
     const last = rows[rows.length - 1];
-    if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
+    if (x.k === "tk" && last && last.k === "tk" && last.t.id === x.t.id && x.s - last.e <= 15 && !x.pin && !last.pin) { last.e = Math.max(last.e, x.e); last.min += x.e - x.s; }
     else { if (x.k === "tk") x.min = x.mn || x.e - x.s; rows.push(x); }
   });
   const nowM = sd.now;
@@ -14388,9 +14484,12 @@ function dayTimelineHtml(F, todayList, heroId){
   const cards = rows.map((x, i) => {
     const past = x.e <= nowM, on = x.s <= nowM && nowM < x.e, when = availRange(x.s, x.e), len = fmtHM((x.k === "tk" ? x.min : x.e - x.s) / 60) || "";
     const cls = " dtl-c" + (past ? " past" : "") + (on ? " now" : ""), at = i === anchor ? " data-anchor" : "";
-    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
-    if (x.k === "ev") return `<div class="${cls.trim()} ev" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
+    // data-s/data-e: each card's times, so a block dragged along the strip (01-plan-move.js) knows the time under it
+    if (x.k === "fr") return `<div class="dtl-c fr${past ? " past" : ""}" data-s="${x.s}" data-e="${x.e}" style="--m:${x.e - x.s}"${at}><span>Free</span><b>${esc(when)}</b></div>`;
+    if (x.k === "ev") return `<div class="${cls.trim()} ev" data-s="${x.s}" data-e="${x.e}" style="--c:${esc(x.color)};--m:${x.e - x.s}"${at}><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.title)}</b><span class="dtl-s">${esc(x.label)}${x.where ? " · " + esc(x.where) : ""}</span></div>`;
     const hero = x.t.id === heroId;
+    // A study block still to come can be moved: dragged along the strip, or with its Move To… menu (01-plan-move.js)
+    if (!past && typeof planMoveCard === "function" && planPinHost(x.t)) return planMoveCard(x, {cls: cls.trim(), hero, on, when, len, at});
     return `<button type="button" class="${cls.trim()} tk${hero ? " next" : ""}" ${gtOpenAttrs(x.t)} style="--c:${esc(colorOf(x.t.courseId))};--cb:${esc(courseSolid(colorOf(x.t.courseId)))};--m:${x.e - x.s}"${at} aria-label="${esc(x.t.title)}, ${esc(when)}"><span class="dtl-t">${dtlWhen(when)}</span><b class="dtl-n">${esc(x.t.title)}</b><span class="dtl-m"><span>${esc(len)}</span>${on ? `<span class="dtl-badge">Now</span>` : hero ? `<span class="dtl-badge">Next</span>` : ""}</span></button>`;
   }).join("");
   return `<div class="dtl" role="group" aria-label="Today's schedule"><div class="dtl-rail">${cards}</div></div>`;
@@ -15578,6 +15677,72 @@ const AVAIL = (() => {
     return {slots, unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
   }
 
+  /* Pinned study blocks (Today's Plan: drag a block, or Move To…). A pin is {date, s, e}: minutes from the plan day's midnight, the
+     same as slots (past 1440 for a late end of day). {s: 0, e: 0} is the "not on this day" pin that Move To… Tomorrow leaves. */
+  // Overlapping or touching intervals as one, sorted
+  function mergeIv(iv){
+    const out = [];
+    iv.slice().sort((a, b) => a.s - b.s || a.e - b.e).forEach(x => { const l = out[out.length - 1]; if (l && x.s <= l.e) l.e = Math.max(l.e, x.e); else out.push({s: x.s, e: x.e}); });
+    return out;
+  }
+  // One task's pins for a date: off says it was moved off that day; iv are its pinned times, merged, with the ones already over left out
+  function pinsOn(pins, date, nowMin){
+    const on = (Array.isArray(pins) ? pins : []).filter(p => p && p.date === date && Number.isFinite(p.s) && Number.isFinite(p.e));
+    const off = on.some(p => p.s === 0 && p.e === 0);
+    const iv = off ? [] : mergeIv(on.filter(p => p.e > p.s && (nowMin == null || p.e > nowMin)));
+    return {off, iv};
+  }
+  // Free windows with intervals taken out (a pinned block plus the usual break on each side)
+  function carve(windows, iv, pad){
+    pad = pad || 0;
+    const cut = mergeIv((iv || []).map(x => ({s: x.s - pad, e: x.e + pad})));
+    const out = [];
+    (windows || []).forEach(w => {
+      let parts = [[w.s, w.e]];
+      cut.forEach(c => { parts = parts.flatMap(([a, b]) => c.e <= a || c.s >= b ? [[a, b]] : [[a, Math.min(b, c.s)], [Math.max(a, c.e), b]].filter(([x, y]) => y - x >= 5)); });
+      parts.forEach(([a, b]) => out.push(Object.assign({}, w, {s: a, e: b, min: b - a})));
+    });
+    return out;
+  }
+  // place() with pins: each pinned block keeps its time, and the rest of the work goes into the free time around the pins.
+  // tasks: [{id, min, pins: [{s, e}], off}]. A task pinned for longer than its share keeps the whole pin; one moved off the day gets nothing.
+  function placePinned(windows, tasks, o){
+    o = o || {};
+    const cfg = normCfg(o.cfg), brk = o.breakMin != null ? o.breakMin : cfg.breakMin;
+    const pinned = [], rest = [];
+    (tasks || []).forEach(t => {
+      if (t.off) return;
+      const iv = mergeIv(t.pins || []);
+      iv.forEach(x => pinned.push({id: t.id, s: x.s, e: x.e, min: x.e - x.s, pin: true}));
+      const left = Math.round(t.min) - iv.reduce((n, x) => n + x.e - x.s, 0);
+      if (left > 0) rest.push({id: t.id, min: left});
+    });
+    const pl = place(carve(windows, pinned, brk), rest, o);
+    const slots = pinned.concat(pl.slots).sort((a, b) => a.s - b.s || a.e - b.e);
+    const n = {}, k = {}; slots.forEach(s => { n[s.id] = (n[s.id] || 0) + 1; });
+    slots.forEach(s => { k[s.id] = (k[s.id] || 0) + 1; s.part = k[s.id]; s.of = n[s.id]; });
+    return {slots, unplaced: pl.unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
+  }
+  // Where a block of len minutes wanted at s can go: the nearest start (5-minute steps) between lo and hi that overlaps nothing fixed.
+  // fixed: [{s, e, title}] (classes, events, availability blocks, other pins). hit is the fixed thing the wanted time ran into.
+  // null when no free time that long is left.
+  function snap(s, len, fixed, lo, hi){
+    const f = mergeIv((fixed || []).filter(x => x.e > x.s));
+    const want = Math.round(s / 5) * 5;
+    const hit = (fixed || []).filter(x => x.e > x.s && x.s < want + len && x.e > want).sort((a, b) => a.s - b.s)[0] || null;
+    let best = null; let cur = lo;
+    f.concat([{s: hi, e: hi}]).forEach(x => {
+      const g0 = Math.ceil(cur / 5) * 5, g1 = Math.min(x.s, hi);
+      if (g1 - g0 >= len) {
+        const at = Math.min(Math.max(want, g0), Math.floor((g1 - len) / 5) * 5);
+        if (!best || Math.abs(at - want) < Math.abs(best.s - want)) best = {s: at, e: at + len};
+      }
+      cur = Math.max(cur, x.e);
+    });
+    if (!best) return null;
+    return {s: best.s, e: best.e, moved: best.s !== want, hit: best.s !== want ? hit : null};
+  }
+
   const defFmt = m => { const h = Math.floor(m / 60) % 24, mm = m % 60, ap = h >= 12 ? "PM" : "AM"; return `${h % 12 || 12}${mm ? ":" + p2(mm) : ""} ${ap}`; };
   const rangeTxt = (w, f) => `${f(w.s)}–${f(w.e)}`;
   function explain(res, opts){
@@ -15663,7 +15828,7 @@ const AVAIL = (() => {
     return {type, title: w === "shifts" ? "Shift" : w.charAt(0).toUpperCase() + w.slice(1), days: [...days].sort((x, y) => x - y), start: time.start, end: time.end};
   }
 
-  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
+  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, mergeIv, pinsOn, carve, placePinned, snap, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
 })();
 /* AVAIL-END */
 
@@ -15826,14 +15991,30 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
-  const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
+  // Blocks the student pinned for today (dragged, or Move To…) keep their time, and the rest is planned around them.
+  // A pin that now overlaps something fixed (a class added since) moves to the nearest free time.
+  const pinsBy = {}, pinDate = av.sd ? av.sd.date : today, xsHosts = new Set(ranked.filter(x => x.t.xs).map(x => x.t.xs.id));
+  ranked.forEach(x => {
+    const p = planPinsFor(x, pinDate, nowMin, xsHosts); if (!p) return;
+    p.iv = p.iv.map(v => res.busy.some(m => m.kind !== "done" && m.s < v.e && m.e > v.s) ? AVAIL.snap(v.s, v.e - v.s, res.busy, Math.max(res.lo, res.ws), res.we) : v).filter(Boolean);
+    pinsBy[x.t.id] = p;
+  });
+  const live = ranked.filter(x => (x.alloc > 0 || pinsBy[x.t.id]) && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
   // What Do This Next would choose goes first, so the timeline and the card agree
   const fresh0 = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id)), li = lead ? fresh0.findIndex(x => x.t.id === lead) : -1;
   const fresh = li > 0 ? [fresh0[li]].concat(fresh0.slice(0, li), fresh0.slice(li + 1)) : fresh0;
-  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
-  const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
+  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60), pins: pinsBy[x.t.id] ? pinsBy[x.t.id].iv : [], off: !!(pinsBy[x.t.id] && pinsBy[x.t.id].off)}));
+  const pl = AVAIL.placePinned(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
+  // A pinned task gets its pinned time today even past its usual share; one moved to tomorrow gets none today
+  ranked.forEach(x => {
+    const p = pinsBy[x.t.id]; if (!p || isEnough(x)) return;
+    if (p.off) { x.alloc = 0; x.pinOff = true; return; }
+    const placed = (by[x.t.id] || []).reduce((t, s) => t + s.min, 0);
+    if (placed > x.alloc * 60 + 1) x.alloc = placed / 60;
+    x.pinned = true;
+  });
   if (av.active) ranked.forEach(x => {
     if (!(x.alloc > 0)) return;
     if (isEnough(x)) { x.alloc = 0; return; }
@@ -15850,6 +16031,21 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   return {res, active: av.active, line: AVAIL.explain(res, {nowMin, fmt: availMin}), note, slots: pl.slots, by, planned, show: av.active || has};
 }
 const availSlotText = list => list.map(s => availRange(s.s, s.e)).join(", then ");
+// Where a plan item's pins are kept: on the task itself, or for "Study for <exam>" on the exam (the study item is made by the planner).
+// Group tasks and fixed items (an in-person exam) can't be pinned.
+function planPinHost(t){
+  if (!t || t.gt) return null;
+  const h = state.tasks[t.xs ? t.xs.id : t.id];
+  return h && h.status !== "done" ? h : null;
+}
+// xsHosts: the exams whose "Study for" item is in the plan; the exam's own (fixed) row doesn't use the pins then
+function planPinsFor(x, date, nowMin, xsHosts){
+  if (!x || x.fixed || x.dead) return null;
+  const h = planPinHost(x.t); if (!h || !Array.isArray(h.pins) || !h.pins.length) return null;
+  if (!x.t.xs && xsHosts && xsHosts.has(h.id)) return null;
+  const p = AVAIL.pinsOn(h.pins, date, nowMin);
+  return p.off || p.iv.length ? p : null;
+}
 
 /* -- Today's Plan */
 function availStripHtml(F){
@@ -16076,6 +16272,256 @@ window.__sbAvail = {studyDay: () => studyDay(), state: () => availState(), free:
   exportArrays: () => exportArrays(), restore: availRestore, day: () => (FOCUS || computeFocus()).day.slice(0, 6)};
 /* AVAIL-UI-END */
 
+/* ===== module: 01-plan-move.js: move study blocks on Today's Plan's time strip ===== */
+/* A study block on the strip can be dragged to another time (mouse: press and drag; touch: long-press, then drag), or moved with its
+   Move To… menu (times that fit, Tomorrow, Let Studyboard Pick), which also serves keyboard and screen-reader users.
+   Classes, events and availability blocks are fixed: a drop that overlaps one snaps to the nearest free time and says so.
+   A moved block is pinned for its day on the task (task.pins = [{date, s, e}], minutes from the plan day's midnight, cleaned in normTask);
+   availPlan() (01-courses.js) keeps pinned blocks where they are and plans the rest around them, so Do This Next, the strip and the
+   widgets all agree. Let Studyboard Pick removes the pin. Each move is one step with Undo (applyChanges). */
+const PM_PIN = `<svg class="dtl-pin" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.2 2.6a1 1 0 0 1 1.4 0l4.8 4.8a1 1 0 0 1-.3 1.6l-2.9 1.3-3.3 3.3.4 3.6a1 1 0 0 1-.3.8l-1.2 1.2a1 1 0 0 1-1.4 0l-3.5-3.5-4.6 4.6a1 1 0 1 1-1.4-1.4l4.6-4.6-3.5-3.5a1 1 0 0 1 0-1.4L5.2 8a1 1 0 0 1 .8-.3l3.6.4 3.3-3.3L14.2 2.9a1 1 0 0 1 1-.3z"/></svg>`;
+const PM_MORE = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>`;
+// A movable study block on the strip: the card itself opens the task (a button over the whole card), and its ⋯ button opens Move To…
+function planMoveCard(x, o){
+  const id = x.t.id, title = x.t.title, c = colorOf(x.t.courseId);
+  return `<div class="${o.cls} tk pm-card${o.hero ? " next" : ""}${x.pin ? " pinned" : ""}" data-mv="${esc(id)}" data-s="${x.s}" data-e="${x.e}" data-min="${Math.round(x.min || x.e - x.s)}" style="--c:${esc(c)};--cb:${esc(courseSolid(c))};--m:${x.e - x.s}"${o.at}>`
+    + `<span class="dtl-t">${x.pin ? PM_PIN : ""}${dtlWhen(o.when)}</span><b class="dtl-n">${esc(title)}</b><span class="dtl-m"><span>${esc(o.len)}</span>${o.on ? `<span class="dtl-badge">Now</span>` : o.hero ? `<span class="dtl-badge">Next</span>` : ""}</span>`
+    + `<button type="button" class="dtl-open" ${gtOpenAttrs(x.t)} aria-label="${esc(title)}, ${esc(o.when)}${x.pin ? ", pinned" : ""}"></button>`
+    + `<button type="button" class="dtl-mv" data-pm="${esc(id)}" aria-haspopup="menu" aria-expanded="false" aria-label="Move ${esc(title)}" title="Move To…">${PM_MORE}</button></div>`;
+}
+
+const PLAN_MOVE = (() => {
+  const round5 = m => Math.round(m / 5) * 5;
+  const itemOf = id => { const F = FOCUS || computeFocus(); return F && F.info ? F.info[id] : null; };
+  const titleOf = id => { const x = itemOf(id); return x && x.t ? x.t.title : "this"; };
+  // What can't move under a block of task id today: classes, events and availability blocks (with travel), other tasks' pinned
+  // blocks, and the time before now. lo..hi is the rest of the study day.
+  function ctx(id){
+    const F = FOCUS || computeFocus(), a = F && F.avail, sd = (F && F.sd) || studyDay();
+    const fixed = (a && a.res ? a.res.busy : []).filter(m => m.kind !== "done").map(m => ({s: m.s, e: m.e, title: m.title, kind: m.kind}));
+    ((a && a.slots) || []).forEach(sl => { if (sl.pin && sl.id !== id) fixed.push({s: sl.s, e: sl.e, title: titleOf(sl.id), kind: "pin"}); });
+    return {F, sd, fixed, lo: Math.max(sd.start, Math.ceil(Math.max(sd.now, sd.start) / 5) * 5), hi: sd.end, date: sd.date};
+  }
+  // One line on why a drop landed somewhere else
+  const why = (hit, title, s, e) => hit ? (hit.kind === "pin" ? `${hit.title} is pinned there, so ${title} moved to the nearest free time, ${availRange(s, e)}`
+    : `${hit.title} is fixed, so ${title} moved to the nearest free time, ${availRange(s, e)}`) : "";
+  // Save new pins for the task behind plan item id. Returns false when it can't be pinned.
+  function savePins(id, fn, label){
+    const x = itemOf(id), host = x && planPinHost(x.t); if (!host) return false;
+    const before = Array.isArray(host.pins) ? host.pins : [], next = normPins(fn(before.slice()));
+    if (SyncMerge.eq(before, next)) return false;
+    const after = Object.assign({}, host, {pins: next}); if (!next.length) delete after.pins;
+    applyChanges([{kind: "task", id: host.id, after}], label);
+    return true;
+  }
+  const overlaps = (p, s, e) => p.e > p.s && p.s < e && p.e > s;
+  // Pin block [s0, e0) of item id at s..e today (replacing the pins it had there, and a "moved off today" pin)
+  function moveTo(id, s0, e0, s, e, label){
+    const date = ctx(id).date;
+    return savePins(id, l => l.filter(p => p.date !== date || !(overlaps(p, s0, e0) || (p.s === 0 && p.e === 0))).concat([{date, s, e}]), label);
+  }
+  // Let Studyboard Pick: the block's pin goes and the planner places it again
+  function unpin(id, s0, e0){
+    const date = ctx(id).date, t = titleOf(id);
+    return savePins(id, l => l.filter(p => p.date !== date || !overlaps(p, s0, e0)), `Studyboard will pick the time for ${t}`);
+  }
+  // Tomorrow: nothing for it today, and a pinned block tomorrow at the free time nearest the same time of day (when one fits)
+  function tomorrow(id, len, s0){
+    const date = ctx(id).date, nd = addDays(date, 1), t = titleOf(id);
+    let w = null; try { const r = availFreeDay(nd, null); if (!r.none) w = AVAIL.snap(s0 == null ? r.ws : s0, len, r.busy, r.ws, r.we); } catch (e) {}
+    const add = [{date, s: 0, e: 0}].concat(w ? [{date: nd, s: w.s, e: w.s + len}] : []);
+    return savePins(id, l => l.filter(p => p.date !== date && !(w && p.date === nd && overlaps(p, w.s, w.s + len))).concat(add),
+      w ? `Moved ${t} to tomorrow, ${availRange(w.s, w.s + len)}` : `Moved ${t} to tomorrow`);
+  }
+  // Times a block of len minutes fits today: the start of each free gap, then on the hour inside long gaps (up to 6)
+  function fits(id, len, s0){
+    const c = ctx(id), f = AVAIL.mergeIv(c.fixed), out = [];
+    let cur = c.lo;
+    f.concat([{s: c.hi, e: c.hi}]).forEach(x => {
+      const g0 = Math.ceil(cur / 5) * 5, g1 = Math.min(x.s, c.hi);
+      if (g1 - g0 >= len) { out.push(g0); for (let h = Math.ceil((g0 + 1) / 60) * 60; h + len <= g1; h += 60) if (h - g0 >= 30) out.push(h); }
+      cur = Math.max(cur, x.e);
+    });
+    return out.filter(s => s !== s0).slice(0, 6).map(s => ({s, e: s + len}));
+  }
+  return {ctx, why, moveTo, unpin, tomorrow, fits, titleOf, round5};
+})();
+
+/* -- Drag along the strip */
+(() => {
+  let P = null, D = null, swallow = 0;
+  const cardOf = el => el && el.closest ? el.closest(".dtl-c.pm-card[data-mv]") : null;
+  // Every card's place on the rail (in the rail's scrolled content) and its times, measured once when the drag starts
+  function layout(rail){
+    const rr = rail.getBoundingClientRect();
+    return [...rail.querySelectorAll(".dtl-c[data-s]")].map(el => { const r = el.getBoundingClientRect(); return {el, l: r.left - rr.left + rail.scrollLeft, w: r.width, s: +el.dataset.s, e: +el.dataset.e}; }).sort((a, b) => a.l - b.l);
+  }
+  // The time at a point on the rail: cards are sized by length but not to scale, so it's read off the card under it
+  function timeAt(L, cx){
+    for (const it of L) { if (cx < it.l) return it.s; if (cx <= it.l + it.w) return it.s + (cx - it.l) / Math.max(1, it.w) * (it.e - it.s); }
+    return L.length ? L[L.length - 1].e : 0;
+  }
+  function xAt(L, t){
+    for (const it of L) if (t < it.e) return it.l + Math.max(0, t - it.s) / Math.max(1, it.e - it.s) * it.w;
+    return L.length ? L[L.length - 1].l + L[L.length - 1].w : 0;
+  }
+  function start(card, x){
+    const rail = card.closest(".dtl-rail"), wrap = card.closest(".dtl"); if (!rail || !wrap) return;
+    const id = card.dataset.mv, L = layout(rail), me = L.find(it => it.el === card);
+    const ind = document.createElement("div"); ind.className = "pm-ind"; ind.setAttribute("aria-hidden", "true"); ind.innerHTML = `<i></i><span></span>`;
+    wrap.appendChild(ind);
+    D = {card, rail, wrap, ind, L, id, x0: x, x, sl0: rail.scrollLeft, l0: me ? me.l : 0, len: +card.dataset.min || (+card.dataset.e - +card.dataset.s), s0: +card.dataset.s, e0: +card.dataset.e, c: PLAN_MOVE.ctx(id), sn: null};
+    // body.sorting holds back redraws while dragging (scheduleRender waits), so the block being dragged stays put
+    card.classList.add("pm-drag"); rail.classList.add("pm-on"); wrap.classList.add("pm-on"); document.body.classList.add("sorting");
+    try { sbHaptic("lift", {force: true}); } catch (e) {}
+    update(x); D.raf = requestAnimationFrame(edge);
+  }
+  function update(x){
+    if (!D) return;
+    D.x = x;
+    const dx = x - D.x0 + (D.rail.scrollLeft - D.sl0);
+    D.card.style.transform = `translateX(${dx}px)`;
+    const want = PLAN_MOVE.round5(timeAt(D.L, D.l0 + dx));
+    D.sn = AVAIL.snap(want, D.len, D.c.fixed, D.c.lo, D.c.hi);
+    const off = D.rail.getBoundingClientRect().left - D.wrap.getBoundingClientRect().left - D.rail.scrollLeft;
+    const lab = D.ind.querySelector("span");
+    if (D.sn) { D.ind.style.left = (off + xAt(D.L, D.sn.s)) + "px"; lab.textContent = availRange(D.sn.s, D.sn.e) + (D.sn.hit ? ` · ${D.sn.hit.title} is fixed` : ""); D.ind.classList.toggle("snap", !!D.sn.hit); D.ind.classList.remove("none"); }
+    else { D.ind.style.left = (off + D.l0 + dx) + "px"; lab.textContent = "No free time that long here"; D.ind.classList.add("none"); }
+    // keep the label inside the strip
+    const wl = D.wrap.clientWidth, lw = lab.offsetWidth, left = parseFloat(D.ind.style.left) || 0;
+    lab.style.transform = `translateX(${Math.round(Math.max(-left + 4, Math.min(-lw / 2, wl - left - lw - 4)))}px)`;
+  }
+  // Near an edge of the strip, it scrolls on its own so a block can go anywhere in the day
+  function edge(){
+    if (!D) return;
+    const r = D.rail.getBoundingClientRect(), z = 44;
+    const v = D.x < r.left + z ? -Math.ceil((r.left + z - D.x) / 4) : D.x > r.right - z ? Math.ceil((D.x - r.right + z) / 4) : 0;
+    if (v) { const b = D.rail.scrollLeft; D.rail.scrollLeft += v; if (D.rail.scrollLeft !== b) update(D.x); }
+    D.raf = requestAnimationFrame(edge);
+  }
+  function end(drop){
+    if (!D) return; const d = D; D = null; P = null;
+    cancelAnimationFrame(d.raf); d.ind.remove(); d.card.style.transform = ""; d.card.classList.remove("pm-drag"); d.rail.classList.remove("pm-on"); d.wrap.classList.remove("pm-on"); document.body.classList.remove("sorting");
+    swallow = performance.now();
+    if (!drop) return;
+    const t = PLAN_MOVE.titleOf(d.id);
+    if (!d.sn) { toast(`No free time that long is left there today, so ${t} stays at ${availRange(d.s0, d.e0)}`); return; }
+    if (d.sn.s === d.s0) return;
+    PLAN_MOVE.moveTo(d.id, d.s0, d.e0, d.sn.s, d.sn.e, d.sn.hit ? PLAN_MOVE.why(d.sn.hit, t, d.sn.s, d.sn.e) : `Moved ${t} to ${availRange(d.sn.s, d.sn.e)}`);
+    try { sbHaptic("drop", {force: true}); } catch (e) {}
+    planMoveFocus(d.id);
+  }
+  // Mouse and pen: press, then drag past a few pixels
+  document.addEventListener("pointerdown", e => {
+    if (e.pointerType === "touch" || e.button !== 0 || D) return;
+    const card = cardOf(e.target); if (!card || e.target.closest(".dtl-mv")) return;
+    P = {card, x: e.clientX, y: e.clientY};
+  });
+  addEventListener("pointermove", e => {
+    if (e.pointerType === "touch") return;
+    if (D) { e.preventDefault(); update(e.clientX); return; }
+    if (P && Math.hypot(e.clientX - P.x, e.clientY - P.y) > 6) start(P.card, P.x), update(e.clientX);
+  });
+  addEventListener("pointerup", e => { if (e.pointerType === "touch") return; if (D) end(true); P = null; });
+  addEventListener("keydown", e => { if (D && e.key === "Escape") { e.preventDefault(); end(false); } }, true);
+  addEventListener("blur", () => { if (D) end(false); });
+  // Touch: hold still on a block for a moment (the strip scrolls as usual otherwise), then drag
+  let T = null;
+  document.addEventListener("touchstart", e => {
+    if (D || e.touches.length !== 1) return;
+    const card = cardOf(e.target); if (!card || e.target.closest(".dtl-mv")) return;
+    const p = e.touches[0];
+    T = {card, x: p.clientX, y: p.clientY, timer: setTimeout(() => { if (T) { const tt = T; T = null; start(tt.card, tt.x); } }, 420)};
+  }, {passive: true});
+  document.addEventListener("touchmove", e => {
+    if (T) { const p = e.touches[0]; if (Math.hypot(p.clientX - T.x, p.clientY - T.y) > 10) { clearTimeout(T.timer); T = null; } return; }
+    if (D) { e.preventDefault(); update(e.touches[0].clientX); }
+  }, {passive: false});
+  const tEnd = e => { if (T) { clearTimeout(T.timer); T = null; } if (D) { if (e.cancelable) e.preventDefault(); end(e.type === "touchend"); } };
+  document.addEventListener("touchend", tEnd, {passive: false});
+  document.addEventListener("touchcancel", tEnd, {passive: false});
+  // the long-press menu of the browser, and the click that ends a drag, don't do anything
+  document.addEventListener("contextmenu", e => { if (D || cardOf(e.target) && T) e.preventDefault(); }, true);
+  document.addEventListener("click", e => { if (performance.now() - swallow < 350 && cardOf(e.target) && !e.target.closest(".dtl-mv")) { e.preventDefault(); e.stopPropagation(); } }, true);
+  hook("render", () => { if (D && !D.card.isConnected) end(false); });
+})();
+// After a move the strip is drawn again: keyboard focus goes back to the moved block's menu button
+function planMoveFocus(id, menu){
+  if (!menu && !(document.activeElement && document.activeElement.closest && document.activeElement.closest(".pm-menu,.dtl"))) return;
+  setTimeout(() => { const b = [...document.querySelectorAll(".dtl-mv[data-pm]")].find(x => x.dataset.pm === id); if (b) b.focus({preventScroll: true}); }, 120);
+}
+
+/* -- Move To… menu */
+(() => {
+  let M = null;
+  function close(back){
+    if (!M) return; const m = M; M = null;
+    m.el.remove(); m.btn.setAttribute("aria-expanded", "false");
+    document.removeEventListener("pointerdown", outside, true);
+    if (back && m.btn.isConnected) m.btn.focus({preventScroll: true});
+  }
+  // under its button (above it when there's no room below), kept on screen; it follows the button when the page or strip scrolls
+  function place(){
+    if (!M) return;
+    const {el, btn} = M, r = btn.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, vw = innerWidth, vh = innerHeight;
+    if (!btn.isConnected || r.bottom < 0 || r.top > vh) { close(false); return; }
+    el.style.left = Math.max(8, Math.min(vw - w - 8, r.right - w)) + "px";
+    el.style.top = (r.bottom + 6 + h > vh - 8 ? Math.max(8, r.top - 6 - h) : r.bottom + 6) + "px";
+  }
+  const outside = e => { if (M && !M.el.contains(e.target) && e.target !== M.btn && !M.btn.contains(e.target)) close(false); };
+  function open(btn){
+    const card = btn.closest(".pm-card"); if (!card) return;
+    const id = card.dataset.mv, s0 = +card.dataset.s, e0 = +card.dataset.e, len = +card.dataset.min || e0 - s0, pinned = card.classList.contains("pinned"), t = PLAN_MOVE.titleOf(id);
+    const opts = PLAN_MOVE.fits(id, len, s0);
+    const el = document.createElement("div");
+    el.className = "pm-menu"; el.setAttribute("role", "menu"); el.setAttribute("aria-label", `Move ${t}`);
+    el.innerHTML = `<p class="pm-h" aria-hidden="true">Move To</p>`
+      + (opts.length ? `<div role="group" aria-label="Times that fit today"><p class="pm-g" aria-hidden="true">Today</p>${opts.map(o => `<button type="button" role="menuitem" class="pm-it" data-s="${o.s}" data-e="${o.e}">${esc(availRange(o.s, o.e))}</button>`).join("")}</div>`
+        : `<p class="pm-g pm-none">No other time fits ${esc(fmtHM(len / 60))} today</p>`)
+      + `<div class="pm-sep" role="separator"></div>`
+      + `<button type="button" role="menuitem" class="pm-it" data-do="tomorrow">Tomorrow</button>`
+      + (pinned ? `<button type="button" role="menuitem" class="pm-it" data-do="pick">Let Studyboard Pick</button>` : "");
+    document.body.appendChild(el);
+    M = {el, btn, id, s0, e0, len};
+    place();
+    btn.setAttribute("aria-expanded", "true");
+    const items = () => [...el.querySelectorAll('[role="menuitem"]')];
+    items()[0].focus();
+    el.addEventListener("keydown", e => {
+      const l = items(), i = l.indexOf(document.activeElement);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); l[(i + (e.key === "ArrowDown" ? 1 : -1) + l.length) % l.length].focus(); }
+      else if (e.key === "Home" || e.key === "End") { e.preventDefault(); l[e.key === "Home" ? 0 : l.length - 1].focus(); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(true); }
+      else if (e.key === "Tab") close(false);
+    });
+    el.addEventListener("click", e => {
+      const b = e.target.closest(".pm-it"); if (!b || !M) return;
+      const m = M; close(false);
+      if (b.dataset.do === "tomorrow") PLAN_MOVE.tomorrow(m.id, m.len, m.s0);
+      else if (b.dataset.do === "pick") PLAN_MOVE.unpin(m.id, m.s0, m.e0);
+      else { const s = +b.dataset.s, e2 = +b.dataset.e; PLAN_MOVE.moveTo(m.id, m.s0, m.e0, s, e2, `Moved ${PLAN_MOVE.titleOf(m.id)} to ${availRange(s, e2)}`); }
+      planMoveFocus(m.id, true);
+    });
+    setTimeout(() => document.addEventListener("pointerdown", outside, true), 0);
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest(".dtl-mv[data-pm]"); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    if (M && M.btn === b) { close(true); return; }
+    close(false); open(b);
+  });
+  // the strip is drawn again (a sync, the clock): the menu stays with the same block, or goes when the block is no longer there
+  hook("render", () => {
+    if (!M || M.btn.isConnected) return;
+    const b = [...document.querySelectorAll(".dtl-mv[data-pm]")].find(x => x.dataset.pm === M.id), c = b && b.closest(".pm-card");
+    if (!b || +c.dataset.s !== M.s0) { close(false); return; }
+    M.btn = b; b.setAttribute("aria-expanded", "true"); place();
+  });
+  addEventListener("resize", () => { if (M) place(); });
+  addEventListener("scroll", e => { if (M && !(e.target && e.target.nodeType === 1 && M.el.contains(e.target))) place(); }, true);
+})();
+// For tests: the moves, and the plan's slots (what Do This Next and the widgets read)
+if (window.__SB_TEST) window.__sbPlanMove = Object.assign({slots: () => { focusStale(); return computeFocus().slotsBy; }}, PLAN_MOVE);
 /* ===== module: 01-calendar.js: the app's core, calendar events, .ics import, daily quote, weekly schedule ===== */
 /* Calendar events */
 const eventsArr = () => Object.values(state.events || {});
@@ -33317,7 +33763,7 @@ Return JSON only.`;
   }
 
   /* Opening things */
-  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; }
+  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (window.SBESS && SBESS.opened) SBESS.opened(tab, "search"); }
   function runAct(act, data){
     const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act;
     Object.entries(data || {}).forEach(([k, v]) => { b.dataset[k] = v; });
@@ -35288,10 +35734,13 @@ const ERRCORE = (() => {
       text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".deck-grid > .deck", ".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
-    {id: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
+    {id: "notes", need: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
       text: () => "Sticky notes on a corkboard, one board per course or topic. Drag them around, add stickers and pin what matters."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".gp-hero", ".cf-tabs", NAV("courses")],
       text: () => "Your marks in each course, and what you need on the rest to hit your target."},
+    // Essentials (99-essentials.js): the tabs that wait are under More
+    {id: "more", title: "More", tab: "board", only: () => !!(window.SBESS && SBESS.on()), sel: ["nav.tabs .ess-more"],
+      text: () => "Notes, Groups, your companion and the other tools are here, one tap away. They join the menu by themselves when you need them."},
     {id: "shop", title: "Style Shop", panel: "shop", has: ['nav.tabs [data-act="shop"]', '[data-act="shop"]'], sel: ["#dlg .sbh-top", "#dlg .sheet.shop"],
       text: () => "Make Studyboard yours: themes, companions, stickers, flashcard styles and more. Open it any time from Style in the sidebar."},
     {id: "done", title: "You're Ready! 🎉", tab: "board",
@@ -35506,7 +35955,7 @@ const ERRCORE = (() => {
     try { demoData = useDemo() ? demoPlanner() : null; } catch (e) { console.error(e); demoData = null; }
     tourDemo = demoData;
     saved = {tab: ui.tab, planView: ui.planView, courseId: ui.courseId, courseTab: ui.courseTab, bview: ui.bview, fc: ui.fc, deckId: ui.deckId, scrollY: window.scrollY};
-    steps = STEPS.filter(s => s.has ? !!findIn(s.has) : !s.sel || ((s.go && s.go()), gotoTab(s.tab), render(), !!find(s)));
+    steps = STEPS.filter(s => (!s.need || !window.SBESS || SBESS.shows(s.need)) && (!s.only || s.only())).filter(s => s.has ? !!findIn(s.has) : !s.sel || ((s.go && s.go()), gotoTab(s.tab), render(), !!find(s)));
     i = 0;
     build();
     show();
@@ -59046,7 +59495,7 @@ var TP_DATA = [];
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
     account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
@@ -59057,7 +59506,7 @@ var TP_DATA = [];
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
-  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
+  const SYN = {"ess-toggle": "essentials simple simpler calm more tabs menu hidden hide show all everything advanced features", "theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
     "sb-connect": "sync cloud online login", "sb-signin": "sync login", "pk-manage": "passkey face id fingerprint touch id biometric login password", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
     "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
@@ -59066,7 +59515,7 @@ var TP_DATA = [];
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   // An emoji before each row's title, by the row's key (rows that bring their own emoji or icon keep theirs)
   const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "pk-manage": "🔐", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
-    "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
+    "ess-toggle": "👀", "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
     "text-size": "🔠", "a11y-contrast": "👓", "lang-set": "🌐", "spell-set": "🔤",
     "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
     "ai-setup": "✨", "aivault-open": "🔐", "sx-settings": "🔍", "bd-new-course": "🧩", "calc-open": "🧮", "pro-pr-open": "🖨️",
@@ -59171,7 +59620,8 @@ var TP_DATA = [];
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
         sorted.forEach(({r}) => {
           const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
-          if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
+          // (not into What You See, which holds just Show Everything: 99-essentials.js)
+          if (!g) { g = groups.find(x => x.name !== "What You See") || groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
           g.rows.push(r);
         });
         // Every group shows at once, each under its own heading, so nothing hides behind a tab
@@ -72851,6 +73301,7 @@ var COMP_EXTRA = [];
   function dailyHello(){
     try {
       if (!talkOn() || !act || !cur || !box || box.hidden || document.hidden || mood !== "idle") return;
+      if (window.SBESS && !SBESS.shows("companion-lines")) return;
       const t = todayISO(), n = userName(); if (!n || localStorage.getItem(HELLO_KEY) === t) return;
       localStorage.setItem(HELLO_KEY, t);
       const h = new Date().getHours();
@@ -73912,7 +74363,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const CHAT_KEY = "studyboard:comp:chat";
   const chatRead = () => { try { return Number(localStorage.getItem(CHAT_KEY)) || 0; } catch (e) { return 0; } };
   const chatMark = () => { try { localStorage.setItem(CHAT_KEY, String(Date.now())); } catch (e) {} };
-  const quietNow = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
+  const quietNow = () => !isOn() || !talkOn() || (window.SBESS && !SBESS.shows("companion-lines")) || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
     || (front && front.querySelector(".cp-bubble.on")) || (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus")
     || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) || document.activeElement?.isContentEditable;
   let taskTalkT = 0;
@@ -95671,15 +96122,29 @@ window.SBSEM = {
       done: () => allTasks().some(t => t.due), go: quickAdd},
     {id: "focus", t: "Start a focus session", s: "Start the timer on any task. Even 10 minutes helps.",
       done: () => { if (get().focus) return true; try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
-    {id: "note", t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
+    // (in Essentials, Notes and themes aren't on the list: Notes is one of the unlocks below it, and Style is under More)
+    {id: "note", full: true, t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
       done: () => notesArr().length > 0, go: () => goTab("notes")},
     // Only where automatic backups work (not every browser can save to a folder)
     {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
       done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
-    {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
+    {id: "theme", full: true, t: "Select a theme", s: "Make Studyboard yours, light or dark.",
       done: () => !!get().theme, go: () => { set({theme: Date.now()}); render(); if (dlg.open) dlg.close(); styleShop("themes"); }}
   ];
-  const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
+  const ess = () => !!(window.SBESS && SBESS.on());
+  const list = () => ITEMS.filter(it => { try { return !(it.full && ess()) && (!it.here || it.here()); } catch (e) { return false; } });
+  // Essentials (99-essentials.js): the parts that turn on by themselves, each a link to how
+  const UNLOCKS = [
+    {id: "decks", t: "Flashcards", s: "Make your first deck", go: () => goTab("flashcards")},
+    {id: "notes", t: "Notes", s: "Make your first note", go: () => goTab("notes")},
+    {id: "groups", t: "Groups", s: "Join a study group", go: () => goTab("groups")},
+    {id: "examprep", t: "Exam Prep", s: "Add an exam", go: () => { if (SBESS.shows("examprep")) fire("act", "prep-plan", document.body, ""); else quickAdd(); }}
+  ];
+  function unlocksHtml(){
+    if (!ess()) return "";
+    return `<div class="gs-unl"><h3 class="gs-unl-h" id="gsUnlH">Turns on as you go</h3><ul class="gs-unl-list" aria-labelledby="gsUnlH">${UNLOCKS.map(u => { const on = SBESS.shows(u.id);
+      return `<li><button type="button" class="gs-unl-b${on ? " ok" : ""}" data-act="gs-unl" data-id="${u.id}"><span class="gs-unl-ck" aria-hidden="true">${on ? CHECK : PLUS}</span><span class="gs-unl-t"><b>${esc(u.t)}</b><span class="mini">${on ? "On" : esc(u.s)}</span></span></button></li>`; }).join("")}</ul></div>`;
+  }
   const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };
 
   // Shown for the first 30 days after the welcome setup, until it's finished or hidden.
@@ -95695,6 +96160,7 @@ window.SBSEM = {
 
   const CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const CHEV = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const PLUS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>';
   const CLOSE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
   function cardHtml(){
@@ -95719,7 +96185,7 @@ window.SBSEM = {
         <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
       </div>
       <div class="gs-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
-      <ul class="gs-list" id="gsList"${open ? "" : " hidden"}>${rows}</ul>
+      <ul class="gs-list" id="gsList"${open ? "" : " hidden"}>${rows}</ul>${open ? unlocksHtml() : ""}
     </section>`;
   }
 
@@ -95734,6 +96200,7 @@ window.SBSEM = {
     if (act === "gs-hide") { set({hide: Date.now()}); render(); toast("Getting Started hidden. Everything on it is still in the app."); return true; }
     if (act === "gs-fin") { set({fin: Date.now()}); render(); return true; }
     if (act === "gs-toggle") { set({open: get().open === false}); render(); return true; }
+    if (act === "gs-unl") { const u = UNLOCKS.find(x => x.id === (el && el.dataset ? el.dataset.id : "")); if (u) u.go(); return true; }
     if (act === "gs-go") {
       const id = el && el.dataset ? el.dataset.id : "", it = list().find(x => x.id === id);
       if (it && !doneOf(it)) it.go();
@@ -126903,7 +127370,7 @@ const AUTOPILOT = (() => {
     raf = requestAnimationFrame(() => {
       raf = 0;
       const s = sig(), nav = document.querySelector("nav.tabs");
-      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
+      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + ((document.querySelector('nav.tabs .in [data-tab="companion"]') || {}).offsetWidth ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
       // checked every time (cheap): a theme's colours can land a moment after the switch, which left the strip stale
       tintSig = s; barTint();
@@ -127440,6 +127907,232 @@ const AUTOPILOT = (() => {
   addEventListener("scroll", hideTip, {capture: true, passive: true});
   document.addEventListener("close", hideTip, true);
   hook("render", () => { if (tipFor && !tipFor.isConnected) hideTip(); });
+})();
+/* ===== module: 99-essentials.js ===== */
+/* Essentials, on screen (the switch itself is SBESS in 01-essentials.js):
+   - the menu: Board, Calendar, Review and Courses, then More, which opens everything else (Notes, Companion, Groups and the
+     Calculator and Style Shop). A tab comes back to the menu once it's relevant: a first note, joining a group, or opening it
+     from Search.
+   - Today's Plan: Do This Next, the day's tasks and the time strip. The rest waits until it's relevant (Crunch once you're short
+     of time, Exam Prep two weeks before an exam, flashcards once there's a deck) or until Show Everything is on.
+   - each unlock is announced once, in one line; an exam within 14 days gets one Exam Prep card that can be dismissed.
+   - Settings > Appearance > Show Everything turns Essentials off, and back on.
+   Runs before the Board's Notices stack (99-motion-a11y-tz.js), so cards that wait are never counted there. */
+(() => {
+  const TABS = ["notes", "companion", "groups"];
+  const DAYS = 14;
+  const ICON_MORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/></svg>';
+  const ICON_EXAM = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="M14.5 15.5l1.6 1.6 3-3.2"/></svg>';
+  const ICON_X = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  const ROWS = {
+    notes: {t: "Notes", s: "Sticky notes and whiteboards, one board per course"},
+    companion: {t: "Companion", s: "Chat with your study companion and dress it up"},
+    groups: {t: "Groups", s: "Study with friends: share decks and deadlines"}
+  };
+  const SAY = {
+    notes: "Notes now has its own tab in the menu.",
+    groups: "Groups now has its own tab in the menu.",
+    companion: "Companion now has its own tab in the menu.",
+    decks: "Flashcards are on: due cards show on Today's Plan, and Review adds Quizzes and Concept Maps.",
+    crunch: "Crunch Forecast is on: it warns you about heavy weeks before they arrive."
+  };
+  const navBtn = t => document.querySelector(`nav.tabs .in [data-tab="${t}"]`);
+  const busy = () => (typeof tourDemo !== "undefined" && !!tourDemo) || !!(window.SBTOUR && SBTOUR.active());
+  const inPrev = () => { try { return inPreview(); } catch (e) { return false; } };
+
+  /* ---------- The menu ---------- */
+  const fresh = new Set();   // tabs just unlocked this session: a small dot until they're opened
+  function moreBtn(){
+    const inn = document.querySelector("nav.tabs .in"); if (!inn) return null;
+    let b = inn.querySelector(":scope > .ess-more");
+    if (!b) {
+      b = document.createElement("button");
+      b.type = "button"; b.className = "ess-more"; b.dataset.act = "ess-more";
+      b.setAttribute("aria-haspopup", "dialog"); b.setAttribute("aria-expanded", "false");
+      b.innerHTML = ICON_MORE + `<span class="em-l"></span>`;
+      inn.insertBefore(b, inn.querySelector("#navPomo") || null);
+    } else if (b.nextElementSibling && b.nextElementSibling.dataset && b.nextElementSibling.dataset.tab) inn.insertBefore(b, inn.querySelector("#navPomo") || null);   // a tab added later (Groups) goes before More
+    return b;
+  }
+  const hiddenTabs = () => TABS.filter(t => navBtn(t) && !SBESS.shows(t));
+  function navApply(){
+    const on = SBESS.on();
+    TABS.forEach(t => { const b = navBtn(t); if (!b) return; b.classList.toggle("ess-hide", on && !SBESS.shows(t)); b.classList.toggle("ess-new", on && fresh.has(t) && (typeof ui === "undefined" || ui.tab !== t)); });
+    if (typeof ui !== "undefined") fresh.delete(ui.tab);
+    // phones: the companion lives in its tab's seat in the bottom bar; while that tab waits under More, so does the companion
+    document.documentElement.classList.toggle("ess-no-seat", on && !SBESS.shows("companion"));
+    const b = moreBtn(); if (!b) return;
+    const label = typeof tr === "function" ? tr("ess.more", "More") : "More";
+    const l = b.querySelector(".em-l"); if (l && l.textContent !== label) l.textContent = label;
+    const names = hiddenTabs().map(t => ROWS[t].t).concat(SBESS.shows("tools") ? [] : ["Calculator", "Style Shop"]);
+    b.setAttribute("aria-label", names.length ? `${label}: ${names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0]}` : label);
+    // the page you're on is one of the tabs under More: More is the menu item that shows it
+    const here = on && typeof ui !== "undefined" && TABS.includes(ui.tab) && !SBESS.shows(ui.tab);
+    b.setAttribute("aria-current", here ? "page" : "false");
+    b.hidden = !on;
+  }
+  function goTab(t){
+    if (dlg.open) dlg.close();
+    ui.tab = t; if (t !== "courses") ui.courseId = null; if (t === "groups") ui.grp = null;
+    render(); window.scrollTo(0, 0);
+  }
+  function moreSheet(){
+    const svgOf = el => { const s = el && el.querySelector("svg"); return s ? s.outerHTML : ""; };
+    const row = (act, id, ic, title, sub) => `<button type="button" data-act="${act}"${id ? ` data-id="${id}"` : ""}><span class="ess-ic" aria-hidden="true">${ic}</span><span class="ess-tx">${esc(title)}<span class="sub">${esc(sub)}</span></span></button>`;
+    const tabs = hiddenTabs().map(t => row("ess-go", t, svgOf(navBtn(t)), ROWS[t].t, ROWS[t].s)).join("");
+    const tools = SBESS.shows("tools") ? "" : row("calc-open", "", svgOf(document.querySelector("nav.tabs .calc-btn")), "Calculator", "A scientific calculator, with your history") +
+      row("shop", "", svgOf(document.querySelector('nav.tabs [data-act="shop"]')), "Style Shop", "Themes, companions, stickers and more");
+    openSheet(`<div class="sheet more-sheet ess-sheet">${head(tr("ess.more", "More"))}<div class="sheet-body">
+      <p class="ess-lead">Studyboard keeps to the essentials for now. The rest is here, and turns on by itself when you need it.</p>
+      <div class="menu-list">${tabs}${tools}</div>
+      <div class="ess-all"><button type="button" class="btn" data-act="ess-all">Show Everything</button><span class="mini">Every tab in the menu and every card on Today's Plan. You can come back to the essentials in Settings.</span></div>
+    </div></div>`);
+    const b = document.querySelector("nav.tabs .ess-more"); if (b) b.setAttribute("aria-expanded", "true");
+    dlg.addEventListener("close", () => {
+      const m = document.querySelector("nav.tabs .ess-more"); if (!m) return;
+      m.setAttribute("aria-expanded", "false");
+      if ((!document.activeElement || document.activeElement === document.body) && m.offsetParent) { try { m.focus({preventScroll: true}); } catch (e) {} }
+    }, {once: true});
+  }
+
+  /* ---------- Unlocks: features turn on as they become relevant ---------- */
+  const isExam = t => !!t && !t.prepFor && t.type !== "Study" && t.type !== "Quiz" && (t.type === "Exam" || /\b(exams?|midterms?)\b/i.test(String(t.title || "")));
+  function nextExam(){
+    const today = todayISO();
+    return tasksArr().filter(t => t.status !== "done" && t.due && isExam(t)).map(t => ({t, d: dayDiff(today, t.due)})).filter(x => x.d >= 0 && x.d <= DAYS).sort((a, b) => a.d - b.d)[0] || null;
+  }
+  function relevant(quiet){
+    if (!SBESS.on() || busy() || inPrev()) return;
+    const o = {quiet: !!quiet};
+    try { if (notesArr().length) SBESS.unlock("notes", Object.assign({by: "note"}, o)); } catch (e) {}
+    try { if (deckListArr().length) SBESS.unlock("decks", Object.assign({by: "deck"}, o)); } catch (e) {}
+    try { if (window.SBGROUPS && SBGROUPS.known() > 0) SBESS.unlock("groups", Object.assign({by: "group"}, o)); } catch (e) {}
+    try { if (nextExam()) SBESS.unlock("examprep", Object.assign({by: "exam"}, o)); } catch (e) {}
+    try { const F = typeof FOCUS !== "undefined" && FOCUS; if (F && F.crunch) SBESS.unlock("crunch", Object.assign({by: "short"}, o)); } catch (e) {}
+  }
+  // Announced once each, one line, when nothing else is on screen
+  const queue = [];
+  let sayT = 0;
+  function sayNext(){
+    clearTimeout(sayT); sayT = 0;
+    if (!queue.length) return;
+    if (dlg.open || document.querySelector("dialog[open], .note.editing") || busy()) { sayT = setTimeout(sayNext, 2500); return; }
+    const id = queue.shift();
+    if (SBESS.said("unlock:" + id) || !SBESS.on()) { sayNext(); return; }
+    SBESS.said("unlock:" + id, true);
+    const go = TABS.includes(id) && !(typeof ui !== "undefined" && ui.tab === id) ? {label: "Open", fn: () => goTab(id)} : id === "crunch" ? {label: "Open", fn: () => goTab("crunch")} : null;
+    toast(SAY[id], null, go);
+    if (queue.length) sayT = setTimeout(sayNext, 5000);
+  }
+  SBESS.subscribe(ch => {
+    if (ch.unlock) {
+      if (TABS.includes(ch.unlock) && !ch.quiet) fresh.add(ch.unlock);
+      if (SAY[ch.unlock] && !ch.quiet && !SBESS.said("unlock:" + ch.unlock)) { queue.push(ch.unlock); if (!sayT) sayT = setTimeout(sayNext, 900); }
+      else if (ch.quiet) SBESS.said("unlock:" + ch.unlock, true);
+    }
+    if (ch.set === true) relevant(true);   // back to the essentials: what's already in use stays on, quietly
+    try { navApply(); scheduleRender(); } catch (e) {}
+  });
+  // Opening a hidden feature from Search turns it on (30-search.js)
+  SBESS.opened = (what, via) => {
+    if (!SBESS.on() || via !== "search") return false;
+    if (TABS.includes(what)) return SBESS.unlock(what, {by: "search"});
+    if (what === "crunch") return SBESS.unlock("crunch", {by: "search"});
+    return false;
+  };
+  // A new device signed in to a planner that's been in use for a while: that's an existing student, so everything shows
+  function established(){
+    const st = SBESS.state(); if (!st.on || st.why !== "new" || st.setAt) return false;
+    const old = x => x && Number(x.created) > 0 && Number(x.created) < st.at - 2 * 864e5;
+    try { return allTasks().some(old) || Object.values(state.decks || {}).some(old) || Object.values(state.notes || {}).some(old); } catch (e) { return false; }
+  }
+
+  /* ---------- Today's Plan ---------- */
+  function examCard(v){
+    if (!SBESS.on() || !SBESS.shows("examprep") || SBESS.said("exam-card") || v.querySelector(".ess-exam")) return;
+    const x = nextExam(); if (!x) return;
+    const qa = v.querySelector(":scope > .qa-wrap"); if (!qa) return;
+    const when = x.d === 0 ? "today" : x.d === 1 ? "tomorrow" : `in ${x.d} days`;
+    qa.insertAdjacentHTML("afterend", `<section class="ess-card ess-exam" aria-labelledby="essExT">
+      <span class="ess-card-ic">${ICON_EXAM}</span>
+      <p class="ess-card-t" id="essExT"><b>Exam Prep is on.</b> ${esc(x.t.title)} is ${when}: Exam Prep spreads your review over the days before it.</p>
+      <span class="ess-card-acts"><button type="button" class="btn small primary" data-act="ess-exam-go" data-id="${esc(x.t.id)}">Plan My Prep</button><button type="button" class="icon-btn ess-card-x" data-act="ess-exam-x" aria-label="Dismiss the Exam Prep card">${ICON_X}</button></span>
+    </section>`);
+  }
+  function calmBoard(){
+    const v = document.getElementById("view"); if (!v) return;
+    const extras = SBESS.shows("plan-extras");
+    // notices that wait: weekly review, streaks and the study-groups invitation; Crunch until you're short of time
+    if (!extras) v.querySelectorAll(":scope > :is(.wkr-card, .fgs-strip, .fgs-intro, .gn-card)").forEach(e => e.remove());
+    if (!SBESS.shows("crunch")) v.querySelectorAll(":scope > .crunch-card").forEach(e => e.remove());
+    const plan = v.querySelector("section.plan");
+    if (plan) {
+      const NEED = {est: "plan-extras", sugg: "plan-extras", heads: "plan-extras", fc: "decks", prep: "examprep"};
+      plan.querySelectorAll(".pt-tab").forEach(b => {
+        const need = NEED[b.dataset.k]; if (!need || SBESS.shows(need)) return;
+        const p = plan.querySelector("#ptp-" + CSS.escape(b.dataset.k)); if (p) p.remove();
+        if (ui.planTab === b.dataset.k) ui.planTab = "";
+        b.remove();
+      });
+      if (!SBESS.shows("examprep")) plan.querySelectorAll(".plan-notes li:is(.pn-wrap, .pn-ready:has([data-act='gap-hide']))").forEach(li => li.remove());
+      plan.querySelectorAll(".plan-notes").forEach(s => { if (!s.querySelector("li")) s.remove(); });
+      if (!extras) { plan.querySelectorAll('.pf-link[data-id="how"], #plan-how').forEach(e => e.remove()); }
+    }
+    examCard(v);
+  }
+  function calmReview(){
+    // Before the first deck, Review is just Flashcards: Quizzes, Concept Maps and Presentations come with it
+    if (busy() || SBESS.shows("decks") || (ui.rvView && ui.rvView !== "cards")) return;
+    document.querySelectorAll("#view .rv-tabs > [role=tab]:not([data-id='cards'])").forEach(b => b.remove());
+  }
+
+  /* ---------- Settings ---------- */
+  hook("menu", () => `<div class="cap-row ess-row" data-group="appearance" data-us-key="ess-toggle"><span style="flex:1;font-weight:600">Show Everything<span class="sub">Every tab in the menu and every card on Today's Plan. Turn it off to keep to the essentials; the rest turns on as you need it.</span></span><label class="anim-tog"><input type="checkbox" data-act="ess-toggle" ${SBESS.on() ? "" : "checked"}> On</label></div>`);
+
+  hook("act", (act, el) => {
+    switch (act) {
+      case "ess-more": moreSheet(); return true;
+      case "ess-go": { const t = el && el.dataset.id; if (TABS.includes(t)) goTab(t); return true; }
+      case "ess-all": {
+        if (dlg.open) dlg.close();
+        SBESS.set(false, "user");
+        toast("Showing everything. You can go back to the essentials in Settings.", () => SBESS.set(true, "user"));
+        return true;
+      }
+      case "ess-toggle": {
+        const all = !!el.checked;
+        SBESS.set(!all, "user");
+        toast(all ? "Showing everything" : "Back to the essentials. The rest is under More.", () => { SBESS.set(all, "user"); const i = document.querySelector('[data-act="ess-toggle"]'); if (i) i.checked = !all; });
+        return true;
+      }
+      case "ess-exam-go": SBESS.said("exam-card", true); fire("act", "prep-plan", el, el.dataset.id); return true;
+      case "ess-exam-x": {
+        SBESS.said("exam-card", true);
+        const c = document.querySelector(".ess-exam"); if (c) c.remove();
+        const q = document.querySelector(".qa-wrap input"); if (q) { try { q.focus({preventScroll: true}); } catch (e) {} }
+        toast("Exam Prep is still in each exam, and under Today's Plan.");
+        return true;
+      }
+      // Exam Prep opened another way (Search, a task) counts as relevant
+      case "prep-plan": if (SBESS.on()) SBESS.unlock("examprep", {by: "open", quiet: true}); return false;
+    }
+    return false;
+  });
+
+  hook("render", tab => {
+    try {
+      if (established()) { SBESS.set(false, "account"); return; }
+      relevant(false);
+      navApply();
+      if (!SBESS.on()) return;
+      if (tab === "board") calmBoard();
+      else if (tab === "flashcards") calmReview();
+    } catch (e) { console.warn("essentials", e); }
+  });
+  hook("boot", () => { try { relevant(true); navApply(); } catch (e) {} });
+  // a language change renames More
+  hook("lang", () => { try { navApply(); } catch (e) {} });
+  navApply();
 })();
 /* ===== module: 99-motion-a11y-tz.js ===== */
 /* Animations governor (On / Off), low-power handling, text size */
@@ -128367,14 +129060,14 @@ ui._day = todayISO();
       // ever finished a focus session (the synced stats, else this device's count)
       used: () => { try { return (typeof SBSTATS !== "undefined" && SBSTATS.focusSessions() > 0) || (typeof pomo !== "undefined" && !!pomo && pomo.sessions > 0); } catch (e) { return false; } },
       go: () => { const b = document.createElement("button"); b.dataset.act = "pomo-open"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }},
-    {id: "whiteboard", color: "#0E9AA7", title: "Try a Whiteboard",
+    {id: "whiteboard", need: "notes", color: "#0E9AA7", title: "Try a Whiteboard",
       icon: () => svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4M7 13l3-3 2 2 4-4"/>'),
       lead: "A big board to sketch, write and plan on, with markers, shapes and sticky notes.",
       points: ["Draw out a problem, a diagram or a study plan", "Start blank or from a template, one board per course or topic", "Share with your study group"],
       // ever made a whiteboard and drawn on it
       used: () => { try { return Object.values(state.notes || {}).some(n => n && n.wb && ((n.wbInk || []).length || (n.wbItems || []).length)); } catch (e) { return false; } },
       go: () => { ui.tab = "notes"; ui.notesView = "wb"; try { localStorage.setItem("studyboard:notesView", "wb"); } catch (e) {} render(); window.scrollTo(0, 0); }},
-    {id: "maps", color: "#7C3AED", title: "See It All With Concept Maps",
+    {id: "maps", need: "decks", color: "#7C3AED", title: "See It All With Concept Maps",
       icon: () => svg('<rect x="2.5" y="10" width="7" height="5" rx="2.5"/><rect x="14.5" y="4" width="7" height="5" rx="2.5"/><rect x="14.5" y="15" width="7" height="5" rx="2.5"/><path d="M9.5 12.5c2.5 0 2.5-6 5-6M9.5 12.5c2.5 0 2.5 5 5 5"/>'),
       lead: "Map how a course fits together, from the notes, decks and exam topics you've already linked.",
       points: ["Studyboard builds a first map for you, ready to rearrange", "Link ideas to cards, notes and lecture moments", "Quiz yourself by hiding labels and filling them back in"],
@@ -128392,6 +129085,7 @@ ui._day = todayISO();
     if (weeks < shownAt.length + 1) return null;
     for (const f of FEATURES) {
       if (s[f.id]) continue;
+      if (f.need && window.SBESS && !SBESS.shows(f.need)) continue;   // waits until Essentials shows it
       if (f.used()) { s[f.id] = {skipped: true}; ls(K_SEEN, JSON.stringify(s)); continue; }
       return f;
     }
