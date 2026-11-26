@@ -99,6 +99,8 @@ alter table public.studyboard_entitlements add column if not exists ai_included 
 -- Billing bookkeeping
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
+-- The length of the plan last paid for (monthly, quarterly or yearly), from the billing webhook
+alter table public.studyboard_entitlements add column if not exists term text check (term is null or term in ('monthly', 'quarterly', 'yearly'));
 alter table public.studyboard_entitlements drop constraint if exists studyboard_entitlements_source_check;
 alter table public.studyboard_entitlements add constraint studyboard_entitlements_source_check
   check (source is null or source in ('stripe', 'apple', 'google', 'revenuecat', 'promo', 'lifetime', 'grant', 'welcome'));
@@ -833,6 +835,10 @@ begin
   end blk;
 
   update public.studyboard_billing_events set outcome = v_out, user_id = v_uid where family = v_family and event_id = v_event;
+  -- The plan length of a payment that counted
+  if v_uid is not null and v_paid and v_term in ('monthly', 'quarterly', 'yearly') and v_out in ('pro', 'extended') then
+    update public.studyboard_entitlements set term = v_term where user_id = v_uid and term is distinct from v_term;
+  end if;
   -- Founders and Early Supporters (below). A problem there must never stop a payment from counting
   if v_uid is not null and (v_out = 'revoked' or (v_paid and v_out not like 'ignored%' and v_out not like 'rejected%')) then
     begin
