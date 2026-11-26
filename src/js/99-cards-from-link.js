@@ -4,7 +4,7 @@
    deck, plus one summary note under the course that credits the source (title and link) and links the deck.
    - Reading the link (a browser can't fetch other sites itself): a YouTube video goes to Gemini as a file_data part (file_uri, video/*),
      so it needs a Gemini key; with Claude or ChatGPT the student is told so and offered Paste the Text Instead. A web page is opened by
-     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI uses web fetch on its server).
+     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI Pro uses web fetch on its server).
    - Step 1 turns the source into study notes in the AI's own words (never copied sentences; only a few words quoted for an exact term or
      definition). The AI says when it couldn't see the content (unreachable, paywall or login, empty, too long) and nothing is invented.
    - Step 2 is the existing study set maker (aiMakeStudySet) on those notes (and on pasted text, when given), with the student's style,
@@ -53,6 +53,7 @@ const LINKCARDS = (() => {
     const line = x => String(x == null ? "" : x).replace(/\s+/g, " ").trim();
     const title = line(d && d.title) || line(src.title) || src.host || "Source";
     const L = [title, `${src.kind === "youtube" ? "From the YouTube video" : "From the web page"} “${title}”, summarized in AI's own words.`, `Source: ${title}, ${src.url}`];
+    if (src.archived && src.archived.url) L.push(`Read from the Internet Archive's copy of ${src.archived.date}: ${src.archived.url}`);
     if (deckName) L.push(`Flashcards: [[${String(deckName).replace(/[[\]\n]/g, "").trim()}]]`);
     if (d && line(d.overview)) L.push("", line(d.overview));
     (Array.isArray(d && d.sections) ? d.sections : []).forEach(s => { const pts = (Array.isArray(s && s.points) ? s.points : []).map(line).filter(Boolean); if (pts.length) L.push("", line(s.heading) || "Key Points", ...pts.map(p => "• " + p)); });
@@ -74,9 +75,8 @@ const LINKCARDS = (() => {
     if (inPreview()) return "";
     return `<details id="aiLinkD" class="cl-link"><summary>Or From a YouTube Video or Web Page${locked() || tagPro() ? ` <i class="pro-badge">PRO</i>` : ""}</summary>
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
-      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key.</p>
-      <div class="cl-yt" id="aiYtWay" hidden><div class="seg" role="radiogroup" aria-label="How to read the video">
-        <label><input type="radio" name="aiYtWay" value="watch" checked><span>Watch with Gemini</span></label><label><input type="radio" name="aiYtWay" value="paste"><span>Paste Transcript</span></label></div>
+      <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. For a YouTube video, you paste its transcript.</p>
+      <div class="cl-yt" id="aiYtWay" hidden>
         <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
         <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
   }
@@ -85,9 +85,10 @@ const LINKCARDS = (() => {
     const d = e.target; if (!d || d.id !== "aiLinkD" || !d.open || !locked()) return;
     d.open = false; proWhy();
   }, true);
-  // A YouTube link: Gemini watches the video (speech and what's shown on screen), or the student pastes its transcript and their own
-  // AI (Studyboard AI, not Gemini) reads only that: far cheaper, but anything only shown on screen isn't in it
-  const ytPaste = () => { const r = document.querySelector('input[name="aiYtWay"]:checked'); return !!(r && r.value === "paste"); };
+  // A YouTube link: the student pastes the video's transcript, and their AI reads only that. Gemini no longer watches videos: Google's
+  // Gemini API terms don't allow it in an app that students under 18 use (paid or free), so there's no Watch with Gemini any more.
+  // Anything only shown on screen isn't in a transcript. (The old watching code below stays for now, but nothing reaches it.)
+  const ytPaste = () => true;
   document.addEventListener("change", e => { if (e.target && e.target.name === "aiYtWay") { linkHint(); if (ytPaste()) { const t = document.getElementById("aiYtTr"); if (t) t.focus(); } } });
   document.addEventListener("input", e => { if (e.target && e.target.id === "aiLink") linkHint(); });
   function linkHint(){
@@ -96,13 +97,13 @@ const LINKCARDS = (() => {
     const yt = !!v && L.ok && L.kind === "youtube", way = document.getElementById("aiYtWay"), box = document.getElementById("aiYtTrBox");
     if (way) way.hidden = !yt; if (box) box.hidden = !(yt && ytPaste());
     if (yt && ytPaste()) {
-      const who = prov === "studyboard" ? "Studyboard AI" : aiWho("Your AI");
+      const who = prov === "studyboard" ? "Studyboard AI Pro" : aiWho("Your AI");
       h.classList.remove("cl-bad", "cl-warn");
-      h.textContent = `${who} reads the transcript you paste instead of Gemini watching the video, so it uses much less${prov === "studyboard" ? " of your Studyboard AI" : ""}. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
+      h.textContent = `YouTube video${L.shorts ? " (a Short)" : ""}. Paste its transcript below and ${who} makes the cards from it. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
       return;
     }
     h.classList.toggle("cl-bad", !!v && !L.ok);
-    // a video through Studyboard AI uses a big share of the week's AI: said up front, in warning colours
+    // a video through Studyboard AI Pro uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
@@ -110,21 +111,36 @@ const LINKCARDS = (() => {
       : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   }
-  // A video through Studyboard AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
+  // A video through Studyboard AI Pro: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
   // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
   const ytWarn = () => {
     const used = Math.max(0, Math.min(100, Number((aiProGet() || {}).usedPct) || 0));
-    return " Heads up: one video can use up to two-thirds of your Studyboard AI for the last 7 days (only its first 90 minutes are read)." +
-      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI stops until some of your use is 7 days old.");
+    return " Heads up: one video can use up to two-thirds of your Studyboard AI Pro for the last 7 days (only its first 90 minutes are read)." +
+      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI Pro would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI Pro stops until some of your use is 7 days old.");
   };
+  // put copied text in the paste box (after Open the Page): read from the clipboard on the student's tap, tidied
+  async function pasteCopied(){
+    let t = ""; try { t = await navigator.clipboard.readText(); } catch (x) {}
+    const d = document.getElementById("aiPasteD"), box = document.getElementById("aiPaste"), st = document.getElementById("aiStatus");
+    if (!box) return;
+    if (!t || SBPAGE.words(t) < 30) { if (d) d.open = true; box.focus(); if (st) st.textContent = "Nothing long enough was copied. Select the article's text, copy it, and paste it here."; return; }
+    if (d) d.open = true; box.value = SBPAGE.cleanText(t); box.dispatchEvent(new Event("input", {bubbles: true})); box.scrollIntoView({block: "center"});
+    if (st) st.textContent = `Pasted ${SBPAGE.words(box.value).toLocaleString()} words from the page. Tap Create when you're ready.`;
+  }
+  // back from the page they opened: point them at the paste
+  let openedAt = 0;
+  window.addEventListener("focus", () => { if (openedAt && Date.now() - openedAt > 1500) { openedAt = 0; const b = document.querySelector('[data-cl="clip"]'); if (b) { b.classList.add("primary"); b.focus(); } } });
   document.addEventListener("click", e => {
     const b = e.target.closest && e.target.closest("[data-cl]"); if (!b) return;
+    if (b.dataset.cl === "open") { openedAt = Date.now(); return; }
+    if (b.dataset.cl === "clip") { pasteCopied(); return; }
     if (b.dataset.cl === "paste") {
       const r = document.querySelector('input[name="aiYtWay"][value="paste"]'), w = document.getElementById("aiYtWay");
       if (r && w && !w.hidden) { r.checked = true; linkHint(); const t = document.getElementById("aiYtTr"); if (t) { t.focus(); t.scrollIntoView({block: "center"}); } return; }
       const d = document.getElementById("aiPasteD"), t = document.getElementById("aiPaste"); if (d) d.open = true; if (t) { t.focus(); t.scrollIntoView({block: "center"}); } }
   });
 
+  const aiArchDate = iso => { try { return new Date(iso + "T12:00:00Z").toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"}); } catch (e) { return iso; } };
   /* Reading the link */
   const NOTE_SCHEMA = {type: "OBJECT", properties: {
     status: {type: "STRING", enum: ["ok", "unreachable", "paywall", "empty", "too_long"], description: "ok only when you could actually see the content"},
@@ -156,7 +172,7 @@ const LINKCARDS = (() => {
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider;
-    // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
+    // Studyboard AI Pro: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI Pro makes the notes from it
     // At this month's video limit, a student with their own Gemini key watches it with that instead (below)
     const ownGem = !!(aiCfg().keys || {}).gemini, ytOut = () => { const t = aiProGet() || {}; return typeof t.youtubeLeft === "number" && t.youtubeLeft <= 0; };
     if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(ownGem && ytOut())) {
@@ -167,10 +183,27 @@ const LINKCARDS = (() => {
         pasted = [v.title ? "Video title: " + v.title : "", v.transcript, v.onScreen ? "\nShown on screen:\n" + v.onScreen : ""].filter(Boolean).join("\n\n");
       }
     }
+    // The AI on this device can't open web pages: Studyboard reads the page's text for it (devPageText: the iPhone app fetches it
+    // itself, the website asks its own /api/page-text), and the AI works from that text
+    let fetched = null;
+    if (!pasted && L.kind !== "youtube" && prov === "device") {
+      if (onStatus) onStatus("Reading the page…");
+      fetched = await devPageText(L.url, signal);
+      if (fetched.status !== "ok") {
+        const st = fetched.status === "paywall" ? "paywall" : fetched.status === "empty" ? "empty" : "unreachable";
+        const msg = fetched.status === "blocked" ? "That site doesn't let apps read its pages. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "needs_js" ? "That page builds its text in your browser, so Studyboard can't read it from the link. Open it, select all (Ctrl or ⌘ A) and copy, then come back and paste it." : fetched.status === "pdf" ? "That link is a PDF. Download it and add it with Add Files instead." : fetched.status === "busy" ? "Too many pages in a short time. Wait a minute and try again." : fetched.status === "offline" ? "Couldn't reach the page. Check your connection and try again." : fetched.status === "not_page" ? "That link isn't a web page (it may be a picture or a download)." : failMsg(st, L);
+        throw Object.assign(aiErr("link-" + st, msg), {link: true, st: /^(blocked|needs_js)$/.test(fetched.status) ? fetched.status : st});
+      }
+      pasted = fetched.text;
+      // the site turns readers away, so the website read the Internet Archive's copy: said, with its date
+      if (onStatus) onStatus(fetched.archived ? `That site doesn't let apps read it, so this is the Internet Archive's copy from ${aiArchDate(fetched.archived.date)}. Writing study notes…` : "Read the page. Writing study notes…");
+    }
     const ask = `Make the study notes from ${pasted ? "the text above" : L.kind === "youtube" ? "this YouTube video" : "the web page at " + L.url}.`;
     const opts = {task: "linknotes", signal, maxTokens: 8000, temperature: 0.2, onStatus, system: SYS()};
     let r;
-    if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nThe student pasted its ${L.kind === "youtube" ? "transcript" : "text"}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
+    // (on the device, the summary note is a bonus: if the small model can't write it, the cards are still made from the page's text)
+    if (pasted && fetched) { try { r = await aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\nIts text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})); } catch (e) { if (e && (e.code === "aborted" || e.code === "cancelled")) throw e; r = {data: {status: "ok"}}; } }
+    else if (pasted) r = await aiRetry(() => aiCall(Object.assign({}, opts, {schema: NOTE_SCHEMA, parts: [{text: `Source: ${L.url}\n${fetched ? `Its text, read from the page${fetched.title ? ` “${fetched.title}”` : ""}` : `The student pasted its ${L.kind === "youtube" ? "transcript" : "text"}`}:\n\n${pasted.slice(0, 150000)}\n\n${ask}`}]})));
     else if (L.kind === "youtube") {
       // a lecture's content is in what's said: one frame every 5 seconds cuts most of the video work. plain: just the link, the way Google's own
       // YouTube example sends it (no file type, no frame rate). Notes from a long video get plenty of room, and more if they still come back cut off.
@@ -213,15 +246,18 @@ const LINKCARDS = (() => {
       if (!sawVideo(r)) throw Object.assign(aiErr("link-novideo", "Gemini didn't get the video itself, only its link, so it had nothing to watch. YouTube may be blocking Gemini for this video, or your key's free daily allowance for YouTube videos may be used up. Try again later."), {link: true, st: "novideo"});
     }
     else r = await aiRetry(() => aiCall(Object.assign({}, opts, {urlContext: true, timeout: 180000, parts: [{text: `${ask}\n\n${L.url}\n\nAnswer with JSON only, in this shape: ${SHAPE}`}]})));
+    if (fetched) { r = r || {}; r.data = Object.assign({}, r.data || {}); if (!r.data.title && fetched.title) r.data.title = fetched.title; }
     const d = r && r.data && typeof r.data === "object" ? r.data : {};
     let st = String(d.status || "").toLowerCase();
     // The page itself said it couldn't be fetched
     if (!pasted && Array.isArray(r.fetched) && r.fetched.length && !r.fetched.some(x => x.ok)) st = r.fetched.some(x => /paywall/.test(x.status)) ? "paywall" : "unreachable";
     const body = [d.overview].concat((d.sections || []).flatMap(s => (s && s.points) || [])).join(" ");
     const bodyLen = body.replace(/\s+/g, " ").trim().length;
-    if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
+    if (fetched) st = "ok";
+    else if (st === "ok" || !st || (st === "empty" && bodyLen >= 200)) st = bodyLen < 80 ? "empty" : "ok";
     if (st !== "ok") { const why = String(d.reason || "").replace(/\s+/g, " ").trim().slice(0, 200); throw Object.assign(aiErr("link-" + st, failMsg(st, L) + (why ? ` (${aiWho("The AI")} said: ${why.replace(/\.$/, "")}.)` : "")), {link: true, st}); }
     // Pasted text: no point that repeats it word for word
+    if (fetched) { d.pageText = fetched.text; if (fetched.archived) d.archived = fetched.archived; }
     if (pasted) { const idx = aiCopyIndex(pasted); (d.sections || []).forEach(s => { if (s && Array.isArray(s.points)) s.points = s.points.filter(p => !aiCopied(p, idx)); }); d.terms = (d.terms || []).filter(t => t && !aiCopied(t.definition, idx)); if (aiCopied(d.overview, idx)) d.overview = ""; }
     return d;
   }
@@ -234,12 +270,13 @@ const LINKCARDS = (() => {
     if (!L.ok) { say(L.msg, L.why === "local" ? PASTE : ""); inp.focus(); return; }
     if (locked()) { proWhy(); return; }
     let pasted = String(o.pasted || "").trim(); const prov = aiCfg().provider;
+    if (pasted && L.kind !== "youtube") pasted = SBPAGE.cleanText(pasted);
     if (L.kind === "youtube" && ytPaste()) {
       const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
-      if (tr.length < 40) { say("Paste the video's transcript first, or choose Watch with Gemini."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
+      if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
       pasted = tr;
     }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI Pro" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
@@ -256,16 +293,19 @@ const LINKCARDS = (() => {
       const d = await readLink(L, pasted, ac && ac.signal, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       const title = String(d.title || "").replace(/\s+/g, " ").trim().slice(0, 140) || L.host;
-      const src = {kind: L.kind, url: L.url, title, host: L.host};
+      const src = {kind: L.kind, url: L.url, title, host: L.host, archived: d.archived || null};
       const notes = LINKCARDS.noteText(Object.assign({}, d, {title}), src, "");
       spin(`${who} is writing ${[o.cards && "flashcards", o.quiz && "a quiz", o.cases && "case studies"].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} from the notes…`, "Step 2 of 2:");
-      const sources = [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
-        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : [])
+      // the AI on this device makes its cards from the page's own text, in its own sections (the notes are a summary of it, and a
+      // small model loses detail summarizing); every other AI gets the notes, plus the source's text for checking facts
+      const sources = (d.pageText ? [{name: title, kind: "Text", size: d.pageText.length, part: {text: d.pageText}}] : [{name: title, kind: "Text", size: notes.length, part: {text: `Study notes on “${title}” (${L.kind === "youtube" ? "a YouTube video" : "a web page"}):\n\n${notes}`}}]
+        .concat(pasted ? [{name: "Pasted text", kind: "Text", size: pasted.length, part: {text: "The source's own text (for checking facts; write in your own words):\n\n" + pasted.slice(0, 150000)}}] : []))
         .concat((o.files || []).filter(s => s && s.part));
       const r = await aiMakeStudySet({light: true, sources, style: o.style, difficulty: o.difficulty, cards: o.cards, quiz: o.quiz, cases: o.cases, caseCount: o.caseCount, caseStyle: o.caseStyle, cardCount: o.cardCount, quizCount: o.quizCount, courseName: courseOf(o.courseId) ? courseOf(o.courseId).name : "", signal: ac && ac.signal}, m => spin(esc(m)));
       if (ac && ac.signal.aborted) return;
       if (!r.cards.length && !r.questions.length && !r.cases.length) throw aiErr("empty", "The AI couldn't make anything from that source. Try another link, or paste the text instead.");
       if (!r.title) r.title = title;
+      if (d.archived) (r.notes = r.notes || []).unshift(`Made from the Internet Archive's copy of this page from ${aiArchDate(d.archived.date)}, because the site doesn't let apps read it. It may be a little out of date.`);
       try { aiRememberStyle(o.custom); } catch (e) {}
       job.busy = false;
       const show = ctx => o.keepKey ? sheetReady(o.keepKey, () => aiReviewSheet(r, ctx), aiReadyMsg(r)) : aiReviewSheet(r, ctx);
@@ -292,9 +332,12 @@ const LINKCARDS = (() => {
       const noWatch = L.kind === "youtube" && !pasted && e && e.link && /^(?:empty|unreachable|novideo|choke)$/.test(e.st || String(e.code || "").replace(/^link-/, ""));
       const offerPaste = !pasted && !/^(?:nokey|key|credit|offline|no-consent|cancelled|limit|busy)$/.test((e && e.code) || "");
       const diag = e && e.diag && e.diag.length ? `<ul>${e.diag.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "";
-      const pasteBtn = offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "";
+      // a page Studyboard can't read for them (the site turns readers away, or builds its text in the browser): they open it, select
+      // all and copy, and paste it here with one tap; the menus and footer they copied along with it are left out
+      const copyHelp = L.kind !== "youtube" && e && e.link && /^(blocked|needs_js|paywall)$/.test(e.st || "") ? ` <a class="btn small" href="${esc(L.url)}" target="_blank" rel="noopener noreferrer" data-cl="open">Open the Page</a>${navigator.clipboard && navigator.clipboard.readText ? ` <button type="button" class="btn small" data-cl="clip">Paste What I Copied</button>` : ""}` : "";
+      const pasteBtn = (offerPaste ? (L.kind === "youtube" ? PASTE.replace("Paste the Text Instead", "Paste the Transcript Instead") : PASTE) : "") + copyHelp;
       if (noWatch) say("Gemini couldn't watch this video. New or blocked videos often fail.", pasteBtn + `<details class="cl-diag"><summary>Why?</summary><p>${esc(msg)}</p><p>If the video is new (from the last few weeks), that's likely why: Gemini usually can't watch YouTube videos until they're about a month old. Older videos work. For a new one, copy its transcript (on YouTube: open the description, choose Show transcript, then select and copy it) and paste it here.</p>${diag}</details>`);
-      else say(msg + (offerPaste && e && e.link ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
+      else say(msg + (offerPaste && e && e.link && !/^(blocked|needs_js)$/.test(e.st || "") ? " Paste the text instead, and the AI can work from that." : ""), pasteBtn + (diag ? `<details class="cl-diag"><summary>Details</summary>${diag}</details>` : ""));
       aiJobFailed(); aiShowStatus(st);
       if (o.keepKey && sheetKept(o.keepKey)) toast(`${aiWho("AI")} couldn't finish that. Open Create with AI again to see why and try again.`, null, {label: "Open", fn: () => sheetResume(o.keepKey)}, {error: true});
     } finally { clearInterval(tick); }

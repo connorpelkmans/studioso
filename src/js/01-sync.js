@@ -7,6 +7,7 @@ let syncError = false, syncRetryT = 0, syncRetryN = 0;
 // Saves that ran out of quick retries where there's no offline outbox (key -> {ref, data}); they're sent again later
 const syncLater = new Map();
 function syncRetryRun(){
+  if (window.__sbSyncPaused) return;
   syncLater.forEach((j, key) => { syncLater.delete(key); if (queue.has(key)) return; const e = {running: false, next: {data: j.data}, ref: j.ref}; queue.set(key, e); intended.set(key, j.data); runQueue(key, e); });
   flushOutbox();
 }
@@ -34,6 +35,7 @@ function syncLabel(){
     el.textContent = !sb ? (n ? "Offline, changes will sync" : "Offline") : !sbUser ? (n ? "Not signed in, changes kept here" : "Not signed in") : n ? "Offline, changes will sync" : "Connecting…";
   }
   else if (!cloud.on) el.textContent = "Saved on this device";
+  else if (syncPaused()) el.textContent = "Sync paused, update Studyboard";
   else if (queue.size) el.textContent = "Saving…";
   else if (syncError) el.textContent = syncRetryT || flushing || syncLater.size && queue.size ? "Not saved, retrying" : "Not saved";
   else el.textContent = "Saved";
@@ -49,11 +51,14 @@ function syncLabel(){
     else { side.setAttribute("aria-hidden", "true"); side.removeAttribute("role"); side.removeAttribute("tabindex"); delete side.dataset.act; side.removeAttribute("aria-label"); }
   }
 }
+// The update switch (99-launch.js): a version the server says is broken keeps every change in the outbox, unsent, until it's updated
+const syncPaused = () => !!window.__sbSyncPaused;
 function queueWrite(kind, id, data){
   if (demoDrawing) return;
-  if (cloud.on && cloud.noteBase && !inPreview()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
+  if (cloud.on && cloud.noteBase && !inPreview() && !syncPaused()) { try { cloud.noteBase(kind, kind === "meta" ? "planner" : id); } catch(e) {} }
   outboxAdd(kind, id, data);
   if (!cloud.on) return;
+  if (syncPaused()) { syncLabel(); return; }
   if (kind === "trash" && !cloud.trash) return;
   const key = kind + ":" + id;
   syncLater.delete(key);
@@ -66,7 +71,23 @@ function queueWrite(kind, id, data){
   if (!e.running) runQueue(key, e);
 }
 // One item over the server's size limit for a single item: named, and said at most once in 10 minutes per item
-let syncFullAt = 0;
+let syncFullAt = 0, syncReserveAt = 0;
+const SYNC_FULL = ["quota_exceeded", "quota_or_state", "reserve_full"];
+// Recently Deleted that the server has no room for (full, or inside the reserve kept for the planner): kept on this device
+// only, quietly, like entries too big to sync. Deleting still works; only the undo copy stays local.
+function syncTrashLocal(key){
+  if (key.indexOf("trash:") !== 0) return false;
+  const e = state.trash && state.trash[key.slice(6)];
+  if (e && !e.local) { e.local = true; try { trashSaveLocal(); } catch(x) {} }
+  return true;
+}
+// A note (or other item) with pictures saved inside it, refused because the account is inside the reserve: said at most every 5 minutes
+function syncReserveWarn(key, data){
+  if (Date.now() - syncReserveAt < 5 * 60000) return;
+  syncReserveAt = Date.now();
+  let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
+  toast(`${name ? `"${String(name).slice(0, 60)}"` : "An item"} has pictures that can't sync now: the rest of your synced space is kept for tasks, notes and courses. It's still saved on this device. Move the pictures into Files, or delete some pictures or other old items.`, null, null, {error: true});
+}
 const syncBigAt = new Map();
 function syncBigWarn(key, data){
   if (Date.now() - (syncBigAt.get(key) || 0) < 10 * 60000) return;
@@ -107,13 +128,17 @@ async function runQueue(key, e){
         syncError = true; console.warn("Save failed", code, err && err.message);
         // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
         // failed only because the server was out of reach is sent again as it was
-        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema" && code !== "item_too_big") {
+        const trashKept = job.data !== null && SYNC_FULL.includes(code) && syncTrashLocal(key);
+        if (trashKept) outboxDone(key, job.data);
+        if (!SYNC_FULL.includes(code) && code !== "schema" && code !== "item_too_big") {
           if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
           syncRetryLater();
         }
-        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
+        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded" && code !== "reserve_full") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "item_too_big") syncBigWarn(key, job.data);
+        if (trashKept) { syncError = syncLater.size > 0; }
+        else if (code === "item_too_big") syncBigWarn(key, job.data);
+        else if (code === "reserve_full") syncReserveWarn(key, job.data);
         else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); reviewQuiet(3); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
@@ -252,7 +277,7 @@ function outboxDone(key, data){
 }
 let flushing = false;
 async function flushOutbox(){
-  if (flushing || !cloud.on) return;
+  if (flushing || !cloud.on || syncPaused()) return;
   const o = outboxGet(), keys = Object.keys(o);
   if (!keys.length) { if (syncError && !queue.size && !syncLater.size) { syncError = false; syncRetryN = 0; syncLabel(); } return; }
   flushing = true;
@@ -268,7 +293,11 @@ async function flushOutbox(){
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { failed = true; const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
+    catch(e) {
+      const c = e && e.code;
+      if (o[k] !== null && SYNC_FULL.includes(c) && syncTrashLocal(k)) { sentBy[k] = o[k]; delete o[k]; continue; }   // kept on this device, not retried
+      failed = true; if (c === "unavailable" || c === "resource_exhausted" || !c) break;
+    }
   }
   try {
     const cur = outboxGet();

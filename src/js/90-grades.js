@@ -1296,7 +1296,45 @@
       const op = gr.open.slice().sort(sortTasks).slice(0, 10).map(t => `${t.title} (${t.type}, ${aiWorth(t)}${t.due ? ", due " + t.due : ""}${t.status === "done" ? ", handed in, waiting for a mark" : ""})`).join("; ");
       L.push(head + (zeroed(gr) ? "\n  LOOKS WRONG: every mark in this course is 0%, which almost always means the marks weren't entered or the school site sent ungraded work as 0. Don't treat it as a real failing grade." : "") + (mk ? "\n  Marked: " + mk : "") + (op ? "\n  Still to come: " + op : ""));
     });
+    const J = aiJudgments(all, S);
+    if (J.length) L.push("JUDGMENTS (worked out by Studyboard from the numbers above; use them as they are):\n" + J.map(x => "- " + x).join("\n"));
     return L.join("\n");
+  }
+  /* Verdicts the app works out itself, so the AI words them instead of judging numbers (a small model called a 2.48 GPA
+     "excellent"; any model can misread a margin). Plain sentences, from the same figures the student sees. */
+  const r1j = v => Math.round(v * 10) / 10;
+  function gpaBand(v, max){
+    const q = v / max;
+    return q >= 0.9 ? "in the A range (excellent)" : q >= 0.75 ? "in the B range (good)" : q >= 0.5 ? "in the C range (fair, with room to improve)" : q >= 0.25 ? "in the D range (weak)" : "in the failing range";
+  }
+  const pctBand = (p, pass) => p < pass ? "below the pass mark" : p >= 90 ? "excellent" : p >= 80 ? "good" : p >= 70 ? "fair" : p - pass < 5 ? "just above the pass mark" : "weak";
+  function aiJudgments(all, S){
+    const J = [];
+    if (S.max && S.n && S.gpaNow != null) {
+      J.push(`Term GPA ${fmtG(S.gpaNow)} out of ${S.max} is ${gpaBand(S.gpaNow, S.max)}.`);
+      if (S.gpaProj != null && Math.abs(S.gpaProj - S.gpaNow) >= 0.05) J.push(`The projected GPA (${fmtG(S.gpaProj)}) is ${S.gpaProj > S.gpaNow ? "higher" : "lower"} than now: ${S.gpaProj > S.gpaNow ? "on track to improve" : "on track to drop unless upcoming work goes better"}.`);
+    }
+    if (S.max && S.pastGpa != null && S.gpaNow != null) J.push(`This term (${fmtG(S.gpaNow)}) is ${Math.abs(S.gpaNow - S.pastGpa) < 0.1 ? "about the same as" : S.gpaNow > S.pastGpa ? "better than" : "worse than"} past terms (${fmtG(S.pastGpa)}).`);
+    const live = all.filter(gr => gr.ts.length && gr.current != null && !zeroed(gr));
+    live.forEach(gr => {
+      const g = gr.g, cur = gr.current, name = courseLabel(gr.c), parts = [`${name}: ${fmtP(cur)} is ${pctBand(cur, g.pass)}`];
+      const m = r1j(cur - g.pass); parts.push(m >= 0 ? `${m} points above the pass mark` : `${-m} points below the pass mark`);
+      if (g.goal != null) { const d = r1j(cur - g.goal); parts.push(d >= 0 ? `meeting the goal by ${d} points` : `${-d} points short of the goal`); }
+      // the trend: the last two marks against the ones before
+      const pcts = gr.marked.slice().sort(sortTasks).map(markPct).filter(v => v != null);
+      if (pcts.length >= 4) { const recent = (pcts[pcts.length - 1] + pcts[pcts.length - 2]) / 2, before = pcts.slice(0, -2).reduce((a, b) => a + b, 0) / (pcts.length - 2), d = recent - before;
+        parts.push(Math.abs(d) < 3 ? "recent marks are steady" : d > 0 ? `recent marks are rising (${r1j(d)} points above earlier ones)` : `recent marks are falling (${r1j(-d)} points below earlier ones)`); }
+      J.push(parts.join("; ") + ".");
+    });
+    if (live.length >= 2) {
+      const by = live.slice().sort((a, b) => b.current - a.current);
+      J.push(`Strongest course: ${courseLabel(by[0].c)} (${fmtP(by[0].current)}). Weakest: ${courseLabel(by[by.length - 1].c)} (${fmtP(by[by.length - 1].current)}).`);
+    }
+    // the biggest piece of work coming up in the next month
+    const soon = todayISO(), cut = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
+    let big = null; live.forEach(gr => gr.open.forEach(t => { const w = wOf(t); if (w > 0 && t.status !== "done" && (!t.due || (t.due >= soon && t.due <= cut)) && (!big || w > big.w)) big = {w, t, gr}; }));
+    if (big) J.push(`The biggest item coming up: ${big.t.title} in ${courseLabel(big.gr.c)}, worth ${fmtW(big.w)}${big.t.due ? ", due " + big.t.due : ""}.`);
+    return J;
   }
   const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
   async function askAi(kind){
@@ -1305,7 +1343,7 @@
     ui.gpAi = {kind, busy: true}; render();
     try {
       const r = await aiCall({task: "coach", fast: true, maxTokens: 1600, temperature: 0.4, schema: {type: "OBJECT", properties: {points: {type: "ARRAY", items: {type: "STRING"}}}, required: ["points"]},
-        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a course whose grade says final can no longer change, so effort goes to courses with work still to come; a course with everything listed marked but not final may still get more marks. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. When advice depends on a weight marked as an estimate (or a course graded by points), say it's an estimate and suggest checking the syllabus. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
+        parts: [{text: aiContext()}], system: "You're a kind, practical study coach looking at a student's grades. " + A.sys + " The JUDGMENTS were worked out by the app from the student's numbers: use them as they are, and never describe a grade, GPA, margin or trend differently from them. " + " Look at every course, including finished ones. If a course is marked LOOKS WRONG, or a mark is far out of line with the rest, say that first and suggest checking those marks, instead of skipping it or treating it as a real result. Remember a course whose grade says final can no longer change, so effort goes to courses with work still to come; a course with everything listed marked but not final may still get more marks. Use only the numbers, items and dates given, and never invent marks, dates or grading rules. When advice depends on a weight marked as an estimate (or a course graded by points), say it's an estimate and suggest checking the syllabus. Plain, warm words. No em dashes, and no medical or academic-policy claims. Return JSON only."});
       const pts = ((r && r.data && r.data.points) || []).map(s => String(s || "").replace(/\s*[—–]\s*/g, ", ").replace(/^[\s•*-]+/, "").trim()).filter(Boolean).slice(0, 6);
       ui.gpAi = pts.length ? {kind, pts} : {kind, err: "The AI didn't send anything back. Try again."};
     } catch (e) { ui.gpAi = {kind, err: (e && e.message) || "Couldn't reach the AI right now. Try again in a moment."}; }
@@ -1692,6 +1730,10 @@
   // 3. what the AI remembers, said plainly as unchecked.
   const SEARCH_OFF = "schoolNoSearch";
   async function findSchool({host, name, program}){
+    // The AI on this device can't search, and a small model "remembering" a school's grading rules makes them up (on the stand-in
+    // model it named a real university for an address it couldn't know). A wrong pass mark is worse than none: the student is
+    // asked for a screenshot or the scale itself instead
+    if (aiCfg().provider === "device") return null;
     const text = `Learning site address: ${host || "(not given)"}.${name ? ` The student calls their school: ${name}.` : ""}${program ? ` The student's program: ${program}.` : ""}`;
     const WEB_RULES = "If a program is given, look for that program's own letter scale and minimum passing grade, and set scope to \"program\" when the numbers you give are the program's own; otherwise give the school's general undergraduate scale and set scope to \"school\". Only give numbers a page actually states, and put that page's address in url. If the pages don't state them, answer found false. ";
     const ask = (mode, urls) => aiCall({task: "school", auto: false, maxTokens: mode === "memory" ? 3000 : 4000, temperature: 0, search: mode === "search", urlContext: mode === "pages",

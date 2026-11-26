@@ -138,6 +138,37 @@ task is done there with an Undo; tap Start a Focus and the app opens with the ti
 its side for StandBy (it shows the small size); lock the phone and the Lock Screen widget hides task names. `tests/home-widgets.e2e.js`
 checks the page side with a stand-in for the plugin.
 
+### 3e. Free AI with no setup: Apple Intelligence on the device (untested)
+
+Students with no AI key and no Studyboard AI get Apple's on-device model (the Foundation Models framework) in every AI feature,
+for free, with nothing sent anywhere. File: `native/StudyboardOnDeviceAI.swift` (the Capacitor plugin `StudyboardOnDeviceAI`, App
+target). Add it in Xcode (File > Add Files to "App", untick "Copy items if needed", tick App); `MainViewController` registers it and
+`npm run ios:stage` lists it if it's missing. No entitlement, capability or Info.plist key is needed.
+
+* **Needs:** Xcode 26 or later to build; at run time iOS 26 or later on an iPhone 15 Pro, any iPhone 16 or 17, or an iPad with M1 or
+  later, with Apple Intelligence turned on. Anywhere else the plugin says "unavailable" and the app works exactly as before (if
+  Apple Intelligence is only switched off, AI Features suggests turning it on).
+* **What the page does** (`src/js/01-ai-device.js`, `devApple`): one request at a time, a fresh session each time, long material cut
+  to fit the model's context (`contextSize`, 4096 before iOS 26.4), and a shorter retry if it's still full. Flashcards and quizzes
+  use the same quality steps as Chrome's built-in model: short sections, worked examples, the source sentence written first, a
+  checking pass, and the model taking its own quiz (`aiDevCheckCards`, `aiDevCheckQuiz` in `src/js/01-ai.js`).
+* **Answers are guided:** the page sends JSON Schema with each object's field order (`propertyOrder`); the plugin builds a
+  `DynamicGenerationSchema` from it, so the model can only answer in that shape.
+* **Photos and scanned PDFs:** `recognizeText` reads their words with Apple's Vision framework (accurate mode, printed text and
+  handwriting, any iPhone, on the device), and the model gets text. The page (`src/js/01-ocr.js`) sends each photo or rendered PDF
+  page as a JPEG and puts the lines back into paragraphs; a taller line counts as a heading, so a scan still splits into sections.
+  A picture with no words (a diagram) is explained, not guessed at: the model itself can't see pictures here yet (iOS 27 can;
+  turn on `images` in `availability()` once that's tested with guided generation).
+* **Web pages (Cards From a Link):** `readPage` opens the page in an invisible WKWebView on the phone (a private data store, nothing
+  kept, 15 seconds at most), lets its scripts run, and returns the HTML; the app extracts its text (`src/js/01-page-text.js`). As a
+  real browser on the student's own connection, it reads pages built by JavaScript and sites that turn away simple readers. If it
+  fails, the app fetches the page directly, then asks the website's `/api/page-text`.
+* **Not on device:** YouTube videos (paste the transcript instead) need Studyboard AI or a key, and say so.
+* **Test plan:** on a supported iPhone with no key, make flashcards from a few pages of notes, from a photo of handwritten notes and
+  from a scanned PDF, from a link to a Wikipedia article and to an OpenStax page, a quiz, a Hint, and ask the companion something. Then turn Apple Intelligence off and check AI Features asks for a key and suggests turning it on. Expect
+  compile fixes: this file hasn't been built yet. Apple's rules for the framework:
+  https://developer.apple.com/apple-intelligence/acceptable-use-requirements-for-the-foundation-models-framework/
+
 ## 4. Build, test and submit
 
 ```bash

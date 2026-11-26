@@ -1,0 +1,27 @@
+{
+ "documents": 2543,
+ "after_dedupe": 2542,
+ "train": 1988,
+ "dev": 152,
+ "test": 402,
+ "subjects": {
+  "economics": 184,
+  "chemistry": 162,
+  "government": 518,
+  "history": 473,
+  "math": 130,
+  "psychology": 43,
+  "health": 395,
+  "physics": 132,
+  "computing": 85,
+  "biology": 363,
+  "philosophy": 9,
+  "arts and literature": 28,
+  "earth science": 16,
+  "Biology": 1,
+  "US History": 1,
+  "Microeconomics": 1,
+  "Chemistry": 1
+ },
+ "sha": "ab719bf90b43d144"
+}

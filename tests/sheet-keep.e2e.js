@@ -43,51 +43,18 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
     const away = async () => { await page.keyboard.press("Escape"); await page.waitForTimeout(250); };
     const toastText = () => page.evaluate(() => (document.getElementById("toastMsg") || {}).textContent || "");
 
-    /* Tap away while it works, come back */
+    /* Create: the sheet closes and the set is built in its own deck, in view (tests/ai-live-set.e2e.js covers that in full);
+       there's no job left in a sheet to set aside */
     await openCreate(); await page.waitForSelector("#aiGo");
     if (!(await page.evaluate(() => document.getElementById("aiPasteD").open))) await page.click("#aiPasteD summary");
     await page.fill("#aiPaste", TEXT); await page.selectOption("#aiCourse", "c1");
     await page.click("#aiGo"); await page.waitForTimeout(300);
-    ok(/reading your material/.test(await page.textContent("#aiStatus")), "it starts working");
-    await away();
-    ok(!(await isOpen()), "Escape closes the sheet");
-    ok(/still working\. Open it again to pick up where you left off/.test(await toastText()), "and says it's still working: " + await toastText());
-    await openCreate(); await page.waitForTimeout(250);
-    ok(await isOpen() && /reading your material/.test(await page.textContent("#aiStatus")) && await page.inputValue("#aiPaste") === TEXT, "opening Create with AI again brings back the same sheet, still working, with the pasted text");
-    ok(await page.evaluate(() => document.getElementById("aiGo").disabled), "Create stays busy, so it can't run twice");
-    /* Away again; it finishes in the background */
-    await page.mouse.click(5, 5); await page.waitForTimeout(250);
-    ok(!(await isOpen()), "a tap outside sets it aside too");
-    await page.waitForFunction(() => /ready to review/.test((document.getElementById("toastMsg") || {}).textContent || ""), null, {timeout: 15000});
-    ok(!(await isOpen()), "when it finishes, nothing pops up over what you're doing");
-    ok(/Your 3 flashcards are ready to review/.test(await toastText()), "a toast says it's ready: " + await toastText());
+    ok(!(await isOpen()) && !!(await page.$(".ai-live-bar")), "Create closes the sheet and the set is built in its deck");
+    await page.waitForSelector(".ai-live-bar.done", {timeout: 15000});
     ok(calls === 1, "the AI was asked once");
-    await page.click("#toastExtra"); await page.waitForSelector("#arSave");
-    ok(await page.locator("#arCards li").count() === 3, "Open in the toast shows the review with the cards");
-    /* The review keeps its place too */
-    await page.locator('#arCards li textarea[data-f="back"]').first().fill("Edited back");
-    await away();
-    await openCreate(); await page.waitForTimeout(250);
-    ok(await page.locator("#arSave").count() === 1 && await page.inputValue('#arCards li >> nth=0 >> textarea[data-f="back"]') === "Edited back", "tapping away from the review and opening Create with AI again brings the review back, edits and all");
-    /* Cancel clears it */
-    await page.click('#dlg .sheet-foot [data-act="close"]'); await page.waitForTimeout(250);
+    ok(await page.evaluate(() => Object.values(window.__sbSync.state.decks).reduce((n, d) => n + d.cards.length, 0)) === 3, "its 3 cards are saved in the deck");
     await openCreate(); await page.waitForSelector("#aiGo");
-    ok(await page.inputValue("#aiPaste") === "" && await page.locator("#arSave").count() === 0, "after Cancel, Create with AI starts fresh");
-    ok(Object.keys(await page.evaluate(() => window.__sbSync.state.decks)).length === 0, "nothing was saved");
-
-    /* Cancel while it works stops it */
-    if (!(await page.evaluate(() => document.getElementById("aiPasteD").open))) await page.click("#aiPasteD summary");
-    await page.fill("#aiPaste", TEXT); await page.selectOption("#aiCourse", "c1");
-    await page.click("#aiGo"); await page.waitForTimeout(300);
-    await page.evaluate(() => { document.getElementById("toastMsg").textContent = ""; });
-    await page.click('#dlg .sheet-foot [data-act="close"]');
-    // Cancel on a running job asks first (it throws the work away); Stop and Discard confirms
-    await page.waitForSelector("#askDlg[open]"); ok(/Stop Creating/.test(await page.textContent("#askDlg")), "Cancel while it works asks before throwing the work away");
-    await page.click("#askDlg #askYes");
-    await page.waitForTimeout(delay + 800);
-    ok(!/ready to review/.test(await toastText()) && !(await isOpen()), "Cancel stops the job: no ready toast, nothing opens");
-    await openCreate(); await page.waitForSelector("#aiGo");
-    ok(await page.inputValue("#aiPaste") === "", "and the next one starts fresh");
+    ok(await page.inputValue("#aiPaste") === "", "the next Create with AI starts fresh");
     /* An untouched sheet isn't kept */
     await away(); await openCreate(); await page.waitForSelector("#aiGo");
     ok(await page.inputValue("#aiPaste") === "", "an empty sheet just closes");

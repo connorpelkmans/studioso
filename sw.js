@@ -57,7 +57,9 @@ self.addEventListener("install", e => {
 });
 self.addEventListener("activate", e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+    // only the app's own old caches go: the downloaded AI models (WebLLM's webllm/*, Gemma 4 E4B's studyboard-ai-*) are gigabytes the
+    // student agreed to download once, and an update must never throw them away
+    for (const k of await caches.keys()) if (k !== CACHE && /^(studyboard|studioso)-v\d+$/.test(k)) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -285,3 +287,25 @@ async function sbcShare(req) {
     return go("&sw=" + id);
   } catch (err) { return go("&err=fail"); }
 }
+
+/* Gemma 4 E4B, the stronger on-device AI (src/js/01-ai-device.js): downloaded by the browser itself with Background Fetch in Chrome
+   and Edge, so it carries on after the tab is closed and resumes after a lost connection. The model file comes in 64 MB parts
+   (Range requests); each part is stored in the "studyboard-ai-e4b" cache under its own key (<url>?studyboard-part=N), where the page reads it. Parts already
+   stored are kept if the rest fails, and the page fetches whatever is missing next time. */
+const E4B_CACHE = "studyboard-ai-e4b", E4B_PART = 64 * 1024 * 1024;
+async function e4bStore(reg){
+  const cache = await caches.open(E4B_CACHE), recs = await reg.matchAll();
+  for (const rec of recs) {
+    try {
+      const res = await rec.responseReady, m = /bytes=(\d+)-(\d+)/.exec(rec.request.headers.get("Range") || "");
+      if (!m || !(res.status === 206 || res.status === 200)) continue;
+      const a = Number(m[1]), b = Number(m[2]), blob = await res.blob();
+      if (blob.size !== b - a + 1) continue;
+      const url = rec.request.url.split(/[?#]/)[0];
+      await cache.put(new Request(url + "?studyboard-part=" + Math.floor(a / E4B_PART)), new Response(blob, {headers: {"Content-Length": String(blob.size)}}));
+    } catch (e) {}
+  }
+}
+self.addEventListener("backgroundfetchsuccess", e => { if (e.registration.id !== "studyboard-ai-e4b") return; e.waitUntil((async () => { await e4bStore(e.registration); try { await e.updateUI({title: "Studyboard's free AI is downloaded"}); } catch (x) {} })()); });
+self.addEventListener("backgroundfetchfail", e => { if (e.registration.id !== "studyboard-ai-e4b") return; e.waitUntil(e4bStore(e.registration)); });
+self.addEventListener("backgroundfetchclick", e => { if (e.registration.id !== "studyboard-ai-e4b") return; e.waitUntil(self.clients.openWindow("./")); });

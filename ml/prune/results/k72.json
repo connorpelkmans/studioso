@@ -1,0 +1,83 @@
+{
+ "cards": {
+  "match": 0.86,
+  "loss": 0.5953,
+  "words": 200
+ },
+ "ALL": {
+  "match": 0.8248,
+  "loss": 0.9789,
+  "words": 2866
+ },
+ "highlight-card": {
+  "match": 0.803,
+  "loss": 0.739,
+  "words": 66
+ },
+ "lang:ar": {
+  "match": 0.895,
+  "loss": 0.5168,
+  "words": 200
+ },
+ "lang:de": {
+  "match": 0.745,
+  "loss": 1.5273,
+  "words": 200
+ },
+ "lang:es": {
+  "match": 0.81,
+  "loss": 0.7495,
+  "words": 200
+ },
+ "lang:fr": {
+  "match": 0.845,
+  "loss": 0.8285,
+  "words": 200
+ },
+ "lang:hi": {
+  "match": 0.85,
+  "loss": 0.5912,
+  "words": 200
+ },
+ "lang:pt": {
+  "match": 0.925,
+  "loss": 0.3522,
+  "words": 200
+ },
+ "lang:zh": {
+  "match": 0.495,
+  "loss": 4.6667,
+  "words": 200
+ },
+ "lecture-notes": {
+  "match": 0.845,
+  "loss": 0.67,
+  "words": 200
+ },
+ "lecture-summary": {
+  "match": 0.855,
+  "loss": 0.6853,
+  "words": 200
+ },
+ "linknotes": {
+  "match": 0.835,
+  "loss": 0.6475,
+  "words": 200
+ },
+ "notes-cards": {
+  "match": 0.94,
+  "loss": 0.2811,
+  "words": 200
+ },
+ "quiz": {
+  "match": 0.825,
+  "loss": 0.924,
+  "words": 200
+ },
+ "transcript-tidy": {
+  "match": 0.83,
+  "loss": 0.7481,
+  "words": 200
+ },
+ "_model": "studyboard-26b-k72.gguf"
+}

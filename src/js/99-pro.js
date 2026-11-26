@@ -272,7 +272,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (65 to 80%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -2799,7 +2799,10 @@ button.oc-n{border:0;padding:0;cursor:pointer}
       const ctx = cv.getContext("2d", {willReadFrequently: true}), pb = el.getBoundingClientRect(), k = cv.width / (pb.width || cv.width);
       tl.querySelectorAll("span:not(.markedContent)").forEach(sp => {
         if (!sp.textContent.trim()) return;
-        const r = sp.getBoundingClientRect(), x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
+        const r = sp.getBoundingClientRect(), fs = parseFloat(getComputedStyle(sp).fontSize) || 0;
+        // a box both wide and tall (invisible oversized text over the page) would swallow the drag and paint as a huge blue block when selected, even with ink under it
+        if (fs && (Math.min(r.width, r.height) > fs * 4 || Math.min(r.width, r.height) > Math.min(pb.width, pb.height) * 0.2 || r.width > pb.width * 1.5 || r.height > pb.height * 1.5)) { sp.classList.add("pdr-ghost"); return; }
+        const x0 = Math.max(0, Math.floor((r.left - pb.left) * k)), y0 = Math.max(0, Math.floor((r.top - pb.top) * k));
         const w = Math.min(cv.width - x0, Math.ceil(r.width * k)), h = Math.min(cv.height - y0, Math.ceil(r.height * k)); if (w < 2 || h < 2) return;
         const d = ctx.getImageData(x0, y0, w, h).data, step = Math.max(1, Math.floor(Math.sqrt(w * h / 3000))), hist = new Uint32Array(52), L = [];
         for (let yy = 0; yy < h; yy += step) for (let xx = 0; xx < w; xx += step) { const i = (yy * w + xx) * 4, l = 255 - (255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])) * d[i + 3] / 255; L.push(l); hist[Math.min(51, Math.floor(l / 5))]++; }
@@ -3433,13 +3436,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /*LECTURE-END*/
   const SR = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
   const canRecord = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
-  // Which AI listens: Studyboard AI (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
+  // Which AI listens: Studyboard AI Pro (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
   const audioProv = () => { try { const c = aiCfg(), k = c.keys || {};
     if (c.provider === "studyboard" && aiProAudio()) return "studyboard";
     if ((c.provider === "gemini" || c.provider === "openai") && c.key) return c.provider;
     return k.gemini ? "gemini" : k.openai ? "openai" : ""; } catch (e) { return ""; } };
   const canHear = () => !!audioProv();
-  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard AI"})[audioProv()] || "AI";
+  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard AI Pro"})[audioProv()] || "AI";
   const aiCapsHere = () => !!DESK || !SR();
   const capsKind = () => aiCapsHere() ? (canHear() ? "ai" : "") : "browser";
   let REC = null;
@@ -4247,7 +4250,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         R.localCopy = true; save({keep: false}); return true;
       }
       case "lec-full-connect": { const tx = $("#lecText"); if (REC && tx) REC.text = tx.value; draftSoon(); if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); toast("Your recording is kept as a draft in the course's Lectures."); return true; }
-      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 10 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
+      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 5 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
       case "lec-file": if (dlg.open) dlg.close(); setTimeout(() => transcriptSheet(id), 0); return true;
       case "lec-file-note": {
         const f = state.files[id]; if (!f || !f.tr) return true;

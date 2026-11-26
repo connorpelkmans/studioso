@@ -1,0 +1,201 @@
+{
+ "courses": [
+  {
+   "id": "c1",
+   "code": "PSYN 2100",
+   "name": "Psychiatric Nursing",
+   "instructor": "Dr. Amy Chen",
+   "color": "#8E6BE0"
+  },
+  {
+   "id": "c2",
+   "code": "BIOS 230",
+   "name": "Anatomy and Physiology",
+   "instructor": "Prof. Luis Ruiz",
+   "color": "#3B6FE0"
+  },
+  {
+   "id": "c3",
+   "code": "BSNC 1000",
+   "name": "Nursing Foundations",
+   "color": "#2E9E6B"
+  },
+  {
+   "id": "c4",
+   "code": "HIST 1010",
+   "name": "World History",
+   "instructor": "Dr. Sam Okafor",
+   "color": "#E05A3B"
+  }
+ ],
+ "tasks": [
+  {
+   "id": "t1",
+   "title": "Care Plan 2",
+   "course": "c1",
+   "due": "2026-11-24",
+   "status": "todo",
+   "type": "Assignment"
+  },
+  {
+   "id": "t2",
+   "title": "Psych Midterm",
+   "course": "c1",
+   "due": "2026-12-02",
+   "status": "todo",
+   "type": "Exam"
+  },
+  {
+   "id": "t3",
+   "title": "Lab Report: Cardiac Cycle",
+   "course": "c2",
+   "due": "2026-11-26",
+   "status": "todo",
+   "type": "Lab"
+  },
+  {
+   "id": "t4",
+   "title": "A&P Quiz 4",
+   "course": "c2",
+   "due": "2026-11-26",
+   "status": "todo",
+   "type": "Quiz"
+  },
+  {
+   "id": "t5",
+   "title": "Reflection Journal 3",
+   "course": "c3",
+   "due": "2026-11-21",
+   "status": "todo",
+   "type": "Assignment"
+  },
+  {
+   "id": "t6",
+   "title": "History Essay: Causes of WWI",
+   "course": "c4",
+   "due": "2026-11-29",
+   "status": "todo",
+   "type": "Assignment"
+  },
+  {
+   "id": "t7",
+   "title": "A&P Final Exam",
+   "course": "c2",
+   "due": "2026-12-13",
+   "status": "todo",
+   "type": "Exam"
+  },
+  {
+   "id": "t8",
+   "title": "Read Chapter 7",
+   "course": "c3",
+   "due": "2026-11-26",
+   "status": "doing",
+   "type": "Reading"
+  },
+  {
+   "id": "g1",
+   "title": "Psych Quiz 1",
+   "course": "c1",
+   "due": "2026-11-03",
+   "status": "done",
+   "type": "Quiz",
+   "mark": {
+    "got": 17,
+    "outOf": 20
+   }
+  },
+  {
+   "id": "g2",
+   "title": "Psych Paper 1",
+   "course": "c1",
+   "due": "2026-11-11",
+   "status": "done",
+   "type": "Assignment",
+   "mark": {
+    "got": 88,
+    "outOf": 100
+   }
+  },
+  {
+   "id": "g3",
+   "title": "A&P Quiz 1",
+   "course": "c2",
+   "due": "2026-11-05",
+   "status": "done",
+   "type": "Quiz",
+   "mark": {
+    "got": 11,
+    "outOf": 20
+   }
+  },
+  {
+   "id": "g4",
+   "title": "A&P Lab 1",
+   "course": "c2",
+   "due": "2026-11-13",
+   "status": "done",
+   "type": "Lab",
+   "mark": {
+    "got": 30,
+    "outOf": 50
+   }
+  },
+  {
+   "id": "g5",
+   "title": "Foundations Quiz 1",
+   "course": "c3",
+   "due": "2026-11-08",
+   "status": "done",
+   "type": "Quiz",
+   "mark": {
+    "got": 19,
+    "outOf": 20
+   }
+  }
+ ],
+ "events": [
+  {
+   "title": "Clinical orientation",
+   "date": "2026-11-25",
+   "start": "08:00",
+   "end": "12:00",
+   "where": "St. Mary's Hospital"
+  },
+  {
+   "title": "Study group",
+   "date": "2026-11-24",
+   "start": "18:00",
+   "end": "19:30",
+   "where": "Library room 4"
+  }
+ ],
+ "decks": [
+  {
+   "id": "d1",
+   "name": "Psych Nursing Terms",
+   "cards": [
+    "What is transference? / The patient redirects feelings about someone from their past onto the nurse.",
+    "What is the id? / The primitive, unconscious part of the mind seeking immediate gratification.",
+    "What is sublimation? / Channeling urges into acceptable activities.",
+    "Define projection / Attributing your own unacceptable feelings to someone else."
+   ]
+  },
+  {
+   "id": "d2",
+   "name": "Heart",
+   "cards": [
+    "Natural pacemaker of the heart? / The SA node.",
+    "What happens in systole? / Ventricles contract and eject blood."
+   ]
+  }
+ ],
+ "notes": [
+  "Freud's structure of personality\nId: the unconscious, primitive part of the mind that seeks immediate gratification of instinctual drives (the pleasure principle). Present from birth.\nEgo: the rational part that mediates between the id and reality (the reality principle); uses defense mechanisms.\nSu",
+  "Defense mechanisms\nRepression: pushing painful thoughts out of awareness.\nProjection: attributing your own unacceptable feelings to someone else.\nDisplacement: redirecting emotion to a safer target (angry at boss, yells at dog).\nRationalization: making excuses that sound logical.\nSublimation: channe",
+  "Therapeutic relationship\nTransference: the patient unconsciously redirects feelings about someone from their past onto the nurse.\nCountertransference: the nurse's emotional reaction to the patient based on the nurse's own past relationships. Nurses must recognize it and seek supervision.\nPhases (Pep",
+  "Rational-emotive behavior therapy (Albert Ellis)\nGoal: identify and dispute irrational beliefs (musts, shoulds) and replace them with rational ones. ABC model: Activating event, Belief, Consequence.",
+  "Cardiac cycle\nSystole: ventricles contract, blood ejected. Diastole: ventricles relax and fill. Normal resting HR 60-100 bpm. SA node is the natural pacemaker; impulse goes to AV node, bundle of His, Purkinje fibers.",
+  "Causes of WWI (MAIN): Militarism, Alliances, Imperialism, Nationalism. Spark: assassination of Archduke Franz Ferdinand in Sarajevo, June 1914."
+ ]
+}

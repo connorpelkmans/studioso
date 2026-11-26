@@ -21,7 +21,7 @@ const DAY = 864e5;
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto(base);
     await page.waitForSelector("#sbSignUp", {timeout: 15000});
-    ok(/Sign Up/.test(await page.textContent("#sbSignUp")) && await page.locator('dialog[open] .sb-welc [data-sbm="signin"]').count() === 1 && /^Continue Without an Account$/.test((await page.textContent("dialog[open] .sb-welc-skip")).trim()) && !/Get Started/.test(await page.textContent("dialog[open]")), "the first screen is Mochi's welcome with Sign Up, Continue Without an Account and I Already Have an Account");
+    ok(/Sign Up/.test(await page.textContent("#sbSignUp")) && await page.locator('dialog[open] .sb-welc [data-sbm="signin"]').count() === 1 && /^Plan My Semester$/.test((await page.textContent("dialog[open] .sb-welc-skip")).trim()) && /Make Flashcards From My Notes/.test(await page.textContent("dialog[open] .sb-welc-cards")) && !/Get Started/.test(await page.textContent("dialog[open]")), "the first screen is Mochi's welcome: Make Flashcards From My Notes, Plan My Semester (no account), Sign Up and I Already Have an Account");
     ok(!(await page.locator("#sbGate").count()), "there's no sign-in wall");
     await page.click('dialog[open] .sb-welc [data-sbm="signin"]');
     await page.waitForSelector("dialog[open] form.sb-acct[data-mode=signin] input[name=email]", {timeout: 5000});

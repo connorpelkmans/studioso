@@ -401,6 +401,37 @@ function cleanFile(r) {
     return false;
   });
 
+  /* Connect, then a free account, then back: a student without an account who chose a school site's calendar link makes
+     one (or signs in) and lands back on that school site's Connect sheet to paste the link. Kept for 30 minutes, which
+     covers leaving for Google, Apple or Microsoft and coming back. The welcome setup takes it in its courses step
+     (40-onboarding.js); otherwise it opens once nothing else is on screen */
+  const RESUME = "studyboard:lms:resume", RESUME_MS = 30 * 60000;
+  function lmsResumeSet(id){ try { localStorage.setItem(RESUME, JSON.stringify({id, at: Date.now()})); } catch (e) {} }
+  function lmsResumePeek(){
+    let r = null; try { r = JSON.parse(localStorage.getItem(RESUME) || "null"); } catch (e) {}
+    if (!r || !r.id || !LMS[r.id] || Date.now() - (Number(r.at) || 0) > RESUME_MS) { if (r) try { localStorage.removeItem(RESUME); } catch (e) {} return ""; }
+    return r.id;
+  }
+  // the school site to go back to, once signed in (and forgotten then)
+  function lmsResumeTake(){
+    if (!sbUser) return "";
+    const id = lmsResumePeek(); if (!id) return "";
+    try { localStorage.removeItem(RESUME); } catch (e) {}
+    return id;
+  }
+  function lmsResumeOpen(id){
+    const L = LMS[id]; if (!L) return;
+    if (dlg.open) dlg.close();
+    L.bsSheet();
+    if (!L.connected()) setTimeout(() => { const i = $("#bsFeedIn"); if (i) try { i.focus({preventScroll: true}); } catch (e) {} }, 120);
+    toast("You're signed in. Now paste your " + L.P.name + " calendar link.");
+  }
+  hook("render", () => {
+    if (!sbUser || dlg.open || (window.SBOB && SBOB.pending && SBOB.pending())) return;
+    if (!lmsResumePeek()) return;
+    setTimeout(() => { if (dlg.open || (window.SBOB && SBOB.pending && SBOB.pending())) return; const id = lmsResumeTake(); if (id) lmsResumeOpen(id); }, 600);
+  });
+
   function makeLms(P){
   const F = P.k, A = P.k;
   // c.marks into out.grades: fills a Grades row that has no mark yet, or adds one; never replaces a mark Grades has
@@ -1681,12 +1712,15 @@ function cleanFile(r) {
   /* Sheets */
   const ICON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V6a2 2 0 0 1 2-2h12v15"/><path d="M4 19a2 2 0 0 0 2 2h12v-4H6a2 2 0 0 0-2 2z"/><path d="M8.5 11l2 2 4-4.5"/></svg>`;
   const courseOpts = (val, ou) => `<option value="new" ${val === "new" ? "selected" : ""}>New Course</option>${coursesArr().map(c => `<option value="${esc(c.id)}" ${val === c.id ? "selected" : ""}>${esc(c.code ? c.code + ": " + c.name : c.name)}</option>`).join("")}<option value="skip" ${val === "skip" ? "selected" : ""}>Don't Import</option>`;
-  const extGone = (c = cfg()) => !bsDesk() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
+  // The extension only talks to Studyboard on studyboardapp.com: anywhere else (a test site, a preview) it can't be heard from,
+  // which is not the same as it being gone (that said "isn't in this browser anymore" with the extension right there)
+  const extHere = () => /(^|\.)studyboardapp\.com$/.test(location.hostname) || (/^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !!window.__SB_EXT_HERE);
+  const extGone = (c = cfg()) => !bsDesk() && extHere() && c.mode === "api" && c.lastSrc === "grab" && !!window.SBEXT && SBEXT.checked() && !SBEXT.has(P.id);
   function statusLine(){
     const c = cfg(), L = local();
     if (!connected(c)) return "Not connected";
     if (extGone(c)) return `${SBEXT.on() ? `The Studyboard School Sync extension isn't connected to ${P.name} anymore` : "The Studyboard School Sync extension isn't in this browser anymore"}, so nothing new comes in. ${c.last ? `Last synced ${ago(c.last)}.` : ""}`;
-    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? `Read from ${P.name} in this browser` : "Synced from your computer's Studyboard app") : "Using your calendar link";
+    const how = c.mode === "direct" ? `Connected${c.acct ? " as " + c.acct : ""}` : c.mode === "api" ? (bsDesk() ? (lmsOnPhone() ? "Signed in on this phone" : "Signed in on this computer") : c.lastSrc === "grab" ? (extHere() ? `Read from ${P.name} in this browser` : `Read from ${P.name} by the School Sync extension, which works on studyboardapp.com only (open Studyboard there to sync or check on it)`) : "Synced from your computer's Studyboard app") : "Using your calendar link";
     if (running || reading) return `${how}. Syncing now…`;
     const when = c.last ? `Last synced ${ago(c.last)}` : "Not synced yet";
     const ev = !bsDesk() && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.version() : "", older = v => { const a = String(v).split(".").map(Number), b = [1, 0, 11]; for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== b[i]) return (a[i] || 0) < b[i]; } return false; };
@@ -1828,17 +1862,18 @@ function cleanFile(r) {
     const ext = !!extWay;
     // A calendar link is read through the Studyboard account, so without one lead with the file
     const local = !(P.feedOnly ? bsDesk() && !!lmsBridge().feed : desk) && !cloud, dl = `<a href="${DESK_DL}" target="_blank" rel="noopener noreferrer">desktop app</a>`;
-    const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Use a Calendar File" : "Import Your Calendar File"}</b><span class="bs-pill">Works Here</span></div>
-          <p class="mini">Download the calendar file from ${P.name} and import it. It brings in due dates, quizzes and calendar events once, and you can import a new file any time.</p>
-          <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-file">Import a Calendar File</button></div></div>
-        <div class="bs-way"><div class="bs-way-h"><b>Keep It Up to Date With Your Calendar Link</b><span class="bs-pill">Needs a Free Account</span></div>
-          <p class="mini">A calendar link is checked automatically through your Studyboard account, so it needs a free account. Sign in or create one, then paste the link here.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
-          <div class="bs-acts"><button class="btn" data-act="sb-signin">Sign In or Create Account</button></div></div>`
+    // Without an account: the calendar link (kept up to date) is the way in, so the account comes first and then straight
+    // back here. A one-off calendar file stays under Other options
+    const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Keep Due Dates Synced With Your Calendar Link" : "Keep It Synced Automatically"}</b><span class="bs-pill">Free Account</span></div>
+          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.</p>
+          ${findSteps(true)}
+          <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-acct">Create a Free Account</button><button class="btn" data-act="${A}-acct-in">I Have an Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
           <p class="mini">Due dates, quizzes and calendar events${desk ? ", and it works on your phone too" : ""}, checked automatically. ${P.feedOnly ? `It can't see grades or what you've turned in, so tick off finished work yourself.` : ext ? `No grades or submissions, so tick off finished work yourself. Handy on your phone, alongside the extension.` : desk ? `Submitted work, grades and announcements need the sign-in above.` : `Submitted work, grades and announcements need the desktop app.`}</p>
           ${!desk && !ext && !P.feedOnly ? `<p class="mini bs-note"><b>Heads up:</b> a calendar link only brings in due dates, not submissions or grades. For everything, get the Studyboard ${dl} and sign in to ${P.name} there.</p>` : ""}
           <label class="f"><span class="lh">Calendar Link <span class="hint">${P.name}, ${esc(P.feedWhere)}</span></span><input type="url" id="bsFeedIn" placeholder="${esc(P.feedPh)}" autocomplete="off" spellcheck="false"></label>
-          <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button><button class="btn" data-act="${A}-feed-help">How to Find It</button></div></div>`;
+          <div class="bs-acts"><button class="btn ${desk || ext ? "" : "primary"}" data-act="${A}-feed-connect">Connect</button>${findSteps(true) ? "" : `<button class="btn" data-act="${A}-feed-help">How to Find It</button>`}</div>
+          ${findSteps(true)}</div>`;
     openSheet(`<div class="sheet bs-sheet">${head(`Connect ${P.name}`)}
       <div class="sheet-body">
         <p style="margin:0">Bring your ${P.name} work into your to-do list and timeline. Studyboard only reads from ${P.name}. It never submits or changes anything there.</p>
@@ -1856,7 +1891,7 @@ function cleanFile(r) {
             <button class="btn primary" data-act="${A}-login">Sign In</button></div></div>` : ""}
         ${extWay}
         ${feedWay}
-        ${(() => { const more = [local ? "" : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
+        ${(() => { const more = [local ? `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file once, without an account</button>` : `<button class="linklike" data-act="${A}-file">Import a ${P.name} calendar file</button>`, P.id === "canvas" && !desk ? `<button class="linklike" data-act="cf-view" data-id="emails">Bring In Your Canvas Inbox</button>` : ""].filter(Boolean); return more.length ? `<p class="mini bs-more" style="margin:0"><b>Other options:</b> ${more.join(" · ")}</p>` : ""; })()}
         <p class="mini bs-legal" style="margin:0">Studyboard is an independent app, not affiliated with or endorsed by ${({canvas: "Instructure (Canvas)", brightspace: "D2L (Brightspace)", blackboard: "Blackboard", moodle: "Moodle", schoology: "PowerSchool (Schoology)"})[P.id] || P.name}. What it reads is your own school work, kept in your planner (and your account, if you have one). Use it as your school's rules allow.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button></div></div>`);
@@ -1869,7 +1904,7 @@ function cleanFile(r) {
   async function gcSheet(){
     if (!gcSigned()) {
       openSheet(`<div class="sheet bs-sheet">${head("Connect Google Classroom")}<div class="sheet-body"><p style="margin:0">Google Classroom connects through your Studyboard account, so it keeps syncing on every device. Sign in or create a free account first.</p></div>
-        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="sb-signin">Sign In or Create Account</button></div></div>`);
+        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="${A}-acct-in">I Have an Account</button><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-acct">Create a Free Account</button></div></div>`);
       return;
     }
     const body = (link, note) => `<div class="sheet bs-sheet">${head("Connect Google Classroom")}
@@ -1982,10 +2017,18 @@ function cleanFile(r) {
     list.addEventListener("click", e => { const li = e.target.closest("li[data-i]"); if (!li) return; e.preventDefault(); pick(found[+li.dataset.i]); });
     inp.addEventListener("blur", () => setTimeout(() => show([]), 250));
   }
+  // Where the calendar link is. Phone apps for school sites don't show it, so say to use a browser (or a computer: an
+  // account brings it to the phone too)
+  function findSteps(fold){
+    if (!P.steps || !P.steps.length) return "";
+    const body = `<ol class="help-list bs-steps">${P.steps.map(x => `<li>${x}</li>`).join("")}</ol>
+        <p class="mini bs-note" style="margin:0"><b>On a phone?</b> The ${P.name} app doesn't show this link. Open ${P.name} in your phone's web browser instead, or do it later on a computer. Your account brings everything to your phone.</p>`;
+    return fold ? `<details class="bs-how"><summary>How to find your calendar link</summary>${body}</details>` : body;
+  }
   function feedHelp(){
     openSheet(`<div class="sheet">${head("Find Your Calendar Link")}
       <div class="sheet-body">
-        <ol class="help-list bs-steps">${P.steps.map(x => `<li>${x}</li>`).join("")}</ol>
+        ${findSteps(false)}
         <p class="mini">This link is private to you. Anyone with it can see your ${P.name} calendar, so don't share it. If it ever gets out, reset it in the same place and paste the new one here.</p>
       </div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="${A}-back">Back</button></div></div>`);
@@ -2430,6 +2473,8 @@ function cleanFile(r) {
       case "manual": { const pk = window.SBLMS_PICKED || {}; connectSheet({manual: true, host: pk.lms === P.id ? pk.host : "", note: pk.school ? `Type ${pk.school.name}'s ${P.name} address. It's the one in your browser's address bar when you're signed in to ${P.name}.` : ""}); return true; }
       case "back": bsSheet(); return true;
       case "file": dlg.close(); pickFile(); return true;
+      // a free account first, then back to this sheet (see lmsResume below)
+      case "acct": case "acct-in": lmsResumeSet(P.id); dlg.close(); setTimeout(() => SBGUEST.signUp(act.endsWith("-in") ? "signin" : "signup"), 30); return true;
       case "disconnect": disconnect(); return true;
       case "open-site": { const c = cfg(); let o = c.host ? "https://" + c.host : ""; if (!o) { try { o = new URL(c.feed).origin; } catch(e) { o = P.host ? "https://" + P.host : ""; } } if (o) window.open(o + P.siteHome, "_blank", "noopener"); else toast(`Add your ${P.name} address first`); return true; }
       case "sg-yes": applySuggestion(el.dataset.id); bsSheet("suggest"); return true;
@@ -2721,7 +2766,34 @@ function cleanFile(r) {
   window.SBLMS_COURSE_GONE = id => ALL().forEach(L => { try { L.courseDeleted(id); } catch (e) {} });
 
   /* Desktop: staying signed in, and a quick way back in */
-  const relogNeeded = () => ALL().filter(L => !!lmsBridge() && L.cfg().mode === "api" && L.connected() && L.local().needLogin);
+  // A school site that has signed you out: only one you've signed in to and synced before (c.last) and haven't disconnected. Through
+  // the desktop app it says so itself (needLogin); through the browser extension, the extension reports the site as "login".
+  const extLogin = L => { const c = L.cfg(), x = !lmsBridge() && c.mode === "api" && c.lastSrc === "grab" && window.SBEXT && SBEXT.on() ? SBEXT.school(L.P.id) : null; return x && x.state === "login" ? x : null; };
+  const relogNeeded = () => ALL().filter(L => L.connected() && !!L.cfg().last && ((!!lmsBridge() && L.cfg().mode === "api" && L.local().needLogin) || !!extLogin(L)));
+  // Signing in again: the desktop app opens the sign-in; with the extension, the school site opens in a new tab to sign in there,
+  // and coming back to Studyboard asks the extension to sync
+  // Out of sync: a site you've synced before that hasn't synced for over a day (whatever the reason: signed out, the extension
+  // can't be heard from here, the computer was off), as well as one known to have signed you out
+  const STALE = 864e5;
+  const staleOf = L => { const c = L.cfg(); return L.connected() && !!c.last && Date.now() - c.last > STALE && !L.isRunning(); };
+  const syncTrouble = () => { const a = relogNeeded(); return a.concat(ALL().filter(L => !a.includes(L) && staleOf(L))); };
+  function relogGo(L){
+    const c = L.cfg(), x = extLogin(L), home = (x && x.origin) || (c.host ? (/^https?:\/\//.test(c.host) ? c.host : "https://" + c.host) : "");
+    const fail = err => { console.error(err); toast("Sign-in didn't work. Try again."); };
+    // the desktop app: its own sign-in when it says so, otherwise a sync now (which asks for a sign-in if it needs one)
+    if (lmsBridge() && c.mode === "api") { (L.local().needLogin ? L.doLogin() : Promise.resolve(L.syncNow({force: true}))).catch(fail).finally(scheduleRender); return; }
+    // the browser extension: the school site opens to sign in there; coming back, the extension is asked to sync (where it can be heard)
+    if (c.mode === "api" && c.lastSrc === "grab" && home) {
+      openOutside(home);
+      const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back);
+        if (window.SBEXT && SBEXT.on()) { try { window.postMessage({source: "studyboard-app", type: "sync"}, location.origin); } catch (e) {} if (window.SBLMS_EXTSYNC) SBLMS_EXTSYNC([L.P.id]); }
+        else toast(`Once you're signed in to ${L.P.name}, press Sync in the Studyboard School Sync extension (in your browser's toolbar), or wait: it syncs every hour.`); };
+      setTimeout(() => { document.addEventListener("visibilitychange", back); window.addEventListener("focus", back); }, 800);
+      return;
+    }
+    // a calendar link or anything else: sync it now
+    Promise.resolve(L.syncNow({force: true})).catch(fail).finally(scheduleRender);
+  }
   let relogHidden = "", pinging = false;
   async function keepAlive(){
     const br = lmsBridge(); if (!br || !br.ping || pinging || navigator.onLine === false) return;
@@ -2741,8 +2813,24 @@ function cleanFile(r) {
     let away = 0;
     document.addEventListener("visibilitychange", () => { if (document.hidden) away = Date.now(); else if (away && Date.now() - away > 10 * 60000) keepAlive(); });
   }
+  // A sync icon at the very top right while a school site has signed you out: it stays (the message below can be hidden) and
+  // signs you in again when pressed. On a phone it sits with the header's buttons; on a computer, in the window's corner.
+  function drawRelogIcon(need){
+    let b = document.getElementById("lmsSyncIco");
+    if (!need.length) { if (b) b.remove(); return; }
+    const L = need[0], names = need.map(x => x.P.name), out = relogNeeded().includes(L), days = Math.floor((Date.now() - (L.cfg().last || Date.now())) / 864e5);
+    const label = out ? `${names.join(" and ")} signed you out. Sign in again to keep syncing.` : `${names.join(" and ")} ${names.length > 1 ? "haven't" : "hasn't"} synced in ${days >= 2 ? days + " days" : "over a day"}. Press to sign in again and sync.`;
+    if (!b) { b = document.createElement("button"); b.type = "button"; b.id = "lmsSyncIco";
+      b.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20v-4h-4"/></svg>`; }
+    b.dataset.relog = L.P.id; b.setAttribute("aria-label", label); b.title = label; b.dataset.tip = label;
+    const ha = document.querySelector(".head-actions"), inHead = !!ha && ha.getBoundingClientRect().width > 0 && getComputedStyle(ha).display !== "none";
+    b.className = inHead ? "icon-btn ls-head" : "ls-corner";
+    if (inHead) { if (b.parentElement !== ha) ha.insertBefore(b, ha.firstChild); }
+    else if (b.parentElement !== document.body) document.body.appendChild(b);
+  }
   function drawRelog(){
     const need = relogNeeded(), key = need.map(L => L.P.id).join(",");
+    drawRelogIcon(syncTrouble());
     let el = document.getElementById("lmsRelog");
     if (!need.length || key === relogHidden) { if (el) el.remove(); if (!need.length) relogHidden = ""; return; }
     if (!el) { el = document.createElement("div"); el.id = "lmsRelog"; el.setAttribute("role", "status"); document.body.appendChild(el); }
@@ -2753,7 +2841,7 @@ function cleanFile(r) {
   hook("render", drawRelog);
   document.addEventListener("click", e => {
     const go = e.target.closest && e.target.closest("[data-relog]");
-    if (go) { const L = LMS[go.dataset.relog]; if (L) L.doLogin().catch(err => { console.error(err); toast("Sign-in didn't work. Try again."); }).finally(scheduleRender); return; }
+    if (go) { const L = LMS[go.dataset.relog]; if (L) relogGo(L); return; }
     if (e.target.closest && e.target.closest("[data-relog-x]")) { relogHidden = relogNeeded().map(L => L.P.id).join(","); drawRelog(); }
   });
   { const st = document.createElement("style"); st.textContent = `
@@ -2763,6 +2851,13 @@ function cleanFile(r) {
 #lmsRelog .lr-go{flex:none;border:0;border-radius:999px;padding:9px 16px;min-height:38px;background:var(--accent);color:var(--accent-ink,#fff);font:700 .88rem var(--display,inherit);cursor:pointer}
 #lmsRelog .lr-go:hover{filter:brightness(1.08)}
 #lmsRelog .lr-x{flex:none;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:inherit;opacity:.7;font:600 20px/1 var(--body);cursor:pointer}
+#lmsSyncIco{position:relative;cursor:pointer;color:var(--warn-ink,#9a5b00)}
+#lmsSyncIco.ls-corner{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:16px;z-index:880;display:grid;place-items:center;width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:50%;background:var(--surface,#fff);box-shadow:0 4px 14px color-mix(in srgb,var(--ink) 14%,transparent)}
+#lmsSyncIco.ls-corner:hover{background:color-mix(in srgb,var(--surface,#fff) 88%,var(--ink))}
+#lmsSyncIco:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){#lmsSyncIco svg{animation:lsSpin 2.4s ease-in-out 2}}
+@keyframes lsSpin{to{transform:rotate(360deg)}}
+body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
@@ -2818,6 +2913,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
     syncPill(true);
     extWatch = {ids: ids.slice(), t0: Date.now() - 1500, timer: setTimeout(() => extWatchEnd(null), 120000)};
   }
+  window.SBLMS_EXTSYNC = ids => extSyncWatch(ids);
   function extWatchEnd(res){
     const w = extWatch; if (!w) return; extWatch = null; clearTimeout(w.timer); syncPill(false);
     const nm = id => (LMS[id] && LMS[id].P.name) || "your school site";
@@ -2890,6 +2986,8 @@ body:has(#dlg[open]) #lmsRelog{display:none}
         EXT.on = true; EXT.version = String(d.version || EXT.version).slice(0, 20);
         EXT.schools = (Array.isArray(d.schools) ? d.schools : []).slice(0, 6).filter(x => x && typeof x.id === "string").map(x => ({id: x.id, origin: String(x.origin || "").slice(0, 200), state: String(x.state || "").slice(0, 20), at: Number(x.at) || 0, tried: Number(x.tried) || 0, error: String(x.error || "").replace(/[<>]/g, "").slice(0, 160)}));
         extWatchCheck();
+        // a school the extension can't read until you sign in again: the sync icon shows (or goes) straight away
+        try { drawRelog(); } catch (err) {}
         (Array.isArray(d.list) ? d.list : []).slice(0, 3).forEach(x => { extChain = extChain.then(() => extImport(x)).catch(err => console.warn("extension import", err)); });
       }
     });
@@ -3103,7 +3201,7 @@ body:has(#dlg[open]) #lmsRelog{display:none}
   });
 
   const T = {st: () => state, applyChanges, clone, pickerSheet, grabOk, go: (tab, cid) => { if (dlg.open) dlg.close(); ui.tab = tab; ui.courseId = cid || null; render(); }, scroll: () => { const b = dlg.querySelector(".sheet-body"); if (b) b.scrollTop = 99999; }};
-  window.SBLMS = Object.assign({}, LMS, T);
+  window.SBLMS = Object.assign({}, LMS, T, {resumePeek: lmsResumePeek, resumeTake: lmsResumeTake, resumeOpen: lmsResumeOpen});
   window.SBLMS_NEWS = days => {
     const since = Date.now() - (days || 10) * 864e5, out = [];
     ALL().forEach(L => { try { const c = L.cfg(); (c.newsItems || []).forEach(n => { const cid = c.map && c.map[n.ou]; const at = Date.parse(n.date || ""); if (!isNaN(at) && at >= since && cid && cid !== "skip" && cid !== "new") out.push({courseId: cid, title: n.title || "", text: String(n.text || "").slice(0, 400), date: n.date}); }); } catch(e) {} });

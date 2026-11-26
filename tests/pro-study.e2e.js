@@ -580,7 +580,7 @@ function SEED(){
     await free.evaluate(() => dlg.close());
     ok(/See Studyboard Pro/.test(await free.evaluate(() => window.__sbProStudy.email.box())), "free: Email to Studyboard points to Pro");
     await act(free, "cal-sync"); await free.waitForTimeout(250);
-    ok(await free.locator('[data-cs-tab="two"]').count() === 0 && await free.locator('[data-cs-tab="live"]').count() === 1, "free: Calendar Sync has no Two-Way tab");
+    ok(await free.locator('[data-cs-tab="two"] .pro-badge').count() === 1 && await free.locator('[data-cs-tab="live"]').count() === 1, "free: Calendar Sync shows the Two-Way tab marked PRO (since 2cd0a9af)");
     await free.evaluate(() => dlg.close()); await free.waitForTimeout(100);
     await free.evaluate(() => dlg.close());
     const got = await free.evaluate(row => window.SBPRO.emailIngest([row]), mailRow("e2"));

@@ -222,7 +222,7 @@ function viewQuizDetail(d, qz){
     if (q.type === "order") return `<ol class="qzd-opts qzd-hide" data-act="qz-reveal" data-i="${i}">${q.correct.map((ix, k) => `<li><span class="qzd-l">${k + 1}</span><span>${esc(q.options[ix])}</span></li>`).join("")}</ol>`;
     return `<ul class="qzd-opts qzd-mc" data-act="qz-reveal" data-i="${i}">${q.options.map((o, k) => { const ok = q.correct.includes(k); return `<li class="${ok ? "ok" : ""}"><span class="qzd-l"><i class="lt">${L(k)}</i>${ok ? `<i class="ck">${CHK}</i>` : ""}</span><span>${esc(o)}</span></li>`; }).join("")}</ul>`;
   };
-  const qs = qz.questions.map((q, i) => `<li class="qzd-q"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
+  const qs = qz.questions.map((q, i) => `<li class="qzd-q${typeof aiFresh === "function" && aiFresh(q.id) ? " ai-new" : ""}"><span class="qzd-n">${i + 1}</span><div class="qzd-body">
       <span class="qzd-type">${esc(TL[q.type] || "Question")}</span>
       <p class="qzd-stem">${esc(q.stem)}</p>
       ${ans(q, i)}
@@ -236,7 +236,7 @@ function viewQuizDetail(d, qz){
         <div class="g2-txt"><h2>${esc(qz.title || "Practice Quiz")}</h2>
           <div class="deck-stats"><span><b>${qz.questions.length}</b> question${qz.questions.length === 1 ? "" : "s"}</span><span>from <b>${esc(quizFrom(d, qz))}</b></span>${last ? `<span>Last score <b>${last.score}/${last.total}</b></span><span>Best <b>${Math.round(best * 100)}%</b></span>` : ""}</div></div></div>
     </div>
-    ${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${qz.kind === "case" && qz.scenario ? `<p class="qzd-scen">${esc(qz.scenario)}</p>` : ""}
     <section class="c2-card2 c2-box qzd-card${hide ? " qzd-hidden" : ""}" style="--c:${esc(colorOf(d.courseId))}"><div class="qzd-head">${c2Head("goals", "Questions", qz.questions.length)}<button type="button" class="btn small" data-act="qz-hide" aria-pressed="${hide}">${hide ? "Show Answers" : "Hide Answers"}</button></div>
       ${hide ? `<p class="mini qzd-hint">Answers are hidden. Tap one to check it.</p>` : ""}<ol class="qzd-list">${qs}</ol></section>`;
 }
@@ -246,7 +246,8 @@ function qzSheet(qz){
   let opts = Array.isArray(q.options) ? q.options.map((o, i) => [String(o), i]) : [];
   if (opts.length > 1 && (q.correct || []).includes(opts[0][1])) opts = opts.slice(1).concat(opts.slice(0, 1));
   const lines = q.type === "short" || !opts.length ? `<i class="rv-ln"></i><i class="rv-ln"></i>` : opts.slice(0, 3).map(([o]) => `<span class="rv-opt"><i></i>${esc(o.replace(/\s+/g, " ").slice(0, 60))}</span>`).join("");
-  return `<span class="rv-sheet"><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
+  // the quiz's name heads the sheet, above its first question
+  return `<span class="rv-sheet"><span class="rv-qt"><span class="rv-title">${esc(qz.title || "Practice Quiz")}</span></span><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
 }
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
@@ -262,7 +263,7 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title" title="${nm}">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
@@ -323,6 +324,7 @@ function reviewHeroHtml(){
     <span class="rv-stack" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="rv-t"><h3>${esc(title)}</h3><p>${subHtml}</p></div>
     ${reviewWeekHtml()}
+    ${goalRingHtml()}
     <div class="rv-cacts">${ready ? `<button class="btn primary rv-go" data-act="fc-review-start" data-course="${esc(course)}">Start Review</button>` : ""}${more}</div>
   </section>`;
 }
@@ -338,17 +340,16 @@ function viewFlashcards(){
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    const cs = cardStyleOf(d), first = d.cards.find(x => !x.draft && String(x.front || "").trim()), nm = esc(d.name);
-    const term = first ? esc(String(first.front).replace(/\s+/g, " ").trim().slice(0, 90)) : "";
+    const cs = cardStyleOf(d), nm = esc(d.name);
     return `<article class="rv-card rv-deck" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <button class="rv-peek rv-fan cs-${esc(cs)}" data-act="fc-open" data-id="${esc(d.id)}" aria-label="Open ${nm}">
         <span class="face rv-f rv-f3" aria-hidden="true"></span><span class="face rv-f rv-f2" aria-hidden="true"></span>
-        <span class="face rv-f rv-f1" aria-hidden="true">${term ? `<span class="face-text">${term}</span>` : `<span class="face-text rv-blank">${st.total ? "" : "No cards yet"}</span>`}</span>
+        <span class="face rv-f rv-f1" aria-hidden="true"><span class="face-text rv-title" title="${nm}">${nm}</span></span>
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title" title="${nm}">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
-        <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
+      <div class="rv-foot rv-foot-bar">
+        <div class="rv-row"><div class="rv-sub">${window.SBEXAM ? SBEXAM.deckTag(d) : ""}<span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
     </article>`;
@@ -358,6 +359,29 @@ function viewFlashcards(){
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
+/* Titles on the Review cards' covers (a deck's front card, a quiz's sheet, a presentation's screen, a paper's page) shrink to fit their
+   three lines rather than being cut off: after each render, each one too long for its box gets the largest size that fits (down to 55%;
+   past that the "…" stays, for a title that long) */
+const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pane b, .wsr-page .wsr-t";
+function rvFit(root){
+  const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    el.style.fontSize = "";
+    if (!el.clientHeight || fits(el)) return;
+    const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
+    el.style.fontSize = lo + "px"; if (!fits(el)) return;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; el.style.fontSize = mid + "px"; if (fits(el)) lo = mid; else hi = mid; }
+    el.style.fontSize = lo.toFixed(2) + "px";
+  });
+}
+(() => {
+  if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
+  let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  addEventListener("resize", go);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+})();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
@@ -519,8 +543,8 @@ function viewDeck(d){
   const st = deckStats(d), c = courseOf(d.courseId);
   const q = ui.q.trim().toLowerCase();
   const cards = d.cards.filter(x => !q || (x.front + " " + x.back).toLowerCase().includes(q));
-  const rows = cards.map(x => `<li class="fc-row">
-      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span></button>
+  const rows = cards.map(x => `<li class="fc-row${typeof aiFresh === "function" && aiFresh(x.id) ? " ai-new" : ""}">
+      <button class="fc-cell face fc-face" data-act="fc-card" data-id="${esc(x.id)}"><span class="fc-front">${esc(x.front)}</span><span class="fc-back">${esc(x.back)}</span>${x.check ? `<span class="pill ar-chk fc-chk" title="${esc(x.check)}">Check: ${esc(x.check)}</span>` : ""}</button>
       ${masteryPips(x.box)}
     </li>`).join("");
   return `<button class="back" data-act="fc-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Decks</button>
@@ -531,7 +555,7 @@ function viewDeck(d){
         <div class="g2-txt"><h2>${esc(d.name)}</h2>
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
     </div>
-    ${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${deckAiBar(d)}
+    ${typeof aiLiveBar === "function" ? aiLiveBar(d.id) : ""}${window.SBLINKED ? SBLINKED.deckHtml(d) : ""}${typeof aiLiveOn === "function" && aiLiveOn(d.id) ? "" : deckAiBar(d)}
     ${cards.length ? `<ul class="fc-list fc-styled cs-${esc(cardStyleOf(d))}" style="--c:${esc(colorOf(d.courseId))}">${rows}</ul>` : `<div class="empty" style="margin-top:12px"><strong>${d.cards.length ? "No Cards Match" : "No Cards Yet"}</strong>${d.cards.length ? "" : `${matchMedia("(pointer:coarse)").matches ? "Tap" : "Click"} Add Card at the bottom right, or choose More, then Paste Cards to add a whole list at once.`}</div>`}`;
 }
 function deckSheet(d){
@@ -566,7 +590,7 @@ function cardSheet(d, cardId){
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
-    x.front = front; x.back = back; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -680,7 +704,7 @@ function startStudy(deckIds, onlyIds){
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
-  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: []};
+  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds)};
   fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
@@ -695,7 +719,9 @@ function rateCard(rating){
   const f = ui.fc; const it = f.q[f.i]; if (!it) return;
   const d = clone(state.decks[it.deckId]); if (!d) return;
   const c = d.cards.find(x => x.id === it.cardId);
-  const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false};
+  const step = {i: f.i, rating, deckId: it.deckId, cardId: it.cardId, card: c ? clone(c) : null, rv: d.rv ? clone(d.rv) : null, rep: f.repeats[it.cardId], pushed: false, run: f.run || 0, best: f.best || 0, miss: !!(f.missed || {})[it.cardId]};
+  f.missed = f.missed || {};
+  if (rating === "again") { f.run = 0; f.missed[it.cardId] = 1; } else { f.run = (f.run || 0) + 1; f.best = Math.max(f.best || 0, f.run); }
   if (c) {
     // the day the button showed, when it was spread out before an exam (rateDues)
     const shown = (() => { try { return rateDues(d, c)[rating]; } catch (e) { return null; } })();
@@ -727,6 +753,7 @@ function undoRate(){
   if (s.pushed) f.q.pop();
   if (s.rep == null) delete f.repeats[s.cardId]; else f.repeats[s.cardId] = s.rep;
   f[s.rating] = Math.max(0, (f[s.rating] || 0) - 1);
+  f.run = s.run || 0; f.best = s.best || 0; if (f.missed && !s.miss) delete f.missed[s.cardId];
   f.i = s.i; f.flipped = true;
   const cur = state.decks[s.deckId];
   if (cur && s.card) {
@@ -747,14 +774,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
-    return `<div class="view-head"><h2>Study Session Done</h2></div>
-      <section class="done-card">
-        <p class="big-num">${cards}<span> card${cards === 1 ? "" : "s"} studied</span></p>
-        ${again ? `<p class="mini" style="margin:-4px 0 6px">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
-        <div class="deck-stats"><span><b>${f.easy + f.good}</b> known</span><span><b>${f.hard}</b> hard</span><span><b>${f.again}</b> to relearn</span></div>
-        <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.</p>
-        <div class="row-actions"><button class="btn primary" data-act="fc-quiz-from-study">Take a Quiz</button><button class="btn" data-act="fc-study-again">Study Again</button>${undoBtn(f)}<button class="btn" data-act="fc-exit">Done</button></div>
-      </section>`;
+    return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
   const d = state.decks[it.deckId], c = d && d.cards.find(x => x.id === it.cardId);
   if (!c) { f.i++; return viewStudy(); }
@@ -763,18 +783,20 @@ function viewStudy(){
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
+    ${fcChipsHtml(c, f)}
     ${c.img && window.SBPRO && SBPRO.studyCard ? SBPRO.studyCard(d, c, f) : `<button class="flip cs-${cardStyleOf(d)} ${f.flipped ? "is-flipped" : ""}${c.img ? " has-img" : ""}" data-act="fc-flip" style="--c:${esc(colorOf(d.courseId))}" aria-label="${f.flipped ? "Flip card back to the front" : "Flip card"}" aria-describedby="fcFaceNow">
       <span class="flip-inner">
         <span class="face front"${f.flipped ? ` aria-hidden="true"` : ` id="fcFaceNow"`}><span class="face-label">Front${(f.deckIds || []).length > 1 && d ? `<span class="face-deck"> · ${esc(d.name)}${(ex => ex && ex.days <= EXAM_SOON ? ` (${esc(ex.title)})` : "")(fcExams()[d.courseId])}</span>` : ""}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, false) : `<span class="face-text">${esc(c.front)}</span>`}<span class="face-hint" aria-hidden="true">Tap<span class="kbd-only"> or press Space</span> to flip</span></span>
         <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
+    ${fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`)}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
       <button class="rate-btn again" data-act="fc-rate" data-id="again"><b>Again</b><span>${lbl("again")}</span></button>
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}${explainHtml(`c|${it.deckId}|${it.cardId}`)}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -841,7 +863,9 @@ function quizOpts(){
 function quizSheet(deckIds){
   const ds = decksArr().filter(d => d.cards.length);
   if (!ds.length) { toast("Add cards to a deck first"); return; }
-  const sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady(), last = quizOpts();
+  // The AI on this device doesn't write the questions: a small model quizzed on "the deck" and "which flashcard says hh" instead of
+  // what the cards say. A deck is already questions and answers, so they come straight from the cards: instant, and always right.
+  const dev = typeof aiOnDevice === "function" && aiOnDevice(), sel = new Set(deckIds && deckIds.length ? deckIds : [ds[0].id]), ai = aiReady() && !dev, last = quizOpts();
   // A deck smaller than the usual count starts on All (a 6-card deck can't make 10 questions)
   const have = [...sel].reduce((t, id) => t + (state.decks[id] ? state.decks[id].cards.length : 0), 0), qn = last.qn !== "all" && have < Number(last.qn) ? "all" : last.qn;
   openSheet(`<form class="sheet">${head(ai ? `Make a Quiz with ${aiWho("AI")}` : "Make a Quiz")}
@@ -854,7 +878,7 @@ function quizSheet(deckIds){
         <label class="mi-check"><input type="checkbox" name="qt" value="tf"${last.qt.includes("tf") ? " checked" : ""}> True or false</label>
         <label class="mi-check"><input type="checkbox" name="qt" value="written"${last.qt.includes("written") ? " checked" : ""}> Written answer</label></div></fieldset>
       <fieldset><legend>Ask With</legend>${seg("qd", [["fwd", "Front, Answer Back"], ["rev", "Back, Answer Front"], ["mix", "Mixed"]], last.qd)}</fieldset>
-      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
+      <p class="mini" style="margin:0">${ai ? `${esc(aiWho("AI"))} writes the questions from these cards, and you check them before the quiz is saved to Quizzes.` : dev ? "The questions come straight from your cards, so the quiz is ready at once and always matches them." : "The questions come straight from your cards. Set up AI in Settings to have them written for you."}</p>
       <p class="status-msg" id="mqStatus" style="margin:0" aria-live="polite"></p>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit id="mqGo">${ai ? AI_ICON + " " : ""}Make Quiz</button></div>
@@ -874,13 +898,16 @@ async function quizFromCardsAi(decks, n, types, dir, title){
   const st = $("#mqStatus"), go = $("#mqGo"); if (go && go.disabled) return;
   const cards = []; decks.forEach(id => { const d = state.decks[id]; if (d) d.cards.forEach(c => { if (c.front.trim() && c.back.trim() && !c.draft) cards.push({d, c}); }); });
   const count = n === "all" ? Math.min(40, cards.length) : Number(n) || 10, first = state.decks[decks[0]], course = courseOf(first.courseId);
-  const text = decks.map(id => { const d = state.decks[id]; return d ? `Flashcards in the deck "${d.name}":\n` + d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `Front: ${c.front}\nBack: ${c.back}`).join("\n\n") : ""; }).join("\n\n");
+  // the cards' content only: with the deck's name and "Front:/Back:" around it, the AI quizzed on the deck and the cards themselves
+  const text = decks.map(id => { const d = state.decks[id]; return d ? d.cards.filter(c => c.front.trim() && c.back.trim()).map(c => `${c.front.trim()}: ${c.back.trim()}`).join("\n") : ""; }).join("\n");
   const ask = dir === "rev" ? "Ask from the backs of the cards; the answers are on the fronts." : dir === "mix" ? "Mix questions asked from the fronts and from the backs." : "Ask from the fronts of the cards; the answers are on the backs.";
-  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say.`;
+  const style = `A quiz on these flashcards. Use only these question types: ${types.map(t => QZ_TYPES[t]).join(", ")}. ${ask} Every question tests one card or a link between cards, using only what the cards say. Ask about the subject itself: never about the deck, the flashcards, their fronts or backs, or which card says what.`;
   if (go) { go.disabled = true; go.classList.add("busy"); }
   if (st) st.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(aiWho("AI"))} is writing ${count} question${count === 1 ? "" : "s"}…`;
   try {
     const r = await aiMakeStudySet({sources: [{name: first.name, kind: "Text", size: text.length, part: {text}}], style, difficulty: "mixed", cards: false, quiz: true, cases: false, quizCount: String(count), courseName: course ? courseLabel(course) : ""});
+    // any question about the deck or the cards themselves ("which flashcard has...") is dropped, never shown
+    r.questions = r.questions.filter(q => !/\b(flash ?cards?|decks?|which card|the card|front of|back of)\b/i.test(q.stem || ""));
     if (!r.questions.length) throw aiErr("empty", "The AI couldn't write questions from these cards. Try again, or add more cards.");
     r.quizTitle = title;
     aiReviewSheet(r, {deck: first, courseId: first.courseId, style, styleName: title, sources: decks.map(id => (state.decks[id] || {}).name || ""), fromCards: decks});
@@ -915,7 +942,7 @@ function answerQuiz(given, pre){
   if (q.type === "mc") r = {given, correct: normAns(given) === normAns(q.answer)};
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
-  f.ans[f.i] = r;
+  f.ans[f.i] = r; goalBump(1);
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
