@@ -130,10 +130,17 @@ reset role;
 insert into auth.users (id, email) select ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, 'many' || i || '-friends-test@example.com' from generate_series(1, 51) i;
 insert into public.study_profiles (user_id, display_name, username, birth_date)
   select ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, 'Many ' || i, 'many_' || i, '2005-01-01' from generate_series(1, 51) i;
+-- (50 made directly: asking 50 times would hit the 20-a-day limit first)
+insert into public.friendships (a, b, requested_by)
+  select least(c, m), greatest(c, m), c from (select 'cccccccc-0000-4000-8000-0000000000f3'::uuid as c, ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid as m from generate_series(1, 50) i) q;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', 'cccccccc-0000-4000-8000-0000000000f3', true);
-select public.request_friend('many_' || i) from generate_series(1, 50) i;
 select public.sbf_ok(public.sbf_try('select public.request_friend(''many_51'')') like '%SB_FRIEND_WAITING%', 'the 51st waiting request is refused');
+
+-- At most 20 requests a day (only where supabase-lean.sql's rate limits are installed)
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-4000-8000-0000000000f1', true);
+select public.sbf_ok(to_regprocedure('public.studyboard_rate_hit(text,integer,integer)') is null
+  or (select bool_or(public.sbf_try('select public.request_friend(''nobody_' || i || ''')') like '%SB_FRIEND_RATE%') from generate_series(1, 25) i), 'the 21st request in a day is refused');
 
 -- Signed out: nothing
 reset role;
