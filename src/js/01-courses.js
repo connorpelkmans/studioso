@@ -576,6 +576,7 @@ function viewCourseDetail(c){
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
+    ${typeof SBHEAT !== "undefined" ? SBHEAT.courseHtml(c) : ""}
     ${courseTeamHtml(c, "")}
     ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}

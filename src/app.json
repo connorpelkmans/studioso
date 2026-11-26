@@ -59,7 +59,8 @@
   "01-study-rewards.css",
   "99-focus-sprout.css",
   "99-essentials.css",
-  "01-plan-move.css"
+  "01-plan-move.css",
+  "99-heatmap.css"
  ],
  "js": [
   "00-core.js",
@@ -266,6 +267,7 @@
   "96-school.js",
   "97-getting-started.js",
   "99-pro.js",
+  "99-heatmap.js",
   "99-offers.js",
   "99-early.js",
   "99-ai-intro.js",

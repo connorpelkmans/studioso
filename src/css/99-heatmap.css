@@ -1,0 +1,65 @@
+/* Study Heatmap (99-heatmap.js): Insights and the course page.
+   Five steps that change lightness, not only hue, so they stay apart for colour-blind students: from the card's surface
+   toward the theme's accent, and the last step past it toward the ink (darker in light mode, lighter in dark mode). */
+.hm-card{
+  --hm0:color-mix(in oklab,var(--ink) 7%,var(--surface));
+  --hm1:color-mix(in oklab,var(--accent) 26%,var(--surface));
+  --hm2:color-mix(in oklab,var(--accent) 52%,var(--surface));
+  --hm3:color-mix(in oklab,var(--accent) 82%,var(--surface));
+  --hm4:color-mix(in oklab,var(--accent) 52%,var(--ink));
+  --hm-edge:color-mix(in oklab,var(--ink) 14%,transparent);
+  --hm-min:6px;--hm-gap:2px;
+  min-width:0
+}
+.hm-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px}
+.hm-head h3{margin:0;font:700 .98rem var(--display);color:var(--ink)}
+.hm-sum{font-size:.85rem;color:var(--muted)}
+.hm-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hm-stat{display:grid;gap:1px;padding:8px 10px;border-radius:10px;background:var(--soft);min-width:0}
+.hm-stat b{font:700 1.05rem/1.2 var(--display);color:var(--ink)}
+.hm-stat span{font-size:.75rem;line-height:1.25;color:var(--muted)}
+.hm-wrap{position:relative;min-width:0}
+/* the grid scrolls inside its card on narrow screens, never the page */
+.hm-scroll{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin;padding:3px 2px 4px;margin:0 -2px}
+.hm-grid{display:grid;grid-template-columns:auto repeat(var(--hm-cols,53),minmax(var(--hm-min),1fr));gap:var(--hm-gap);min-width:min-content;border-radius:6px;outline:none}
+.hm-grid:focus-visible{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.hm-m{grid-row:1;font-size:.7rem;line-height:1.3;color:var(--muted);white-space:nowrap;overflow:visible;pointer-events:none}
+.hm-wd{grid-column:1;align-self:stretch;display:flex;align-items:center;font-size:.68rem;line-height:1;color:var(--muted);padding-right:4px;position:sticky;left:-2px;z-index:3;background:var(--surface);box-shadow:-14px 0 0 var(--surface),var(--hm-gap) 0 0 var(--surface)}
+.hm-c{display:block;aspect-ratio:1;min-width:var(--hm-min);border-radius:3px;background:var(--hm0);box-shadow:inset 0 0 0 1px var(--hm-edge);cursor:default}
+.hm-c[data-l="1"]{background:var(--hm1)}
+.hm-c[data-l="2"]{background:var(--hm2)}
+.hm-c[data-l="3"]{background:var(--hm3)}
+.hm-c[data-l="4"]{background:var(--hm4)}
+.hm-grid .hm-today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.hm-grid .hm-on{outline:2px solid var(--ink);outline-offset:1px;position:relative;z-index:2}
+.hm-tip{position:absolute;left:0;top:0;z-index:5;display:grid;gap:1px;width:max-content;max-width:min(250px,100%);padding:6px 10px;border-radius:9px;background:var(--ink);color:var(--surface);font-size:.78rem;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.22);pointer-events:none;animation:hm-in .12s ease-out}
+.hm-tip[hidden]{display:none}
+.hm-tip b{font-weight:700}
+.hm-tip .hm-parts{opacity:.88}
+@keyframes hm-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
+.hm-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px}
+.hm-legend{display:flex;align-items:center;gap:3px;font-size:.75rem;color:var(--muted)}
+.hm-legend span{padding:0 3px}
+.hm-legend .hm-c{width:12px;min-width:12px;height:12px}
+.hm-steps{margin:0;font-size:.75rem;color:var(--muted)}
+.hm-how{margin:0;color:var(--muted)}
+.pro-card.hm-card{gap:10px}
+/* the course page's compact card */
+.hm-course{display:grid;gap:8px;--hm-min:7px;--hm-gap:3px}
+.hm-course .hm-line{margin:0}
+.hm-course .hm-how{font-size:.75rem}
+@media (pointer:coarse),(max-width:719px){
+  .hm-card{--hm-min:13px;--hm-gap:3px}
+  .hm-course{--hm-min:12px}
+}
+@media (max-width:420px){
+  .hm-stats{gap:6px}
+  .hm-stat{padding:7px 8px}
+  .hm-stat b{font-size:.98rem}
+}
+@media (prefers-reduced-motion:reduce){.hm-tip{animation:none}}
+html[data-motion="static"] .hm-tip{animation:none}
+@media (forced-colors:active){
+  .hm-c{forced-color-adjust:none}
+  .hm-grid .hm-on{outline-color:Highlight}
+}
