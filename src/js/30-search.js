@@ -1358,7 +1358,7 @@ Return JSON only.`;
   }
 
   /* Opening things */
-  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; }
+  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (window.SBESS && SBESS.opened) SBESS.opened(tab, "search"); }
   function runAct(act, data){
     const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act;
     Object.entries(data || {}).forEach(([k, v]) => { b.dataset[k] = v; });

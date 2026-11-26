@@ -1325,6 +1325,7 @@
   function dailyHello(){
     try {
       if (!talkOn() || !act || !cur || !box || box.hidden || document.hidden || mood !== "idle") return;
+      if (window.SBESS && !SBESS.shows("companion-lines")) return;
       const t = todayISO(), n = userName(); if (!n || localStorage.getItem(HELLO_KEY) === t) return;
       localStorage.setItem(HELLO_KEY, t);
       const h = new Date().getHours();
@@ -2386,7 +2387,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const CHAT_KEY = "studyboard:comp:chat";
   const chatRead = () => { try { return Number(localStorage.getItem(CHAT_KEY)) || 0; } catch (e) { return 0; } };
   const chatMark = () => { try { localStorage.setItem(CHAT_KEY, String(Date.now())); } catch (e) {} };
-  const quietNow = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
+  const quietNow = () => !isOn() || !talkOn() || (window.SBESS && !SBESS.shows("companion-lines")) || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
     || (front && front.querySelector(".cp-bubble.on")) || (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus")
     || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) || document.activeElement?.isContentEditable;
   let taskTalkT = 0;

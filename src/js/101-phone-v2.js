@@ -125,7 +125,7 @@
     raf = requestAnimationFrame(() => {
       raf = 0;
       const s = sig(), nav = document.querySelector("nav.tabs");
-      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + (document.querySelector('nav.tabs .in [data-tab="companion"]') ? 1 : 0);
+      const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + ((document.querySelector('nav.tabs .in [data-tab="companion"]') || {}).offsetWidth ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
       // checked every time (cheap): a theme's colours can land a moment after the switch, which left the strip stale
       tintSig = s; barTint();
