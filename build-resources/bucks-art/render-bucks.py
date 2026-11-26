@@ -5,7 +5,7 @@ logo embossed from a height map. Everything is green, the book stripe a paler gr
 The logo comes from icon-1024.png. Make its masks first (the same formula as the coin):
   mask = clip(max((R-28)/190, (B-118)/110), 0, 1) * alpha;  blue (the book stripe) = clip(((B-R)-70)/90, 0, 1) * mask
 Then:  python3 render-bucks.py <dir with mask.npy and blue.npy> <out dir>
-The face is kept plain (a bevelled border, one fine line, a lighter green circle and the logo) so it stays neat at icon size.
+The face is kept plain (a bevelled border, one fine line, the logo) so it stays neat at icon size.
 Writes bucks-bill-320.png (320 x 200, transparent around the bill) and bucks-bill.webp (the app's icon, 160 x 100)."""
 import sys
 import numpy as np
@@ -78,7 +78,7 @@ def green_logo(img, M, Bm, base=0.76, light=(-0.62, -0.78)):
     col = ramp(t, GREEN)
     edge = np.clip(M - blur(M, 2), 0, 1) * np.clip(sh * 2, 0, 1)
     col = col + np.array([220, 255, 228], np.float32) * (edge * 0.6)[..., None]
-    shadow = blur(np.roll(np.roll(M, 12, 0), 9, 1), 9) * 0.75
+    shadow = blur(np.roll(np.roll(M, 14, 0), 10, 1), 10) * 0.6
     img = over(img, np.array([2, 30, 10], np.float32), np.clip(shadow * (1 - M), 0, 1))
     return over(img, col, M)
 
@@ -95,26 +95,12 @@ band = np.clip((BAND - din) / 4, 0, 1)
 outer = din < BAND / 2
 bev = 0.58 + 0.26 * (light_dir - 0.5) * 2 * np.where(outer, 1, -1)
 img = lerp(img, ramp(bev, GREEN), band)
-# one fine raised line just inside the border (it stops short of the circle around the logo)
-line = np.exp(-((din - (BAND + 34)) / 4) ** 2) * np.clip((np.sqrt((xx - cxm) ** 2 + (yy - cym) ** 2) - H * 0.455) / 6, 0, 1)
+# one fine raised line just inside the border
+line = np.exp(-((din - (BAND + 34)) / 4) ** 2)
 img = lerp(img, ramp(0.74 + 0.18 * (light_dir - 0.5) * 2, GREEN), line * 0.85)
-# a slightly lighter green circle behind the logo, inside the fine line, with a crisp raised rim like the coin's
-RC = H * 0.415
-d = np.sqrt((xx - cxm) ** 2 + (yy - cym) ** 2)
-disc_a = np.clip((RC - d) / 1.5 + 0.5, 0, 1)
-# its field: lighter than the bill, a little lighter still toward the top left, with a soft inner shadow under the rim
-inner = np.clip((RC - d) / 40, 0, 1)
-img = lerp(img, ramp(0.50 + 0.10 * (light_dir - 0.5) - 0.06 * (1 - inner), GREEN), disc_a)
-# the rim: a bevelled band (lit top left on its outer slope, bottom right on its inner one)
-RW = 30
-rb = np.clip((d - (RC - RW)) / 1.5, 0, 1) * disc_a
-slope = np.where(d > RC - RW / 2, 1, -1)
-img = lerp(img, ramp(0.62 + 0.26 * (light_dir - 0.5) * 2 * slope, GREEN), rb)
-# a thin dark line where the rim meets the bill
-img = lerp(img, np.array([6, 50, 20], np.float32) * np.ones_like(img), np.exp(-((d - RC) / 2.2) ** 2) * 0.55)
-# the logo, raised, sized to sit well inside the circle; centred on its S (the cap's tassel hangs off to the right)
-M, Bm = place_logo(RC * 1.56, cxm - RC * 0.05, cym + RC * 0.02)
-img = green_logo(img, M, Bm, base=0.86)
+# the logo, raised, a little larger
+M, Bm = place_logo(H * 0.68, cxm + 8, cym + 6)
+img = green_logo(img, M, Bm, base=0.82)
 # dark outer edge line
 edge = np.exp(-(din / 4) ** 2)
 img = lerp(img, np.array([4, 40, 16], np.float32) * np.ones_like(img), edge * 0.7)
