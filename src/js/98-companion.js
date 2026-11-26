@@ -3118,6 +3118,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { return "I couldn't change that colour just now."; } },
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
+    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
