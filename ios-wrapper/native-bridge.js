@@ -113,6 +113,8 @@
         var u = new URL(ev.url), q = new URLSearchParams();
         // the end of Sign in with Google / Apple in the browser tab (section 11)
         if (u.protocol === "studyboard:" && u.hostname === "auth-callback") { if (authBack) authBack(String(ev.url)); return; }
+        // "Back to Studyboard" from Safari after signing in to a school there: just opens the app (the sign-in screen picks it up)
+        if (u.protocol === "studyboard:" && u.hostname === "school-signed-in") return;
         if (u.protocol === "studyboard:" && (u.hostname === "add" || u.hostname === "capture")) {
           var tries = 0, raw = String(ev.url);
           (function route() {

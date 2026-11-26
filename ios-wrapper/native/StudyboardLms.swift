@@ -35,12 +35,63 @@ private func sbConfig(_ id: String) -> WKWebViewConfiguration {
     return c
 }
 
+// Google's sign-in page. Google doesn't allow it inside an app's own web view, so these web views never load it:
+// the student signs in to a Google school in Safari instead (SchoolSafari/SBSchoolHandoff.swift).
+private func sbIsGoogleSignIn(_ url: URL?) -> Bool {
+    guard let h = url?.host?.lowercased() else { return false }
+    return h == "accounts.google.com" || h.hasSuffix(".accounts.google.com")
+}
+
+private let sbNames = ["brightspace": "Brightspace", "canvas": "Canvas", "blackboard": "Blackboard", "moodle": "Moodle"]
+
+// Put a sign-in Safari handed over into this platform's web view store
+private func sbImport(_ id: String, origin: String, _ cookies: [SBSchoolHandoff.Cookie], _ done: @escaping () -> Void) {
+    guard let originURL = URL(string: origin + "/") else { return done() }
+    let store = sbStore(id).httpCookieStore, group = DispatchGroup()
+    // Safari keeps a site's session cookies across restarts; here they'd be lost whenever iOS closes the app, so they're
+    // kept for a week (the school still decides how long the sign-in itself lasts)
+    let week = Date().addingTimeInterval(7 * 24 * 3600)
+    for c in cookies {
+        var p: [HTTPCookiePropertyKey: Any] = [.name: c.name, .value: c.value, .path: c.path]
+        if c.hostOnly { p[.originURL] = originURL } else { p[.domain] = c.domain.hasPrefix(".") ? c.domain : "." + c.domain }
+        if c.secure { p[.secure] = "TRUE" }
+        p[.expires] = c.expirationDate.map { Date(timeIntervalSince1970: $0) } ?? week
+        if c.httpOnly { p[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
+        switch (c.sameSite ?? "").lowercased() {
+        case "lax": p[.sameSitePolicy] = HTTPCookieStringPolicy.sameSiteLax.rawValue
+        case "strict": p[.sameSitePolicy] = HTTPCookieStringPolicy.sameSiteStrict.rawValue
+        default: break
+        }
+        guard let cookie = HTTPCookie(properties: p) else { continue }
+        group.enter()
+        store.setCookie(cookie) { group.leave() }
+    }
+    group.notify(queue: .main, execute: done)
+}
+
+// A sign-in Safari handed over for this site, if one is waiting: put in place, then go on
+private func sbPullHandoff(_ id: String, origin: String, _ then: @escaping (Bool) -> Void) {
+    guard let cookies = SBSchoolHandoff.take(id, origin: origin) else { return then(false) }
+    sbImport(id, origin: origin, cookies) { then(true) }
+}
+
+// Opens the school site in Safari, even when another browser is the default (x-safari-https opens Safari itself;
+// if iOS ever stops accepting it, the default browser opens and the steps on screen still say Safari)
+private func sbOpenInSafari(_ url: URL) {
+    var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
+    c?.scheme = "x-safari-https"
+    guard let safari = c?.url else { UIApplication.shared.open(url); return }
+    UIApplication.shared.open(safari, options: [:]) { ok in if !ok { UIApplication.shared.open(url) } }
+}
+
 // Navigation and permission rules shared by the sign-in view and the hidden view
 private class SBGuard: NSObject, WKNavigationDelegate, WKUIDelegate {
     var onFinish: (() -> Void)?
     var onFail: (() -> Void)?
+    var onGoogle: (() -> Void)?
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        let s = navigationAction.request.url?.scheme?.lowercased() ?? ""
+        let u = navigationAction.request.url, s = u?.scheme?.lowercased() ?? ""
+        if sbIsGoogleSignIn(u) { decisionHandler(.cancel); onGoogle?(); return }
         decisionHandler(s == "https" || s == "about" ? .allow : .cancel)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { onFinish?() }
@@ -104,6 +155,81 @@ private func sbEval(_ wv: WKWebView, _ expr: String, _ done: @escaping (Any?) ->
     }
 }
 
+// The Safari step on the sign-in screen (schools that sign in with Google). The steps shrink as they're done: once
+// the extension has been switched on, and once Safari lets it read this school site.
+private class SBSafariPanel: UIView {
+    let name: String, origin: String
+    var onOpen: (() -> Void)?
+    private let stack = UIStackView(), steps = UILabel(), statusLabel = UILabel()
+
+    init(name: String, origin: String) {
+        self.name = name; self.origin = origin
+        super.init(frame: .zero)
+        backgroundColor = .systemBackground
+        let scroll = UIScrollView(); scroll.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(scroll)
+        stack.axis = .vertical; stack.spacing = 16; stack.translatesAutoresizingMaskIntoConstraints = false
+        scroll.addSubview(stack)
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: topAnchor), scroll.bottomAnchor.constraint(equalTo: bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: leadingAnchor), scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor, constant: 28),
+            stack.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor, constant: -28),
+            stack.leadingAnchor.constraint(equalTo: scroll.frameLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: scroll.frameLayoutGuide.trailingAnchor, constant: -24)
+        ])
+        let title = label("Finish Signing In with Safari", .title2)
+        if let d = title.font.fontDescriptor.withSymbolicTraits(.traitBold) { title.font = UIFont(descriptor: d, size: 0) }
+        title.accessibilityTraits = .header
+        let intro = label("Your school signs in to \(name) with Google, and Google only allows that in a browser like Safari. "
+            + "You do this once. After that, Studyboard keeps syncing \(name) by itself.", .body)
+        var cfg = UIButton.Configuration.filled()
+        cfg.title = "Open \(name) in Safari"; cfg.cornerStyle = .large
+        cfg.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
+        let open = UIButton(configuration: cfg, primaryAction: UIAction { [weak self] _ in self?.onOpen?() })
+        statusLabel.font = .preferredFont(forTextStyle: .callout); statusLabel.textColor = .secondaryLabel
+        statusLabel.numberOfLines = 0; statusLabel.adjustsFontForContentSizeCategory = true; statusLabel.isHidden = true
+        let host = URL(string: origin)?.host ?? origin
+        let note = label("Studyboard never sees your Google password. Safari passes on only \(host)'s own sign-in, and it stays on this iPhone.", .footnote)
+        note.textColor = .secondaryLabel
+        steps.numberOfLines = 0; steps.adjustsFontForContentSizeCategory = true
+        [title, intro, steps, open, statusLabel, note].forEach { stack.addArrangedSubview($0) }
+        stack.setCustomSpacing(24, after: steps)
+        refresh(again: false)
+    }
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    private func label(_ text: String, _ style: UIFont.TextStyle) -> UILabel {
+        let l = UILabel(); l.text = text; l.font = .preferredFont(forTextStyle: style)
+        l.numberOfLines = 0; l.adjustsFontForContentSizeCategory = true
+        return l
+    }
+
+    func refresh(again: Bool) {
+        var list: [String] = []
+        if !SBSchoolHandoff.extensionSeen() {
+            list.append("Turn on Studyboard in Safari: open the Settings app, then Apps › Safari › Extensions › Studyboard, and switch on Allow Extension.")
+        }
+        list.append("Tap Open \(name) in Safari below and sign in as usual. If you're already signed in there, Safari skips this.")
+        if !SBSchoolHandoff.extensionAllowed(on: origin) {
+            list.append("Still in Safari, tap the ᴀA or ⋯ button by the address, then Studyboard. Tap Agree, Allow and Connect, and choose Always Allow on This Website.")
+        }
+        list.append("Safari hands the sign-in to Studyboard. Come back here and you're done.")
+        let body = UIFont.preferredFont(forTextStyle: .body)
+        let para = NSMutableParagraphStyle()
+        para.headIndent = 24; para.paragraphSpacing = 10
+        para.tabStops = [NSTextTab(textAlignment: .left, location: 24, options: [:])]
+        steps.attributedText = NSAttributedString(string: list.enumerated().map { "\($0.offset + 1).\t\($0.element)" }.joined(separator: "\n"),
+                                                  attributes: [.font: body, .paragraphStyle: para, .foregroundColor: UIColor.label])
+        if again { status("\(name) asked for your Google sign-in again. Sign in in Safari once more.") }
+    }
+    func status(_ text: String) {
+        statusLabel.text = text
+        statusLabel.isHidden = text.isEmpty
+        if !text.isEmpty { UIAccessibility.post(notification: .announcement, argument: text) }
+    }
+}
+
 // The visible sign-in screen
 private class SBSignInController: UIViewController {
     let id: String, origin: String, startURL: URL, who: String
@@ -113,6 +239,11 @@ private class SBSignInController: UIViewController {
     var timer: Timer?
     var finished = false
     var completion: (([String: Any]) -> Void)?
+    // Safari step (schools that sign in with Google)
+    var safari: SBSafariPanel?
+    var importing = false
+    // whether Safari already kept this site's sign-in fresh before this screen opened (Cancel leaves that as it was)
+    lazy var wantedBefore = SBSchoolHandoff.isWanted(id, origin: origin)
 
     init(id: String, origin: String, url: URL, who: String) {
         self.id = id; self.origin = origin; self.startURL = url; self.who = who
@@ -134,6 +265,7 @@ private class SBSignInController: UIViewController {
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.navigationDelegate = guardDelegate; webView.uiDelegate = guardDelegate
         guardDelegate.onFinish = { [weak self] in self?.check() }
+        guardDelegate.onGoogle = { [weak self] in self?.showSafari() }
         view.addSubview(bar); view.addSubview(webView)
         let g = view.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
@@ -143,11 +275,53 @@ private class SBSignInController: UIViewController {
             webView.topAnchor.constraint(equalTo: bar.bottomAnchor), webView.leadingAnchor.constraint(equalTo: view.leadingAnchor), webView.trailingAnchor.constraint(equalTo: view.trailingAnchor), webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         webView.addObserver(self, forKeyPath: "URL", options: [.new], context: nil)
-        webView.load(URLRequest(url: startURL))
-        timer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in self?.check() }
+        // (a sign-in Safari handed over while the app was closed is used straight away)
+        sbPullHandoff(id, origin: origin) { [weak self] _ in guard let self = self else { return }; self.webView.load(URLRequest(url: self.startURL)) }
+        timer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: true) { [weak self] _ in self?.check(); self?.pullSafari() }
+        NotificationCenter.default.addObserver(self, selector: #selector(becameActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    // The school sent the sign-in to Google: carry on in Safari
+    func showSafari() {
+        if finished { return }
+        _ = wantedBefore
+        SBSchoolHandoff.setWanted(id, origin: origin, need: true)
+        let was = importing
+        importing = false
+        webView.stopLoading()
+        if let p = safari { p.refresh(again: was); return }
+        let p = SBSafariPanel(name: sbNames[id] ?? "your school site", origin: origin)
+        p.onOpen = { [weak self] in guard let self = self else { return }; sbOpenInSafari(self.startURL) }
+        p.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(p)
+        NSLayoutConstraint.activate([
+            p.topAnchor.constraint(equalTo: webView.topAnchor), p.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            p.trailingAnchor.constraint(equalTo: view.trailingAnchor), p.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        safari = p
+        hostLabel.text = "Sign in with Safari"
+    }
+    @objc func becameActive() { pullSafari(); safari?.refresh(again: false) }
+    // Safari handed the sign-in over: put it in place and check it here (check() finishes once the site knows the student)
+    func pullSafari() {
+        guard safari != nil, !finished, !importing, SBSchoolHandoff.waiting(id) else { return }
+        importing = true
+        safari?.status("Signing you in…")
+        sbPullHandoff(id, origin: origin) { [weak self] ok in
+            guard let self = self, !self.finished else { return }
+            if !ok { self.importing = false; self.safari?.status(""); return }
+            self.webView.load(URLRequest(url: self.startURL))
+            // the school didn't take it (onGoogle shows the steps again first if it sent the sign-in back to Google)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+                guard let self = self, !self.finished, self.importing else { return }
+                self.importing = false
+                self.safari?.status("That sign-in didn't carry over. Open Safari and try once more.")
+            }
+        }
     }
     override func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey: Any]?, context: UnsafeMutableRawPointer?) {
-        if keyPath == "URL" { hostLabel.text = webView.url?.host ?? "" }
+        if keyPath == "URL", safari == nil { hostLabel.text = webView.url?.host ?? "" }
     }
     func check() {
         guard !finished, sbOrigin(webView.url) == origin else { return }
@@ -160,7 +334,11 @@ private class SBSignInController: UIViewController {
     @objc func cancelTapped() { finish(["ok": false, "cancelled": true]) }
     func finish(_ r: [String: Any]) {
         if finished { return }; finished = true
+        // signed in through Safari: Safari keeps the app's sign-in fresh from now on, whenever the site is open there
+        if safari != nil, r["ok"] as? Bool == true { SBSchoolHandoff.setWanted(id, origin: origin, need: false) }
+        else if safari != nil, r["cancelled"] as? Bool == true, !wantedBefore { SBSchoolHandoff.clear(id) }
         timer?.invalidate(); webView.removeObserver(self, forKeyPath: "URL")
+        NotificationCenter.default.removeObserver(self)
         dismiss(animated: true) { [completion] in completion?(r) }
     }
 }
@@ -229,13 +407,23 @@ public class StudyboardLmsPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             r.guardDelegate.onFinish = go
             r.guardDelegate.onFail = go
-            r.wv.load(URLRequest(url: c.url))
+            // the school wants Google again: Safari can hand a fresh sign-in over the next time the site is open there
+            r.guardDelegate.onGoogle = { [weak r] in
+                guard let r = r, !r.done else { return }
+                SBSchoolHandoff.setWanted(c.id, origin: c.origin, need: true)
+                r.finish(["needLogin": true], reply)
+            }
+            sbPullHandoff(c.id, origin: c.origin) { [weak r] _ in
+                guard let r = r, !r.done else { return }
+                r.wv.load(URLRequest(url: c.url))
+            }
         }
     }
 
     @objc func signOut(_ call: CAPPluginCall) {
         guard let id = call.getString("id"), sbStoreIds[id] != nil else { return call.reject("bad-request") }
         let host = URL(string: call.getString("origin") ?? "")?.host ?? ""
+        SBSchoolHandoff.clear(id)
         DispatchQueue.main.async {
             let store = sbStore(id), types = WKWebsiteDataStore.allWebsiteDataTypes()
             if #available(iOS 17.0, *) {
