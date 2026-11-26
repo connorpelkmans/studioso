@@ -88,7 +88,7 @@ function fakeChrome(opts){
     await R.p.evaluate(() => { const x = document.createElement("button"); x.dataset.act = "ai-setup"; document.body.appendChild(x); x.click(); x.remove(); });
     await R.p.waitForTimeout(300);
     const sheet = await R.p.evaluate(() => (document.querySelector("dialog[open]") || {}).innerText || "");
-    ok(/AI is ready on this computer, no setup needed/.test(sheet) && /Chrome's built-in AI \(Google's Gemini Nano\) runs right here/.test(sheet), "AI Features says it's ready, with nothing to set up");
+    ok(/AI is ready on this computer, no setup needed/.test(sheet) && /Studyboard AI 8GB \(Google's Gemini Nano\) runs right here/.test(sheet), "AI Features says it's ready, with nothing to set up");
     ok(!/Set up AI first/.test(sheet), "and doesn't ask for setup");
     await R.p.screenshot({path: path.join(SHOTS, "device-ai-setup.png")});
     await R.p.evaluate(() => document.querySelector("dialog[open]").close());

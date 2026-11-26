@@ -96,5 +96,27 @@ If they ask you to write or do graded work for them (an essay, a care plan, home
         : `I'm ${me}, your Studyboard companion, not ChatGPT. I think with the AI service set up in Studyboard, and I'm here to help with your classes, tasks and studying.`;
     return null;
   }
-  return {cantDo, risk, distress, riskReply, riskFollow, aboutMe, CARE_RULE, integrity, INTEGRITY_RULE};
+  // a joke asked for ("tell me a joke", "got any hospital jokes", "make me laugh", "another one"): one from here, on the topic they
+  // name, never a refusal (small models say "I don't have any hospital jokes") and never the same one twice in a row
+  const JOKES = {
+    nurse: ["Why did the nurse need a red pen at work? In case she needed to draw blood.", "What do you call a nurse who tells jokes? A pun-ishing caregiver... I'll see myself to triage.", "Why did the nursing student bring a ladder to clinical? She heard the patient's care was going to the next level."],
+    hospital: ["Why did the hospital hire a cardiologist for the band? They needed someone to keep the beat.", "Why do surgeons make great comedians? Their timing is incisive.", "What did the hospital bed say to the patient? Don't worry, I've got you covered."],
+    anatomy: ["Why did the skeleton skip the party? He had no body to go with.", "What did the left ventricle say to the right? You complete me, but I do all the heavy lifting.", "Why are hearts so good at music? They've got great rhythm, and a lot of beats."],
+    psych: ["How many therapists does it take to change a light bulb? Just one, but the bulb has to really want to change.", "Why did Freud bring a pencil to the party? To draw his own conclusions... unconsciously.", "What did the ego say to the id? Can you please take this down a notch."],
+    history: ["Why were the early days of history called the Dark Ages? Because there were so many knights.", "Why did the history book look so sad? It had too many dates and not one of them called back.","What was the most popular dance in 1776? Indepen-dance."],
+    chemistry: ["Why do chemists like nitrates so much? They're cheaper than day rates.", "I'd tell you a chemistry joke, but I know I wouldn't get a reaction.", "What did the oxygen say to the potassium? Oh K!"],
+    study: ["Why did the student eat their homework? The teacher said it was a piece of cake.", "Why did the flashcard go to therapy? It had too many issues on both sides.", "What's a student's favourite kind of tree? Geometry."]
+  };
+  const JK = /\b(tell|give|got|know|have|hear|another|one more|share)\b[^.?!]{0,30}\bjokes?\b|\bjokes? (please|pls|plz)\b|^\s*(a\s+)?jokes?\s*[?!.]*$|\bmake me (laugh|smile)\b|\bcheer me up with a joke\b|\bsay something funny\b|\b(tell me|got|any) (a |any )?puns?\b/i;
+  function joke(q, last){
+    // ("another one" right after one of these)
+    const w = low(q), again = /^\s*(another( one)?|one more|again|more|tell me another|do another)\s*[!?.]*$/i.test(w) && Object.values(JOKES).flat().some(j => String(last || "").includes(j.slice(0, 30)));
+    if (!JK.test(w) && !again) return null;
+    // ("another one": the same topic as the last joke)
+    const lastK = again ? Object.keys(JOKES).find(k2 => JOKES[k2].some(j => String(last || "").includes(j.slice(0, 30)))) : "";
+    const k = lastK ? lastK : /\b(nurs\w*|nclex|clinical|patient)\b/.test(w) ? "nurse" : /\b(hospital|doctor|surgeon|er|icu|medical)\b/.test(w) ? "hospital" : /\b(anatomy|a&p|heart|bone|skeleton|cardio|body)\b/.test(w) ? "anatomy" : /\b(psych\w*|freud|therap\w*|mental)\b/.test(w) ? "psych" : /\b(history|war|wwi|ww1|historical)\b/.test(w) ? "history" : /\b(chem\w*|science)\b/.test(w) ? "chemistry" : "";
+    const pool = k ? JOKES[k] : Object.values(JOKES).flat(), fresh = pool.filter(j => !String(last || "").includes(j.slice(0, 30)));
+    const list = fresh.length ? fresh : pool; return list[Math.floor(Math.random() * list.length)];
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, aboutMe, joke, CARE_RULE, integrity, INTEGRITY_RULE};
 })();

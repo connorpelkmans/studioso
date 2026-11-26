@@ -63,7 +63,7 @@
   // lead: "Pro through the end of term" or "Pro for the whole term"; the quarterly plan renews, so it says so
   function qLine(lead){
     const q = plan() && plan().quarterly ? plan().quarterly() : null;
-    if (!q) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
+    if (!q) return {text: "Keep Studyboard AI Pro, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
     return {text: `${lead}: ${q.price} every 3 months (renews, cancel any time).`, btn: "See Quarterly Plan"};
   }
   const card = (kind, id, body, btn) => `<div class="offer-card" data-offer="${kind}"><span class="offer-t">${body}</span><span class="offer-a"><button type="button" class="btn small primary" data-act="offer-go" data-id="${esc(kind + "|" + id)}">${esc(btn)}</button><button type="button" class="icon-btn sm offer-x" data-act="offer-x" data-id="${esc(kind + "|" + id)}" aria-label="Not now">${typeof CLOSE === "string" ? CLOSE : "×"}</button></span></div>`;
@@ -97,7 +97,7 @@
       return;
     }
     render();
-    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "quarterly");
+    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI Pro, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "quarterly");
   }
   function dismiss(kind, id){
     const o = S(), rec = Object.assign({}, (o[kind] || {})[id] || {d: todayISO()}, {x: 1});

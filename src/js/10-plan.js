@@ -28,7 +28,7 @@ window.__sbPlanObj = () => PLAN;
     checkout_url_monthly: "", checkout_url_quarterly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
-    // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
+    // Studyboard Plus: every Pro feature without Studyboard AI Pro ($2.99 a month, website checkout only)
     plus_plan: false,
     features: {insights: false, ai_credits: false},
     paywall: false
@@ -123,10 +123,10 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
-  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
-  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  // Pro that someone pays for, which is what includes Studyboard AI Pro (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI Pro, so they can still subscribe
   const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
-    // Studyboard Plus is paid Pro without Studyboard AI: the server marks it ai_included false from the price paid
+    // Studyboard Plus is paid Pro without Studyboard AI Pro: the server marks it ai_included false from the price paid
     return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite && e.ai_included !== false; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
@@ -136,7 +136,7 @@ window.__sbPlanObj = () => PLAN;
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
-  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI (the server sets ai_included from the price paid)
+  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI Pro (the server sets ai_included from the price paid)
   const plusNow = () => { const e = ent(); return paywall() && paid() && !!e && e.plan === "pro" && e.ai_included === false; };
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
@@ -259,7 +259,7 @@ window.__sbPlanObj = () => PLAN;
       if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
       const was = JSON.stringify((P.row && P.row.uid === uid && P.row.ent) || null);
       P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
-      // A new or ended plan changes whether Studyboard AI is included
+      // A new or ended plan changes whether Studyboard AI Pro is included
       if (was !== JSON.stringify(data || null)) { try { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); } catch(e) {} }
       return true;
     } catch (e) { return false; }
@@ -772,7 +772,7 @@ window.__sbPlanObj = () => PLAN;
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []).map(r => plusOn() && r[0] === "Studyboard AI" ? [r[0], r[1], r[2] + " (Not in Plus)"] : r).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).map(r => plusOn() && r[0] === "Studyboard AI Pro" ? [r[0], r[1], r[2] + " (Not in Plus)"] : r).sort((a, b) => (b[0] === "Studyboard AI Pro") - (a[0] === "Studyboard AI Pro"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -800,7 +800,7 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
-    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI."};
+    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI Pro."};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
@@ -848,7 +848,7 @@ window.__sbPlanObj = () => PLAN;
   const plusOn = () => !!cfg.plus_plan && !!plusPrice() && route() !== "store";
   function plusOfferHtml(){
     if (!plusOn()) return "";
-    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
+    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI Pro?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI Pro. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
@@ -869,8 +869,8 @@ window.__sbPlanObj = () => PLAN;
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
-        ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
-        ${paywall() && pro && !aiIncluded() && !plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
+        ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI Pro. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
+        ${paywall() && pro && !aiIncluded() && !plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI Pro isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI Pro. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}

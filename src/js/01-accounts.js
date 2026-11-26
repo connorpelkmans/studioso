@@ -83,6 +83,7 @@ function sbErr(e){
   const x = new Error(msg);
   x.code = /fetch|network|timed? ?out|Load failed/i.test(msg) || status === 0 && /fetch/i.test(msg) || status >= 500 ? "unavailable"
     : /limit for one item/i.test(msg) ? "item_too_big"
+    : /SB_DATA_RESERVE/.test(msg) ? "reserve_full"
     : status === 413 || /too large|exceeded the maximum/i.test(msg) ? "too_large"
     : /quota|storage limit/i.test(msg) ? "quota_or_state"
     : status === 429 ? "rate_limited" : e && e.code === "23514" ? "schema" : (e && e.code) || "error";

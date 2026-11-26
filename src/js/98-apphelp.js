@@ -29,7 +29,7 @@ window.SBAPPHELP = (() => {
     [/\b(notes?|whiteboard|sticky)\b/, "Open Notes in the sidebar: sticky-note boards (one per course if you like) and whiteboards to draw, write and add pictures. Or ask me: \"make a note that says...\"."],
     [/\b(concept map|mind map|map)\b/, "Open a course and choose Concept Map, or ask me: \"make a concept map with photosynthesis in the center connected to sunlight, water and soil\"."],
     [/\b(notification|notifications|reminder|reminders|remind)\b/, `Open ${S}, then Notifications and Widgets, then Reminders and Notifications.`],
-    [/\b(ai|gemini|key|api key|studyboard ai)\b/, `Open ${S}, then AI and Tools, then AI Features. AI runs free on your computer (Chrome's built-in AI or Google's Gemma, downloaded once), or with Studyboard AI in paid Pro.`],
+    [/\b(ai|gemini|key|api key|studyboard ai)\b/, `Open ${S}, then AI and Tools, then AI Features. AI runs free on your computer (Chrome's built-in AI or Google's Gemma, downloaded once), or with Studyboard AI Pro in paid Pro.`],
     [/\b(sign in|log in|login|account|password|email|sync)\b/, `Open ${S}, then Account: sign in to keep everything in sync across your devices, or change your email or password.`],
     [/\b(pro|subscription|upgrade|price|cost|pay)\b/, `Open ${S}, then Account, then Studyboard Pro.`],
     [/\b(delete|deleted|undo|recover|recently deleted|archive)\b/, `Press Ctrl+Z (Cmd+Z) to undo. Deleted things stay in ${S}, Data and Backups, Recently Deleted for 30 days.`],
