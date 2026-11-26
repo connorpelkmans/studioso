@@ -3,12 +3,18 @@
    They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
-     - Focus time       1 per 2 minutes          just keeping the timer going is the easiest
+     - Focus time       1 per 2 minutes          just keeping the timer going is the easiest (at most 3 hours a day count)
      - Flashcards       1 per 5 cards reviewed   active recall, about 10 seconds a card
      - Practice quizzes 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score
-     - Tasks            by type: Exam 25, Project 15, Quiz 12, Assignment and Lab 8, Reading and Study 4, Other 3;
-                        a step of a broken-down task 2 (at most 10 tasks a day count, so splitting work up doesn't pay)
+     - Tasks            by type: Exam 30, Project 20, Quiz 12, Assignment and Lab 10, Reading and Study 5, Other 3;
+                        a step of a broken-down task 2 (at most 8 tasks a day count, so splitting work up doesn't pay)
      - Presentations    10 for each full practice run (2 a day per presentation), +40 the first time a run lands on target
+
+   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
+   study day (a 25-minute focus session 12, 20 cards 4, a passed 10-question quiz 11, an assignment and a reading 15) is about
+   40 credits. So a Common takes about 3 study days, a Rare about a week, an Exotic about two weeks and a Legendary about a month;
+   a hard exam-week day (2 hours of focus, 100 cards, 3 quizzes, a few tasks) is about 130. With around 18 Legendaries, collecting
+   them all takes most of a school year. The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
    minutes), so credits sync with the rest of a student's work and include what they did before this existed. Each kind keeps
@@ -22,15 +28,15 @@ var SBSC = (() => {
   const coin = (px = 18) => `<img class="scr-coin" src="${COIN_SRC}" width="${px}" height="${px}" alt="" aria-hidden="true">`;
 
   /* ---------- What each kind of work earns ---------- */
-  const TASK_PTS = {Exam: 25, Project: 15, Quiz: 12, Assignment: 8, Lab: 8, Reading: 4, Study: 4, Other: 3};
-  const TASK_STEP = 2, TASKS_A_DAY = 10;
+  const TASK_PTS = {Exam: 30, Project: 20, Quiz: 12, Assignment: 10, Lab: 10, Reading: 5, Study: 5, Other: 3};
+  const TASK_STEP = 2, TASKS_A_DAY = 8, FOCUS_MIN_A_DAY = 180;
   const PRES_RUN = 10, PRES_RUNS_A_DAY = 2, PRES_MASTER = 40;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
-    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer"],
+    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
     ["cards", "Flashcards", "1 credit for every 5 cards you review"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +3 for passing (70% or more), +3 more for a perfect score"],
-    ["task", "Tasks", "By how big the task is: an exam 25, a project 15, a quiz 12, an assignment or lab 8, a reading 4 (up to 10 tasks a day)"],
+    ["task", "Tasks", "By how big the task is: an exam 30, a project 20, a quiz 12, an assignment or lab 10, a reading 5 (up to 8 tasks a day)"],
     ["pres", "Presentations", `${PRES_RUN} for each full practice run (2 a day per presentation), +${PRES_MASTER} the first time you finish on target`]
   ];
   const DERIVED = ["focus", "cards", "quiz", "task"];
@@ -49,7 +55,13 @@ var SBSC = (() => {
   const quizPts = r => { const t = Number(r && r.total) || 0, s = Number(r && r.score) || 0; if (t < 3 || s / t < 0.7) return 0; return s + 3 + (s >= t ? 3 : 0); };
   function current(){
     const out = {focus: 0, cards: 0, quiz: 0, task: 0};
-    out.focus = tr(() => (typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() : 0) / 2);
+    // focus: each day's minutes up to FOCUS_MIN_A_DAY (minutes only kept on tasks, from before days were logged, count as they are)
+    out.focus = tr(() => {
+      if (typeof SBSTATS === "undefined") return 0;
+      const days = Object.values(SBSTATS.focusDays()).map(m => Number(m) || 0), logged = days.reduce((n, m) => n + m, 0);
+      const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
+      return (capped + extra) / 2;
+    });
     tr(() => Object.values(state.decks || {}).forEach(d => {
       (d.cards || []).forEach(c => { out.cards += (Number(c && c.seen) || 0) / 5; });
       (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => (q && q.results) || [])).forEach(r => { out.quiz += quizPts(r); });
@@ -184,7 +196,7 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 40 credits: a Common in about 3 days, a Legendary in about a month.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
   if (!document.getElementById("scr-css")) { const st = document.createElement("style"); st.id = "scr-css";
@@ -198,6 +210,7 @@ var SBSC = (() => {
 .scr-pop small{font-size:.78rem;color:var(--muted,#666)}
 :root[data-theme="dark"] .scr-pop b,.dark .scr-pop b{color:#FFD36B}
 @media (prefers-reduced-motion:reduce){.scr-pop{transition:opacity .2s}}
+.scr-how-day{margin:0 0 8px}
 .scr-how{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .scr-how li{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .scr-how-n{flex:1;display:grid;gap:2px;min-width:0}

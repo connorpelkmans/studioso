@@ -22,13 +22,15 @@ Students earn credits for real work, scaled to how hard it is (about one credit 
 
 | Work | Credits | Why |
 |---|---|---|
-| Focus time | 1 per 2 minutes | The easiest: just keeping the timer going |
+| Focus time | 1 per 2 minutes, at most 3 hours a day | The easiest: just keeping the timer going. The cap stops a timer left running from farming credits |
 | Flashcards | 1 per 5 cards reviewed | Active recall, about 10 seconds a card |
 | Practice quizzes | 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score | Has to be passed; a failed quiz earns nothing |
-| Tasks | Exam 25, Project 15, Quiz 12, Assignment or Lab 8, Reading or Study 4, Other 3; a step of a broken-down task 2 | By size. At most 10 tasks a day count, so splitting work into tiny tasks doesn't pay |
+| Tasks | Exam 30, Project 20, Quiz 12, Assignment or Lab 10, Reading or Study 5, Other 3; a step of a broken-down task 2 | By size. At most 8 tasks a day count, so splitting work into tiny tasks doesn't pay |
 | Presentations | 10 per full practice run (2 a day per presentation), +40 the first time a run lands on target | "On target": within 10 seconds over the time goal and at least 75% of it |
 
-Accessory prices: Cozy Scarf 40, Tiny Hat 75, Party Bow Tie 120, Round Glasses 160, Festive Beanie 200 (sold Dec 1 to Jan 6 only), Champion Medal 250, Hero Cape 400, Star Badge 550, Graduation Cap 750, Little Crown 1,000. An active student (a focus session, 20 cards, a quiz and a couple of tasks a day) earns about 50 a day: the scarf on day one, the crown after a few weeks.
+**Prices by rarity** (`PRICE` in `98-companion.js`): Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000. The Festive Beanie (Rare) is only sold Dec 1 to Jan 6.
+
+**How long things take:** a steady study day (a 25-minute focus session, 20 flashcards, one passed 10-question quiz, an assignment and a reading) earns about 40 credits. That's a Common in about 3 study days, an Uncommon in 5, a Rare in about a week, an Exotic in about two weeks and a Legendary in about a month. A hard exam-week day (2 hours of focus, 100 cards, 3 quizzes, a few tasks) earns about 130. The Wardrobe has around 120 accessories, about 18 of them Legendary, so collecting every Legendary takes most of a school year.
 
 **How it's counted:** everything except presentations is worked out from what's already saved (decks, quiz results, finished tasks with their `doneAt`, focus minutes). So credits sync with everything else, and work done before credits existed counts too. Each kind keeps its highest total (`sc.hw`, saved at most once a minute), so deleting an old deck or task never takes credits back. Unticking and re-ticking a task doesn't earn twice. Presentation runs live on one device, so each run's credits are written down once (`sc.ev`, keyed by run id). Purchases are `sc.own` (`{accessory: price}`), and the balance is earned minus spent, never below zero.
 
@@ -36,7 +38,7 @@ Accessory prices: Cozy Scarf 40, Tiny Hat 75, Party Bow Tie 120, Round Glasses 1
 
 **In the app:** a "+12 Credits" coin pops in at the top right after new work (it waits until a flashcard session or presentation run ends). The Wardrobe shows the balance, each accessory's price (gold when affordable), a buy sheet with the companion trying it on, and How to Earn Credits with each kind's total. The end of a flashcard session shows the credits it earned and the next accessory to save for. The first time, a pop says how many credits the student's past work already earned.
 
-**Changing a rate or price:** rates are at the top of `98-0study-credits.js`, prices in `ACC` at the top of `98-companion.js`. A rate change applies to past work too, because totals are recalculated.
+**Changing a rate or price:** rates are at the top of `98-0study-credits.js`, prices in `PRICE` in `98-companion.js`. A rate change applies to past work too, because totals are recalculated.
 
 ## Studyboard Bucks (paid, for the Style Shop)
 
