@@ -35,6 +35,7 @@
   // ?plan=semester (old links: the semester plan became the quarterly plan) starts the quarterly checkout
   var qPlan = qs.get("plan") === "semester" ? "quarterly" : qs.get("plan");
   var wantPlan = PLANS.indexOf(qPlan) >= 0 ? qPlan : null;
+  var wantCancel = qs.get("cancel") === "1";   // ?cancel=1 (from the app): point at Cancel subscription once signed in
   var fromApp = qs.get("src") === "app";
   function allowedReturn(candidate) {
     var x = validHttps(candidate); if (!x || x.username || x.password) return null;
@@ -86,6 +87,7 @@
     var trial = e.trial_until && Date.parse(e.trial_until) > now;
     var grant = e.grant_until && Date.parse(e.grant_until) > now;
     res.manage = e.source === "stripe";
+    res.cancel = e.source === "stripe" && e.plan !== "lifetime" && !e.grant_lifetime && e.will_renew !== false && e.plan === "pro" && (until === null || until > now);
     if (e.plan === "lifetime" || e.grant_lifetime) return Object.assign(res, { tag: "Pro for good", pro: true, subscribed: true, detail: "You have Studyboard Pro with no end date." });
     if (paid && trial) return Object.assign(res, { tag: "Pro trial", pro: true, subscribed: true, detail: "Your free trial ends on " + fmt(e.trial_until) + (e.will_renew ? ", then your plan renews." : ". It will not renew.") });
     if (paid) {
@@ -123,13 +125,26 @@
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
-  function setBuyDisabled(d) { ["buy-monthly", "buy-quarterly", "buy-yearly", "buy-plus", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
+  function setBuyDisabled(d) { ["buy-monthly", "buy-quarterly", "buy-yearly", "buy-plus", "btn-manage", "btn-cancel"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
   function openPortal() {
     if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening billing...", "");
     fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname }).then(function (r) {
       var url = r.status === 200 ? stripeUrl(r.body && r.body.url, "billing.stripe.com") : null;
       if (url) { location.assign(url); return; }
       msg($("acct-msg"), r.status === 404 ? "There's no card subscription on this account yet. Choose a plan above." : (r.body && r.body.message) || "Something went wrong opening billing.", "error");
+      state.busy = false; setBuyDisabled(false);
+    }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
+  }
+
+  // Easy cancel: straight to Stripe's "Cancel your plan" step
+  function openCancel() {
+    if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening cancellation...", "");
+    fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname, flow: "cancel" }).then(function (r) {
+      var url = r.status === 200 ? stripeUrl(r.body && r.body.url, "billing.stripe.com") : null;
+      if (url) { location.assign(url); return; }
+      var code = r.body && r.body.error;
+      msg($("acct-msg"), code === "already_canceled" || code === "no_subscription" ? r.body.message : r.status === 404 ? "There's no card subscription on this account." : (r.body && r.body.message) || "Something went wrong opening billing.", code === "already_canceled" ? "ok" : "error");
+      if (code === "already_canceled" && $("btn-cancel")) $("btn-cancel").hidden = true;
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
@@ -149,6 +164,8 @@
         $("buy-panel").hidden = d.subscribed;
         state.sb.from("studyboard_config").select("value").eq("key", "plus_plan").maybeSingle().then(function (c) { if ($("plus-card")) $("plus-card").hidden = !(c && c.data && c.data.value === true); }, function () {});
         $("manage-panel").hidden = !d.manage;
+        if ($("btn-cancel")) $("btn-cancel").hidden = !d.cancel;
+        if (wantCancel && d.cancel && $("btn-cancel")) { wantCancel = false; $("btn-cancel").focus(); msg($("acct-msg"), "To cancel, choose Cancel subscription. Stripe asks you to confirm, and you keep Pro until the end of the time you paid for.", ""); }
         maybeAutoCheckout(d);
       }, function () { $("plan-detail").textContent = "Couldn't load your plan right now."; maybeAutoCheckout({ subscribed: false }); });
   }
@@ -235,6 +252,7 @@
     if ($("buy-plus")) $("buy-plus").addEventListener("click", function () { startCheckout("plus"); });
     if ($("buy-quarterly")) $("buy-quarterly").addEventListener("click", function () { startCheckout("quarterly"); });
     $("btn-manage").addEventListener("click", openPortal);
+    if ($("btn-cancel")) $("btn-cancel").addEventListener("click", openCancel);
 
     // Sign in with Apple, Google or Microsoft in every browser, like the app: the provider's page, then back here signed in
     // (an account made with Apple on the iPhone signs in on any computer)

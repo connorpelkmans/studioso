@@ -61,7 +61,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
     const text = await req.text();
-    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { return_url?: unknown };
+    const body = (() => { try { return JSON.parse(text.length <= 4096 ? text || "{}" : "{}"); } catch (_e) { return {}; } })() as { return_url?: unknown; flow?: unknown };
     const cfg = await (await rest("studyboard_config?key=eq.site_url&select=value")).json() as { value: unknown }[];
     const allowed = origins(d.env, String(cfg[0]?.value || ""));
     if (!allowed.length) throw new Error("no allowed site origin is set");
@@ -81,12 +81,41 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     }
     if (!customer) return json({ error: "no_billing", message: "There is no card subscription on this account yet." }, 404, cors);
 
+    const stripeAuth = { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}` };
     const params = new URLSearchParams({ customer, return_url: ret });
     const conf = d.env("STRIPE_PORTAL_CONFIG");
     if (/^bpc_[A-Za-z0-9]+$/.test(conf)) params.set("configuration", conf);
-    const r = await d.fetch("https://api.stripe.com/v1/billing_portal/sessions", {
-      method: "POST", headers: { Authorization: `Bearer ${d.env("STRIPE_SECRET_KEY")}`, "Content-Type": "application/x-www-form-urlencoded" }, body: params.toString(),
+    // Easy cancel (flow: "cancel"): open the portal straight on Stripe's "Cancel your plan" step for this customer's
+    // subscription that's still set to renew. Stripe asks to confirm there, and the person comes back here after.
+    let canceling = false;
+    if (body.flow === "cancel") {
+      const lr = await d.fetch(`https://api.stripe.com/v1/subscriptions?${new URLSearchParams({ customer, status: "all", limit: "20" })}`, { headers: stripeAuth });
+      const list = lr.ok ? ((await lr.json().catch(() => ({}))) as { data?: { id?: string; status?: string; cancel_at_period_end?: boolean }[] }).data || [] : [];
+      const live = list.filter(x => typeof x.id === "string" && /^sub_[A-Za-z0-9]+$/.test(x.id) && ["active", "trialing", "past_due", "unpaid"].includes(String(x.status)));
+      const sub = live.find(x => !x.cancel_at_period_end);
+      if (lr.ok && !sub) {
+        return live.length
+          ? json({ error: "already_canceled", message: "Your plan is already canceled. You keep Pro until the end of the time you paid for." }, 409, cors)
+          : json({ error: "no_subscription", message: "There's no subscription to cancel on this account." }, 404, cors);
+      }
+      if (sub) {
+        params.set("flow_data[type]", "subscription_cancel");
+        params.set("flow_data[subscription_cancel][subscription]", sub.id as string);
+        params.set("flow_data[after_completion][type]", "redirect");
+        params.set("flow_data[after_completion][redirect][return_url]", ret);
+        canceling = true;
+      }
+    }
+    const portal = (p: URLSearchParams) => d.fetch("https://api.stripe.com/v1/billing_portal/sessions", {
+      method: "POST", headers: { ...stripeAuth, "Content-Type": "application/x-www-form-urlencoded" }, body: p.toString(),
     });
+    let r = await portal(params);
+    // A portal set up without cancelling turned on refuses the cancel step: open the normal billing page instead
+    if (!r.ok && canceling) {
+      for (const k of [...params.keys()]) if (k.startsWith("flow_data")) params.delete(k);
+      canceling = false;
+      r = await portal(params);
+    }
     if (!r.ok) {
       const e = await r.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
       if (e.error?.code === "resource_missing") return json({ error: "billing_unavailable", message: "We couldn't find a card subscription for this account in live billing. If you subscribed during testing, it no longer applies. Start a new subscription from the account page, or write to support." }, 409, cors);
@@ -94,7 +123,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     }
     const s = await r.json() as { url?: string };
     if (typeof s.url !== "string" || !/^https:\/\/billing\.stripe\.com\//.test(s.url)) throw new Error("no portal url");
-    return json({ url: s.url }, 200, cors);
+    return json({ url: s.url, cancel: canceling }, 200, cors);
   } catch (err) {
     d.log("create-portal-session failed", err instanceof Error ? err.message : "error");
     return json({ error: "server error", message: "Something went wrong opening billing. Please try again." }, 500, cors);

@@ -743,6 +743,36 @@ window.__sbPlanObj = () => PLAN;
     if (cfg.manage_url) { openExternal(cfg.manage_url); return; }
     toast("To change or cancel your plan, use the link in your receipt email.");
   }
+  // Easy cancel: a subscription that's still set to renew, next to Manage Plan. No questions first: Stripe's own page (or the
+  // App Store / Google Play page) asks to confirm, and Pro stays until the end of the time already paid for.
+  const cancelable = () => { const e = ent(); return !!e && ["stripe", "apple", "google"].includes(e.source) && e.plan !== "lifetime" && e.will_renew !== false && !inPreview(); };
+  const GOOGLE_SUBS = "https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard";
+  async function cancelPlan(btn){
+    const e = ent() || {};
+    if (e.source === "apple") { if (!nativeFire("plan-manage", e)) openExternal("https://apps.apple.com/account/subscriptions"); return; }
+    if (e.source === "google") { if (!nativeFire("plan-manage", e)) openExternal(GOOGLE_SUBS); return; }
+    if (route() === "store") { toast("This plan was bought on the Studyboard website. Cancel it there, where you subscribed."); return; }
+    // anything unexpected: the account page on the website, pointed at its Cancel button
+    const onSite = h => { if (siteReady()) openExternal(siteUrl("/account", {cancel: "1"}), h); else { if (h && !h.closed) { try { h.close(); } catch (x) {} } manage(); } };
+    if (!sb || !sbUser) { onSite(null); return; }
+    const held = holdTab();
+    if (btn) btn.disabled = true;
+    try {
+      const {data, error} = await sb.functions.invoke("create-portal-session", {body: {flow: "cancel"}});
+      if (!error && data && typeof data.url === "string" && /^https:\/\/billing\.stripe\.com\//.test(data.url)) { openExternal(data.url, held); watchCancel(); return; }
+      let body = null; try { body = error && error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (x) {}
+      const code = body && body.error, shut = () => { if (held && !held.closed) { try { held.close(); } catch (x) {} } };
+      if (code === "already_canceled") { shut(); toast(cleanMsg(body.message) || "Your plan is already canceled."); refresh(); return; }
+      if (code === "no_subscription" || code === "no_billing") { shut(); toast("There's no card subscription on this account to cancel."); return; }
+      onSite(held);
+    } catch (x) { onSite(held); }
+    finally { if (btn) btn.disabled = false; }
+  }
+  // Back from Stripe: read the plan again so the sheet says it ends instead of renews
+  function watchCancel(){
+    const back = () => { if (document.hidden) return; document.removeEventListener("visibilitychange", back); setTimeout(() => refresh().then(() => { if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet(); }).catch(() => {}), 800); };
+    document.addEventListener("visibilitychange", back);
+  }
   async function startTrial(){
     if (!sbUser) { toast("Sign in first to start your free trial."); return; }
     try {
@@ -865,7 +895,7 @@ window.__sbPlanObj = () => PLAN;
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
-        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
@@ -962,6 +992,7 @@ window.__sbPlanObj = () => PLAN;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
       case "plan-manage": manage(); return true;
+      case "plan-cancel": cancelPlan(el); return true;
       case "plan-trial": startTrial(); return true;
       case "plan-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 120); return true;
       case "plan-devices": devicesSheet(false); return true;

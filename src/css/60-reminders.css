@@ -38,3 +38,9 @@
 }
 
 
+/* A task's extra reminders and Keep Reminding Until Done */
+.rm-more .rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.rm-more .rm-chip{min-height:36px;cursor:pointer}
+.rm-more .rm-chip[hidden]{display:none}
+.rm-more .rm-nag{margin-top:2px}
+.rm-snz .menu-list button{min-height:52px}

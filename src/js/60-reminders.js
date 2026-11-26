@@ -7,7 +7,11 @@ const RM_CORE = (() => {
   const DEF = {tasks: true, dayBefore: true, dayTime: "18:00", hoursBefore: true, hours: 2, exams: true,
     events: true, eventLead: 15, classes: false, morning: false, morningTime: "07:30",
     nudges: true, nudgeTime: "16:00", cards: false, cardsTime: "19:00", smart: true,
-    quiet: true, quietFrom: "22:00", quietTo: "07:00", vapid: "", push: false};
+    quiet: true, quietFrom: "22:00", quietTo: "07:00", vapid: "", push: false,
+    // Keep Reminding Until Done: after a task's last reminder, it comes again every nagEvery minutes, up to nagTimes times,
+    // until the task is ticked off (off by default; a task can turn it on or off for itself with t.nag)
+    nag: false, nagEvery: 15, nagTimes: 5,
+    snooze: 60};   // minutes a Snooze button waits
   const HOUR = 36e5, DAY = 864e5, WINDOW = 14 * DAY, GRACE = 10 * 60000;
   const p2 = n => String(n).padStart(2, "0");
   const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
@@ -22,7 +26,12 @@ const RM_CORE = (() => {
   const OVR_MIN = {"0": 0, "15m": 15, "1h": 60, "2h": 120};
   const OVR_DAY = {"1d": 1, "2d": 2, "3d": 3, "1w": 7};
   const cfgOf = c => { const o = Object.assign({}, DEF, c || {}); ["dayTime", "morningTime", "nudgeTime", "cardsTime", "quietFrom", "quietTo"].forEach(k => { if (!isT(o[k])) o[k] = DEF[k]; });
-    o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0)); return o; };
+    o.hours = Math.max(0.25, Math.min(24, Number(o.hours) || DEF.hours)); o.eventLead = Math.max(0, Math.min(240, Number(o.eventLead) || 0));
+    o.nagEvery = Math.max(5, Math.min(120, Math.round(Number(o.nagEvery) || DEF.nagEvery))); o.nagTimes = Math.max(1, Math.min(10, Math.round(Number(o.nagTimes) || DEF.nagTimes)));
+    o.snooze = Math.max(5, Math.min(24 * 60, Math.round(Number(o.snooze) || DEF.snooze))); return o; };
+  const ALSO_OK = k => k in OVR_MIN || k in OVR_DAY;
+  // More than one reminder for a task (t.remindAlso: extra choices on top of its usual ones), at most 4
+  const alsoOf = t => Array.isArray(t.remindAlso) ? [...new Set(t.remindAlso.map(String).filter(ALSO_OK))].slice(0, 4) : [];
   // Quiet hours: is this moment inside them, and when do they end / start around it
   function inQuiet(ms, c){
     if (!c.quiet) return false;
@@ -68,16 +77,27 @@ const RM_CORE = (() => {
       const timed = !!(t.time && isT(t.time)), dl = dueMs(t), mk = (code, ms) => add({id: `r:t:${t.id}:${code}:${Math.round(ms / 60000).toString(36)}`, at: ms, title: t.title || "Task", body: "", taskId: t.id, kind: "task", _t: t}, dl);
       const o = t.remind;
       if (o === "off") return;
-      if (o && (o in OVR_MIN || o in OVR_DAY)) {
-        if (o in OVR_DAY) mk(o, at(addD(t.due, -OVR_DAY[o]), c.dayTime));
-        else if (timed) mk(o, dl - OVR_MIN[o] * 60000);
-        else mk(o, at(t.due, c.morningTime));
-        return;
+      const one = k => { if (k in OVR_DAY) mk(k, at(addD(t.due, -OVR_DAY[k]), c.dayTime)); else if (timed) mk(k, dl - OVR_MIN[k] * 60000); else mk(k, at(t.due, c.morningTime)); };
+      const from = out.length;
+      if (o && (o in OVR_MIN || o in OVR_DAY)) one(o);
+      else if (c.tasks) {
+        if (c.dayBefore) mk("1d", at(addD(t.due, -1), c.dayTime));
+        if (c.hoursBefore && timed) mk("h", dl - c.hours * HOUR);
+        if (c.exams && MS(t.type)) mk("3d", at(addD(t.due, -3), c.dayTime));
       }
-      if (!c.tasks) return;
-      if (c.dayBefore) mk("1d", at(addD(t.due, -1), c.dayTime));
-      if (c.hoursBefore && timed) mk("h", dl - c.hours * HOUR);
-      if (c.exams && MS(t.type)) mk("3d", at(addD(t.due, -3), c.dayTime));
+      alsoOf(t).forEach(k => { if (k !== o) one(k); });
+      // Keep Reminding Until Done: after the last reminder (or, for a task that asks for it with none, an hour before a due
+      // time / the morning of the due day), again every few minutes until it's done. Never in quiet hours, never a day past due.
+      const nagOn = t.nag === true || (t.nag !== false && c.nag);
+      if (!nagOn) return;
+      const mine = out.slice(from).filter(r => r.taskId === t.id).map(r => r.at);
+      const anchor = mine.length ? Math.max(...mine) : (timed ? dl - HOUR : at(t.due, c.morningTime));
+      for (let k = 1; k <= c.nagTimes; k++) {
+        const ms = anchor + k * c.nagEvery * 60000;
+        if (ms > dl + DAY) break;
+        if (!ok(ms) || inQuiet(ms, c)) continue;
+        out.push({id: `r:t:${t.id}:nag${k}:${Math.round(anchor / 60000).toString(36)}`, at: ms, title: t.title || "Task", body: "", taskId: t.id, kind: "nag", _t: t, nag: k});
+      }
     });
     (inp.occ || []).forEach(o => {
       if (!o || !isD(o.date) || !isT(o.start)) return;
@@ -114,7 +134,7 @@ const RM_CORE = (() => {
     }
     if (c.smart) (inp.smart || []).forEach(s => { if (s && s.id && s.taskId && ok(s.at) && !inQuiet(s.at, c)) out.push({id: s.id, at: s.at, title: s.title || "Task", body: s.body || "", taskId: s.taskId, kind: "smart", key: s.key || ""}); });
     (inp.snoozes || []).forEach(s => { if (s && s.id && ok(s.at)) out.push({id: s.id, at: s.at, title: s.title || "Reminder", body: s.body || "", taskId: s.taskId || "", kind: "snooze"}); });
-    out.forEach(r => { if (r._t) { r.body = phrase(r._t, r.at); delete r._t; } });
+    out.forEach(r => { if (r._t) { const p = phrase(r._t, r.at); r.body = r.kind === "nag" ? (r.at > dueMs(r._t) ? `Still not done. Was due ${p.replace(/^(Due|Read by|Exam|Quiz) /, "")}` : `Still to do. ${p}`) : p; delete r._t; } });
     out.sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
     const seen = new Set(), last = {}, near = {};
     out.forEach(r => { if (r.kind === "task") (near[r.taskId] = near[r.taskId] || []).push(r.at); });
@@ -125,7 +145,16 @@ const RM_CORE = (() => {
       return true;
     }).slice(0, 400);
   }
-  return {DEF, cfgOf, compute, inQuiet, place, OVR_MIN, OVR_DAY, at, addD, ymd};
+  // Snooze choices like the ones people like in other planners: a few minutes, an hour, this evening, tomorrow morning
+  function snoozeChoices(now, cfg){
+    const c = cfgOf(cfg), today = ymd(new Date(now)), out = [[10, "10 Minutes"], [60, "1 Hour"]].map(([m, l]) => ({label: l, at: now + m * 60000}));
+    const eve = at(today, c.dayTime);
+    if (eve - now > 90 * 60000) out.push({label: "This Evening", at: eve});
+    out.push({label: "Tomorrow Morning", at: at(addD(today, 1), c.morningTime)});
+    return out;
+  }
+  const snoozeLabel = m => m % 60 === 0 ? `Snooze ${m / 60} Hour${m === 60 ? "" : "s"}` : `Snooze ${m} Min`;
+  return {DEF, cfgOf, compute, inQuiet, place, OVR_MIN, OVR_DAY, at, addD, ymd, alsoOf, snoozeChoices, snoozeLabel};
 })();
 /*@@RM-CORE-END*/
 
@@ -162,7 +191,7 @@ const RM_CORE = (() => {
     const c = rmCfg(), today = todayISO(), now = Date.now();
     const tasks = tasksArr().filter(t => t.due && t.status !== "done").map(t => {
       const co = courseOf(t.courseId);
-      return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time, start: t.start, status: t.status, remind: t.remind, hours: t.hours, course: co ? courseLabel(co) : ""};
+      return {id: t.id, title: t.title, type: t.type, due: t.due, time: t.time, start: t.start, status: t.status, remind: t.remind, remindAlso: t.remindAlso, nag: t.nag, hours: t.hours, course: co ? courseLabel(co) : ""};
     });
     let occ = [];
     if (c.events || c.nudges) {
@@ -218,16 +247,17 @@ const RM_CORE = (() => {
   async function show(r, force){
     const visible = !force && document.visibilityState === "visible" && document.hasFocus();
     if (visible || perm() !== "granted") {
-      if (document.visibilityState === "visible") toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, [SBSMART && SBSMART.action(r), r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : {label: "Snooze", fn: () => snooze(r)}]);
+      if (document.visibilityState === "visible") { const sm = SBSMART && SBSMART.action(r), op = r.taskId && state.tasks[r.taskId] ? {label: "Open", fn: () => openTask(r.taskId)} : null;
+        toast(`${r.title}${r.body ? ": " + r.body : ""}`, null, sm ? [sm, op || {label: "Snooze", fn: () => snoozeSheet(r)}] : [op, {label: "Snooze", fn: () => snoozeSheet(r)}]); }
       if (visible) return;
     }
     if (DESK && typeof DESK.notify === "function") { try { await DESK.notify({title: r.title, body: r.body, taskId: r.taskId}); return; } catch (e) {} }
     if (perm() !== "granted") return;
-    const data = {sbRem: 1, rid: r.id, taskId: r.taskId || "", title: r.title, body: r.body, url: appUrl()};
+    const sn = rmCfg().snooze, data = {sbRem: 1, rid: r.id, taskId: r.taskId || "", title: r.title, body: r.body, url: appUrl(), sn};
     const reg = await swReg();
     if (reg && reg.showNotification) {
       try {
-        const actions = [{action: "snooze", title: "Snooze 1 Hour"}].concat(r.taskId ? [{action: "done", title: "Mark Done"}] : []);
+        const actions = [{action: "snooze", title: RM_CORE.snoozeLabel(sn)}].concat(r.taskId ? [{action: "done", title: "Mark Done"}] : []);
         await reg.showNotification(r.title, {body: r.body, tag: r.id, data, icon: "icons/icon-192.png", badge: "icons/icon-192.png", actions});
         return;
       } catch (e) {}
@@ -250,19 +280,27 @@ const RM_CORE = (() => {
     const b = document.createElement("button"); b.dataset.act = "toggle"; b.dataset.id = id; b.hidden = true;
     document.body.appendChild(b); b.click(); b.remove();
   }
-  function snooze(r, minutes){
-    const m = minutes || SNOOZE_MIN, base = String(r.rid || r.id || "x").replace(/^s:/, "").slice(0, 120);
-    const s = {id: `s:${base}:${Date.now().toString(36)}`, at: Date.now() + m * 60000, title: r.title || "Reminder", body: r.body || "", taskId: r.taskId || ""};
+  function snooze(r, minutes){ snoozeTo(r, Date.now() + (minutes || rmCfg().snooze || SNOOZE_MIN) * 60000); }
+  function snoozeTo(r, when){
+    const base = String(r.rid || r.id || "x").replace(/^s:/, "").slice(0, 120);
+    const s = {id: `s:${base}:${Date.now().toString(36)}`, at: when, title: r.title || "Reminder", body: r.body || "", taskId: r.taskId || ""};
     lsSet(LS_SNOOZE, lsGet(LS_SNOOZE, []).filter(x => x && x.at > Date.now() - 36e5).concat(s).slice(-30));
-    toast(`Snoozed until ${fmtTime(pad(new Date(s.at).getHours()) + ":" + pad(new Date(s.at).getMinutes()))}`);
+    toast(`Snoozed until ${fmtAt(s.at).replace(/^Today, /, "")}`);
     refreshSoon(50);
+  }
+  // Pick how long: 10 minutes, an hour, this evening or tomorrow morning
+  function snoozeSheet(r){
+    const ch = RM_CORE.snoozeChoices(Date.now(), rmCfg());
+    openSheet(`<div class="sheet rm-snz">${head("Snooze")}<div class="sheet-body"><p class="mini" style="margin:0">${esc(r.title)}</p>
+      <div class="menu-list">${ch.map((c, i) => `<button type="button" data-snz="${i}"><span>${esc(c.label)}<span class="sub">${esc(fmtAt(c.at))}</span></span></button>`).join("")}</div></div></div>`);
+    $$("[data-snz]", dlg).forEach(b => b.addEventListener("click", () => { const c = ch[Number(b.dataset.snz)]; if (dlg.open) dlg.close(); if (c) snoozeTo(r, c.at); }));
   }
   // Taps on notification buttons, passed on by the service worker, or by the desktop app
   function handle(msg){
     if (!msg || typeof msg !== "object") return;
     const act = msg.action, rid = String(msg.rid || ""), taskId = String(msg.taskId || "");
     const r = LIST.find(x => x.id === rid) || {id: rid, title: msg.title || "Reminder", body: msg.body || "", taskId};
-    if (act === "snooze") snooze(Object.assign({}, r, {taskId: r.taskId || taskId}));
+    if (act === "snooze") snooze(Object.assign({}, r, {taskId: r.taskId || taskId}), Number(msg.minutes) || 0);
     else if (act === "done" && taskId) markDone(taskId);
     else if (taskId) openTask(taskId);
   }
@@ -271,7 +309,7 @@ const RM_CORE = (() => {
     let q; try { q = new URLSearchParams(location.search); } catch (e) { return; }
     const act = q.get("sbrem"), task = q.get("sbtask"), rid = q.get("sbrid") || "";
     if (!act && !task) return;
-    ["sbrem", "sbtask", "sbrid", "sbt", "sbb"].forEach(k => q.delete(k));
+    ["sbrem", "sbtask", "sbrid", "sbt", "sbb", "sbsn"].forEach(k => q.delete(k));
     try { history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : "") + location.hash); } catch (e) {}
     setTimeout(() => { refresh(); handle({action: act || "open", taskId: task || "", rid, title: "", body: ""}); }, 600);
   }
@@ -305,7 +343,7 @@ const RM_CORE = (() => {
   async function queueSync(){
     if (!cloudOk() || !rmCfg().push || Q.missing || Q.busy) return;
     const items = LIST.filter(r => r.at > Date.now() - 60000).map(r => ({id: r.id.slice(0, 200), fire_at: new Date(r.at).toISOString(), title: r.title.slice(0, 200), body: (r.body || "").slice(0, 1000),
-      url: appUrl() ? appUrl() + (r.taskId ? "?sbtask=" + encodeURIComponent(r.taskId) : "") : "", task_id: r.taskId || ""}));
+      url: appUrl() ? appUrl() + "?" + new URLSearchParams(Object.assign(r.taskId ? {sbtask: r.taskId} : {}, {sbsn: String(rmCfg().snooze)})) : "", task_id: r.taskId || ""}));
     const sig = JSON.stringify(items);
     if (sig === Q.sig) return;
     Q.busy = true; Q.at = Date.now();
@@ -482,7 +520,10 @@ const RM_CORE = (() => {
             <div class="rm-row">${cb("dayBefore", c.dayBefore, "1 day before, at")}${tIn("dayTime", c.dayTime)}</div>
             <div class="rm-row">${cb("hoursBefore", c.hoursBefore, "Before a due time:")}${sel("hours", c.hours, [[0.5, "30 minutes"], [1, "1 hour"], [2, "2 hours"], [3, "3 hours"], [6, "6 hours"]], "How long before")}</div>
             ${cb("exams", c.exams, "Exams and quizzes also 3 days before")}
+            <div class="rm-row">${cb("nag", c.nag, "Keep reminding me until it's done:")}${sel("nagEvery", c.nagEvery, [[5, "every 5 min"], [10, "every 10 min"], [15, "every 15 min"], [30, "every 30 min"], [60, "every hour"]], "How often")}${sel("nagTimes", c.nagTimes, [[3, "3 times"], [5, "5 times"], [10, "10 times"]], "How many times")}</div>
+            <p class="mini" style="margin:0">After a task's last reminder, it comes again until you tick the task off (or tap Mark Done on the notification). Never during quiet hours. Each task can turn this on or off for itself.</p>
           </div>
+          <div class="rm-row"><span>Snooze button waits</span>${sel("snooze", c.snooze, [[10, "10 minutes"], [15, "15 minutes"], [30, "30 minutes"], [60, "1 hour"], [120, "2 hours"]], "Snooze length")}</div>
           ${SBSMART ? SBSMART.row(c) : ""}
           <p class="mini" style="margin:0">You can change the reminder for a single task in its Advanced Settings.</p>
         </fieldset>
@@ -565,6 +606,7 @@ const RM_CORE = (() => {
   const pmsg = t => { const m = $("#rmPMsg"); if (m) m.textContent = t; };
 
   /* Per-task reminder in the task form */
+  const ALSO = [["1w", "1 Week Before"], ["3d", "3 Days Before"], ["1d", "1 Day Before"], ["2h", "2 Hours Before"], ["1h", "1 Hour Before"], ["15m", "15 Minutes Before"]];
   const OVR = [["", "Default"], ["off", "No Reminder"], ["0", "At Due Time"], ["15m", "15 Minutes Before"], ["1h", "1 Hour Before"], ["2h", "2 Hours Before"], ["1d", "1 Day Before"], ["2d", "2 Days Before"], ["3d", "3 Days Before"], ["1w", "1 Week Before"]];
   let armed = null;
   const origForm = taskForm;
@@ -578,11 +620,17 @@ const RM_CORE = (() => {
     const timeF = form.querySelector('[data-fld="time"]'), row = timeF && timeF.closest(".two");
     if (!row) return;
     const cur = t && t.remind ? String(t.remind) : "";
-    row.insertAdjacentHTML("afterend", `<label class="f rm-pick"><span class="lh"><span class="lbl">Reminder</span> <span class="hint" id="rmPickHint"></span></span><select name="sbRemind" id="rmPick">${OVR.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`);
+    const also = new Set(t ? RM_CORE.alsoOf(t) : []), c0 = rmCfg(), nagOn = t && typeof t.nag === "boolean" ? t.nag : c0.nag;
+    row.insertAdjacentHTML("afterend", `<label class="f rm-pick"><span class="lh"><span class="lbl">Reminder</span> <span class="hint" id="rmPickHint"></span></span><select name="sbRemind" id="rmPick">${OVR.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
+      <div class="f rm-more"><span class="lh"><span class="lbl">Also Remind Me</span></span><div class="rm-chips" role="group" aria-label="Also remind me">${ALSO.map(([v, l]) => `<button type="button" class="chip rm-chip" data-also="${v}" aria-pressed="${also.has(v)}">${esc(l)}</button>`).join("")}</div>
+        <label class="mi-check rm-nag"><input type="checkbox" id="rmNag" ${nagOn ? "checked" : ""}> Keep reminding me until it's done</label></div>`);
     const pick = $("#rmPick", form), timeIn = form.querySelector('input[name="time"]'), typeSel = form.querySelector("#tfType");
+    $$("[data-also]", form).forEach(b => b.addEventListener("click", () => { if (b.disabled) return; const on = b.getAttribute("aria-pressed") !== "true"; if (on && $$('[data-also][aria-pressed="true"]', form).length >= 4) { toast("Up to 4 extra reminders"); return; } b.setAttribute("aria-pressed", String(on)); }));
     const upd = () => {
       const timed = !!(timeIn && timeIn.value && !timeIn.closest("[hidden]")), c = rmCfg();
       [...pick.options].forEach(o => { if (o.value in RM_CORE.OVR_MIN && o.value !== "0") o.disabled = !timed; if (o.value === "0") o.textContent = timed ? "At Due Time" : "Morning of the Due Date"; });
+      $$("[data-also]", form).forEach(b => { const m = b.dataset.also in RM_CORE.OVR_MIN; b.disabled = m && !timed; b.hidden = m && !timed; });
+      const more = form.querySelector(".rm-more"); if (more) more.hidden = pick.value === "off";
       if (pick.selectedOptions[0] && pick.selectedOptions[0].disabled) pick.value = "0";
       const def = [];
       if (c.tasks) { if (c.dayBefore) def.push(`1 day before at ${fmtTime(c.dayTime)}`); if (c.hoursBefore && timed) def.push(`${c.hours < 1 ? c.hours * 60 + " min" : c.hours + "h"} before`); if (c.exams && typeSel && MILESTONE(typeSel.value)) def.push("3 days before"); }
@@ -593,7 +641,12 @@ const RM_CORE = (() => {
     upd();
     const delBtn = form.querySelector('[data-act="delete-task"]');
     const editId = t && t.id && state.tasks[t.id] ? t.id : delBtn ? delBtn.dataset.id : null;
-    const arm = () => { armed = {id: editId, isNew: !editId, val: pick.value}; setTimeout(() => { armed = null; }, 0); };
+    if (pick) pick.addEventListener("change", upd);
+    const arm = () => {
+      const nb = $("#rmNag", form);
+      armed = {id: editId, isNew: !editId, val: pick.value, also: $$('[data-also][aria-pressed="true"]:not([disabled])', form).map(b => b.dataset.also), nag: nb ? nb.checked : null};
+      setTimeout(() => { armed = null; }, 0);
+    };
     const btn = form.querySelector("[data-submit]");
     if (btn) btn.addEventListener("click", arm, true);
     form.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") arm(); }, true);
@@ -606,6 +659,8 @@ const RM_CORE = (() => {
       if (ch.kind !== "task" || !ch.after || !(A.isNew ? !state.tasks[ch.id] : ch.id === A.id)) return ch;
       const after = Object.assign({}, ch.after);
       if (A.val) after.remind = A.val; else delete after.remind;
+      if (A.also && A.also.length && A.val !== "off") after.remindAlso = A.also; else delete after.remindAlso;
+      if (A.nag === null || A.nag === rmCfg().nag) delete after.nag; else after.nag = A.nag;
       return Object.assign({}, ch, {after});
     });
     return origApply.call(this, changes, label, extra, opts);
@@ -664,7 +719,7 @@ const RM_CORE = (() => {
   });
   setInterval(() => { if (!deskNative()) arm(); }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { arm(); refreshSoon(500); } });
-  window.studyboardReminders = {list: () => LIST.slice(), refresh, core: RM_CORE};
+  window.studyboardReminders = {list: () => LIST.slice(), refresh, core: RM_CORE, snoozeSheet};
 })();
 
 

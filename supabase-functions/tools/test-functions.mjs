@@ -578,6 +578,38 @@ await test("portal: only the caller's own customer; none gives 404", async () =>
   assert.equal((await pt.handle(new Request("https://x/", { method: "POST", body: "{}" }), coDeps().deps)).status, 401);
 });
 
+await test("portal cancel: opens Stripe's cancel step for the renewing subscription; already canceled, none, and a portal without cancelling", async () => {
+  const req = (b = {}) => new Request("https://x/functions/v1/create-portal-session", { method: "POST", headers: { authorization: "Bearer jwt", origin: SITE }, body: JSON.stringify(b) });
+  const mk = (subs, portalStatus) => {
+    const base = coDeps({ customer: "cus_mine" }), seen = [];
+    const inner = base.deps.fetch;
+    base.deps.fetch = async (url, init = {}) => {
+      const u = String(url);
+      if (u.startsWith("https://api.stripe.com/v1/subscriptions?")) { seen.push(u); return new Response(JSON.stringify({ data: subs })); }
+      if (u === "https://api.stripe.com/v1/billing_portal/sessions") { base.stripeBodies.push(["portal", init.body]); const flow = /flow_data/.test(String(init.body));
+        return flow && portalStatus ? new Response(JSON.stringify({ error: { code: "parameter_invalid", message: "cancel is disabled" } }), { status: portalStatus }) : new Response(JSON.stringify({ url: "https://billing.stripe.com/p/session/x" })); }
+      return inner(url, init);
+    };
+    return { ...base, seen };
+  };
+  let m = mk([{ id: "sub_old", status: "canceled" }, { id: "sub_live", status: "active", cancel_at_period_end: false }]);
+  let r = await pt.handle(req({ flow: "cancel" }), m.deps);
+  assert.equal(r.status, 200); assert.equal((await r.json()).cancel, true);
+  let p = parse(m.stripeBodies[0][1]);
+  assert.equal(p["flow_data[type]"], "subscription_cancel"); assert.equal(p["flow_data[subscription_cancel][subscription]"], "sub_live");
+  assert.equal(p["flow_data[after_completion][redirect][return_url]"], SITE + "/account/"); assert.equal(p.customer, "cus_mine");
+  assert.ok(/customer=cus_mine/.test(m.seen[0]), "only the caller's own subscriptions are read");
+  m = mk([{ id: "sub_live", status: "active", cancel_at_period_end: true }]);
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); assert.equal(r.status, 409); assert.equal((await r.json()).error, "already_canceled");
+  m = mk([]);
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); assert.equal(r.status, 404); assert.equal((await r.json()).error, "no_subscription");
+  m = mk([{ id: "sub_live", status: "trialing" }], 400);
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); assert.equal(r.status, 200); assert.equal((await r.json()).cancel, false);
+  assert.equal(m.stripeBodies.length, 2); assert.ok(!/flow_data/.test(String(m.stripeBodies[1][1])), "falls back to the plain billing page");
+  m = mk([{ id: "sub_live", status: "active" }]);
+  r = await pt.handle(req({}), m.deps); assert.equal(r.status, 200); assert.ok(!/flow_data/.test(String(m.stripeBodies[0][1])), "without flow: the normal billing page"); assert.equal(m.seen.length, 0);
+});
+
 // -- delete-account
 function delDeps(o = {}) {
   const calls = [];

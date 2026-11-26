@@ -857,6 +857,12 @@ There are three ways reminders reach you:
 
 **Change one task's reminder:** open the task, then **Advanced Settings > Reminder**. Pick a time, or **No Reminder**. **Default** follows your settings.
 
+**More than one reminder for a task:** under the Reminder choice, **Also Remind Me** adds up to 4 more (1 week, 3 days or 1 day before, and 2 hours, 1 hour or 15 minutes before a due time). They go into the calendar link too.
+
+**Keep Reminding Until Done:** in Reminders and Notifications, under Task Reminders. After a task's last reminder, it comes again every 5 to 60 minutes, 3 to 10 times, until the task is ticked off or you tap **Mark Done** on the notification. It skips quiet hours and stops a day after the due time. Off by default; each task can turn it on or off for itself (**Keep reminding me until it's done** in the task). Phone reminders need `send-reminders` deployed as before: Mark Done there already clears the rest of a task's reminders.
+
+**Snooze:** the notification's Snooze button waits as long as you choose in settings (**Snooze button waits**, 10 minutes to 2 hours). Inside Studyboard, **Snooze** offers 10 minutes, 1 hour, this evening or tomorrow morning.
+
 ### Set up phone notifications (once)
 
 You'll need two files that came with this update: `supabase-reminders.sql` and `supabase-functions/send-reminders/index.ts`. Everything happens in the Supabase dashboard and in Studyboard. No command line.
