@@ -132,7 +132,7 @@
   const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
   const avatar = r => {
     const G = window.SBGROUPS && SBGROUPS.share;
-    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name); } catch (e) {} }
+    if (G && G.avatar) { try { return G.avatar("", r.user_id, r.display_name, r.face || ""); } catch (e) {} }
     const w = String(r.display_name || "?").trim().split(/\s+/).filter(Boolean);
     return `<span class="grp-av" aria-hidden="true">${esc(((w[0] || "?")[0] + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase())}</span>`;
   };

@@ -2772,5 +2772,17 @@ async function expandFrom(cid, mid, ask){
   applyChanges([{kind: "course", id: c.id, after}], `Added ${add.length} ideas to ${m.name}`, null, {quiet: true});
   return {course: cid, map: mid, name: m.name, where: courseName(c), added: add.length, ideas: rec.add.length};
 }
-window.SBCMAP = {createFrom, expandFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
+/* A copy of a map someone sent (a friend): saved in the course with the same code or name, else General. Returns where it went. */
+function addMapCopy(rec, course, label){
+  const code = String((course && course.code) || "").trim().toLowerCase(), nm = String((course && course.name) || "").trim().toLowerCase();
+  let c = (code && allCourses().find(x => !x.gen && String(x.code || "").trim().toLowerCase() === code)) || (nm && allCourses().find(x => !x.gen && String(x.name || "").trim().toLowerCase() === nm)) || null;
+  if (!c) c = state.courses[GEN_ID] || genRec();
+  if (mapsOf(c).length >= MAX_MAPS) throw new Error(`${courseName(c)} already holds ${MAX_MAPS} maps. Delete one first.`);
+  const now = Date.now(), name = String((rec && rec.name) || "Concept Map").slice(0, 80);
+  const copy = Object.assign({}, rec, {id: uid(), name, auto: false, created: now, at: now}); delete copy.g;
+  const cur = state.courses[c.id] || c, after = Object.assign(clone(cur), {maps: mapsOf(cur).concat([copy])}); delete after.cmap;
+  applyChanges([{kind: "course", id: c.id, after}], label || `Added the map ${name}`, null, {quiet: true});
+  return {course: c.id, map: copy.id, where: courseName(c)};
+}
+window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn, courseCard, examBtn, open, cardHtml, CMAP, state: () => M, peek: mapPeek, peekSvg, shown, redraw: () => { if (shown()) paint(); }};
 })();

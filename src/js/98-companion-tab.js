@@ -2676,7 +2676,20 @@ You can also DO things in Studyboard, but only when the student asks or what the
     if (tab !== "companion") { try { SBCOMP.tab.stopPreviews(); } catch (e) {} return; }
     const root = $(".cpt"); if (!root) return;
     try { SBCOMP.tab.wirePreviews(root); } catch (e) { console.warn("companion tab", e); }
-    const log = $("#cptLog"); if (log) { toLatest(log); requestAnimationFrame(() => { if (log.isConnected) toLatest(log); }); }
+    // The chat jumps to the newest answer only when something new arrived (another chat, a new message, thinking started or
+    // ended). Any other redraw keeps where you'd scrolled to: redraws for other reasons (a sync, a theme's scene) kept pulling
+    // the chat back down while you scrolled up. While an answer is being written, it follows along if you're at the bottom.
+    const log = $("#cptLog");
+    if (log) {
+      const c = rd().find(x => x.id === T.id), m = c && c.msgs[c.msgs.length - 1];
+      const sig = [T.id, c ? c.msgs.length : 0, T.busy ? 1 : 0, m && m.err ? 1 : 0].join(":");
+      const fresh = sig !== T.logSig || T.logTop == null;
+      const place = () => { if (!log.isConnected) return; if (fresh || (T.busy && T.logEnd)) toLatest(log); else log.scrollTop = T.logTop; };
+      T.logSig = sig; place(); requestAnimationFrame(place);
+      const keep = () => { T.logTop = log.scrollTop; T.logEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 40; };
+      keep(); requestAnimationFrame(keep);
+      log.addEventListener("scroll", keep, {passive: true});
+    }
     const cin = $("#cptIn"); if (cin && cin.value) cptGrow(cin);
   });
 

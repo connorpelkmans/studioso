@@ -4004,6 +4004,10 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* who invited you, above the group you're joining */
 .grp-inv-from{margin:0 0 2px;font-size:1rem;color:var(--ink)}
 .grp-inv-from b{font-weight:800}
+
+/* Profile, beside Friends at the top of Groups */
+.grp-prof-btn{display:inline-flex;align-items:center;gap:6px;margin-inline-start:8px}
+.view-head > h2 + .grp-prof-btn,.pg-right > .grp-prof-btn:first-child{margin-inline-start:auto}
 /* ===== module: 81-friends.css ===== */
 /* Friends (81-friends.js) */
 .frd-head-btn{margin-inline-start:auto;display:inline-flex;align-items:center;gap:6px;position:relative}
@@ -4036,6 +4040,18 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
   .frd-row .grp-item-btns{grid-column:2 / -1;justify-content:flex-start}
   .frd-row .grp-item-btns:has(.frd-more){grid-column:auto}
 }
+/* ===== module: 82-friend-share.css ===== */
+/* Send to Friends, and what a friend sent you */
+.fs-list{list-style:none;margin:0;padding:0;max-height:min(46vh,380px);overflow:auto}
+.fs-list li{border-bottom:1px solid var(--line)}
+.fs-list li:last-child{border-bottom:0}
+.fs-pick{display:flex;align-items:center;gap:12px;padding:10px 2px;min-height:52px;cursor:pointer}
+.fs-pick input{margin-inline-start:auto;width:20px;height:20px;flex:none}
+.fs-who{display:grid;min-width:0}
+.fs-who b{overflow-wrap:anywhere}
+.fs-who .mini{color:var(--muted)}
+.fs-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.fs-sheet .grp-av{width:40px;height:40px;flex:none}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
