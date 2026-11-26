@@ -514,6 +514,9 @@ window.SBTRUTH = (() => {
         const add = lines.filter(l => !low(fromN.answer).includes(low(l).slice(0, 40))).slice(0, 5);
         if (add.length) fromN = Object.assign({}, fromN, {answer: `${String(fromN.answer).trim()}\n${add.map(l => "- " + l).join("\n")}`});
       }
+      // their notes are about it but the AI's answer from them didn't hold up (a small model's paraphrase, or "found: false"): the
+      // note's own lines on it, never "Your notes don't cover this" (E2B round 2: the REBT goal, the AV node delay, WWI's causes)
+      if (!fromN && !aiFail) { const nl = noteLines(look) || (look !== q ? noteLines(q) : null); if (nl) fromN = {answer: nl.answer.split("\n").slice(1).map(x => x.replace(/^-\s*/, "").trim().replace(/([^.!?])$/, "$1.")).join(" ")}; }
     }
     // the notes answer it fully (every key word is in them, and the answer holds up and has the right shape): no web needed
     // (an answer from their notes that holds up and has the right shape is the answer: nothing from the web tacked on after it)
@@ -564,7 +567,14 @@ window.SBTRUTH = (() => {
     // hist 1010 online"): their planner, never a web page about the words
     { const lq = low(q), cs = Array.isArray(state.courses) ? state.courses : Object.values(state.courses || {});
       if (cs.some(c => c && !c.gen && ((c.code && new RegExp("\\b" + String(c.code).toLowerCase().replace(/[^a-z0-9]+/g, "\\s*") + "\\b").test(lq)) || (c.name && c.name.length > 5 && lq.includes(String(c.name).toLowerCase())) || (String(c.instructor || "").toLowerCase().match(/[a-z]{4,}/g) || []).some(w => !/^(prof|professor|doctor)$/.test(w) && new RegExp("\\b" + w + "('?s)?\\b").test(lq))))) return false;
-      if (/\b(instructors?|professors?|profs?|teachers?|tas?|course codes?|office hours|syllabus)\b/i.test(lq) && /^\s*(who|what|whats|what's|when|where|which|list|show|tell|do|does|is|are|how)\b/i.test(lq)) return false; }
+      if (/\b(instructors?|professors?|profs?|teachers?|tas?|course codes?|office hours|syllabus)\b/i.test(lq) && /^\s*(who|what|whats|what's|when|where|which|list|show|tell|do|does|is|are|how)\b/i.test(lq)) return false;
+      // one of their own tasks or events by name ("a&p quiz 4" found the Big Fat Quiz, "care plan 2" a care-plan
+      // article), a priority ("medium priority") or a day said as a reply ("tuesday is fine", "the 24th", "two sundays before"):
+      // their planner, not a subject
+      const named = list => (Array.isArray(list) ? list : Object.values(list || {})).some(x => { const t = low(String((x && (x.title || x.name)) || "")); return t.length >= 5 && !/^(general|notes?|my notes|untitled)$/.test(t) && new RegExp("(?<![a-z0-9])" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z0-9])").test(lq); });
+      // (tasks and events only: a note or deck's name, "defense mechanisms", "heart", is a subject they ask about)
+      if (named(state.tasks) || named(state.events)) return false;
+      if (/\b(priority|reschedule|postpone)\b/.test(lq) || (lq.split(/\s+/).length <= 5 && /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|tomorrow|tonight|today|next week|weekend|\d{1,2}(st|nd|rd|th)|am|pm)\b/.test(lq))) return false; }
     if (PLAN.test(q)) {
       const mine = /\b(my|mine|me|i|i'm|im|i've|ive|am i|we|our|us)\b/i.test(q);
       const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));

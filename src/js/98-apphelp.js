@@ -66,7 +66,7 @@ window.SBAPPHELP = (() => {
         [/\bautopilot\b/, `Autopilot plans your study sessions for you around your deadlines and free time. Turn it on in ${S}, then Study Plan.`],
         [/\bexam mode\b/, `Exam Mode focuses your plan on an upcoming exam: more review for it, less for the rest, until it's done. Turn it on in ${S}, then Study Plan.`],
         [/\b(scrapbook|stickers?)\b/, "The Term Scrapbook collects stickers you earn for study milestones this term; some accessories unlock with stickers."],
-        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b/, "Your companion's Wardrobe has accessories you earn by studying (focus hours, cards reviewed, quizzes passed, streaks). Open Companion, then Wardrobe, to see each one and how close you are; say \"put on the scarf\" to wear one."],
+        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b|\b(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear)\b/, "Your companion's Wardrobe has accessories you earn by studying (focus hours, cards reviewed, quizzes passed, streaks). Open Companion, then Wardrobe, to see each one and how close you are; say \"put on the scarf\" to wear one."],
         [/\btoday'?s plan|\bthe plan\b(?= work)/, "Today's Plan picks what to do next from your deadlines, how long things take and what's overdue, so you always have a next step."],
       ];
       if (/\b(how (?:do|does|did|would|will)|what (?:is|are|'?s|does)|whats|explain|tell me about)\b/.test(s) && /\b(work|works|working|on here|in (?:the app|studyboard)|for|mean|is|are)\b/.test(s) && !/\b(heart|cell|osmosis|body|brain|nerve|blood|lung|kidney|muscle|war|economy|history)\b/.test(s)) {

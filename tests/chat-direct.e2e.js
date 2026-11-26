@@ -437,7 +437,56 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Bio worksheet"}; });
     a = await chat("make it high priority");
     const r = await p.evaluate(() => { const L = Object.values(window.__sbSync.state.tasks).filter(t => /bio worksheet/i.test(t.title)); return {n: Object.keys(window.__sbSync.state.tasks).length, k: L.length, pr: L.map(t => t.priority)}; });
-    ok(r.k === 1 && r.n === n0 + 1 && r.pr[0] === "high", "\"make it high priority\" changes the task just added: " + JSON.stringify(r) + " " + a); }
+    ok(r.k === 1 && r.n === n0 + 1 && r.pr[0] === "high", "\"make it high priority\" changes the task just added: " + JSON.stringify(r) + " " + a);
+    // a priority with more said after it ("actually urgent, i forgot its due monday"): still that task's priority
+    a = await chat("actually urgent, i forgot its for my lab");
+    ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /bio worksheet/i.test(t.title) && t.priority === "urgent")), "\"actually urgent, ...\" sets the priority: " + a); }
+  // a day on its own right after adding something with no day: its due day
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "History quiz"}; });
+  a = await chat("add a history quiz");
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("thursday");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /history quiz/i.test(t.title) && !!t.due && new Date(t.due + "T12:00").getDay() === 4)), "a bare \"thursday\" after adding it sets its day: " + a);
+  // chat the small model calls "cant" or a new task: talk, never "I can't do that" or a task named after the words
+  await fresh(); await resetT();
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.tasks).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "cant"}; });
+    a = await chat("ok i gotta go");
+    ok(!/can't do that from the chat|not able to do that from the chat/i.test(a), "\"ok i gotta go\" called cant is talk: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "I havent started"}; });
+    a = await chat("i havent started");
+    ok(await p.evaluate(n0 => Object.keys(window.__sbSync.state.tasks).length === n0, n0), "\"i havent started\" called add_task adds nothing: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Read Chapter 7"}; });
+    a = await chat("add read chapter 7 to my list");
+    ok(await p.evaluate(n0 => Object.keys(window.__sbSync.state.tasks).length === n0, n0) && /already on your list/i.test(a), "an open task isn't added twice: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "change_setting", field: "text size", value: "louder"}; });
+    a = await chat("louder");
+    ok(!/text size|Settings/i.test(a), "\"louder\" doesn't open a setting: " + a);
+    await p.evaluate(() => { window.__stubIntent = null; }); }
+  // a course's own facts from what's saved, and the instructor it asks for saved from the reply
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("what's the course code for ochem?");
+  ok(/CHEM 211/.test(a), "the course code is the saved one: " + a);
+  a = await chat("who teaches ochem?");
+  ok(/no instructor saved|doesn't have an instructor|doesn't list an instructor/i.test(a), "no instructor is said plainly, none made up: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("it's Dr. Patel");
+  ok(await p.evaluate(() => /patel/i.test(String(window.__sbSync.state.courses.c2.instructor || ""))), "\"it's Dr. Patel\" saves the instructor: " + a);
+  // the planner's own sums: which comes first and how far apart, how late, time blocked for something
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("is care plan 2 before or after read chapter 7?");
+  ok(/Care Plan 2 \([^)]*\) is 3 days before Read Chapter 7/.test(a), "two dates compared exactly: " + a);
+  a = await chat("how many days late is clinical orientation");
+  ok(/isn.t late|Nothing is overdue/.test(a), "something not due yet isn't late: " + a);
+  { const e0 = await p.evaluate(() => Object.keys(window.__sbSync.state.events || {}).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+    a = await chat("block 2-4 tomorrow for care plan 2");
+    const ev = await p.evaluate(() => Object.values(window.__sbSync.state.events || {}).find(e => /care plan 2/i.test(e.title || "")) || null);
+    ok(ev && ev.start === "14:00" && ev.end === "16:00" && await p.evaluate(n => Object.keys(window.__sbSync.state.events || {}).length === n + 1, e0), "\"block 2-4 tomorrow for care plan 2\" is a 2-4pm event: " + JSON.stringify(ev) + " " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
   // an event's time range ("wednesday 1-2"): from 1 to 2 in the afternoon
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "add_event", title: "Office hours with Prof Ruiz"}; });

@@ -326,6 +326,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const t = {title: clip(x.title, 160), type: TYPES.includes(x.type) ? x.type : "Assignment", courseId: cid, due, time, priority: PRI[x.priority] ? x.priority : (x.type === "Exam" ? "high" : "med"),
         hours: Math.max(0, Math.min(200, Number(x.hours) || 0)), notes: String(x.notes || "").trim().slice(0, 4000)};
       const k = JSON.stringify(["new", t.title.toLowerCase(), t.due]); if (seen.has(k)) return; seen.add(k);
+      if (openNamed(t.title)) return; // (one they already have, still open: never a second copy)
       const bits = [t.type, cid ? courseLabel(state.courses[cid]) : "", due ? "due " + nice(due) + (time ? ", " + tm(time) : "") : "no due date", t.priority !== "med" ? PRI[t.priority] + " priority" : ""].filter(Boolean);
       changes.push({t: {kind: "newtask", task: t}, field: "create", value: "", scope: "", label: t.title, what: "New task", from: "", to: bits.join(" · ")});
     });
@@ -781,11 +782,15 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const x = new Date(base + "T12:00:00"); x.setDate(x.getDate() + sign * n);
     return {phrase: m[0], date: `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`};
   }
+  // an open task with this title (case, "the"/"my" and punctuation aside)
+  function openNamed(title){ const nt = x => String(x || "").toLowerCase().replace(/[^a-z0-9&]+/g, " ").replace(/\b(the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), k = nt(title);
+    return k ? Object.values(state.tasks || {}).find(t => t && t.status !== "done" && !t.deleted && !t.archived && nt(t.title) === k) || null : null; }
   function quickTask(q){
     // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
     // (so is anything from one time to another: "study session wednesday 7-9pm")
     if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
-    if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
+    // (plans with people or places: "coffee w my lab partner fri at 3:30" is an event, and "lab partner" isn't a lab)
+    if (/\b(meeting|meet up|meetup|practice|appointment|appt|party|game|shift|club|dinner|lunch|breakfast|brunch|coffee|drinks|hangout|hang out|date|call|facetime|zoom|gym|workout|run|concert|rehearsal|dance|study group|movie|birthday|trip|flight|doctor|dentist)\b/i.test(q.replace(/\blab partner\b/gi, "partner")) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading|due)\b/i.test(q)) return null;
     // an edit said about a task they have ("put the lab report in progress too", "make the map test high", "a&p final a week
     // earlier", "add a grade to the lab report"), with no word asking for a new one: the AI step edits it, never a task titled with it
     { const ex = taskFor(q);
@@ -887,6 +892,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
       const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
       const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      // one they already have, still open: said, not added twice (a small model re-added Read Chapter 7 and A&P Quiz 4)
+      if (qc && !/\b(another|again|second|new one|duplicate|copy|one more)\b/i.test(q)) { const had = openNamed(qc.label); if (had) return {answer: `${had.title} is already on your list${had.due ? `, due ${fmtDate(had.due)}` : ""}, so I didn't add it again.`, show: [{kind: "task", id: had.id, label: labelOf({kind: "task", id: had.id})}], changes: [], local: true}; }
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};

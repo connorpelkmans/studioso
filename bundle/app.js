@@ -74658,6 +74658,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const t = {title: clip(x.title, 160), type: TYPES.includes(x.type) ? x.type : "Assignment", courseId: cid, due, time, priority: PRI[x.priority] ? x.priority : (x.type === "Exam" ? "high" : "med"),
         hours: Math.max(0, Math.min(200, Number(x.hours) || 0)), notes: String(x.notes || "").trim().slice(0, 4000)};
       const k = JSON.stringify(["new", t.title.toLowerCase(), t.due]); if (seen.has(k)) return; seen.add(k);
+      if (openNamed(t.title)) return; // (one they already have, still open: never a second copy)
       const bits = [t.type, cid ? courseLabel(state.courses[cid]) : "", due ? "due " + nice(due) + (time ? ", " + tm(time) : "") : "no due date", t.priority !== "med" ? PRI[t.priority] + " priority" : ""].filter(Boolean);
       changes.push({t: {kind: "newtask", task: t}, field: "create", value: "", scope: "", label: t.title, what: "New task", from: "", to: bits.join(" · ")});
     });
@@ -75113,11 +75114,15 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const x = new Date(base + "T12:00:00"); x.setDate(x.getDate() + sign * n);
     return {phrase: m[0], date: `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`};
   }
+  // an open task with this title (case, "the"/"my" and punctuation aside)
+  function openNamed(title){ const nt = x => String(x || "").toLowerCase().replace(/[^a-z0-9&]+/g, " ").replace(/\b(the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), k = nt(title);
+    return k ? Object.values(state.tasks || {}).find(t => t && t.status !== "done" && !t.deleted && !t.archived && nt(t.title) === k) || null : null; }
   function quickTask(q){
     // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
     // (so is anything from one time to another: "study session wednesday 7-9pm")
     if (/\b\d{1,2}(:\d\d)?\s*(am|pm)?\s*(-|–|to|until)\s*\d{1,2}(:\d\d)?\s*(am|pm)\b|\b(session|appointment|appt)\b/i.test(q) && !/\b(due|hand in|submit)\b/i.test(q)) return null;
-    if (/\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|study group)\b/i.test(q) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading)\b/i.test(q)) return null;
+    // (plans with people or places: "coffee w my lab partner fri at 3:30" is an event, and "lab partner" isn't a lab)
+    if (/\b(meeting|meet up|meetup|practice|appointment|appt|party|game|shift|club|dinner|lunch|breakfast|brunch|coffee|drinks|hangout|hang out|date|call|facetime|zoom|gym|workout|run|concert|rehearsal|dance|study group|movie|birthday|trip|flight|doctor|dentist)\b/i.test(q.replace(/\blab partner\b/gi, "partner")) && !/\b(exam|midterm|final|quiz|test|assignment|homework|essay|paper|lab report|project|reading|due)\b/i.test(q)) return null;
     // an edit said about a task they have ("put the lab report in progress too", "make the map test high", "a&p final a week
     // earlier", "add a grade to the lab report"), with no word asking for a new one: the AI step edits it, never a task titled with it
     { const ex = taskFor(q);
@@ -75219,6 +75224,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
       const editFirst = /\b(priority|urgent|important|move|reschedule|push|postpone|delay|rename|mark|delete|remove|cancel|finished|completed|done)\b/i.test(q);
       const qe0 = editFirst && !APPQ_HOW.test(q) ? quickEdit(q) : null;
       const qc = !(qe0 && qe0.length) && ADD_Q.test(q) && ADD_WHAT.test(q) && !APPQ_HOW.test(q) ? quickTask(q) : null;
+      // one they already have, still open: said, not added twice (a small model re-added Read Chapter 7 and A&P Quiz 4)
+      if (qc && !/\b(another|again|second|new one|duplicate|copy|one more)\b/i.test(q)) { const had = openNamed(qc.label); if (had) return {answer: `${had.title} is already on your list${had.due ? `, due ${fmtDate(had.due)}` : ""}, so I didn't add it again.`, show: [{kind: "task", id: had.id, label: labelOf({kind: "task", id: had.id})}], changes: [], local: true}; }
       if (qc) { const b0 = build([qc]); if (b0.length) { applyChanges(b0, `Added "${clip(qc.label, 40)}"`); return {answer: `Added ${qc.label}${qc.to ? `, ${qc.to}` : ""}. Say "undo" to take it back.`, show: qc.made && state.tasks[qc.made] ? [{kind: "task", id: qc.made, label: labelOf({kind: "task", id: qc.made})}] : [], changes: [], local: true}; } return {answer: "Here's the new task. Check it, then tap Add Task.", show: [], changes: [qc], local: true}; }
       const qe = qe0 || (!APPQ_HOW.test(q) ? quickEdit(q) : null);
       if (qe && qe.length && qe.every(c => c.from && c.from === c.to)) return {answer: `${qe[0].label} is already ${qe[0].to.toLowerCase()}.`, show: [{kind: "task", id: qe[0].t.id, label: qe[0].label}], changes: [], local: true};
@@ -75490,7 +75497,7 @@ window.SBFACTS = (() => {
   function teacher(s){
     if (!/\b(who teaches|who'?s teaching|instructor|professor|prof\b|teacher|lecturer|who is my|who'?s my)\b/.test(s)) return null;
     const c = courseIn(s); if (!c) return null;
-    return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
+    return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. Who teaches it? Say "it's Prof. ..." and I'll add it.`, show: []};
   }
   // "what's on today", "what's happening this week": classes, events and what's due, by day
   function agenda(s, today){
@@ -75509,7 +75516,7 @@ window.SBFACTS = (() => {
     if (c && /\bwhere\b/.test(s) && !CQ.test(s)) s = s + " class";
     if (!CQ.test(s) || /\b(add|create|make|move|change|cancel|skip|delete|remove|reschedule)\b/.test(s)) return null;
     // who teaches it, where it meets, office hours
-    if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
+    if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. Who teaches it? Say "it's Prof. ..." and I'll add it.`, show: []};
     if (c && /\boffice hours?\b/.test(s)) { const ms = courseMeetings(c).filter(m => /office/i.test(m.kind)); return {answer: ms.length ? `${label(c)} office hours: ${ms.map(m => `${m.days ? m.days.map(d => Wd(addDays("2026-01-04", d)).slice(0, 3)).join("/") + " " : ""}${tm(m.start)}–${tm(m.end)}${m.where ? " in " + m.where : ""}`).join("; ")}.` : c.office ? `${label(c)} office hours: ${c.office}.` : `${label(c)} doesn't list office hours yet.`, show: []}; }
     if (/\bwhen do i have (a |my )?(class|lecture|lab)s?\b|\bwhat time is (my )?(class|lecture|lab)\b|\bnext (class|lecture|lab)\b|\b(class|lecture|lab) next\b|\bwhen is my next\b|\bwhat time is my (class|lecture|lab)\b|\bwhere is my (class|lecture|lab)\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
       const kind = (s.match(/\b(lab|lecture|tutorial|seminar|discussion|recitation)\b/) || [])[1];
@@ -75812,7 +75819,7 @@ window.SBAPPHELP = (() => {
         [/\bautopilot\b/, `Autopilot plans your study sessions for you around your deadlines and free time. Turn it on in ${S}, then Study Plan.`],
         [/\bexam mode\b/, `Exam Mode focuses your plan on an upcoming exam: more review for it, less for the rest, until it's done. Turn it on in ${S}, then Study Plan.`],
         [/\b(scrapbook|stickers?)\b/, "The Term Scrapbook collects stickers you earn for study milestones this term; some accessories unlock with stickers."],
-        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b/, "Your companion's Wardrobe has accessories you earn by studying (focus hours, cards reviewed, quizzes passed, streaks). Open Companion, then Wardrobe, to see each one and how close you are; say \"put on the scarf\" to wear one."],
+        [/\b(wardrobe|accessor(?:y|ies)|outfits?)\b|\b(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear)\b/, "Your companion's Wardrobe has accessories you earn by studying (focus hours, cards reviewed, quizzes passed, streaks). Open Companion, then Wardrobe, to see each one and how close you are; say \"put on the scarf\" to wear one."],
         [/\btoday'?s plan|\bthe plan\b(?= work)/, "Today's Plan picks what to do next from your deadlines, how long things take and what's overdue, so you always have a next step."],
       ];
       if (/\b(how (?:do|does|did|would|will)|what (?:is|are|'?s|does)|whats|explain|tell me about)\b/.test(s) && /\b(work|works|working|on here|in (?:the app|studyboard)|for|mean|is|are)\b/.test(s) && !/\b(heart|cell|osmosis|body|brain|nerve|blood|lung|kidney|muscle|war|economy|history)\b/.test(s)) {
@@ -77181,6 +77188,9 @@ window.SBTRUTH = (() => {
         const add = lines.filter(l => !low(fromN.answer).includes(low(l).slice(0, 40))).slice(0, 5);
         if (add.length) fromN = Object.assign({}, fromN, {answer: `${String(fromN.answer).trim()}\n${add.map(l => "- " + l).join("\n")}`});
       }
+      // their notes are about it but the AI's answer from them didn't hold up (a small model's paraphrase, or "found: false"): the
+      // note's own lines on it, never "Your notes don't cover this" (E2B round 2: the REBT goal, the AV node delay, WWI's causes)
+      if (!fromN && !aiFail) { const nl = noteLines(look) || (look !== q ? noteLines(q) : null); if (nl) fromN = {answer: nl.answer.split("\n").slice(1).map(x => x.replace(/^-\s*/, "").trim().replace(/([^.!?])$/, "$1.")).join(" ")}; }
     }
     // the notes answer it fully (every key word is in them, and the answer holds up and has the right shape): no web needed
     // (an answer from their notes that holds up and has the right shape is the answer: nothing from the web tacked on after it)
@@ -77231,7 +77241,14 @@ window.SBTRUTH = (() => {
     // hist 1010 online"): their planner, never a web page about the words
     { const lq = low(q), cs = Array.isArray(state.courses) ? state.courses : Object.values(state.courses || {});
       if (cs.some(c => c && !c.gen && ((c.code && new RegExp("\\b" + String(c.code).toLowerCase().replace(/[^a-z0-9]+/g, "\\s*") + "\\b").test(lq)) || (c.name && c.name.length > 5 && lq.includes(String(c.name).toLowerCase())) || (String(c.instructor || "").toLowerCase().match(/[a-z]{4,}/g) || []).some(w => !/^(prof|professor|doctor)$/.test(w) && new RegExp("\\b" + w + "('?s)?\\b").test(lq))))) return false;
-      if (/\b(instructors?|professors?|profs?|teachers?|tas?|course codes?|office hours|syllabus)\b/i.test(lq) && /^\s*(who|what|whats|what's|when|where|which|list|show|tell|do|does|is|are|how)\b/i.test(lq)) return false; }
+      if (/\b(instructors?|professors?|profs?|teachers?|tas?|course codes?|office hours|syllabus)\b/i.test(lq) && /^\s*(who|what|whats|what's|when|where|which|list|show|tell|do|does|is|are|how)\b/i.test(lq)) return false;
+      // one of their own tasks or events by name ("a&p quiz 4" found the Big Fat Quiz, "care plan 2" a care-plan
+      // article), a priority ("medium priority") or a day said as a reply ("tuesday is fine", "the 24th", "two sundays before"):
+      // their planner, not a subject
+      const named = list => (Array.isArray(list) ? list : Object.values(list || {})).some(x => { const t = low(String((x && (x.title || x.name)) || "")); return t.length >= 5 && !/^(general|notes?|my notes|untitled)$/.test(t) && new RegExp("(?<![a-z0-9])" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z0-9])").test(lq); });
+      // (tasks and events only: a note or deck's name, "defense mechanisms", "heart", is a subject they ask about)
+      if (named(state.tasks) || named(state.events)) return false;
+      if (/\b(priority|reschedule|postpone)\b/.test(lq) || (lq.split(/\s+/).length <= 5 && /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|tomorrow|tonight|today|next week|weekend|\d{1,2}(st|nd|rd|th)|am|pm)\b/.test(lq))) return false; }
     if (PLAN.test(q)) {
       const mine = /\b(my|mine|me|i|i'm|im|i've|ive|am i|we|our|us)\b/i.test(q);
       const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));
@@ -78907,6 +78924,16 @@ Examples:
     // how to, not a deck called "How Do I"
     if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start|delete|rename|share)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\bfor me\b/.test(w))
       return deckSay("Open Flashcards and tap New Deck, give it a name, then add cards (a question on the front, the answer on the back). Or just ask me: \"make flashcards from my cardiac note\", or \"make a deck called Pharm\".");
+    // studying cards they have ("lets do psych cards", "time to review the heart deck", "lets do a card"): that deck opens to study,
+    // never a new deck named after the words (round 7 made "Lets Do A Card" and a new Freud deck)
+    if (/\b(do|study|review|go through|practice|drill|run through|try|hit|go over)\b/.test(w) && !/\b(make|create|generate|add|new|build|write|from (my|the|that|this) (notes?|file|slides|reading)|quiz|test me|how many|count)\b/.test(w) && !/^\s*(how|what|why|when|which|where|is|are|does|do i|did)\b/.test(w) && !/\?\s*$/.test(w) && !/\b(didn'?t|don'?t|haven'?t|hasn'?t|not|never|no)\b/.test(w)) {
+      const dk = named();
+      if (dk && (dk.cards || []).length) { setTimeout(() => { try { startStudy([dk.id]); } catch (e) {} }, 250); return deckSay(`Opening ${dk.name} to study (${dk.cards.length} card${dk.cards.length === 1 ? "" : "s"}${dueOf(dk) ? `, ${dueOf(dk)} due today` : ""}).`, {ref: {kind: "deck", id: dk.id}}); }
+      const withCards = all.filter(d => (d.cards || []).length);
+      if (!dk && withCards.length && /\b(a|one|some|the|my|few)\s+(flash ?cards?|cards?|decks?)\b|^\s*(let'?s|lets)\s+(do|study|review|practice)\s+(flash ?cards?|cards?)\b/.test(w))
+        return withCards.length === 1 ? (setTimeout(() => { try { startStudy([withCards[0].id]); } catch (e) {} }, 250), deckSay(`Opening ${withCards[0].name} to study (${withCards[0].cards.length} cards).`, {ref: {kind: "deck", id: withCards[0].id}}))
+          : deckSay(`Which deck: ${withCards.map(d => d.name).join(", ").replace(/, ([^,]*)$/, " or $1")}?`, {awaiting: {d: {intent: "study_deck"}, q: "study the deck"}});
+    }
     // a file they mean that isn't here
     if (/\b(slides?|pdf|file|lecture notes|upload(ed)?|handout|powerpoint|ppt)\b/.test(w) && /\b(uploaded|i sent|attached|from (the|my) (slides|pdf|file)|use (the|my) (slides|pdf|file))\b/.test(w) && CARDW.test(w))
       return deckSay("Attach the file with the paperclip (slides, a PDF or photos), and I'll make the cards from it. I don't see one in this chat yet.");
@@ -79132,6 +79159,12 @@ Examples:
   function directAct(q){
     const say = (answer, extra) => Object.assign({answer, sources: [], followUps: [], actions: []}, extra || {});
     const w = String(q || "").trim();
+    // an event's new end said as a fact ("study group's running long tmrw, til 8:30", "the meeting ends at 4", "clinical goes until 1"):
+    // that event's end time (round 7: not applied)
+    { const em = /\b(?:til|till|until|ends? at|end at|goes (?:until|till|to)|runs? (?:until|till|to)|running (?:long|late|over)[^0-9]{0,30}?(?:til|till|until|to)?)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i.exec(w);
+      if (em && !/\b(due|deadline|exam|quiz|assignment)\b/i.test(w)) { const ev = itemNamed("event", w.replace(em[0], " ")); if (ev && state.events[ev.id]) { const e0 = state.events[ev.id];
+        let h = Number(em[1]) % 12; if (/^p/i.test(em[3] || "")) h += 12; else if (!em[3]) { const sh = e0.start ? Number(String(e0.start).slice(0, 2)) : 12; if (h + 12 > sh && h < sh) h += 12; else if (h <= 7) h += 12; }
+        const to = `${String(h).padStart(2, "0")}:${em[2] || "00"}`; if (!e0.start || to > e0.start) return {preset: {intent: "edit_item", kind: "event", item: ev.name, field: "end", value: to}}; } } }
     // a course's room or instructor said as a fact ("A&P is in room SCI 204", "psych meets in NUR 210", "the instructor for foundations is
     // Dr. Okafor", "foundations is taught by dr okafor"): that course changed (round 6: "I don't have any information about where A&P is")
     { const CN = window.SBTRUTH && SBTRUTH.courseNamed;
@@ -79261,6 +79294,13 @@ Careful, these are easy to mix up:
       // not a request it can't do
       { const me = info() || {}, nm = String(me.name || "").toLowerCase();
         if (d.intent === "cant" && (/\b(you|your|yourself|u|ur|companion)\b/.test(w) || (nm && w.includes(nm))) && !/\b(email|text|message|call|phone|book|order|buy|pay|submit|upload|print|share|send|register|sign up|check (my )?(brightspace|canvas|moodle|blackboard|email)|sync|google|outlook|alarm)\b/.test(w)) d.intent = "chat"; }
+      // "can't" only when the words ask for something done: an outside-world errand ("email my prof", "book a room") or a change
+      // to something in Studyboard. A small model also says "cant" for "ok i gotta go", "bye!", "shut up packy", "be a strict
+      // professor" and clinical questions ("a patient blames the nurse for his own anger, which defense?"); E2B round 2 answered
+      // all of those "I can't do that from the chat yet". They're talk, or a question, answered as one
+      if (d.intent === "cant" && !/\b(email|e-mail|text|message|dm|call|phone|book|order|buy|pay|submit|upload|download|print|share|send|post|register|sign (me )?up|enrol+|log ?in|check (my )?(brightspace|canvas|moodle|blackboard|email|inbox)|sync|google|outlook|alarm|remind|notify|install|delete|remove|clear|reset|change|switch|set|turn|make|add|create|move|rename|edit|update|open|start|stop|mark|put|hide|show|import|export|connect|link|invite|join|leave|archive|restore|undo|schedule)\b/.test(w) || (d.intent === "cant" && /^\s*(who|what|which|where|when|how|why|should i|is|are)\b/.test(w))) d.intent = ISQ0(String(q)) ? "question" : "chat";
+      // a setting only when the words name it: "louder" (in a chat) opened text size "to set it to louder"
+      if (!preset && /^(change_setting|set_theme)$/.test(d.intent) && !/\b(settings?|text|font|letters?|size|bigger|smaller|larger|theme|mode|dark|light|colou?rs?|notifications?|reminders?|sounds?|volume|mute|animations?|motion|language|widget|skin|style|contrast|zoom|font|autopilot|exam mode|goal|pomodoro|timer|week|calendar|sync|haptics?|vibrat\w*|confetti|on|off)\b/.test(w) && !(typeof SKINS !== "undefined" && SKINS.some(x => x && x.name && w.includes(String(x.name).toLowerCase())))) d.intent = ISQ0(String(q)) ? "question" : "chat";
       // a theme or setting from their own words: "light mode" is light, text size is a setting (never a course's colour)
       if (d.intent === "set_theme" && /\b(light|dark|system)\s+(mode|theme)\b/.test(w)) { d.value = (w.match(/\b(light|dark|system)\s+(mode|theme)\b/) || [])[1]; d.field = ""; }
       if (/\b(text|font|letters?)\b[^.]{0,20}\b(bigger|larger|smaller|size|huge|tiny)\b|\b(bigger|larger|smaller)\s+(text|font)\b/.test(w)) { d.intent = "change_setting"; d.field = "text size"; d.value = /\b(smaller|tiny)\b/.test(w) ? "smaller" : "larger"; }
@@ -79308,6 +79348,10 @@ Careful, these are easy to mix up:
       if (d.intent === "add_event" && WORK.test(String(d.title || "").toLowerCase() + " " + w) && !/\b(meeting|practice|appointment|party|game|shift|club|office hours|review session|study group)\b/.test(w)) d.intent = "add_task";
       // meetings, practices, appointments are events
       if (d.intent === "add_task" && /\b(meeting|practice|appointment|party|game|shift|club|dinner|lunch|concert|rehearsal|dance|work|job|study group)\b/.test(String(d.title || "").toLowerCase()) && !WORK.test(String(d.title || "").toLowerCase())) d.intent = "add_event";
+      // a new task or event only from words that ask for one or give it a day or time: "i havent started", "ugh true", "fine,
+      // flashcards it is", "stardew valley", "i started knitting" were added as tasks and events by a small model (E2B round 2)
+      if (!preset && /^add_(event|task)$/.test(d.intent) && !/\b(add|put|create|make|new|schedule|book|plan|remind|track|log|need to|needs to|have to|has to|gotta|got to|must|should|supposed to|due|deadline|todo|to-?do|on my list|in my planner|calendar|assignment|homework|hw|have an?|have my|got an?|there'?s an?|i'?ve got)\b/.test(w)
+        && !/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|tmr|next week|this week|weekend|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)\b|\b\d{1,2}(:\d\d)?\s*(am|pm)\b|\bat \d|\b\d{1,2}\/\d{1,2}\b|\bin \d+ (days?|weeks?)\b|\b(the )?\d{1,2}(st|nd|rd|th)\b|\b(every|each) (day|night|morning|week)\b|\bdaily\b|\bweekly\b/.test(w)) d.intent = ISQ0(String(q)) ? "question" : "chat";
       // "cancel X" for something that exists: it goes
       if (/^add_(event|task)$/.test(d.intent) && /\b(cancel(l?ed)?|delete|remove|get rid|scratch|not happening|called off)\b/.test(w)) { const x = itemNamed("", d.title || q); if (x) { d.intent = x.kind === "task" ? "delete_task" : "delete_item"; d.kind = x.kind; d.item = d.task = d.title || x.name; } }
       // "history is in room 204": the course's room
@@ -79403,6 +79447,9 @@ Careful, these are easy to mix up:
       // the model took it for a question
       if (!preset && /^(question|chat|cant)$/.test(d.intent) && !asking) { const L = tasksSel(q, chat);
         if (L && L.length >= 1) { if (/\b(urgent|priority|high|low)\b/.test(w)) d.intent = "set_priority"; else if (DONEW.test(w)) d.intent = "mark_done"; else if (/\b(in progress|started|working on)\b/.test(w)) d.intent = "mark_in_progress"; else if (/\b(move|push|bump|postpone|delay|reschedule)\b/.test(w)) d.intent = "move_task"; } }
+      // a plan with people or a place at a time ("coffee w my lab partner fri at 3:30", "gym tmrw 7am"): an event, not a task (a "lab
+      // partner" isn't a lab)
+      if (d.intent === "add_task" && !preset && whenOf(q, {}).time && /\b(coffee|lunch|dinner|breakfast|brunch|drinks|meet|meeting|hang ?out|gym|workout|call|facetime|zoom|party|date|movie|birthday|appointment|appt|doctor|dentist|practice|game|shift|club)\b/.test(w.replace(/\blab partner\b/g, "partner")) && !/\b(due|exam|quiz|test|essay|paper|report|assignment|homework)\b/.test(w)) d.intent = "add_event";
       // a plan or schedule to make ("make a study schedule", "plan my week", "give me a revision timetable"): answered as a plan, never a
       // task called "Study schedule" (round 6 and the model comparison: both models made one)
       if (/^add_(task|event)$/.test(d.intent) && !preset && /\b(?:study |revision |weekly |daily |exam )?(?:schedule|plan|timetable|routine)\b/i.test(String(d.title || "") + " " + w) && /\b(make|create|build|give|write|draft|plan|set up|come up with)\b/.test(w) && !/\b(called|named|titled|meeting|appointment|session)\b/.test(w)) d.intent = "question";
@@ -79495,6 +79542,11 @@ Careful, these are easy to mix up:
     }
     if (it === "add_task") {
       const title = clip(String(d.title || "").trim(), 160); if (!title) return null;
+      // one they already have, still open, isn't added again (a small model re-added Read Chapter 7, Lab Report and A&P Quiz 4 when
+      // asked for a study plan or cards): said, with its day, unless they ask for another one
+      { const nt = s => String(s || "").toLowerCase().replace(/[^a-z0-9&]+/g, " ").replace(/\b(the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim();
+        const had = !/\b(another|again|second|new one|duplicate|copy|one more|also)\b/i.test(String(q)) && tasksArr().find(t => t.status !== "done" && nt(t.title) === nt(title));
+        if (had) return say(`${had.title} is already on your list${had.due ? `, due ${fmtDate(had.due)}` : ""}, so I didn't add it again.${had.due ? ` Say "move ${had.title} to friday" to change its day.` : ""}`, {noAwait: true}); }
       const w = whenOf(q, d), c = courseOfName(d.course), type = /\b(exam|final|midterm)\b/i.test(title) ? "Exam" : /\bquiz\b/i.test(title) ? "Quiz" : /\blab\b/i.test(title) ? "Lab" : "Assignment";
       const t = newTask({title, type, courseId: c ? c.id : "", due: w.date, time: w.time, priority: type === "Exam" ? "high" : "med"});
       applyChanges([{kind: "task", id: t.id, after: t}], `Added ${title}`);
@@ -80150,6 +80202,16 @@ ANSWERING
         const said6 = (c.msgs || []).slice(-6).map(x => (x.q || "") + " " + (x.a ? x.a.answer || "" : "")).join(" ");
         planQ = TR.followUp(q, last.ask || last.q, said6);
         if (planQ === "__AFTER__") { planA = TR.afterThat(said6); planQ = ""; } else if (planQ) planA = TR.facts(planQ); } catch (e) { planQ = ""; planA = null; } }
+      // "which one should i do first?" right after a list of their work ("what's left in a&p"): first of THOSE, by what's overdue,
+      // then due soonest, then priority (it gave Today's Plan's pick from another course)
+      if (!planA && !fix && !att.length && last && /^\s*(?:so|and|ok(?:ay)?|then|but)?[,\s]*(?:which|what)(?: one| of (?:these|those|them))?\b[^?]{0,40}\b(first|start(?:ing)? with|start on|tackle|most urgent|prioriti[sz]e|focus on|do next)\b/i.test(q)) { try {
+        const la = String(last.a && last.a.answer || "").toLowerCase(), PR = {urgent: 0, high: 1, med: 2, medium: 2, low: 3};
+        const L = tasksArr().filter(t => t.status !== "done" && t.title && t.title.length >= 4 && la.includes(t.title.toLowerCase()));
+        if (L.length >= 2) { const today = todayISO(), key = t => [t.due && t.due < today ? 0 : 1, t.due || "9999", PR[t.priority] == null ? 2 : PR[t.priority]];
+          L.sort((a, b) => { const x = key(a), y = key(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1; return 0; });
+          const [f, s2] = L, why = f.due && f.due < today ? "it's overdue" : f.due && s2.due && f.due === s2.due ? `they're both due ${fmtDate(f.due)}${(PR[f.priority] == null ? 2 : PR[f.priority]) < (PR[s2.priority] == null ? 2 : PR[s2.priority]) ? ", and it's the higher priority" : ", so either works; that one gets it out of the way"}` : f.due ? `it's due first (${fmtDate(f.due)})` : "it's the highest priority";
+          planA = {answer: `Start with ${f.title}: ${why}. Then ${s2.title}${s2.due ? ` (due ${fmtDate(s2.due)})` : ""}${L.length > 2 ? `, then ${L.slice(2).map(t => t.title).join(", ")}` : ""}.`}; }
+      } catch (e) { planA = null; } }
       const was = !att.length ? pendingAsk(q, c) : "", q2 = was || qFix || planQ || qRef || qT;
       if (q2 !== q) m.ask = q2;
       let made = null, said = "";
@@ -80203,6 +80265,12 @@ ANSWERING
       const inGame = !!last && (c.msgs || []).filter(x => x.q && x.a).slice(-6).some(x => /\b(20 questions|twenty questions|guess (what|who)|i'?m thinking of|riddle|would you rather|trivia|let'?s play|play a game|game)\b/i.test(String(x.q) + " " + String(x.a.answer || "")));
       if (!made && inGame && q.trim().split(/\s+/).length <= 8 && !ACTX(q) && !CARDW.test(q)) { window.__sbGameTurn = true; }
       else window.__sbGameTurn = false;
+      // "what's the code again?", "where's the invite link?" right after a group was talked about: that group's code, or why there isn't one
+      // (round 7: a Wikipedia summary of QR codes and the Baudot code)
+      if (!made && last && last.a && /\b(groups?|join)\b/i.test(String(last.q || "") + " " + String(last.a.answer || "")) && /\b(code|invite|link|join (?:link|code))\b/i.test(q) && /\?|^\s*(what|where|how|whats|send|give|share)\b/i.test(q)) {
+        const signedOut = /signed in|sign in|account/i.test(String(last.a.answer || ""));
+        made = {answer: signedOut ? "There isn't a code yet: the group wasn't made, because groups need you signed in and online. Sign in, then open Groups and tap New Group; its invite code shows on the group's page, ready to share." : "Open Groups and pick the group: its invite code is on the group's page (tap Invite to copy or share it).", sources: [], followUps: [], actions: []};
+      }
       // an invite code right after talk of joining a group ("join a group" ... "it's 88QWE"): the join, with that code
       if (!made && last && /\b(join|group|invite|code)\b/i.test(String(last.q || "") + " " + String((last.a || {}).answer || ""))) {
         const cm = /^\s*(?:it'?s|its|the code is|code is|code:?|here(?:'s| is) the code:?)?\s*["“']?([A-Za-z0-9]{4,12})["”']?\s*[.!]*$/.exec(q);
@@ -80211,23 +80279,110 @@ ANSWERING
       // "make it high priority", "put it on thursday instead", "make it 30 min", "shorten it to an hour": the one thing the last reply
       // made or changed (a task just added, an event just moved), never a new task or a look-up
       // (also a bare new value right after a change: "actually high", "medium", "no, low priority", "make that urgent")
-      const bareVal = /^\s*(?:actually|no|nah|ok(?:ay)?|wait|hmm|make|set|maybe|change to)?[,\s]*(?:it\s+|that\s+)?(?:to\s+)?(high|low|medium|med|urgent|normal)(?:\s+priority)?\s*(?:please|pls|instead|then)?\s*[.!]*$/i.test(q);
-      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|that|this one|that one)\b/i.test(q) || bareVal) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
+      const bareVal = /^\s*(?:actually|no|nah|ok(?:ay)?|wait|hmm|make|set|maybe|change to)?[,\s]*(?:it\s+|that\s+)?(?:to\s+)?(high|low|medium|med|urgent|normal)(?:\s+priority)?\b\s*(?:please|pls|instead|then)?\s*(?:[.!]*$|[,;.!-]+\s*\S)/i.test(q); // (with more said after it: "actually high, i forgot its due sunday")
+      // a day or time on its own, said right after something was added or named ("thursday" after "Added History quiz ... no due
+      // date", "dec 10"): that item's day
+      const bareWhen = q.split(/\s+/).length <= 6 && !ISQ(q) && !String(q).toLowerCase().replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|next|this|week|the|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}(:\d\d)?\s*(am|pm)?|\d{1,2}\/\d{1,2}|at|on|by|due|it'?s|its|it|is|make|then|instead|actually|no|nah|ok|okay|please|pls|maybe|morning|afternoon|evening|night|noon)\b/g, " ").replace(/[^a-z]+/g, "").length && (() => { const x = whenOf("move it to " + q, {}); return !!(x.date || x.time); })();
+      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
         const a0 = last.a || {}, pick = r => { const nm = refName(r); return nm && /^(task|event)$/.test(r.kind) ? {kind: r.kind, name: nm} : null; };
         let LI = a0.ref ? pick(a0.ref) : null;
         if (!LI && a0.did && a0.did.task) { const t = taskOf0(a0.did.task, null, true); if (t) LI = {kind: "task", name: t.title}; }
         if (!LI) for (const s of (a0.show || [])) { LI = pick(s); if (LI) break; }
         if (!LI) { const m = /^(?:Added|Moved|Nice work! I marked)\s+(.+?)(?:,|\s+to\s+|\s+done\b|\.\s|\.$|$)/.exec(String(a0.answer || "").trim());
           if (m) { const ev = itemNamed("event", m[1]); if (ev && /calendar|Moved/.test(a0.answer)) LI = {kind: "event", name: ev.name}; else { const t = taskOf0(m[1], null, true); if (t) LI = {kind: "task", name: t.title}; } } }
-        if (LI) { const lw = q.toLowerCase(), wo = whenOf(q, {}); let pre = null;
+        // an answer that starts with the item ("Clinical orientation: Saturday Nov 28, 8:00 AM–12:00 PM"): that item
+        if (!LI) { const low0 = s => String(s || "").toLowerCase().trim(), m = /^([^:.\n]{3,60}):\s/.exec(String(a0.answer || "").trim()); if (m) { const ev = itemNamed("event", m[1]); if (ev && low0(ev.name) === low0(m[1])) LI = {kind: "event", name: ev.name}; else { const t = taskOf0(m[1], null, true); if (t && low0(t.title) === low0(m[1])) LI = {kind: "task", name: t.title}; } } }
+        if (LI) { const lw = q.toLowerCase(), wo = whenOf(bareWhen ? "move it to " + q : q, {}); let pre = null;
           if (LI.kind === "event" && /\b(longer|shorter|shorten|lengthen|extend|hours?|hrs?|minutes?|mins?)\b/.test(lw) && !/\b(?:at|to)\s+\d{1,2}(?::\d\d)?\s*(?:am|pm)\b/.test(lw)) pre = {intent: "edit_item", kind: "event", item: LI.name, field: "duration", value: ""};
           else if (/\b(urgent|important|priority|high|low|medium|med|normal)\b/.test(lw) && LI.kind === "task") pre = {intent: "set_priority", task: LI.name, priority: /\burgent\b/.test(lw) ? "urgent" : /\blow\b/.test(lw) ? "low" : /\b(medium|med|normal)\b/.test(lw) ? "med" : "high"};
           else if (/\b(in progress|started|working on)\b/.test(lw) && LI.kind === "task") pre = {intent: "mark_in_progress", task: LI.name};
           else if (/\b(done|finished|complete[d]?|submitted|handed in)\b/.test(lw) && LI.kind === "task" && !/\b(due|by)\b/.test(lw)) pre = {intent: "mark_done", task: LI.name};
-          else if ((wo.date || wo.time) && /\b(move|put|push|change|make|set|bump|reschedule|instead|due|on|to|at)\b/.test(lw)) pre = {intent: "move_task", task: LI.name};
-          if (pre) { const r1 = await intentAct(q, c, att, pre).catch(() => null); if (r1 && r1.answer) made = r1; } }
+          else if (LI.kind === "event" && wo.time && !wo.date && /\b(starts?|start time|begins?|ends?|end time|finish(es)?|over|til|till|until)\b/.test(lw)) pre = {intent: "edit_item", kind: "event", item: LI.name, field: /\b(ends?|end time|finish(es)?|over|til|till|until)\b/.test(lw) ? "end" : "start", value: wo.time};
+          else if ((wo.date || wo.time) && (bareWhen || /\b(move|put|push|change|make|set|bump|reschedule|instead|due|on|to|at)\b/.test(lw))) pre = {intent: "move_task", task: LI.name};
+          if (pre) { const r1 = await intentAct(bareWhen && pre.intent === "move_task" ? "move it to " + q : q, c, att, pre).catch(() => null); if (r1 && r1.answer) made = r1; } }
       }
       if (planA && planA.answer) made = {answer: planA.answer, sources: ["Your planner"], followUps: [], actions: [], plan: true};
+      // their courses' own facts, from what's saved: who teaches it, its code, its room, office hours ("who's my foundations
+      // instructor", "list my instructors", "what's the course code for a&p"). Round 7 and E2B round 2 said "not listed" for codes
+      // and instructors that were saved, and gave Foundations another course's instructor
+      if (!made && !att.length && TR && TR.courseNamed) { try {
+        const lw = q.toLowerCase(), DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], cs = coursesArr().filter(x => !x.gen), courseLabel = x => x.code ? `${x.name} (${x.code})` : x.name;
+        const mt = x => `${x.kind || "Class"} ${(x.days || []).map(n => DAY[n]).join("/")}${x.start ? " " + fmtTime(x.start) + (x.end ? "–" + fmtTime(x.end) : "") : ""}${x.where ? " in " + x.where : ""}`;
+        const lastC = last && last.a && last.a.courseAsk ? cs.find(x => x.id === last.a.courseAsk) : (() => { const m = /^(.{2,60}?) (?:doesn't list an instructor|doesn't have an instructor saved)/.exec(String(last && last.a && last.a.answer || "")); return m ? cs.find(x => !x.instructor && [x.code, x.name, x.code && `${x.name} (${x.code})`].filter(Boolean).some(k => k.toLowerCase() === m[1].toLowerCase())) || null : null; })();
+        // the instructor it asked for: "it's Prof. Marie Dubois", "dr patel"
+        const who = lastC && /^\s*(?:it'?s|its|they'?re|that'?s|he'?s|she'?s|the instructor is|our prof is|my prof is)?\s*((?:dr|prof|professor|mr|mrs|ms|miss)\.?\s+[a-z][a-z .'-]{1,40})\s*[.!]*$/i.exec(q);
+        if (who) { const r1 = await intentAct(`${lastC.name} is taught by ${who[1].trim()}`, c, att, {intent: "edit_item", kind: "course", item: lastC.name, field: "instructor", value: who[1].trim().replace(/\b\w/g, x => x.toUpperCase())}).catch(() => null); if (r1 && r1.answer) made = r1; }
+        const ASKQ = ISQ(q) || /^\s*(list|show|tell me|give me)\b/i.test(q);
+        const F = !ASKQ ? "" : /\b(instructors?|professors?|profs?|teachers?|who teaches|taught by|who'?s teaching)\b|\bwho (?:do|should|can) i (?:email|e-mail|contact|ask|talk to|message|reach out to|write to)\b/.test(lw) ? "instructor" : /\b(course codes?|class codes?|codes?)\b/.test(lw) && !/\b(group|invite|join)\b/.test(lw) ? "code" : /\boffice hours?\b/.test(lw) ? "office" : /\b(what room|which room|room number|where is|where'?s|located|building)\b/.test(lw) && /\b(class|course|lecture|lab|room)\b/.test(lw) ? "room" : "";
+        if (!made && F) {
+          const one = TR.courseNamed(q) || (() => { const lq = lw.replace(/[^a-z0-9& ]+/g, " "); const t = tasksArr().filter(t => t.courseId && t.title && t.title.length >= 4).find(t => lq.includes(t.title.toLowerCase()) || (t.title.toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(x => !/^(the|and|for)$/.test(x)).slice(0, 2).every(x => lq.includes(x))); return t ? cs.find(x => x.id === t.courseId) || null : null; })(), all = !one && /\b(instructors|professors|profs|teachers|codes|rooms|classes|courses|all|each|every|list)\b/.test(lw);
+          const L = one ? [one] : all ? cs : [];
+          if (L.length) {
+            const line = x => F === "instructor" ? (x.instructor ? `${courseLabel(x)}: ${x.instructor}` : `${courseLabel(x)}: no instructor saved`)
+              : F === "code" ? (x.code ? `${x.name}: ${x.code}` : `${x.name}: no course code saved`)
+              : F === "office" ? (() => { const o = (x.meetings || []).filter(m => /office/i.test(m.kind || "")); return o.length ? `${courseLabel(x)}: ${o.map(mt).join("; ")}` : `${courseLabel(x)}: no office hours saved`; })()
+              : (() => { const o = (x.meetings || []).filter(m => m.where); return o.length ? `${courseLabel(x)}: ${o.map(mt).join("; ")}` : `${courseLabel(x)}: no room saved`; })();
+            let answer;
+            if (L.length === 1) { const x = L[0];
+              answer = F === "instructor" ? (x.instructor ? `${courseLabel(x)} is taught by ${x.instructor}.` : `${courseLabel(x)} doesn't have an instructor saved. Who teaches it? Say "it's Prof. ..." and I'll add it.`)
+                : F === "code" ? (x.code ? `${x.name}'s course code is ${x.code}.` : `${x.name} doesn't have a course code saved.`) : line(x).replace(/^[^:]+: /, `${courseLabel(x)}: `) + "."; }
+            else answer = `${F === "instructor" ? "Your instructors" : F === "code" ? "Your course codes" : F === "office" ? "Office hours" : "Where your classes are"}:\n${L.map(x => "- " + line(x)).join("\n")}`;
+            made = {answer, sources: ["Your planner"], followUps: [], actions: []};
+            if (L.length === 1 && F === "instructor" && !L[0].instructor) made.courseAsk = L[0].id;
+          }
+        }
+      } catch (e) { console.warn("course facts", e); } }
+      // their planner's own sums, worked out exactly: which of two comes first and how far apart ("is the psych midterm before the
+      // a&p final", "how many days apart", "is that before or after care plan 2"), how late something is ("how many days late is
+      // that"), their best or lowest mark, and time blocked for something ("block 2-4 for the lab report"). Round 7 said "couldn't
+      // find a clear answer" for each, though the dates and marks were all there
+      if (!made && !att.length) { try {
+        const lw = q.toLowerCase(), today = todayISO(), DAYMS = 864e5, days = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / DAYMS);
+        const toks = s => (String(s || "").toLowerCase().match(/[a-z0-9&]+/g) || []).filter(w => w.length >= 2 && !/^(the|of|and|for|my|on|in|to|a|an)$/.test(w));
+        const items = tasksArr().map(t => ({kind: "task", title: t.title, date: t.due, t})).concat(eventsArr().filter(e => !e.deleted).map(e => ({kind: "event", title: e.title, date: e.date, e}))).filter(x => x.title);
+        // where an item is named in some words (its full title, or most of its words, its number included): -1 if not
+        const at = (x, s) => { const L = String(s || "").toLowerCase(), full = L.indexOf(x.title.toLowerCase()); if (full >= 0) return full;
+          const tk = toks(x.title), num = tk.filter(w => /^\d+$/.test(w)), hit = tk.filter(w => new RegExp("(^|[^a-z0-9&])" + w.replace(/&/g, "\\&") + "($|[^a-z0-9&])").test(L));
+          if (hit.length < Math.min(2, tk.length) || hit.length / tk.length < 0.5 || num.some(n => !hit.includes(n))) return -1;
+          return Math.min(...hit.map(w => L.search(new RegExp("(^|[^a-z0-9&])" + w.replace(/&/g, "\\&")))).filter(i => i >= 0)); };
+        const named = s => { const L = items.map(x => ({x, i: at(x, s)})).filter(y => y.i >= 0).sort((a, b) => a.i - b.i);
+          // (one per place: "a&p final" isn't also "A&P Quiz 4"; the longest title that fits wins)
+          const out = []; L.forEach(y => { const o = out.find(z => Math.abs(z.i - y.i) <= 3); if (!o) out.push(y); else if (y.x.title.length > o.x.title.length && y.i <= o.i) out.splice(out.indexOf(o), 1, y); }); return out.map(y => y.x); };
+        const lastIt = () => { if (!last || !last.a) return null; const r = last.a.ref; if (r && r.id) { const t = r.kind === "task" && state.tasks[r.id], e = r.kind === "event" && state.events && state.events[r.id]; if (t) return {kind: "task", title: t.title, date: t.due, t}; if (e) return {kind: "event", title: e.title, date: e.date, e}; }
+          const n = named(String(last.a.answer || "")); return n[0] || null; };
+        const nice = x => `${x.title}${x.date ? ` (${fmtDate(x.date)})` : ""}`;
+        const PRON = /\b(it|that|this|that one|this one)\b/;
+        let answer = "", act = null;
+        // which comes first, and how many days apart
+        if (/\b(before|after|first|earlier|later|sooner|apart|between|gap|difference)\b/.test(lw) && (ISQ(q) || /\bhow many days\b/.test(lw)) && !/\b(what'?s|what is|what do i have|anything|everything|list|show)\b/.test(lw) && !/^\s*(should|shall|can|could|would|do|must)\s+(i|we)\b/.test(lw)) {
+          let two = named(q); if (two.length === 1 && PRON.test(lw)) { const li = lastIt(); if (li && li.title !== two[0].title) two = [li, two[0]]; }
+          if (two.length < 2 && /\b(apart|between|gap)\b/.test(lw) && last) { const n = named(String(last.q || "") + " " + String(last.ask || "")); if (n.length >= 2) two = n; }
+          if (two.length >= 2 && two[0].date && two[1].date) { const [x, y] = two, n = days(y.date, x.date);
+            answer = n === 0 ? `They're on the same day: ${x.title} and ${y.title} are both ${fmtDate(x.date)}.` : `${x.title} (${fmtDate(x.date)}) is ${Math.abs(n)} day${Math.abs(n) === 1 ? "" : "s"} ${n < 0 ? "before" : "after"} ${y.title} (${fmtDate(y.date)}).`; }
+          else if (two.length >= 2) answer = `${two.filter(x => !x.date).map(x => x.title).join(" and ")} ${two.filter(x => !x.date).length === 1 ? "doesn't have a date" : "don't have dates"} yet, so I can't compare them.`;
+        }
+        // how late
+        if (!answer && /\bhow (many days |long )?(late|overdue|past due)\b|\bdays (late|overdue)\b/.test(lw)) {
+          const x = named(q)[0] || (PRON.test(lw) || q.split(/\s+/).length <= 6 ? lastIt() : null);
+          if (x && x.date) { const n = days(x.date, today); answer = x.kind === "task" && x.t.status === "done" ? `${x.title} is done, so it isn't late.` : n > 0 ? `${x.title} was due ${fmtDate(x.date)}, so it's ${n} day${n === 1 ? "" : "s"} late.` : n === 0 ? `${x.title} is due today, so it isn't late yet.` : `${x.title} isn't late: it's due ${fmtDate(x.date)}, in ${-n} day${n === -1 ? "" : "s"}.`; }
+        }
+        // best or lowest mark (a mark, not a course average)
+        if (!answer && /\b(best|highest|top|lowest|worst|bottom)\b[^?]{0,20}\b(marks?|grades?|scores?|results?)\b/.test(lw) && !/\b(course|class|subject|average|overall)\b/.test(lw)) {
+          const M = allTasks().filter(t => t.mark && t.mark.outOf > 0 && t.mark.got != null).map(t => ({t, p: 100 * t.mark.got / t.mark.outOf})).sort((a, b) => b.p - a.p);
+          if (M.length) { const lowQ = /\b(lowest|worst|bottom)\b/.test(lw), m = lowQ ? M[M.length - 1] : M[0];
+            answer = `Your ${lowQ ? "lowest" : "best"} mark so far is ${m.t.title}: ${m.t.mark.got}/${m.t.mark.outOf} (${Math.round(m.p * 10) / 10}%).${M.length > 1 ? ` ${lowQ ? "Best" : "Lowest"}: ${(lowQ ? M[0] : M[M.length - 1]).t.title}, ${Math.round((lowQ ? M[0] : M[M.length - 1]).p * 10) / 10}%.` : ""}`; }
+          else answer = "You don't have any marks saved yet. Tell me one, like \"got 17/20 on Psych Quiz 1\", and I'll save it.";
+        }
+        // time blocked for something: a calendar event at that time
+        if (!answer && /\b(block|block off|block out|set aside|reserve|save)\b/.test(lw) && /\d|\b(morning|afternoon|evening|tonight)\b/.test(lw) && !/\b(website|site|app|notifications?|sender|number)\b/.test(lw)) {
+          const x = named(q)[0] || (PRON.test(lw) ? lastIt() : null), w0 = whenOf(q, {});
+          const forW = (/\bfor (?:the |my )?([a-z][a-z0-9 &'-]{2,40}?)\s*(?:on|at|from|tomorrow|today|tonight|$|[.!?])/i.exec(q) || [])[1];
+          const what = x ? x.title : forW && !/^(it|that|this|studying|study)$/i.test(forW.trim()) ? forW.trim().replace(/^./, s => s.toUpperCase()) : "";
+          if (w0.time) act = {intent: "add_event", title: what ? `Work on ${what}` : "Study time", date: w0.date || today, time: w0.time, end: w0.end || ""};
+        }
+        if (act) { const r1 = await intentAct(`${q}${act.date === today && !/\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(lw) ? " today" : ""}`, c, att, act).catch(() => null); if (r1 && r1.answer) made = r1; }
+        else if (answer) made = {answer, sources: ["Your planner"], followUps: [], actions: []};
+      } catch (e) { console.warn("planner sums", e); } }
       // maths, worked out exactly by the app (98-math.js)
       if (!made && mathR) made = {answer: mathR.answer, math: mathR.math, sources: [], followUps: [], actions: []};
       // words about not wanting to live, or someone in danger: a caring reply with crisis lines, written in code (98-chatcare.js);
@@ -80245,8 +80400,8 @@ ANSWERING
       // (only when it names something in the app: "how do i study for my class" is study advice, answered by its own step later)
       if (!made && !att.length && !ctl && !careMode && window.SBAPPHELP && !/^\s*(hi|hey|hello|yo|sup|thanks|thank you|thx|ty|ok|okay|cool|nice|great|lol)\b/i.test(q)
         // (about the companion itself, "what can you wear", "are you wearing a hat": its own settings answer that, later)
-        && (!/\b(you|your|u|ur|yourself)\b/i.test(q) || /\bwhat (?:else |all |even |exactly |actually )?can (?:you|u) (?:even |actually |really )?do\b|\bwhat are you for\b|\bhow (?:do|can) (?:you|u) help\b/i.test(q))
-        && /\b(studyboard|the app|this app|on here|in here|settings?|button|tab|page|sidebar|features?|themes?|skins?|wardrobe|accessor(?:y|ies)|outfits?|crown|cape|scarf|tiny hat|glasses|medal|beanie|bow ?tie|star badge|graduation cap|study groups?|timer|pomodoro|streaks?|autopilot|exam mode|scrapbook|stickers?|style shop|widgets?|calendar sync|import|export|backups?|notifications?|dark mode|light mode|what (?:else |all |even |exactly )?can (?:you|u)|what are you for)\b/i.test(q)) { try { const r = SBAPPHELP.answer(q); if (r && r.answer) made = {answer: r.answer, sources: [], followUps: [], actions: []}; } catch (e) {} }
+        && (!/\b(you|your|u|ur|yourself)\b/i.test(q) || /\bwhat (?:else |all |even |exactly |actually )?can (?:you|u) (?:even |actually |really )?do\b|\bwhat are you for\b|\bhow (?:do|can) (?:you|u) help\b|\b(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear)\b/i.test(q))
+        && /\b(studyboard|the app|this app|on here|in here|settings?|button|tab|page|sidebar|features?|themes?|skins?|wardrobe|accessor(?:y|ies)|outfits?|crown|cape|scarf|tiny hat|glasses|medal|beanie|bow ?tie|star badge|graduation cap|study groups?|timer|pomodoro|streaks?|autopilot|exam mode|scrapbook|stickers?|style shop|widgets?|calendar sync|import|export|backups?|notifications?|dark mode|light mode|what (?:else |all |even |exactly )?can (?:you|u)|what are you for|(?:get|buy|earn|unlock|give) (?:you|u) (?:more |new |some |any |other )?(?:stuff|things|clothes|items|outfits?|accessor(?:y|ies)|hats?|gear))\b/i.test(q)) { try { const r = SBAPPHELP.answer(q); if (r && r.answer) made = {answer: r.answer, sources: [], followUps: [], actions: []}; } catch (e) {} }
       // whether a task is done ("did i already finish psych quiz 1?", "is the lab report done?", "have i submitted the care plan"): from its
       // status and mark (round 6: "your notes say you have a task listed")
       if (!made && !att.length && !ctl) { const sm = /^\s*(?:wait\s+|so\s+|um\s+)?(?:did|have)\s+i\s+(?:already\s+|actually\s+|even\s+)?(?:finish(?:ed)?|do(?:ne)?|did|submit(?:ted)?|complete[d]?|hand(?:ed)? in|turn(?:ed)? in|start(?:ed)?)\s+(?:the\s+|my\s+)?(.{2,50}?)(?:\s+yet|\s+already)?\s*\??$/i.exec(q) || /^\s*(?:is|was)\s+(?:the\s+|my\s+)?(.{2,50}?)\s+(?:already\s+)?(?:done|finished|complete[d]?|submitted|handed in|started|in progress)(?:\s+yet)?\s*\??$/i.exec(q);
@@ -80405,7 +80560,7 @@ ANSWERING
       const noKnow = chatty || aboutLast || convoBit || !!window.__sbGameTurn; // (a turn in a game they started is talk too)
       let chatMiss = false;
       // told to do something ("change ...", "add ...", "turn on ...") and nothing above could: said plainly, never an unrelated reply
-      if (!made && !quick && !att.length && /^\s*(?:please\s+|(?:can|could|would|will) (?:you|u)\s+)?(?:change|switch|set|make|turn|add|create|delete|remove|move|rename|start|stop|put|mark|update|edit|enable|disable|reset|clear|hide|show me|open)\b/i.test(q2) && !/\?\s*$/.test(q2) && !TR.general(q2)
+      if (!made && !quick && !att.length && /^\s*(?:please\s+|(?:can|could|would|will) (?:you|u)\s+)?(?:change|switch|set|make|turn|add|create|delete|remove|move|rename|start|stop|put|mark|update|edit|enable|disable|reset|clear|hide|open)\b/i.test(q2) /* ("show me everything due before the midterm" is a question, round 7) */ && !/\?\s*$/.test(q2) && !TR.general(q2)
         // (something to write is an answer, not a change: "make me a 2 day plan", "put it in a timeline", "make up a rhyme", "make it shorter")
         && !/\b(?:make|put|turn|write|create|change|switch)\b[^.?!]*\b(?:plan|schedule|timeline|table|list|chart|outline|summary|song|rhyme|poem|rap|story|joke|mnemonic|acronym|analogy|example|question|questions|bullet|bullets|steps|order|words|sentence|paragraph|essay|email|message|text|shorter|longer|simpler|easier|clearer|funnier|up)\b/i.test(q2)
         // and only about something in Studyboard: "make me laugh im sad", "start over", "set the mood" are things to say back, not changes
@@ -80505,6 +80660,27 @@ You can also DO things in Studyboard, but only when the student asks or what the
       if (careMode) m.a.care = true;
       // no emojis (the instructions say so; a small model adds them anyway)
       m.a.answer = String(m.a.answer || "").replace(/\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator})(?:️|‍(?:\p{Extended_Pictographic})?)*/gu, "").trim();
+      // in character: "As an AI, I don't have feelings or hobbies" (round 7, asked its favourite thing and "why") is dropped, and a
+      // reply that says the same as the last one ("i'm scared she'll be mad" got the previous answer word for word) is asked again
+      // with the last reply shown as something not to repeat
+      {
+        const AIME = /\b(?:as an? (?:ai|artificial intelligence|language model|large language model|virtual assistant)|i(?:'m| am) (?:just |only )?an? (?:ai|artificial intelligence|language model|computer program|virtual assistant)|i (?:don't|do not) have (?:personal )?(?:feelings|emotions|hobbies|preferences|a body|personal experiences))\b/i;
+        const prevA = String((last && last.a && last.a.answer) || ""), lw = s => String(s || "").toLowerCase(), words = s => new Set(lw(s).match(/[a-z']{3,}/g) || []);
+        const same = (a, b) => { const A = words(a), B = words(b); if (A.size < 5 || B.size < 5) return lw(a).trim() === lw(b).trim() && !!a.trim(); let n = 0; A.forEach(w => { if (B.has(w)) n++; }); return n / Math.min(A.size, B.size) > 0.8; };
+        const fixAns = s => String(s || "").split(/(?<=[.!?])\s+/).filter(x => !AIME.test(x)).join(" ").replace(/^\s*(?:but|however|that said),?\s*/i, "").replace(/^./, x => x.toUpperCase()).trim();
+        if (!r.local && !(m.a.actions || []).length && !(m.a.changes || []).length && (AIME.test(m.a.answer) || (prevA && same(m.a.answer, prevA)))) {
+          let a1 = fixAns(m.a.answer);
+          if (a1.split(/\s+/).length < 4 || (prevA && same(a1, prevA))) {
+            try { const x = await call(null, true).catch(() => null), y = x && x.data ? x.data : null;
+              // (asked once more, told what not to say)
+              const z = y && !junk(y.answer) && !(prevA && same(y.answer, prevA)) ? y : (await aiCall({task: "chat", maxTokens: 500, temperature: 0.7, schema: PLAIN, system: system + `\n\nStay in character as ${me.name || "their companion"}: never say you are an AI or that you have no feelings or hobbies; answer as yourself. Reply to what they JUST said; your last reply was "${clip(prevA, 300)}", so say something new.`,
+                parts: [{text: `${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT SAYS: ${q}`}]}).catch(() => null) || {}).data;
+              if (z && z.answer && !junk(z.answer)) { const a2 = fixAns(z.answer); if (a2.split(/\s+/).length >= 4 && !(prevA && same(a2, prevA))) a1 = a2; }
+            } catch (e) {}
+          }
+          if (a1.split(/\s+/).length >= 4) m.a.answer = a1;
+        }
+      }
       // the planner's section names and raw dates are for the AI, not the student ("listed under THEN, AFTER TODAY'S PLAN IS DONE",
       // "due on 2026-11-26 23:59"): said in plain words
       m.a.answer = m.a.answer.replace(/\s*(?:is |as )?(?:listed |the first item |item \d+ )*(?:under|in|on)\s+(?:the\s+)?["“]?THEN, AFTER TODAY'S PLAN IS DONE["”]?/g, " next on your list after today's plan").replace(/["“]?THEN, AFTER TODAY'S PLAN IS DONE["”]?/g, "next after today's plan")
