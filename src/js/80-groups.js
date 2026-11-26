@@ -1140,6 +1140,7 @@
     return `<div class="grp-err" role="alert"><span>${esc(msg)}</span><button class="btn small" data-act="grp-retry">Try Again</button>${""}</div>`;
   }
   const isProj = g => !!g && g.kind === "project";
+  const I_PROFILE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.3-2.2 3.4-3.4 5.8-3.4s4.5 1.2 5.8 3.4"/></svg>';
   function listView(){
     const gOrd = (() => { try { return JSON.parse(localStorage.getItem("studyboard:grpOrder") || "[]"); } catch (e) { return []; } })();
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
@@ -1157,7 +1158,9 @@
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}</div>
+    // Profile (the name and picture classmates see), beside Friends at the top
+    const prof = `<button type="button" class="btn small grp-prof-btn" data-act="grp-name" title="${esc(name ? `Classmates see you as ${name}` : "Choose the name classmates see")}" aria-label="Profile${name ? `: classmates see you as ${esc(name)}` : ""}">${I_PROFILE}<span>Profile</span></button>`;
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}${prof}</div>
       ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
@@ -1168,8 +1171,7 @@
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
           <div class="grp-item-btns"><button class="btn small" data-act="grp-restore" data-id="${esc(b.id)}">Restore</button></div></li>`).join("")}</ul></section>` : ""}
-      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>
-      <p class="hint-line">${name ? `Classmates see you as <b>${esc(name)}</b>. <button class="link-btn" data-act="grp-name">${window.SBUNAME && SBUNAME.live && SBUNAME.live() ? "Edit Profile" : "Change"}</button>` : `You'll pick the name classmates see the first time you share or join.`}</p>`;
+      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>`;
   }
   function sharesHtml(){
     const list = S.shares;
