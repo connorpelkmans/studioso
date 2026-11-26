@@ -460,7 +460,7 @@
         eyes: {lx: 51, rx: 69, y: 61, r: 5.2, style: "sparkle", color: "#2E2240"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#2E2240"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 48, 51], chest: [72, 84.5, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 48, 51], chest: [72, 84.5, 0.6], back: [104, 82, 0.72], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Flutter flutter! Hi! I'm so happy to see you!", "You're glowing like golden hour today!", "Look at you, showing up again! Wow!", "Every little step makes me flutter with joy!", "You're on fire today, softly and brightly!", "My fuzzy wings are cheering for you!", "You and the lavender, my favorite things!"],
           pet: ["Ooh! My fuzzy wings are all aflutter!", "Hehe! That's the softest pat ever!"],

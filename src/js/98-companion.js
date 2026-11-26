@@ -158,18 +158,18 @@
     const ext = half ? Math.max(2, Math.min(R * 1.2, half + 4 - (gap / 2 + R))) : R * 1.2;
     return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap, ext: f1(ext)};
   }
-  /* The wardrobe's other 90 (98-comp-acc.js): 30 each for the head, face and neck, from Common to Legendary. How rare a thing is sets
+  /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 each for the chest and back, from Common to Legendary. How rare a thing is sets
      how much studying earns it (any one way unlocks it, as for every prop), spread evenly from the easiest to the hardest of its
      rarity; commons, uncommons and rares are free, exotics and legendaries are Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
   const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
   // [easiest, hardest] for each way, and a fourth way that depends on where it's worn
   const MORE_WAYS = {
-    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8]},
-    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12]},
-    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28]},
-    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6]},
-    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150]}
+    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8], chest: ["checkins", 3, 9], back: ["studydays", 3, 9]},
+    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12], chest: ["notes", 9, 12], back: ["checkins", 9, 12]},
+    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28], chest: ["prep", 7, 13], back: ["stickers", 10, 18]},
+    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6], chest: ["spread", 4, 7], back: ["focusWeeks", 4, 7]},
+    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150], chest: ["focusWeeks", 9, 12], back: ["spread", 8, 12]}
   };
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
   const MORE_BY = {}, MORE_N = {}, MORE_OF = {};
@@ -181,14 +181,18 @@
     if (a.def) ACC_DEF[a.id] = a.def;
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
-    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
+    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.at === "drape" ? a.art(8, 12) : a.art();
     ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: RARITY.indexOf(a.rarity) <= 2, hours: at(w.hours), paths: [["cards", at(w.cards)], ["quizzes", at(w.quizzes)], [x[0], at([x[1], x[2]])]]});
   });
   ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
+  // Companions whose back point sits deep behind a wide part (a wing, a petal): carried things move this far further out so they show
+  // (measured: the smallest shift that shows most of a backpack and an umbrella)
+  // (measured: the smallest shift that shows over half of a backpack, an umbrella and a balloon)
+  const PEEK_OUT = {"aquarium-curly": 2, "balloons-hamster": 4, "bokeh-dandelion": 4, "cafe-croissant": 28, "comms-mic": 6, "compsci-robot": 6, "culinary-twirly": 4, "diadelosmuertos-cempa": 2, "dunes-fennec": 20, "egypt-jamal": 10, "engineering-arm": 14, "film-spotty": 6, "greenhouse-prickles": 10, "halloween-bat": 2, "holi-rang": 2, "japan-kuri": 16, "knitting-alpaca": 4, "koi-lotus": 4, "lemonade-bird": 6, "marinebio-kelpie": 12, "mexico-pico": 8, "mexico-tito": 2, "morocco-fenn": 30, "morocco-nana": 2, "mushrooms-fiddle": 10, "neon-glider": 32, "nighttrain-stub": 18, "nursing-heart": 8, "pride-flamingo": 2, "rain-snail": 20, "ramen-nori": 8, "ruins-knight": 4, "savanna-stretch": 4, "sketchcity-compass": 2, "spring-butterfly": 24, "sunflowers-chirpy": 6, "sunflowers-sole": 22, "sunset-gull": 4, "sunset-starfish": 6, "thailand-chang": 2, "valley-turbine": 18, "venice-pippo": 8};
   const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
   const rarityTag = a => `<span class="cp-rar cp-rar-${rarityOf(a)}">${RARITY_NAME[rarityOf(a)]}</span>`;
   // the wardrobe's sections, by where a thing is worn
-  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest and Back", ["chest", "back"]]];
+  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest", ["chest"]], ["Back", ["back"]]];
   const slotOf = id => ACC_SLOT[id] || id;
   const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
   const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
@@ -241,12 +245,20 @@
     const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
+    // the back: wings and the like spread from the neck like the cape (hw: the collar's half-width, bw: the body's widest half);
+    // carried things peek out past the body's side at anchors.back, turned round when that point is on the left
+    const backA = pt(A.back) ? A.back : [92, 80, .9], flipB = backA[0] < (num(na[0]) ? na[0] : 60);
+    const peekOut = num(o.peekOut) ? o.peekOut : PEEK_OUT[c.id] || 0;
+    const dHw = wrapW ? collarAt(capeA[2]) : 14, dBw = drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 28;
+    // wings start at the upper back: near the back point's height, never far from the neck (a round body's neck point sits low)
+    const dDy = f1(Math.max(-18, Math.min(8, backA[1] - capeA[1])) / capeA[2]);
+    const backWear = MORE.filter(a => a.slot === "back" && worn.includes(a.id)).map(a => a.at === "drape" ? acc(a.id, capeA, `<g transform="translate(0 ${dDy})">${a.art(dHw, Math.max(dBw, dHw + 6))}</g>`) : acc(a.id, backA, `<g transform="${flipB ? "scale(-1 1) " : ""}translate(${peekOut} 0)">${a.art()}</g>`)).join("");
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
     // the blush stays inside the face's outline (never over wings, arms, ears or the outline itself)
     // and goes under anything worn on the body (its shape is cut out of the blush), while a beak or snout stays in front of a scarf
-    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${MORE.filter(a => a.slot === "neck" && worn.includes(a.id)).map(a => acc(a.id, A.neck, a.art(wrapW ? hwAt(ns) : 21))).join("")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
+    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${MORE.filter(a => a.slot === "neck" && worn.includes(a.id)).map(a => acc(a.id, A.neck, a.art(wrapW ? hwAt(ns) : 21))).join("")}${acc("star", chestA)}${acc("medal", medalA)}${MORE.filter(a => a.slot === "chest" && worn.includes(a.id)).map(a => acc(a.id, a.at === "mid" ? medalA : chestA)).join("")}${acc("bowtie", bowA)}`;
     // the blush's mask only needs the face's shape (its filter paints it white), so the copy drops the colour gradients:
     // otherwise every gradient id appeared twice in the drawing, once in the mask
     // (clip paths stay, so the shape is exact, under ids of their own)
@@ -260,7 +272,7 @@
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
     const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${backWear}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
         <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}${MORE.filter(a => a.slot === "head" && worn.includes(a.id)).map(a => acc(a.id, A.top)).join("")}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
@@ -316,7 +328,7 @@
     tints = tints || tintsNow();
     const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
     // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
-    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : [0, 1]);
+    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : m.slot === "chest" ? [0, 2] : m.at === "drape" ? [-3, .9] : m.slot === "back" ? [4, 1.4] : [0, 1]);
       return `<svg viewBox="-26 -26 52 52" aria-hidden="true"><g transform="translate(0 ${y})${k !== 1 ? ` scale(${k})` : ""}">${ACC_ART[a.id]}</g></svg>`; }
     return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
   }
@@ -3145,7 +3157,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
       const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id))], [/\b(cap)\b/, ["cap"]], [/\b(sunglasses|shades)\b/, ["sunglasses", "heartshades", "starshades", "diamondshades", "sunburst", "pixelshades"]], [/\b(glasses|specs|spectacles|eyewear)\b/, ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id))],
         [/\b(goggles)\b/, ["goggles", "steampunk", "galaxygoggles"]], [/\b(mask)\b/, ["masquerade", "phoenixmask"]],
-        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(wings)\b/, ["beewings", "batwings", "fairywings", "angelwings", "dragonwings"]], [/\b(bag)\b/, ["backpack", "tote", "baguette"]], [/\b(pin|brooch)\b/, MORE.filter(a => a.slot === "chest" && a.at === "pin").map(a => a.id)], [/\b(something (for|on) (your|my) back)\b/, ["cape"].concat(MORE.filter(a => a.slot === "back").map(a => a.id))], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
