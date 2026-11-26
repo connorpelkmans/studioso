@@ -5,8 +5,8 @@
       "BIO101 Final in 10 days. Try Quiz Me on it: you have 3 free sessions this week." The button opens Ask Your Course on that
       course and starts Quiz Me on the answer (with no AI set up yet, it opens AI setup first). The free runs make it a real trial.
    2. Exam follow-up: this week's free Quiz Me sessions are used up and an exam that had the trial card is still more than 3 days
-      away: Pro through the end of term, the semester plan picked on the Pro sheet.
-   3. New term: in the first week of a term, the semester plan.
+      away: Pro through the end of term, the quarterly plan picked on the Pro sheet.
+   3. New term: in the first week of a term, the quarterly plan.
    Never: on Pro or the free weeks, in a guest preview, in Exam Mode, within 2 days of the exam, or while the review prompt is keeping
    quiet (a free-plan limit, the paywall or the free weeks ending lately; see reviewQuiet in 01-helpers.js), or a day after a Pro
    sheet. A discount for these can be a Stripe promotion code; nothing here changes the price. */
@@ -60,11 +60,11 @@
   const termKey = () => termFrom();
   const termDay = () => { const f = termFrom(); return f ? -daysTo(f) : 99; };
 
-  // lead: "Pro through the end of term" or "Pro for the whole term"; the website's semester plan renews, so it says so
-  function semLine(lead){
-    const sem = plan() && plan().semester ? plan().semester() : null;
-    if (!sem) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
-    return {text: sem.once ? `${lead}: ${sem.price}, one payment for the semester.` : `${lead}: ${sem.price} (renews every 4 months, cancel any time).`, btn: "See Semester Plan"};
+  // lead: "Pro through the end of term" or "Pro for the whole term"; the quarterly plan renews, so it says so
+  function qLine(lead){
+    const q = plan() && plan().quarterly ? plan().quarterly() : null;
+    if (!q) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
+    return {text: `${lead}: ${q.price} every 3 months (renews, cancel any time).`, btn: "See Quarterly Plan"};
   }
   const card = (kind, id, body, btn) => `<div class="offer-card" data-offer="${kind}"><span class="offer-t">${body}</span><span class="offer-a"><button type="button" class="btn small primary" data-act="offer-go" data-id="${esc(kind + "|" + id)}">${esc(btn)}</button><button type="button" class="icon-btn sm offer-x" data-act="offer-x" data-id="${esc(kind + "|" + id)}" aria-label="Not now">${typeof CLOSE === "string" ? CLOSE : "×"}</button></span></div>`;
 
@@ -75,11 +75,11 @@
     // (saved just after this draw, never during it; drawing again first finds the same card, so nothing doubles)
     if (x.first) setTimeout(() => { const o = S(); if (x.kind === "term") { if (!(o.term || {})[x.key]) save({term: Object.assign({}, o.term, {[x.key]: {d: today}})}); } else if (!(o[x.kind] || {})[x.ex.id]) save({[x.kind]: Object.assign({}, o[x.kind], {[x.ex.id]: {d: today}})}); }, 0);
     if (x.kind === "term") {
-      const s = semLine("Pro for the whole term");
+      const s = qLine("Pro for the whole term");
       return card("term", x.key, `<b>New term, fresh start.</b> ${esc(s.text)}`, s.btn);
     }
     const e = x.ex, c = courseOf(e.courseId), d = daysTo(e.due), when = d === 1 ? "tomorrow" : `in ${d} days`, name = [label(c), e.title].filter(Boolean).join(" ");
-    if (x.kind === "fu") { const s = semLine("Pro through the end of term"); return card("fu", e.id, `<b>${esc(name)} ${esc(when)}.</b> ${esc(s.text)}`, s.btn); }
+    if (x.kind === "fu") { const s = qLine("Pro through the end of term"); return card("fu", e.id, `<b>${esc(name)} ${esc(when)}.</b> ${esc(s.text)}`, s.btn); }
     const left = plan().runsLeft("quiz");
     return card("ex", e.id, `<b>${esc(name)} ${esc(when)}.</b> Try Quiz Me on it: you have ${left} free session${left === 1 ? "" : "s"} this week.`, `Quiz Me on ${label(c) || "It"}`);
   }
@@ -97,7 +97,7 @@
       return;
     }
     render();
-    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "semester");
+    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "quarterly");
   }
   function dismiss(kind, id){
     const o = S(), rec = Object.assign({}, (o[kind] || {})[id] || {d: todayISO()}, {x: 1});

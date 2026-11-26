@@ -266,8 +266,14 @@ await test("stripe: only money taken counts for Founders and Early Supporters, w
   await wh.handle(await stripeReq(inv({ amount_paid: 2999, lines: { data: [line(365)] } })), deps);
   assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "yearly");
   ({ deps, applied } = whDeps());
-  await wh.handle(await stripeReq(inv({ amount_paid: 1299, lines: { data: [line(122)] } })), deps);
-  assert.equal(applied[0].term, "semester");
+  await wh.handle(await stripeReq(inv({ amount_paid: 1199, lines: { data: [line(90)] } })), deps);
+  assert.equal(applied[0].term, "quarterly");
+  ({ deps, applied } = whDeps());
+  await wh.handle(await stripeReq(inv({ amount_paid: 1599, lines: { data: [line(122)] } })), deps);
+  assert.equal(applied[0].term, "quarterly", "the old 4-month semester plan counts as quarterly");
+  ({ deps, applied } = whDeps({ env: { STRIPE_PRICE_SEMESTER: "price_sem_old" } }));
+  await wh.handle(await stripeReq(inv({ amount_paid: 1599, lines: { data: [line(20, "price_sem_old")] } })), deps);
+  assert.equal(applied[0].term, "quarterly", "the old semester price id counts as quarterly");
   ({ deps, applied } = whDeps());
   await wh.handle(await stripeReq(inv({ amount_paid: 399, lines: { data: [line(31)] } })), deps);
   assert.equal(applied[0].term, "monthly");
@@ -301,21 +307,24 @@ await test("revenuecat: a paid purchase counts with its length; a store trial or
   await wh.handle(rcReq({ ...base, id: "rcp2", type: "RENEWAL", period_type: "NORMAL", price: 3.99, expiration_at_ms: NOW + 30 * 86400e3 }), deps);
   assert.equal(applied[0].term, "monthly");
   ({ deps, applied } = whDeps());
+  await wh.handle(rcReq({ ...base, id: "rcp2q", type: "INITIAL_PURCHASE", period_type: "NORMAL", price: 11.99, expiration_at_ms: NOW + 89 * 86400e3 }), deps);
+  assert.equal(applied[0].term, "quarterly", "a store's 3 months (89 days across February) is quarterly");
+  ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcp3", type: "INITIAL_PURCHASE", period_type: "TRIAL", price: 0, expiration_at_ms: NOW + 7 * 86400e3 }), deps);
   assert.equal(applied[0].paid, undefined);
   ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcp4", type: "UNCANCELLATION", expiration_at_ms: NOW + 30 * 86400e3 }), deps);
   assert.equal(applied[0].paid, undefined);
 });
-await test("revenuecat: the store semester plan (paid once) gives Pro for 4 months, never for good", async () => {
+await test("revenuecat: the old store semester plan (paid once) gives Pro for 4 months, never for good", async () => {
   const base = { app_user_id: UID, store: "APP_STORE", event_timestamp_ms: NOW, environment: "PRODUCTION", purchased_at_ms: Date.UTC(2026, 8, 1) };
   let { deps, applied } = whDeps();
   await wh.handle(rcReq({ ...base, id: "rcs1", type: "NON_RENEWING_PURCHASE", product_id: "studyboard_pro_semester", price: 12.99 }), deps);
-  assert.equal(applied[0].state, "active"); assert.equal(applied[0].will_renew, false); assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "semester");
+  assert.equal(applied[0].state, "active"); assert.equal(applied[0].will_renew, false); assert.equal(applied[0].paid, true); assert.equal(applied[0].term, "quarterly");
   assert.equal(applied[0].pro_until, new Date(Date.UTC(2027, 0, 1) + 3 * 86400e3).toISOString(), "Sep 1 + 4 months (+3 days grace)");
   ({ deps, applied } = whDeps({ env: { RC_SEMESTER_PRODUCTS: "sb_term" } }));
   await wh.handle(rcReq({ ...base, id: "rcs2", type: "NON_RENEWING_PURCHASE", product_id: "sb_term", price: 12.99 }), deps);
-  assert.equal(applied[0].term, "semester", "a product named in RC_SEMESTER_PRODUCTS");
+  assert.equal(applied[0].term, "quarterly", "a product named in RC_SEMESTER_PRODUCTS");
   ({ deps, applied } = whDeps());
   await wh.handle(rcReq({ ...base, id: "rcs3", type: "NON_RENEWING_PURCHASE", product_id: "studyboard_pro_semester", price: 0 }), deps);
   assert.equal(applied[0].state, "active"); assert.equal(applied[0].paid, undefined, "a $0 purchase isn't a payment");
@@ -494,16 +503,22 @@ await test("checkout: no card trial unless checkoutTrialDays is set (new account
   assert.equal((await co.handle(coReq({ plan: "monthly" }), d.deps)).status, 200);
   assert.ok(!("subscription_data[trial_period_days]" in parse(d.stripeBodies.find(b => b[0] === "session")[1])));
 });
-await test("checkout: semester uses its own price, and is refused until that price is set", async () => {
-  const on = coDeps({ env: { STRIPE_PRICE_SEMESTER: "price_SEM1" } });
-  const r = await co.handle(coReq({ plan: "semester" }), on.deps);
+await test("checkout: quarterly uses its own price, and is refused until that price is set", async () => {
+  const on = coDeps({ env: { STRIPE_PRICE_QUARTERLY: "price_Q1" } });
+  const r = await co.handle(coReq({ plan: "quarterly" }), on.deps);
   assert.equal(r.status, 200);
   const s = parse(on.stripeBodies.find(b => b[0] === "session")[1]);
-  assert.equal(s["line_items[0][price]"], "price_SEM1"); assert.equal(s["metadata[plan]"], "semester");
+  assert.equal(s["line_items[0][price]"], "price_Q1"); assert.equal(s["metadata[plan]"], "quarterly");
   const off = coDeps();
-  const r2 = await co.handle(coReq({ plan: "semester" }), off.deps);
+  const r2 = await co.handle(coReq({ plan: "quarterly" }), off.deps);
   assert.equal(r2.status, 400); assert.equal((await r2.json()).error, "plan_unavailable");
   assert.ok(!off.stripeBodies.some(b => b[0] === "session"));
+});
+await test("checkout: an old app asking for the semester plan is told to update, never charged", async () => {
+  const d = coDeps({ env: { STRIPE_PRICE_QUARTERLY: "price_Q1", STRIPE_PRICE_SEMESTER: "price_SEM1" } });
+  const r = await co.handle(coReq({ plan: "semester" }), d.deps);
+  assert.equal(r.status, 400); assert.equal((await r.json()).error, "plan_unavailable");
+  assert.ok(!d.stripeBodies.some(b => b[0] === "session"));
 });
 await test("checkout: the desktop and phone apps may call it (CORS), other origins still can't", async () => {
   for (const o of ["app://studioso", "capacitor://localhost", "https://localhost"]) {

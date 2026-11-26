@@ -895,8 +895,8 @@ begin
     perform public.sbt_ok((select bool_and(p.owner_id = f1 and p.kind = 'month' and p.max_uses = 1) from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = f1),
                           'friend codes are single-use one-month codes owned by their supporter');
     -- An Early Supporter who moves to yearly becomes a Founder while a Founder place is left
-    execute format(pay, 'sbt-early-m1y', m1, 'cus_sbt_m1', 'true', 'semester');
-    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'an Early Supporter on a semester plan didn''t become a Founder');
+    execute format(pay, 'sbt-early-m1y', m1, 'cus_sbt_m1', 'true', 'quarterly');
+    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'an Early Supporter on a quarterly plan didn''t become a Founder');
     execute format(pay, 'sbt-early-f2', f2, 'cus_sbt_f2', 'true', 'yearly');
     perform public.sbt_ok(public.plans_early_kind(f2) = 'early', 'a 3rd yearly payment became a Founder past the limit of 2');
     execute format(pay, 'sbt-early-x1', x1, 'cus_sbt_x1', 'true', 'monthly');

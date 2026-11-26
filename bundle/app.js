@@ -26697,10 +26697,10 @@ window.__sbPlanObj = () => PLAN;
   const PLAN_CONFIG = {
     limits: {
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
-      pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
+      pro: {devices: Infinity, fileMB: 5120, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
-    checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
+    prices: {monthly: "$4.99", quarterly: "$11.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
+    checkout_url_monthly: "", checkout_url_quarterly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
     // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
@@ -26731,7 +26731,7 @@ window.__sbPlanObj = () => PLAN;
       Object.keys(c.limits[t]).forEach(k => { if (k in src && !PINNED[t].includes(k)) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
-    ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
+    ["checkout_url_monthly", "checkout_url_quarterly", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
     ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
@@ -27321,10 +27321,10 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    period = ["monthly", "quarterly", "yearly", "plus"].includes(period) ? period : "monthly";
     if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && !semesterOn()) period = "monthly";
+    if (period === "quarterly" && !quarterlyOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (regionOff()) { toast(REGION_OFF_MSG); return false; }
@@ -27482,17 +27482,16 @@ window.__sbPlanObj = () => PLAN;
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
-  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
-  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
-  const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
-  const semOnce = () => route() === "store";
-  const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
+  // The quarterly plan renews every 3 months. On the website it's on once prices.quarterly is set; in the App Store and
+  // Google Play (a 3-month auto-renewing subscription) once its price is set in studyboard_config prices.storeQuarterly
+  // (see PRO-PLANS-GUIDE.md)
+  const qPrice = () => route() === "store" ? cfg.prices.storeQuarterly : cfg.prices.quarterly;
+  const quarterlyOn = () => typeof qPrice() === "string" && !!qPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${quarterlyOn() ? `, ${qPrice()} every 3 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
     const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
@@ -27501,17 +27500,17 @@ window.__sbPlanObj = () => PLAN;
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
-    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
+    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), qm = quarterlyOn() ? price(qPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
-    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
-    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const ids = ["monthly"].concat(qm ? ["quarterly"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly"}, AMT = {monthly: pr.monthly, quarterly: qPrice(), yearly: pr.yearly};
     const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
-    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+    return `<div class="plan-prices${qm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
         ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
-        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${qm ? tile("quarterly", "", `<span class="pp-name">Quarterly</span><span class="pp-amt">${esc(qPrice())}<small> / 3 months</small></span><span class="pp-sub">${esc(["Renews every 3 months", trial, "About " + per(qm, 3, qPrice())].filter(Boolean).join(" · "))}</span>`) : ""}
         ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
       <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
@@ -27667,10 +27666,10 @@ window.__sbPlanObj = () => PLAN;
     entitlement: () => ent() ? Object.assign({}, ent()) : null,
     can, usage,
     openSheet: proSheet,
-    // the Pro sheet with a plan already picked (the exam and term offers pick Semester; with no semester plan it stays on Yearly)
+    // the Pro sheet with a plan already picked (the exam and term offers pick Quarterly; with no quarterly plan it stays on Yearly)
     openSheetPick: (reason, pick) => { P.pick = pick; proSheet(reason); },
-    // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
-    semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
+    // the quarterly plan when it's on sale here: its price (it renews every 3 months everywhere)
+    quarterly: () => { try { return quarterlyOn() ? {price: qPrice()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
     limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, holdTab, dropTab, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,
@@ -27696,12 +27695,12 @@ window.__sbPlanObj = () => PLAN;
   const rcHead = {Authorization: "Bearer " + MAC_RC_KEY, "X-Platform": "macos", "Content-Type": "application/json"};
   const result = (action, status, message) => { try { window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail: {action, status, message: message || ""}})); } catch (e) {} };
   const NOT_HERE = "Studyboard Pro isn't available in your country yet. Everything else in Studyboard works as usual.";
-  // The product for monthly / yearly / semester, from RevenueCat's current offering (the same packages as iPhone)
+  // The product for monthly / quarterly / yearly, from RevenueCat's current offering (the same packages as iPhone)
   async function productFor(uid, period){
     const r = await fetch(`${RC}/subscribers/${encodeURIComponent(uid)}/offerings`, {headers: rcHead});
     if (!r.ok) throw new Error("offerings " + r.status);
     const j = await r.json(), cur = (j.offerings || []).find(o => o.identifier === j.current_offering_id) || (j.offerings || [])[0];
-    const want = period === "yearly" ? "$rc_annual" : period === "semester" ? "semester" : "$rc_monthly";
+    const want = period === "yearly" ? "$rc_annual" : period === "quarterly" ? "$rc_three_month" : "$rc_monthly";
     const pkg = cur && (cur.packages || []).find(p => p.identifier === want);
     return pkg && pkg.platform_product_identifier || "";
   }
@@ -91210,7 +91209,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
     <li>Studyboard has a free plan and an optional paid plan called Pro with higher limits and extras. What each includes, the prices and the renewal terms are shown before you buy. We may change prices or features for the future; if you subscribe, the price you agreed to stays the same until your next renewal after we tell you, and we will not take away what you have paid for during the period you paid for.</li>
     <li><b>Two free weeks of Pro:</b> each new account gets 14 days of Pro once, with no card and no charge. When the two weeks end, the account goes back to the free plan unless you choose a plan. Nothing you made is deleted. Two free weeks once per person: they aren't given again to a new account made with the same email address.</li>
     <li><b>Free trial:</b> if a free trial is ever offered at checkout, your plan starts and you are charged when it ends unless you cancel before then.</li>
-    <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 4 months (the semester plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
+    <li><b>Renewal and cancelling:</b> subscriptions renew automatically each month, every 3 months (the quarterly plan) or each year until you cancel. Payments are handled by Stripe, the App Store or Google Play. Cancel any time on the Manage billing page of our website (or in your App Store or Google Play account if you bought there); you keep Pro until the end of the period you paid for.</li>
     <li><b>Refunds:</b> payments are generally not refunded for time already used, except where the law or the purchase page says otherwise. If something went wrong, write to us and we'll sort it out fairly: ${contact()}. Purchases made in the App Store or Google Play follow Apple's or Google's rules for billing, cancelling and refunds.</li>
     <li><b>Apple subscriptions (iPhone and iPad):</b> Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase (<a href="https://apps.apple.com/account/subscriptions" target="_blank" rel="noopener noreferrer">apps.apple.com/account/subscriptions</a>). Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.</li>
     <li>If a payment is reversed (a refund or a dispute), Pro for that payment ends.</li>
@@ -96992,7 +96991,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         R.localCopy = true; save({keep: false}); return true;
       }
       case "lec-full-connect": { const tx = $("#lecText"); if (REC && tx) REC.text = tx.value; draftSoon(); if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); toast("Your recording is kept as a draft in the course's Lectures."); return true; }
-      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 10 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
+      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 5 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
       case "lec-file": if (dlg.open) dlg.close(); setTimeout(() => transcriptSheet(id), 0); return true;
       case "lec-file-note": {
         const f = state.files[id]; if (!f || !f.tr) return true;
@@ -98283,8 +98282,8 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       "BIO101 Final in 10 days. Try Quiz Me on it: you have 3 free sessions this week." The button opens Ask Your Course on that
       course and starts Quiz Me on the answer (with no AI set up yet, it opens AI setup first). The free runs make it a real trial.
    2. Exam follow-up: this week's free Quiz Me sessions are used up and an exam that had the trial card is still more than 3 days
-      away: Pro through the end of term, the semester plan picked on the Pro sheet.
-   3. New term: in the first week of a term, the semester plan.
+      away: Pro through the end of term, the quarterly plan picked on the Pro sheet.
+   3. New term: in the first week of a term, the quarterly plan.
    Never: on Pro or the free weeks, in a guest preview, in Exam Mode, within 2 days of the exam, or while the review prompt is keeping
    quiet (a free-plan limit, the paywall or the free weeks ending lately; see reviewQuiet in 01-helpers.js), or a day after a Pro
    sheet. A discount for these can be a Stripe promotion code; nothing here changes the price. */
@@ -98338,11 +98337,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   const termKey = () => termFrom();
   const termDay = () => { const f = termFrom(); return f ? -daysTo(f) : 99; };
 
-  // lead: "Pro through the end of term" or "Pro for the whole term"; the website's semester plan renews, so it says so
-  function semLine(lead){
-    const sem = plan() && plan().semester ? plan().semester() : null;
-    if (!sem) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
-    return {text: sem.once ? `${lead}: ${sem.price}, one payment for the semester.` : `${lead}: ${sem.price} (renews every 4 months, cancel any time).`, btn: "See Semester Plan"};
+  // lead: "Pro through the end of term" or "Pro for the whole term"; the quarterly plan renews, so it says so
+  function qLine(lead){
+    const q = plan() && plan().quarterly ? plan().quarterly() : null;
+    if (!q) return {text: "Keep Studyboard AI, unlimited Quiz Me and the Exam Day Forecast through your exams with Pro.", btn: "See Plans"};
+    return {text: `${lead}: ${q.price} every 3 months (renews, cancel any time).`, btn: "See Quarterly Plan"};
   }
   const card = (kind, id, body, btn) => `<div class="offer-card" data-offer="${kind}"><span class="offer-t">${body}</span><span class="offer-a"><button type="button" class="btn small primary" data-act="offer-go" data-id="${esc(kind + "|" + id)}">${esc(btn)}</button><button type="button" class="icon-btn sm offer-x" data-act="offer-x" data-id="${esc(kind + "|" + id)}" aria-label="Not now">${typeof CLOSE === "string" ? CLOSE : "×"}</button></span></div>`;
 
@@ -98353,11 +98352,11 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
     // (saved just after this draw, never during it; drawing again first finds the same card, so nothing doubles)
     if (x.first) setTimeout(() => { const o = S(); if (x.kind === "term") { if (!(o.term || {})[x.key]) save({term: Object.assign({}, o.term, {[x.key]: {d: today}})}); } else if (!(o[x.kind] || {})[x.ex.id]) save({[x.kind]: Object.assign({}, o[x.kind], {[x.ex.id]: {d: today}})}); }, 0);
     if (x.kind === "term") {
-      const s = semLine("Pro for the whole term");
+      const s = qLine("Pro for the whole term");
       return card("term", x.key, `<b>New term, fresh start.</b> ${esc(s.text)}`, s.btn);
     }
     const e = x.ex, c = courseOf(e.courseId), d = daysTo(e.due), when = d === 1 ? "tomorrow" : `in ${d} days`, name = [label(c), e.title].filter(Boolean).join(" ");
-    if (x.kind === "fu") { const s = semLine("Pro through the end of term"); return card("fu", e.id, `<b>${esc(name)} ${esc(when)}.</b> ${esc(s.text)}`, s.btn); }
+    if (x.kind === "fu") { const s = qLine("Pro through the end of term"); return card("fu", e.id, `<b>${esc(name)} ${esc(when)}.</b> ${esc(s.text)}`, s.btn); }
     const left = plan().runsLeft("quiz");
     return card("ex", e.id, `<b>${esc(name)} ${esc(when)}.</b> Try Quiz Me on it: you have ${left} free session${left === 1 ? "" : "s"} this week.`, `Quiz Me on ${label(c) || "It"}`);
   }
@@ -98375,7 +98374,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
       return;
     }
     render();
-    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "semester");
+    plan().openSheetPick(kind === "term" ? "Pro for the whole term: Studyboard AI, the Exam Day Forecast, unlimited Quiz Me and more." : "Keep Quiz Me unlimited through your exams with Pro.", "quarterly");
   }
   function dismiss(kind, id){
     const o = S(), rec = Object.assign({}, (o[kind] || {})[id] || {d: todayISO()}, {x: 1});
@@ -98477,7 +98476,7 @@ var SBEARLY = null;
     if (d) {
       const f = !!d.founder;
       return `<section class="early-card ${f ? "founder" : "early"}">
-        <div class="ec-top">${f ? ROSETTE() : SEEDLING()}<div><b>${f ? `Founder #${esc(d.founderNumber || "")}` : `Early Supporter #${esc(d.number || "")}`}</b><span class="mini">${f ? "One of the first 10 people on a Semester or Yearly plan. Thank you for helping build Studyboard!" : "One of Studyboard's first 100 Pro members. Thank you!"}</span></div></div>
+        <div class="ec-top">${f ? ROSETTE() : SEEDLING()}<div><b>${f ? `Founder #${esc(d.founderNumber || "")}` : `Early Supporter #${esc(d.number || "")}`}</b><span class="mini">${f ? "One of the first 10 people on a Quarterly or Yearly plan. Thank you for helping build Studyboard!" : "One of Studyboard's first 100 Pro members. Thank you!"}</span></div></div>
         <div class="ec-row"><span><b>Show My ${f ? "Founder" : "Early Supporter"} Badge in Groups</b><span class="mini">Beside your name in study groups. It stays even if your Pro ends.</span></span>${sw("pro-badge", S().badge, "Show my badge in groups")}</div>
         ${f ? `<div class="ec-sec"><b>Your Founder Theme</b>${themeLine(d)}<button type="button" class="btn small" data-act="early-themes">${(d.themes || []).length ? "See Your Suggestions" : "Suggest Themes"}</button></div>` : ""}
         ${codesHtml(d)}
@@ -98487,7 +98486,7 @@ var SBEARLY = null;
     const fl = +st.foundersLeft || 0, sl = +st.supportersLeft || 0;
     if (!fl && !sl) return "";
     return `<section class="early-offer">${fl ? ROSETTE(34) : SEEDLING(30)}<div>
-      ${fl ? `<b>Become a Founder</b><span>The first ${esc(st.founders)} people on a Semester or Yearly plan get a Founder badge in groups and suggest a theme that's built into Studyboard, theirs to keep. <b>${fl} of ${esc(st.founders)} places left.</b></span>` : ""}
+      ${fl ? `<b>Become a Founder</b><span>The first ${esc(st.founders)} people on a Quarterly or Yearly plan get a Founder badge in groups and suggest a theme that's built into Studyboard, theirs to keep. <b>${fl} of ${esc(st.founders)} places left.</b></span>` : ""}
       ${sl ? `<span>${fl ? "Then the" : "The"} first ${esc(st.supporters)} on any plan get an Early Supporter badge and a month of Pro for ${(st.friendCodes || 3) === 1 ? "a friend" : "friends"}. <b>${sl} left.</b></span>` : ""}
     </div></section>`;
   }

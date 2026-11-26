@@ -21,7 +21,7 @@ insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 14, "currency": "USD"}'),
   ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
+               "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
   ('manage_url', '""'),
@@ -57,6 +57,17 @@ update public.studyboard_config set value = jsonb_set(value, '{semester}', '"$15
 where key = 'prices' and value ->> 'semester' = '$12.99';
 update public.studyboard_config set value = jsonb_set(value, '{storeSemester}', '"$15.99"'), updated_at = now()
 where key = 'prices' and value ->> 'storeSemester' = '$12.99';
+
+-- The semester plan ($15.99 every 4 months) became the quarterly plan ($11.99 every 3 months). "semester" is set to ""
+-- (not removed) so apps from before the change, which fall back to their own $15.99, hide the old plan; storeSemester goes.
+-- Runs once: only while there is no "quarterly" price yet (change "quarterly" here afterwards, not this).
+update public.studyboard_config
+set value = (value - 'storeSemester') || '{"quarterly": "$11.99", "semester": ""}'::jsonb, updated_at = now()
+where key = 'prices' and not (value ? 'quarterly');
+
+-- Pro cloud file storage went from 10 GB to 5 GB
+update public.studyboard_config set value = jsonb_set(value, '{pro,fileMB}', '5120'), updated_at = now()
+  where key = 'limits' and value #> '{pro,fileMB}' = '10240'::jsonb;
 
 -- Free groups went from 3 members to 5
 update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()
@@ -148,7 +159,7 @@ language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' when public.studyboard_limits_lite(uid) then 'lite' else 'free' end;
   defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
+                               "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
                                "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
@@ -1247,7 +1258,7 @@ end $$;
 -- Off until you run: select public.studyboard_early_program(true);
 -- While on, the first paid Pro sign-ups (not trials, codes or gifts) are numbered:
 --   * the first 100 (any plan) are Early Supporters: a badge in groups and one-month Pro codes for friends;
---   * the first 10 on a semester or yearly plan are Founders: a Founder badge, and they suggest up to 3 themes,
+--   * the first 10 on a quarterly or yearly plan are Founders: a Founder badge, and they suggest up to 3 themes,
 --     you build one into Studyboard for every Pro user, and its Founder keeps it even after their Pro ends.
 -- A refund or a disputed payment takes the place away and gives it to the next person in line (who paid while the places
 -- were full, and still pays). Cancelling without a refund doesn't: the badge and the theme stay.
@@ -1258,16 +1269,29 @@ on conflict (key) do nothing;
 create table if not exists public.studyboard_early_supporters (
   user_id uuid primary key references auth.users(id) on delete cascade,
   founder boolean not null default false,
-  term text check (term is null or term in ('monthly', 'semester', 'yearly')),
+  term text check (term is null or term in ('monthly', 'quarterly', 'yearly')),
   source text,                                    -- stripe, apple, google, revenuecat, or manual (added by you)
   joined_at timestamptz not null default now(),   -- the order people are numbered in
   founder_at timestamptz,
   revoked_at timestamptz,                         -- refunded or removed: the place went to the next in line
   waiting boolean not null default false,         -- paid while every place was taken: next in line, in joined_at order
-  long_at timestamptz                             -- first paid for a semester or yearly plan (the line for a Founder place)
+  long_at timestamptz                             -- first paid for a quarterly or yearly plan (the line for a Founder place)
 );
 alter table public.studyboard_early_supporters add column if not exists waiting boolean not null default false;
 alter table public.studyboard_early_supporters add column if not exists long_at timestamptz;
+-- The semester plan became the quarterly plan
+do $$ declare c text; begin
+  for c in select conname from pg_constraint where conrelid = 'public.studyboard_early_supporters'::regclass and contype = 'c'
+           and pg_get_constraintdef(oid) ilike '%semester%' loop
+    execute format('alter table public.studyboard_early_supporters drop constraint %I', c);
+  end loop;
+end $$;
+update public.studyboard_early_supporters set term = 'quarterly' where term = 'semester';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.studyboard_early_supporters'::regclass and conname = 'studyboard_early_supporters_term_check') then
+    alter table public.studyboard_early_supporters add constraint studyboard_early_supporters_term_check check (term is null or term in ('monthly', 'quarterly', 'yearly'));
+  end if;
+end $$;
 create index if not exists studyboard_early_supporters_order_idx on public.studyboard_early_supporters (joined_at, user_id) where revoked_at is null and not waiting;
 -- Friend codes (the codes themselves, so their owner can see and share them)
 create table if not exists public.studyboard_early_codes (
@@ -1357,7 +1381,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
                  and (e.plan = 'lifetime' or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))))
 $$;
 
--- Gives open places to the next in line: a Founder place to the first Early Supporter (or waiting person) on a semester or
+-- Gives open places to the next in line: a Founder place to the first Early Supporter (or waiting person) on a quarterly or
 -- yearly plan, by when they first paid for one; an Early Supporter place to the first person waiting, by when they paid
 create or replace function public.plans_early_fill() returns integer
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -1396,13 +1420,14 @@ declare cfg jsonb := public.plans_early_cfg(); r public.studyboard_early_support
 begin
   if p_uid is null or not (p_force or coalesce((cfg ->> 'on')::boolean, false)) then return 'off'; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-early', 0));   -- two payments at once can't both take the last place
-  t := case when p_term in ('monthly', 'semester', 'yearly') then p_term end;
-  long := t in ('semester', 'yearly');
+  -- "semester" (the old 4-month plan) counts as quarterly
+  t := case when p_term = 'semester' then 'quarterly' when p_term in ('monthly', 'quarterly', 'yearly') then p_term end;
+  long := t in ('quarterly', 'yearly');
   select count(*) filter (where founder), count(*) into nf, ns from public.studyboard_early_supporters where revoked_at is null and not waiting;
   select * into r from public.studyboard_early_supporters where user_id = p_uid for update;
   was := found and r.revoked_at is null;
   if was and not r.waiting then
-    -- Already in: an Early Supporter who moves to a semester or yearly plan becomes a Founder if a place is left
+    -- Already in: an Early Supporter who moves to a quarterly or yearly plan becomes a Founder if a place is left
     if long and r.long_at is null then update public.studyboard_early_supporters set long_at = clock_timestamp() where user_id = p_uid; end if;
     if r.founder or not coalesce(p_founder, long) or (not p_force and nf >= (cfg ->> 'founders')::int) then return 'kept'; end if;
     update public.studyboard_early_supporters set founder = true, founder_at = clock_timestamp(), term = coalesce(t, term) where user_id = p_uid;
