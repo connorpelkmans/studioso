@@ -139,6 +139,7 @@
   "60-reminders.js",
   "75-capture.js",
   "70-widgets.js",
+  "71-native-actions.js",
   "80-groups.js",
   "96-usernames.js",
   "81-friends.js",
