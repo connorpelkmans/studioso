@@ -2,15 +2,15 @@
 
 Goal: the iOS and Android apps get the same school information as the desktop app (courses, due dates, submissions, grades, announcements, calendar, file downloads, Canvas inbox) for Brightspace, Canvas and Blackboard, not only the calendar link.
 
-Status: **built, but untested on any device.** The shared layer is done and tested here; the Swift and Kotlin plugins are written but were never compiled or run (no Xcode, Android Studio, emulator or school account was available).
+Status: **built; Android compiles, nothing has run on a device yet.** The shared layer is done and tested here. The Kotlin plugin compiles: `npm run android:debug` built `app-debug.apk` on 26 November 2026 with `StudyboardLms` registered in `MainActivity` and `lms-mobile.js` in the bundle. It has not run on an emulator or phone (no KVM here). The Swift plugin has never been compiled (no Xcode here). Neither has signed in to a real school.
 
 | Piece | State |
 | --- | --- |
 | `lms-mobile.src.js` + `scripts/build-lms-mobile.js` -> `lms-mobile.js` (same harvest scripts and result cleaning as desktop, copied from `lms.js` at build time) | Done. `tests/lms-mobile.test.js` (11 checks) and `tests/lms-mobile.e2e.js` (7 checks, real page, stand-in plugin running the real Brightspace harvest against a fake school) pass. |
 | `index.html`: `lmsBridge()` so the desktop bridge or the phone bridge feeds the same sync, grades, announcements, files and Canvas inbox code; 10 minute checks; Sync Now; copy for phones | Done and tested. |
-| `prepare.js`: builds `lms-mobile.js` into staged iOS/Android folders and loads it | Written; not run (needs `npm ci`). |
+| `prepare.js`: builds `lms-mobile.js` into staged iOS/Android folders and loads it | Done. Run by `npm run android:debug`; `lms-mobile.js` is in the APK's `assets/public/` and loaded by `index.html`. |
 | `ios-wrapper/native/StudyboardLms.swift` | Written, UNTESTED, never compiled. |
-| `android-wrapper/.../StudyboardLms.kt` | Written, UNTESTED, never compiled. |
+| `android-wrapper/.../StudyboardLms.kt` | Compiles (26 Nov 2026 debug build); not yet run on an emulator or device. |
 | READMEs: plugin registration and store notes | Done. |
 
 Original plan follows.
