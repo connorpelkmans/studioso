@@ -1,5 +1,5 @@
 // node tests/claude-structured.e2e.js
-// A Claude key only ever runs as Studyboard Pro AI does: Claude Haiku 5.5 with the thinking chosen for each job (src/js/01-ai-policy.js),
+// A Claude key only ever runs as Studyboard AI Pro does: Claude Haiku 5.5 with the thinking chosen for each job (src/js/01-ai-policy.js),
 // structured outputs for the answer shape, and no tools, temperature or other model, whatever Claude model was saved before.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -65,7 +65,7 @@ const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], settings: {}, c
       ok(jobs.length && jobs.every(x => x.model === "claude-haiku-5-5"), `every request from it is Claude Haiku 5.5 (${jobs.map(x => x.model).join(", ")})`);
       const cards = jobs.find(x => JSON.stringify(x.messages).includes("Osmosis is the passive movement"));
       const want = P.buildRequest({system: "", blocks: [{type: "text", text: "x"}], task: P.taskOf("cards")});
-      ok(cards && cards.output_config.effort === want.output_config.effort && cards.max_tokens === want.max_tokens && JSON.stringify(cards.thinking) === JSON.stringify(want.thinking), `with the cards job's own thinking (${want.output_config.effort}) and output cap, the same as Studyboard Pro AI`);
+      ok(cards && cards.output_config.effort === want.output_config.effort && cards.max_tokens === want.max_tokens && JSON.stringify(cards.thinking) === JSON.stringify(want.thinking), `with the cards job's own thinking (${want.output_config.effort}) and output cap, the same as Studyboard AI Pro`);
       ok(jobs.every(x => !x.tools && !x.tool_choice && !("temperature" in x) && !("top_p" in x)), "no tools, forced tool calls or sampling settings");
       ok(cards && cards.output_config.format && cards.output_config.format.type === "json_schema", "the answer shape goes as structured outputs");
       ok(!r.errs.length, "no console errors: " + r.errs.join(" | "));

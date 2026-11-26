@@ -2169,7 +2169,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     return SPEECH.ok(pickL.text) ? pickL.text : "";
   }
   // Ask Me
-  // Ask Me works with any AI: free Gemini and Studyboard Pro AI share the daily allowance for lines; with another key (Claude, ChatGPT, or
+  // Ask Me works with any AI: free Gemini and Studyboard AI Pro share the daily allowance for lines; with another key (Claude, ChatGPT, or
   // Gemini with automatic AI off) each question is an ordinary request the student makes, on their own key
   const askMode = () => { const m = aiMode(); if (m === "lite" || m === "studyboard") return m; try { return smartOn() && aiReady() ? "manual" : ""; } catch (e) { return ""; } };
   const linesAsk = () => { const s = aiRead(), m = askMode(); return !!m && !aiPaused(s) && (m === "manual" || (today0(s).n || 0) < LITE_MAX) && navigator.onLine !== false; };
@@ -2647,7 +2647,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const sends = "the time of day, how many tasks are due today, this week and overdue, your next 3 deadlines (titles, course codes and dates), the titles of tasks you finished in the last 2 days (and the one you just finished), " + (STREAK_HIDDEN ? "" : "your streak, ") + "your focus minutes, how far off your next exam is, your companion's name and personality, and any question you type into Ask Me (plus, only when you ask about it, the card, note, task, file text or course that's on your screen)";
     const sub = !on ? "Needs automatic AI (Settings, AI Features). Until then it uses its own built-in lines, and nothing is sent anywhere."
       : paid ? `Your automatic AI uses a paid model, so Smart Lines keeps to ${PAID_MAX} small updates a day. Ask Me answers with your AI when you ask. It sends only: ${sends}.`
-      : u.mode === "studyboard" ? `Studyboard Pro AI writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
+      : u.mode === "studyboard" ? `Studyboard AI Pro writes fresh lines and answers Ask Me (tap it, then Ask), up to ${LITE_MAX} a day. It sends only: ${sends}. Nothing is sent while this is off.`
       : `Your free Gemini key writes fresh lines and answers Ask Me (${LITE_MAX} a day, separate from other AI features). It sends only: ${sends}. Nothing is sent while this is off.`;
     const use = on && smartOn() ? `<span class="cp-use">Smart Lines today: ${u.n} of ${u.max}${u.paused ? (u.mode === "studyboard" ? ". Resting for now." : ". Resting until Gemini's free allowance resets.") : ""}</span>` : "";
     return `<div class="cap-row"><span style="flex:1;font-weight:600">Smart Lines and Ask Me<span class="sub">${esc(sub)}</span>${use}</span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="ai" ${on && smartOn() ? "checked" : ""} ${on ? "" : "disabled"}> On</label></div>`;

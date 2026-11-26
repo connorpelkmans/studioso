@@ -272,7 +272,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard Pro AI", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (65 to 80%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (65 to 80%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -3436,13 +3436,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /*LECTURE-END*/
   const SR = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
   const canRecord = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
-  // Which AI listens: Studyboard Pro AI (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
+  // Which AI listens: Studyboard AI Pro (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
   const audioProv = () => { try { const c = aiCfg(), k = c.keys || {};
     if (c.provider === "studyboard" && aiProAudio()) return "studyboard";
     if ((c.provider === "gemini" || c.provider === "openai") && c.key) return c.provider;
     return k.gemini ? "gemini" : k.openai ? "openai" : ""; } catch (e) { return ""; } };
   const canHear = () => !!audioProv();
-  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard Pro AI"})[audioProv()] || "AI";
+  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard AI Pro"})[audioProv()] || "AI";
   const aiCapsHere = () => !!DESK || !SR();
   const capsKind = () => aiCapsHere() ? (canHear() ? "ai" : "") : "browser";
   let REC = null;

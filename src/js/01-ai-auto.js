@@ -1,7 +1,7 @@
 /* ===== module: 01-ai-auto.js: the app's core, automatic AI jobs ===== */
 /* Automatic AI: quietly improves Today's Plan and study sessions */
-// Free to the student: their free Gemini key, or Studyboard Pro AI (included with paid Pro)
-// A Claude key in Studyboard Pro AI Mode counts too: its monthly and daily limits cap what automatic AI can spend
+// Free to the student: their free Gemini key, or Studyboard AI Pro (included with paid Pro)
+// A Claude key in Studyboard AI Pro Mode counts too: its monthly and daily limits cap what automatic AI can spend
 const isFreeModel = (p, m) => (p === "gemini" && (m === "auto" || AI_MODELS.includes(m))) || p === "studyboard" || (p === "anthropic" && m === "studyboard") || p === "device";
 // For running by itself in the background, the student's own Claude key is paid: it bills them, so it's never on without their confirming paid use
 // The AI on this device isn't used in the background: it would slow the computer or phone down while the student works
@@ -12,7 +12,7 @@ function autoState(){
   if (!c.key) return {on: false, reason: "nokey"};
   const want = raw.auto !== undefined ? !!raw.auto : isAutoFree(c.provider, c.model);
   if (!want) return {on: false, reason: "off"};
-  // Free Gemini for automatic AI when the student has a key, except on Studyboard Pro AI (paid Pro), where their key is only the backup
+  // Free Gemini for automatic AI when the student has a key, except on Studyboard AI Pro (paid Pro), where their key is only the backup
   const cfg = c.provider !== "studyboard" && !c.backup && raw.autoModel !== "default" && c.keys.gemini ? {provider: "gemini", model: "auto", keys: c.keys, key: c.keys.gemini} : c;
   if (!aiConsented(cfg.provider)) return {on: false, reason: "consent", cfg};
   // (the on-device AI is free, but doesn't run by itself in the background: it would slow the computer down)
@@ -27,7 +27,7 @@ const AUTO = (() => { try { return JSON.parse(localStorage.getItem(AUTO_LS) || "
 const autoSave = () => { try { localStorage.setItem(AUTO_LS, JSON.stringify(AUTO)); } catch(e) {} };
 function autoBudget(paid, sb){
   const d = todayISO(); if (AUTO.day !== d) { AUTO.day = d; AUTO.n = 0; }
-  // Studyboard Pro AI (paid Pro's allowance, or a Claude key in its mode): 24 a day, a backstop the timings below rarely reach
+  // Studyboard AI Pro (paid Pro's allowance, or a Claude key in its mode): 24 a day, a backstop the timings below rarely reach
   return (paid ? 12 : sb ? 24 : 40) - (AUTO.n || 0);
 }
 const leftSig = t => `${Number(t.focusMin) || 0}|${Number(t.pct) || 0}|${(t.checklist || []).filter(i => i.done).length}/${(t.checklist || []).length}|${t.hours ?? ""}`;
@@ -172,7 +172,7 @@ async function autoRun(){
   const today = todayISO(), tomorrow = addDays(today, 1);
   let job = null;
   const sig = planSig(), core = planCoreSig();
-  // On Studyboard Pro AI (or a Claude key in its mode), to make its allowance last without the plan thinking any less:
+  // On Studyboard AI Pro (or a Claude key in its mode), to make its allowance last without the plan thinking any less:
   // a change to the tasks waits 3 minutes so a burst of edits makes one run, a change in progress or the time of day alone
   // waits 45 minutes (ticking focus minutes and checklists barely move the plan), and with nothing changed it refreshes
   // every 4 hours. The app's own ranking updates at once either way; only the AI's reasons and estimates come later.

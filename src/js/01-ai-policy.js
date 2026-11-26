@@ -1,7 +1,7 @@
-/* ===== module: 01-ai-policy.js: the app's core, Studyboard Pro AI's rules ===== */
-/* Studyboard Pro AI's rules: one copy, used in two places.
-   - cloudflare/ai-pro (the Worker that runs Studyboard Pro AI for paid Pro students) imports this file.
-   - The app uses it when a student runs their own Claude key in Studyboard Pro AI mode (Settings, AI Features).
+/* ===== module: 01-ai-policy.js: the app's core, Studyboard AI Pro's rules ===== */
+/* Studyboard AI Pro's rules: one copy, used in two places.
+   - cloudflare/ai-pro (the Worker that runs Studyboard AI Pro for paid Pro students) imports this file.
+   - The app uses it when a student runs their own Claude key in Studyboard AI Pro mode (Settings, AI Features).
    So both pick the same model, the same thinking for each job, the same output caps, the same prices and the same limits.
    Plain script, no imports: it works in the app's bundle and as a module the Worker imports (both read globalThis.SBPOLICY). */
 const SBPOLICY = (() => {
@@ -377,7 +377,7 @@ const SBPOLICY = (() => {
     if (!data && schema && schema.properties && schema.properties.answer && msg.stop_reason !== "max_tokens") { const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim(); if (t && !/^\s*[{[]/.test(t)) data = {answer: t}; }
     if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
     // spent: what this job really used and cost (for the owner's totals), never sent to the student
-    return done({status: 200, body: Object.assign({data, model: "Studyboard Pro AI", truncated: msg.stop_reason === "max_tokens"}, after)});
+    return done({status: 200, body: Object.assign({data, model: "Studyboard AI Pro", truncated: msg.stop_reason === "max_tokens"}, after)});
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,

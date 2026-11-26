@@ -3,7 +3,7 @@
    Elsewhere (Edge, Safari, the desktop app, computers Chrome's model doesn't run on): Google's Gemma, run in the browser by WebLLM
    (vendor/webllm-0.2.89) on the graphics chip, downloaded once only after the student agrees.
    iPhone and iPad app: Apple's on-device model, through the StudyboardOnDeviceAI plugin (ios-wrapper/native/StudyboardOnDeviceAI.swift).
-   Used only when the student has no AI key and no Studyboard Pro AI (aiCfg in 01-ai.js). Nothing leaves the device, so there's no
+   Used only when the student has no AI key and no Studyboard AI Pro (aiCfg in 01-ai.js). Nothing leaves the device, so there's no
    consent to ask for, no key and no cost. These models are small, so the study set pipeline gives them short sections, examples,
    and a checking pass (01-ai.js: aiDevCheckCards, aiDevCheckQuiz). ===== */
 // var, not const: aiCfg can ask about it while the bundle is still loading
@@ -178,11 +178,11 @@ async function devRun({system, parts, schema, maxTokens, temperature, signal, se
   // looked up on Wikipedia (98-truth.js) from a short query the model writes first. What's found goes in as sources.
   if (search || urlContext) {
     const found = await devLookup({system, parts, search, urlContext, signal, onStatus});
-    if (!found) throw aiErr("device-web", `${L} couldn't find anything on the web for that. Studyboard Pro AI or an AI key in Settings, AI Features can search the whole web.`);
+    if (!found) throw aiErr("device-web", `${L} couldn't find anything on the web for that. Studyboard AI Pro or an AI key in Settings, AI Features can search the whole web.`);
     parts = parts.concat({text: found});
     system = String(system || "") + " Use the WEB SOURCES given (and say where a fact comes from); if they don't answer it, say so instead of guessing.";
   }
-  if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard Pro AI or an AI key in Settings, AI Features can.`);
+  if (parts.some(p => p && p.file_data)) throw aiErr("device-files", `${L} can't watch videos. Studyboard AI Pro or an AI key in Settings, AI Features can.`);
   // Photos and PDFs: their words are read on this device first (01-ocr.js), so the model gets text
   parts = await devReadParts(parts, {onStatus, signal, auto});
   const pics = parts.filter(p => p && p.inline_data);
@@ -231,7 +231,7 @@ async function devReadParts(parts, {onStatus, signal, auto}){
       out.push({text: `${DEV_OCR_SAID} (a scanned PDF${r.conf < OCR.hard ? "; parts were hard to read, so a few words may be wrong" : ""}${r.cut ? `; only its first ${r.pages.length} of ${r.total} pages` : ""}):\n\n${r.text}`});
       continue;
     }
-    if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard Pro AI or an AI key in Settings, AI Features can.`);
+    if (!/^image\//.test(mime)) throw aiErr("device-files", `${L} can't read this kind of file. Studyboard AI Pro or an AI key in Settings, AI Features can.`);
     if (onStatus) onStatus("Reading the words in your picture on this device…");
     const r = await SBOCR.readImage(d, {signal, onProgress: x => onStatus && onStatus(`Reading the words in your picture on this device… ${Math.round(x * 100)}%`)});
     if (r.text.length >= 15 && r.conf >= OCR.unreadable) { if (onStatus) onStatus(`Read the words in your picture. ${devLabel()} is writing it up now…`); out.push({text: `${DEV_OCR_SAID}${r.conf < OCR.hard ? " (parts were hard to read, so a few words may be wrong)" : ""}:\n\n${r.text}`}); continue; }
@@ -257,8 +257,8 @@ function devNoneText(){
 function devUnreadable(r, what){
   const L = devLabel(), hand = r.engine === "tesseract" && r.text.length >= 15;
   return aiErr("device-unreadable", r.text.length < 15
-    ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard Pro AI or an AI key in Settings, AI Features.`
-    : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard Pro AI and an AI key.`
+    ? `There are no words in that ${what} that this device can read. ${L} works from text, so diagrams and drawings need Studyboard AI Pro or an AI key in Settings, AI Features.`
+    : hand ? `That ${what} was too hard to read on this computer (handwriting usually is). Try typed notes or a sharper, brighter photo; the Studyboard iPhone app reads handwriting, and so do Studyboard AI Pro and an AI key.`
     : `That ${what} was too hard to read. Try a sharper, brighter photo taken straight on.`);
 }
 /* ---------- Studyboard's own on-device AI: Gemma in the browser (WebLLM) ----------
@@ -676,12 +676,12 @@ async function devLite({sys, parts, json, out, temperature, signal, onStatus, on
    One friendly page, before Set Up Your Semester and before the first Create with AI: the AI that runs on this computer starts
    downloading from that tap, in the background, while the student finishes setting up, so it's ready by the time they need it.
    Whichever this computer gets: Gemma 4 E4B (16 GB or more), else Chrome's (or Edge's) built-in AI, else Gemma 4 E2B. Asked once;
-   not shown when the AI is ready already, with a key or Studyboard Pro AI, or where none can run. */
+   not shown when the AI is ready already, with a key or Studyboard AI Pro, or where none can run. */
 const AI_READY_ASKED = "studyboard:aiReadyAsked";
 function aiReadyWhich(){
   try {
     if (!devAllowed() || (devLs.get(AI_READY_ASKED) && !aiReadyWhich.again) || (window.__SB_TEST && !window.__SB_AI_READY_TEST)) return null;
-    // (not with a key or Studyboard Pro AI: those don't need anything downloaded)
+    // (not with a key or Studyboard AI Pro: those don't need anything downloaded)
     const c = aiCfg(); if (c.provider !== "device" && c.key) return null;
   } catch (e) { return null; }
   if (DEVAI.e4b === "eligible" && devLs.get(E4B_ON) !== "0") return {kind: "e4b", gb: E4B.gb};
@@ -750,7 +750,7 @@ document.addEventListener("click", e => {
   window.__sbReadyLine = false;
   const line = b.closest(".ai-ready-line"); if (line) line.innerHTML = `${AI_ICON}<span>Getting it ready in the background. It's there when you need it.</span>`;
 });
-/* Someone using Studyboard with no AI working yet (no key, no Studyboard Pro AI, nothing on the computer): the first AI button they tap
+/* Someone using Studyboard with no AI working yet (no key, no Studyboard AI Pro, nothing on the computer): the first AI button they tap
    shows Get Your Free AI Ready, and then does what it was tapped for. Once only, like the page itself. Someone whose AI already
    works isn't interrupted (a stronger one is offered in AI Features). */
 const aiWorksNow = () => { try { if (DEVAI.status === "available") return true; if (typeof aiProAvail === "function" && aiProAvail()) return true; const c = aiCfg(); return !!(c.key && c.provider !== "device"); } catch (e) { return true; } };

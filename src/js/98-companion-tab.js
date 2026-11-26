@@ -1426,7 +1426,7 @@ Careful, these are easy to mix up:
     return "";
   }
   const CHAT_MAX = 100000;
-  /* ---------- Claude (Studyboard Pro AI, or a Claude key in Studyboard Pro AI Mode): one step that understands, answers and does ----------
+  /* ---------- Claude (Studyboard AI Pro, or a Claude key in Studyboard AI Pro Mode): one step that understands, answers and does ----------
      The small on-device models need the steps above (exact handlers, a narrow intent step, then checks of its choice against the
      words). Claude doesn't: those steps, made for the small models, were what went wrong for it (a "set it back to to-do" the words
      check turned into chat, "extended by 2 days" counted from today because the intent step never saw due dates, cards made from
@@ -2297,7 +2297,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
   function chatHtml(){
     const ready = aiOk();
     const gate = inPreview() ? `<div class="cpt-gate"><p class="mini" style="margin:0">Chat works in the Studyboard app and on your own Studyboard website. There's nothing to set up in this preview.</p></div>`
-      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> ${typeof aiProUser === "function" && aiProUser() ? "Set up AI to chat: Studyboard Pro AI comes with your Pro plan." : typeof aiOwnPaidOk === "function" && aiOwnPaidOk() ? "Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard Pro AI with Pro." : "Set up AI to chat: a free Google Gemini key, or Studyboard Pro AI with Pro."}</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
+      : !ready ? `<div class="cpt-gate"><p style="margin:0"><b>Chat needs AI.</b> ${typeof aiProUser === "function" && aiProUser() ? "Set up AI to chat: Studyboard AI Pro comes with your Pro plan." : typeof aiOwnPaidOk === "function" && aiOwnPaidOk() ? "Set up AI to chat: a free Google Gemini key, Claude, ChatGPT, or Studyboard AI Pro with Pro." : "Set up AI to chat: a free Google Gemini key, or Studyboard AI Pro with Pro."}</p><button type="button" class="btn primary small" data-act="ai-setup">Set Up AI</button></div>` : "";
     return `${gate}<div class="cpt-log" id="cptLog">${logHtml()}</div><div class="sr" id="cptSay" aria-live="polite"></div>
       <div class="cpt-att" id="cptAtt">${attHtml()}</div>
       <form class="cpt-form" data-cpt-form><button type="button" class="btn cpt-attach" data-act="cpt-attach" aria-label="Add attachment" title="Attach slides, a PDF, a document or photos" ${ready ? "" : "disabled"}>${ATT_IC}</button><textarea id="cptIn" rows="1" maxlength="1000" ${(info() || {}).name ? phPh("Ask " + info().name + " anything, or attach slides or photos…", "Ask " + info().name + " anything…") : phPh("Ask anything, or attach slides or photos…", "Ask anything…")} aria-label="Your question" ${ready ? "" : "disabled"}>${esc(T.draft || "")}</textarea><button type="submit" class="btn primary ai-btn cp-ask-go" id="cptGo" ${ready && !T.busy ? "" : "disabled"}>Ask</button></form>

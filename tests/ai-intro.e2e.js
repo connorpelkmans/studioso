@@ -1,4 +1,4 @@
-// "Introducing Studyboard Pro AI" popup (99-ai-intro.js): who sees it, when, and that nobody ever sees it twice
+// "Introducing Studyboard AI Pro" popup (99-ai-intro.js): who sees it, when, and that nobody ever sees it twice
 const fs = require("fs"), path = require("path"), http = require("http"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const ROOT = path.join(__dirname, "..");
@@ -63,7 +63,7 @@ const pop = page => page.evaluate(() => { const e = document.querySelector("#qod
     // an existing user sees it, with the wording and the small print
     let {ctx, page, errs} = await open(browser, D(1, 1), D(11, 12));
     let t = await pop(page);
-    ok(/Introducing Studyboard Pro AI!/.test(t) && /Now included with Studyboard Pro/.test(t), "existing user sees the popup");
+    ok(/Introducing Studyboard AI Pro!/.test(t) && /Now included with Studyboard Pro/.test(t), "existing user sees the popup");
     ok(/Compared to free Gemini/.test(t) && /2x faster/.test(t) && /never used to train models/.test(t), "it lists the comparison");
     ok(/Only for users with paid Pro\./.test(t), "small print says it is only for paid Pro");
     ok(!errs.length, "no page errors: " + errs.join("; "));
@@ -88,7 +88,7 @@ const pop = page => page.evaluate(() => { const e = document.querySelector("#qod
     ok(!(await pop(page)), "new user: nothing on day 1");
     await ctx.close();
     ({ctx, page} = await open(browser, D(11, 12, 8), D(11, 14, 9)));
-    ok(/Introducing Studyboard Pro AI!/.test(await pop(page)), "new user: shown after 2 days");
+    ok(/Introducing Studyboard AI Pro!/.test(await pop(page)), "new user: shown after 2 days");
     await ctx.close();
 
     // joined after the 2 weeks: never. After the end date: nobody
@@ -101,7 +101,7 @@ const pop = page => page.evaluate(() => { const e = document.querySelector("#qod
 
     // last person in the window still gets theirs
     ({ctx, page} = await open(browser, D(11, 24, 23), D(11, 27, 1)));
-    ok(/Introducing Studyboard Pro AI!/.test(await pop(page)), "joined on the last day: shown after 2 days");
+    ok(/Introducing Studyboard AI Pro!/.test(await pop(page)), "joined on the last day: shown after 2 days");
     await ctx.close();
     console.log("ai-intro e2e ok (" + n + " checks)");
   } finally { await browser.close(); web.close(); }

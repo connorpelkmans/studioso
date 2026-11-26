@@ -4,7 +4,7 @@
    deck, plus one summary note under the course that credits the source (title and link) and links the deck.
    - Reading the link (a browser can't fetch other sites itself): a YouTube video goes to Gemini as a file_data part (file_uri, video/*),
      so it needs a Gemini key; with Claude or ChatGPT the student is told so and offered Paste the Text Instead. A web page is opened by
-     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard Pro AI uses web fetch on its server).
+     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI Pro uses web fetch on its server).
    - Step 1 turns the source into study notes in the AI's own words (never copied sentences; only a few words quoted for an exact term or
      definition). The AI says when it couldn't see the content (unreachable, paywall or login, empty, too long) and nothing is invented.
    - Step 2 is the existing study set maker (aiMakeStudySet) on those notes (and on pasted text, when given), with the student's style,
@@ -97,13 +97,13 @@ const LINKCARDS = (() => {
     const yt = !!v && L.ok && L.kind === "youtube", way = document.getElementById("aiYtWay"), box = document.getElementById("aiYtTrBox");
     if (way) way.hidden = !yt; if (box) box.hidden = !(yt && ytPaste());
     if (yt && ytPaste()) {
-      const who = prov === "studyboard" ? "Studyboard Pro AI" : aiWho("Your AI");
+      const who = prov === "studyboard" ? "Studyboard AI Pro" : aiWho("Your AI");
       h.classList.remove("cl-bad", "cl-warn");
       h.textContent = `YouTube video${L.shorts ? " (a Short)" : ""}. Paste its transcript below and ${who} makes the cards from it. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
       return;
     }
     h.classList.toggle("cl-bad", !!v && !L.ok);
-    // a video through Studyboard Pro AI uses a big share of the week's AI: said up front, in warning colours
+    // a video through Studyboard AI Pro uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
@@ -111,12 +111,12 @@ const LINKCARDS = (() => {
       : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   }
-  // A video through Studyboard Pro AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
+  // A video through Studyboard AI Pro: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
   // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
   const ytWarn = () => {
     const used = Math.max(0, Math.min(100, Number((aiProGet() || {}).usedPct) || 0));
-    return " Heads up: one video can use up to two-thirds of your Studyboard Pro AI for the last 7 days (only its first 90 minutes are read)." +
-      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard Pro AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard Pro AI stops until some of your use is 7 days old.");
+    return " Heads up: one video can use up to two-thirds of your Studyboard AI Pro for the last 7 days (only its first 90 minutes are read)." +
+      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI Pro would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI Pro stops until some of your use is 7 days old.");
   };
   // put copied text in the paste box (after Open the Page): read from the clipboard on the student's tap, tidied
   async function pasteCopied(){
@@ -172,7 +172,7 @@ const LINKCARDS = (() => {
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider;
-    // Studyboard Pro AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard Pro AI makes the notes from it
+    // Studyboard AI Pro: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI Pro makes the notes from it
     // At this month's video limit, a student with their own Gemini key watches it with that instead (below)
     const ownGem = !!(aiCfg().keys || {}).gemini, ytOut = () => { const t = aiProGet() || {}; return typeof t.youtubeLeft === "number" && t.youtubeLeft <= 0; };
     if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(ownGem && ytOut())) {
@@ -276,7 +276,7 @@ const LINKCARDS = (() => {
       if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
       pasted = tr;
     }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard Pro AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI Pro" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;

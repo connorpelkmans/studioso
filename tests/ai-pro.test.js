@@ -1,4 +1,4 @@
-// Unit tests for Studyboard Pro AI (cloudflare/ai-pro/src/pro.js): every limit, and every way around one we could think of
+// Unit tests for Studyboard AI Pro (cloudflare/ai-pro/src/pro.js): every limit, and every way around one we could think of
 const path = require("path"), assert = require("assert"), {pathToFileURL} = require("url");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); };
 const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
@@ -36,11 +36,11 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(P.tierOf({plan: "pro", pro_until: null}, now0), "paid", "Pro with no end date");
   eq(P.tierOf({plan: "lifetime"}, now0), "paid", "lifetime");
   eq(P.tierOf({plan: "pro", pro_until: past}, now0), "none", "lapsed Pro gets nothing");
-  eq(P.tierOf({plan: "free", promo_until: later, promo_lifetime: true}, now0), "none", "Pro from a promo code: no Studyboard Pro AI");
-  eq(P.tierOf({plan: "free", grant_lifetime: true, grant_until: later}, now0), "none", "Pro from a server grant: no Studyboard Pro AI");
-  eq(P.tierOf({plan: "free", trial_until: later}, now0), "none", "the free week: no Studyboard Pro AI");
-  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: false}, now0), "none", "Studyboard Plus (Pro without AI): no Studyboard Pro AI");
-  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: true}, now0), "paid", "paid Pro with ai_included: Studyboard Pro AI");
+  eq(P.tierOf({plan: "free", promo_until: later, promo_lifetime: true}, now0), "none", "Pro from a promo code: no Studyboard AI Pro");
+  eq(P.tierOf({plan: "free", grant_lifetime: true, grant_until: later}, now0), "none", "Pro from a server grant: no Studyboard AI Pro");
+  eq(P.tierOf({plan: "free", trial_until: later}, now0), "none", "the free week: no Studyboard AI Pro");
+  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: false}, now0), "none", "Studyboard Plus (Pro without AI): no Studyboard AI Pro");
+  eq(P.tierOf({plan: "pro", pro_until: later, ai_included: true}, now0), "paid", "paid Pro with ai_included: Studyboard AI Pro");
   eq([P.tierOf(null), P.tierOf(undefined), P.tierOf({plan: "free"}), P.tierOf({plan: "pro", pro_until: "not a date"}, now0)], ["none", "none", "none", "none"], "no row, a free row, or a garbled date: nothing");
 
   /* The server picks the thinking level and the output cap */
@@ -321,7 +321,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   H = harness(); H.deps.embed = async () => ({data: [[NaN]]}); eq((await ecall(H, {texts: ["a"]})).s, 502, "garbled vectors are refused");
   H = harness(); H.deps.embed = null; eq((await ecall(H, {texts: ["a"]})).s, 503, "off without Workers AI");
 
-  /* Web lookups on Studyboard Pro AI */
+  /* Web lookups on Studyboard AI Pro */
   eq(P.costOf({input_tokens: 0, output_tokens: 0, server_tool_use: {web_search_requests: 3}}), 30000, "each web search is charged $0.01");
   const wr = P.buildRequest({system: "Find it.", blocks: [{type: "text", text: "q"}], schema: {type: "object", properties: {}, additionalProperties: false}, task: P.taskOf("ask"), web: {search: true, fetch: true}});
   eq(wr.tools.map(t => [t.name, t.max_uses]), [["web_search", 1], ["web_fetch", 1]], "web tools with the server's own use limits");
@@ -455,7 +455,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   now = Date.UTC(2027, 1, 1, 0, 0, 5);
   x = await ycall(H, {url: "https://youtu.be/dQw4w9WgXcQ"}, yenv); eq(x.s, 200, "a new month brings new videos");
 
-  /* Automatic jobs on Studyboard Pro AI think at least at medium */
+  /* Automatic jobs on Studyboard AI Pro think at least at medium */
   now = Date.UTC(2027, 1, 17, 12);
   eq([P.config(ENV).autoEffort, P.config({...ENV, AUTO_EFFORT: "medium"}).autoEffort, P.config({...ENV, AUTO_EFFORT: "max"}).autoEffort], ["", "medium", ""], "each job's own level by default; AUTO_EFFORT can raise them; unknown values are ignored");
   H = harness();
@@ -468,7 +468,7 @@ const eq = (a, b, m) => { n++; assert.deepStrictEqual(a, b, m); };
   eq(H.calls.map(c => c.output_config.effort), ["low", "low"], "past the soft limit automatic jobs drop back (a yes/no job to no thinking, the plan to low)");
   H = harness(); await call(H, job({task: "plan", auto: true}));
   eq(H.calls[0].output_config.effort, "medium", "the automatic plan thinks at medium either way (its own level)");
-  // Jobs left behind by a page that closed or reloaded don't block new ones (Studyboard Pro AI Mode keeps its meter on the device)
+  // Jobs left behind by a page that closed or reloaded don't block new ones (Studyboard AI Pro Mode keeps its meter on the device)
   { const store = mem(), L = P.limits(ENV);
     const old = new P.Meter(store, () => now, null, {sid: "gone", alive: sid => sid === "gone"});
     for (let i = 0; i < L.inflight; i++) ok((await old.reserve(1000, L)).ok, "a job starts on the old page " + (i + 1));
