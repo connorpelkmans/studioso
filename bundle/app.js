@@ -17840,12 +17840,16 @@ dlg.addEventListener("close", () => {
   if (away && dlg.contains(KEEP.node)) keepPark(); else keepLetGo();
 });
 // A sheet's one-line band title that doesn't fit (a long name on a phone) is made smaller until it does, down to 70%, rather than cut off
+// Fitted at once (before the sheet is first drawn, so a long title never shows full size for a moment), and again a moment
+// later in case the sheet's layout settled differently
 function fitSheetTitle(){
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h) return;
+  const fit = () => {
+    const h = dlg.open && dlg.querySelector(".g2-sheet-head:not(.sh-big) .sh-t h2"); if (!h || !h.clientWidth) return;
+    const key = h.clientWidth + "|" + h.textContent; if (h.dataset.fit === key) return; h.dataset.fit = key;
     h.style.fontSize = ""; const base = parseFloat(getComputedStyle(h).fontSize) || 20;
     for (let f = base; h.scrollWidth > h.clientWidth + 1 && f > base * 0.7; ) { f -= 1; h.style.fontSize = f + "px"; }
-  }));
+  };
+  fit(); requestAnimationFrame(() => requestAnimationFrame(fit));
 }
 function openSheet(html, onSubmit){
   // another sheet opening over one with work in it sets that one aside; one just closed in code (its close event still to come) is let go
@@ -21887,6 +21891,12 @@ const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pa
 function rvFit(root){
   const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
   (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    // A title is fitted again only when its card's size or its text changed: other redraws around it (a pop-up opening,
+    // the page's scrollbar going away) used to reset it and sometimes leave it at full size, so titles jumped behind pop-ups
+    const box = el.parentElement, key = box ? `${box.clientWidth}x${box.clientHeight}|${el.textContent}` : "";
+    if (!box || !box.clientWidth || !box.clientHeight) return;   // not laid out right now: leave it as it is
+    if (el.dataset.fit === key) return;
+    el.dataset.fit = key;
     el.style.fontSize = "";
     if (!el.clientHeight || fits(el)) return;
     const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
@@ -21905,7 +21915,8 @@ function rvFit(root){
   const start = () => { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(holds))) rvFit(); }).observe(document.body, {childList: true, subtree: true}); go(); };
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
   addEventListener("resize", go);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+  // once the fonts arrive, text has new widths in the same boxes: fit everything again
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { document.querySelectorAll(RV_FIT).forEach(el => { delete el.dataset.fit; }); go(); });
 })();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
@@ -74007,20 +74018,30 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // the companion says "On it" once, and one line at the end for how the whole job went, not one per request
   let cpAiBusy = 0, cpAiTalkT = 0, cpJobT = 0, cpJobTalked = false;
   const CP_JOB_GAP = (window.__SB_TEST && window.__SB_CP_GAP) || 1500;
+  // A request that failed isn't a job that failed: most features try again, try another AI or use the app's own reading, and
+  // the result still arrives (it used to say "that didn't work" and then the result popped up). So after a failed request it
+  // waits longer, and stays quiet if anything worked or a result was shown on screen in the meantime.
+  const CP_FAIL_GAP = (window.__SB_TEST && window.__SB_CP_FAIL_GAP) || 6000;
+  const dlgSig = () => { try { return dlg.open ? dlg.innerHTML.length + ":" + ((dlg.firstElementChild || {}).className || "") : "closed"; } catch (e) { return ""; } };
+  let cpOkAt = 0;
   try {
     const origAI = aiCall;
     const settle = ok => {
+      if (ok) cpOkAt = Date.now();
       cpAiBusy = Math.max(0, cpAiBusy - 1);
       if (cpAiBusy) return;
       clearTimeout(cpAiTalkT); clearTimeout(cpJobT);
+      const failAt = Date.now(), sig0 = dlgSig();
       cpJobT = setTimeout(() => {
         if (cpAiBusy) return;
         cpJobTalked = false;
         if (!act || quietNow2() || ok === null) return;
         if (ok && Date.now() - cpJobFail < CP_JOB_GAP + 500) ok = false;
-        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
-        else say(pickFrom("ai:oops", OOPS), {ms: 4000});
-      }, CP_JOB_GAP);
+        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); return; }
+        // it came through after all (a later request worked, or its result is on screen): nothing to apologise for
+        if (cpOkAt > failAt || dlgSig() !== sig0) return;
+        say(pickFrom("ai:oops", OOPS), {ms: 4000});
+      }, ok === false ? CP_FAIL_GAP : CP_JOB_GAP);
     };
     // the AI answered but the job still failed: "didn't work" instead of the "done" line that was waiting
     let cpJobFail = 0;
