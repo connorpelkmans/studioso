@@ -68,7 +68,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       const req = route.request(), body = JSON.parse(req.postData() || "{}"); ctx.claude.push({body, headers: req.headers()});
       const sys = String(body.system || "");
       let content;
-      // Claude answers with structured outputs (JSON text), the way Studyboard AI's rules ask for it
+      // Claude answers with structured outputs (JSON text), the way Studyboard AI Pro's rules ask for it
       if (/count_tokens/.test(req.url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 2000})}); return; }
       if (/write excellent flashcards/.test(sys)) content = [{type: "text", text: JSON.stringify(/Active transport/.test(JSON.stringify(body.messages)) ? PAGE_CARDS : CARDS)}];
       else if ((body.tools || []).some(t => t.type === "web_fetch_20250910")) content = [{type: "server_tool_use", id: "s1", name: "web_fetch", input: {url: "https://www.khanacademy.org/science/biology/membranes/active-transport"}},

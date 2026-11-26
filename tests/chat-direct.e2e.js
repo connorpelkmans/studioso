@@ -403,7 +403,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     const has = await p.evaluate(() => Object.values(window.__sbSync.state.notes).some(n => n && /Dr Okafor/.test(n.text || "")));
     ok(had && !has && /Undone/.test(a), "\"undo that\" removes the note the chat just added: " + a); }
   }
-  // ---- With Claude (a Claude key in Studyboard AI Mode): one step reads the whole planner and lists the changes; the app makes them
+  // ---- With Claude (a Claude key in Studyboard AI Pro Mode): one step reads the whole planner and lists the changes; the app makes them
   {
     const SEEDC = {v: 2, updated: 1, files: [], notes: [{id: "n1", x: 0, y: 0, created: 1, text: "Freud\nId: wants it now\nEgo: reality\nSuperego: conscience"}], events: [], settings: {ai: {provider: "anthropic", model: "studyboard"}},
       courses: [{id: "c1", name: "Anatomy and Physiology", code: "BIOS 230", color: "#3B6FE0"}, {id: "c2", name: "World History", code: "HIST 1010", color: "#DC2626"}],

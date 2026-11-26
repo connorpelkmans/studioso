@@ -129,10 +129,12 @@
 .bd-cols>div:first-child i:first-of-type{margin-top:36px}
 .bd-cols>div:nth-child(2) i{margin-top:36px}
 .bd-cols>div:nth-child(3) i:first-of-type{margin-top:36px}
-.bd-card{position:absolute;top:40px;left:18px;width:calc((100% - 40px) / 3 - 12px);height:30px;display:flex;align-items:center;gap:5px;padding:0 6px;border-radius:8px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 6px 16px rgba(14,42,86,.18);font:700 .66rem var(--display);white-space:nowrap;overflow:hidden;z-index:2}
-.s1 .bd-card{left:calc(12px + (100% - 40px) / 3 + 14px);transform:rotate(-3deg)}
-.s2 .bd-card{left:calc(12px + 2 * (100% - 40px) / 3 + 22px);transform:none;border-color:var(--leaf)}
-.bd-ok{margin-left:auto;font-style:normal;color:var(--leaf);opacity:0;transform:scale(.4)}
+.bd-card{position:absolute;top:40px;left:16px;width:calc((100% - 40px) / 3 - 8px);height:30px;display:flex;align-items:center;gap:4px;padding:0 5px 0 6px;border-radius:8px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));box-shadow:0 6px 16px rgba(14,42,86,.18);font:700 .62rem var(--display);white-space:nowrap;overflow:hidden;z-index:2}
+.s1 .bd-card{left:calc(12px + (100% - 40px) / 3 + 12px);transform:rotate(-3deg)}
+.s2 .bd-card{left:calc(12px + 2 * (100% - 40px) / 3 + 20px);transform:none;border-color:var(--leaf)}
+/* the name gives way (…) before the tick does, so the tick always sits inside the card */
+.bd-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.bd-ok{flex:none;margin-left:auto;font-style:normal;color:var(--leaf);opacity:0;transform:scale(.4)}
 .s2 .bd-ok{opacity:1;transform:none}
 .s3 .bd-card{box-shadow:var(--shadow)}
 

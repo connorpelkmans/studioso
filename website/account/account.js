@@ -31,8 +31,10 @@
 
   // What the link asked for (checked, never trusted)
   var qs = new URLSearchParams(location.search);
-  var PLANS = ["monthly", "semester", "yearly", "plus"];
-  var wantPlan = PLANS.indexOf(qs.get("plan")) >= 0 ? qs.get("plan") : null;
+  var PLANS = ["monthly", "quarterly", "yearly", "plus"];
+  // ?plan=semester (old links: the semester plan became the quarterly plan) starts the quarterly checkout
+  var qPlan = qs.get("plan") === "semester" ? "quarterly" : qs.get("plan");
+  var wantPlan = PLANS.indexOf(qPlan) >= 0 ? qPlan : null;
   var fromApp = qs.get("src") === "app";
   function allowedReturn(candidate) {
     var x = validHttps(candidate); if (!x || x.username || x.password) return null;
@@ -121,7 +123,7 @@
       state.busy = false; setBuyDisabled(false);
     }).catch(function () { msg($("acct-msg"), "Couldn't reach Studyboard. Check your connection and try again.", "error"); state.busy = false; setBuyDisabled(false); });
   }
-  function setBuyDisabled(d) { ["buy-monthly", "buy-semester", "buy-yearly", "buy-plus", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
+  function setBuyDisabled(d) { ["buy-monthly", "buy-quarterly", "buy-yearly", "buy-plus", "btn-manage"].forEach(function (id) { if ($(id)) $(id).disabled = d; }); }
   function openPortal() {
     if (state.busy) return; state.busy = true; setBuyDisabled(true); msg($("acct-msg"), "Opening billing...", "");
     fn(functions.portal || "create-portal-session", { return_url: location.origin + location.pathname }).then(function (r) {
@@ -231,7 +233,7 @@
     $("buy-yearly").addEventListener("click", function () { startCheckout("yearly"); });
     // Studyboard Plus (Pro without Studyboard AI): shown once studyboard_config.plus_plan is true
     if ($("buy-plus")) $("buy-plus").addEventListener("click", function () { startCheckout("plus"); });
-    if ($("buy-semester")) $("buy-semester").addEventListener("click", function () { startCheckout("semester"); });
+    if ($("buy-quarterly")) $("buy-quarterly").addEventListener("click", function () { startCheckout("quarterly"); });
     $("btn-manage").addEventListener("click", openPortal);
 
     // Sign in with Apple, Google or Microsoft in every browser, like the app: the provider's page, then back here signed in

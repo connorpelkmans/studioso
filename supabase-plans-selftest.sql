@@ -295,6 +295,33 @@ begin
   perform public.sbt_ok((select data_bytes = (select coalesce(sum(octet_length(data::text)) filter (where kind <> 'backup'), 0) from public.items where user_id = ua)
                                 and backup_bytes = (select coalesce(sum(octet_length(data::text)) filter (where kind = 'backup'), 0) from public.items where user_id = ua)
                          from public.studyboard_usage where user_id = ua), 'the usage totals match the real data after kind changes');
+  -- The reserve: the last dataReserveMB is kept for the planner (pictures inside items and Recently Deleted stop first)
+  update public.studyboard_config set value = jsonb_set(jsonb_set(value, '{free,dataMB}', '2'), '{free,dataReserveMB}', '1') where key = 'limits';
+  delete from public.items where user_id = ua and id <> 't1';   -- t1 (about 0.6 MB of text) stays
+  execute 'set local role authenticated';
+  r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''note'', ''rn1'', jsonb_build_object(''text'', ''hi'', ''pic'', ''data:image/png;base64,'' || repeat(''QUJD'', 75000)))', ua));
+  perform public.sbt_ok(r = 'ok:1', 'a picture inside a note syncs while the account is outside the reserve (got ' || r || ')');
+  r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''note'', ''rn2'', jsonb_build_object(''text'', ''hi'', ''pic'', ''data:image/png;base64,'' || repeat(''QUJD'', 75000)))', ua));
+  perform public.sbt_blocked(r, 'a picture inside a note went into the reserve kept for the planner');
+  r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''trash'', ''rt1'', jsonb_build_object(''x'', repeat(''a'', 300000)))', ua));
+  perform public.sbt_blocked(r, 'Recently Deleted went into the reserve kept for the planner');
+  r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''task'', ''rt2'', jsonb_build_object(''title'', repeat(''a'', 300000)))', ua));
+  perform public.sbt_ok(r = 'ok:1', 'a task can use the reserve (got ' || r || ')');
+  r := public.sbt_try(format('update public.items set data = data || jsonb_build_object(''text'', repeat(''b'', 5000)) where user_id = %L and id = ''rn1''', ua));
+  perform public.sbt_ok(r = 'ok:1', 'typing in a note that already has a picture still syncs inside the reserve (got ' || r || ')');
+  r := public.sbt_try(format('update public.items set data = data || jsonb_build_object(''pic2'', ''data:image/jpeg;base64,'' || repeat(''QUJD'', 1000)) where user_id = %L and id = ''rn1''', ua));
+  perform public.sbt_blocked(r, 'a note added a picture inside the reserve');
+  r := public.sbt_try(format('update public.items set data = data - ''pic'' where user_id = %L and id = ''rn1''', ua));
+  perform public.sbt_ok(r = 'ok:1', 'taking a picture out of a note is always fine (got ' || r || ')');
+  r := public.sbt_try(format('insert into public.items (user_id, kind, id, data) values (%L, ''task'', ''rt3'', jsonb_build_object(''title'', repeat(''a'', 1200000)))', ua));
+  perform public.sbt_blocked(r, 'a task went over the synced data limit through the reserve');
+  execute 'reset role';
+  perform public.sbt_ok(public.plans_media_bytes('{"a": "data:image/png;base64,QUJD", "b": "plain data: text"}') = octet_length('data:image/png;base64,QUJD'),
+                        'pictures inside an item are measured exactly');
+  perform public.sbt_ok((select data_bytes = (select coalesce(sum(octet_length(data::text)) filter (where kind <> 'backup'), 0) from public.items where user_id = ua)
+                         from public.studyboard_usage where user_id = ua), 'the usage totals match the real data after the reserve tests');
+  delete from public.items where user_id = ua and id <> 't1';
+  update public.studyboard_config set value = jsonb_set(value #- '{free,dataReserveMB}', '{free,dataMB}', '1') where key = 'limits';
   perform set_config('request.jwt.claims', '', true);
   insert into storage.objects (bucket_id, name, metadata) values ('studioso-files', ua || '/one.bin', '{"size": 600000}');
   begin
@@ -895,8 +922,8 @@ begin
     perform public.sbt_ok((select bool_and(p.owner_id = f1 and p.kind = 'month' and p.max_uses = 1) from public.studyboard_early_codes c join public.studyboard_promo_codes p on p.id = c.code_id where c.user_id = f1),
                           'friend codes are single-use one-month codes owned by their supporter');
     -- An Early Supporter who moves to yearly becomes a Founder while a Founder place is left
-    execute format(pay, 'sbt-early-m1y', m1, 'cus_sbt_m1', 'true', 'semester');
-    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'an Early Supporter on a semester plan didn''t become a Founder');
+    execute format(pay, 'sbt-early-m1y', m1, 'cus_sbt_m1', 'true', 'quarterly');
+    perform public.sbt_ok(public.plans_early_kind(m1) = 'founder', 'an Early Supporter on a quarterly plan didn''t become a Founder');
     execute format(pay, 'sbt-early-f2', f2, 'cus_sbt_f2', 'true', 'yearly');
     perform public.sbt_ok(public.plans_early_kind(f2) = 'early', 'a 3rd yearly payment became a Founder past the limit of 2');
     execute format(pay, 'sbt-early-x1', x1, 'cus_sbt_x1', 'true', 'monthly');

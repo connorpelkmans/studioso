@@ -9,7 +9,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", plusMonthly: "$2.99", currency: "USD", trialDays: 14}}, at: Date.now()};
+const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices: {monthly: "$4.99", quarterly: "$11.99", yearly: "$39.99", plusMonthly: "$2.99", currency: "USD", trialDays: 14}}, at: Date.now()};
 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
@@ -215,8 +215,8 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.evaluate(() => window.__sbPlanObj().openSheet(""));
     await page.waitForSelector(".plan-sheet .plan-plus", {timeout: 5000});
     const plusTxt = await page.textContent(".plan-sheet .plan-plus");
-    ok(/\$2\.99/.test(plusTxt) && /Studyboard AI/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard AI");
-    ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard AI isn't in Plus");
+    ok(/\$2\.99/.test(plusTxt) && /Studyboard AI Pro/.test(plusTxt), "the Pro sheet offers Studyboard Plus at $2.99 without Studyboard AI Pro");
+    ok(/Not in Plus/.test(await page.textContent(".plan-compare")), "the comparison says Studyboard AI Pro isn't in Plus");
 
     // A balance that changed on the server (a refund taking credits back) shows when the shop opens, not the remembered one
     const stale = await page.evaluate(async () => {
