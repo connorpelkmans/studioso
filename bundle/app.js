@@ -71003,6 +71003,296 @@ var COMP_EXTRA = [];
   }
   COMP_EXTRA.push(MAKE_CAT(COMP_KIT, "extra-cosmo"));
 })();
+/* ===== module: 98-comp-acc.js ===== */
+/* Companion wardrobe: 60 more things to wear, 20 each for the head, the face and the neck, 5 of each rarity.
+   Common: plain, everyday shapes in one colour. Rare: a second colour, a detail or two. Exotic: unusual materials and shapes.
+   Legendary: gold, gems and light, with twinkles.
+   Each one fits the companion the way the Tiny Hat, Round Glasses and Cozy Scarf do:
+   - head: drawn around (0,0) at anchors.top in the hat's space (its band sits at y 0 to 4, about 34 wide)
+   - face: art(g) from the eyes, g = {lx, rx, y, R, mx, gap}: R is the lens radius, kept apart on narrow faces
+   - neck: art(hw) for a body hw wide (half) at anchors.neck, like the scarf
+   Read by 98-companion.js (COMP_ACC_MORE(kit)), which has the drawing helpers. */
+var COMP_ACC_MORE = K => {
+  const {OUT, WEAR, INK} = K, f = n => Math.round(n * 100) / 100;
+  const W = def => `style="fill:var(--cp-wear,${def || "#5B7FD6"})"`, WS = def => `style="stroke:var(--cp-wear,${def || "#5B7FD6"})"`;
+  // the wear colour as a fill: the same text as WEAR, so a Pro pattern can replace it
+  const WF = WEAR;
+  const GOLD = "#F5C542", GOLD_D = "#E0A82E";
+  // a twinkle (legendary): a four-pointed star that glints
+  const tw = (x, y, r, d) => `<path class="cp-tw" style="animation-delay:${d || 0}s" d="M${f(x)} ${f(y - r)}Q${f(x + r * .16)} ${f(y - r * .16)} ${f(x + r)} ${f(y)}Q${f(x + r * .16)} ${f(y + r * .16)} ${f(x)} ${f(y + r)}Q${f(x - r * .16)} ${f(y + r * .16)} ${f(x - r)} ${f(y)}Q${f(x - r * .16)} ${f(y - r * .16)} ${f(x)} ${f(y - r)}Z" fill="#FFF7CC" stroke="#E8A317" stroke-width=".8" stroke-linejoin="round"/>`;
+  const star = (x, y, r, fill, sw) => { let p = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? r * .45 : r; p += (i ? "L" : "M") + f(x + q * Math.cos(a)) + " " + f(y + q * Math.sin(a)); } return `<path d="${p}Z" fill="${fill}"${sw ? ` ${OUT(sw)}` : ""}/>`; };
+  // a line drawn twice: an ink outline, then the colour on top (frames, straps, cords)
+  const line2 = (d, w, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${f(w + 2)}" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" ${col.indexOf("style=") === 0 ? col : `stroke="${col}"`} stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // the neck's front curve: y at x for a parabola from (-hw, y0) dipping by dip in the middle
+  const ny = (hw, y0, dip, x) => f(y0 + dip * (1 - (x / hw) * (x / hw)));
+  const along = (hw, y0, dip, n, span) => { const s = span || .9, out = []; for (let i = 0; i < n; i++) { const x = n === 1 ? 0 : -hw * s + (2 * hw * s) * i / (n - 1); out.push([f(x), ny(hw, y0, dip, x)]); } return out; };
+  const band = (hw, y0, dip, y1, dip1, fill, sw) => `<path d="M${f(-hw)} ${y0}Q0 ${f(y0 + dip * 2)} ${f(hw)} ${y0}Q${f(hw + 2.6)} ${f((y0 + y1) / 2)} ${f(hw)} ${y1}Q0 ${f(y1 + dip1 * 2)} ${f(-hw)} ${y1}Q${f(-hw - 2.6)} ${f((y0 + y1) / 2)} ${f(-hw)} ${y0}Z" ${fill} ${OUT(sw || 2.2)}/>`;
+  const arcP = (hw, y0, dip, sp) => { const a = hw * (sp || 1), ye = ny(hw, y0, dip, a); return `M${f(-a)} ${ye}Q0 ${f(2 * (y0 + dip) - ye)} ${f(a)} ${ye}`; };
+  const flower = (x, y, r, fill, mid) => { let p = ""; for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; p += `<circle cx="${f(x + r * .52 * Math.cos(a))}" cy="${f(y + r * .52 * Math.sin(a))}" r="${f(r * .5)}" ${fill} ${OUT(1.2)}/>`; } return p + `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * .34)}" fill="${mid || "#FFD35A"}" ${OUT(1)}/>`; };
+  const feather = (len, wd, fill, sw) => `<path d="M0 0Q${f(-wd)} ${f(-len * .5)} 0 ${f(-len)}Q${f(wd)} ${f(-len * .5)} 0 0Z" ${fill}${sw ? ` ${OUT(sw)}` : ""}/>`;
+  // a lens shape for each eye, in the eye's own space (x to the outside of the face is +): drawn mirrored on the left
+  const pair = (g, fn) => `<g transform="translate(${g.lx} ${g.y}) scale(-1 1)">${fn(g.R)}</g><g transform="translate(${g.rx} ${g.y})">${fn(g.R)}</g>`;
+  const bridge = (g, lift, w, col) => line2(`M${f(g.lx + g.R * .92)} ${f(g.y - g.R * .25)}Q${g.mx} ${f(g.y - g.R * .25 - lift)} ${f(g.rx - g.R * .92)} ${f(g.y - g.R * .25)}`, w || 1.8, col || INK);
+  const temples = (g, w, col) => line2(`M${f(g.lx - g.R * 1.02)} ${f(g.y - g.R * .3)}l-3 -.6M${f(g.rx + g.R * 1.02)} ${f(g.y - g.R * .3)}l3 -.6`, w || 1.6, col || INK);
+  const shine = (R, k) => `<path d="M${f(-R * .55 * (k || 1))} ${f(-R * .45)}q${f(R * .3)} ${f(-R * .3)} ${f(R * .7)} ${f(-R * .35)}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.5" stroke-linecap="round"/>`;
+  const rr = (x, y, w, h, r) => `M${f(x + r)} ${f(y)}H${f(x + w - r)}Q${f(x + w)} ${f(y)} ${f(x + w)} ${f(y + r)}V${f(y + h - r)}Q${f(x + w)} ${f(y + h)} ${f(x + w - r)} ${f(y + h)}H${f(x + r)}Q${f(x)} ${f(y + h)} ${f(x)} ${f(y + h - r)}V${f(y + r)}Q${f(x)} ${f(y)} ${f(x + r)} ${f(y)}Z`;
+
+  /* ---------------- Head ---------------- */
+  const HEAD = [
+    // Common
+    {id: "ballcap", name: "Baseball Cap", rarity: "common", pat: true, art: () =>
+      `<path d="M-15 2C-15.5 -13 -8 -18 0 -18S15.5 -13 15 2Z" ${WF} ${OUT(2.4)}/><path d="M0 -17.5V1M-7.5 -15.5Q-9.5 -8 -9.5 1.5M7.5 -15.5Q9.5 -8 9.5 1.5" fill="none" stroke="${INK}" stroke-opacity=".22" stroke-width="1.3" stroke-linecap="round"/><path d="M-10 -11Q-12 -6 -12 -1" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/>
+      <path d="M-15 0Q2 5 15 -.5Q22 0 25.5 3.5Q22 8 11 7.5Q-2 7 -15 4.5Z" ${WF} ${OUT(2.4)}/><path d="M-13 3.6Q2 7.2 14 2.6Q20 2.8 23 4.2Q20 7 11 6.6Q-2 6.2 -13 3.6Z" fill="${INK}" opacity=".14"/><circle cx="0" cy="-18.6" r="2.4" ${WF} ${OUT(1.8)}/>`},
+    {id: "buckethat", name: "Bucket Hat", rarity: "common", pat: true, art: () =>
+      `<path d="M-11.5 -1L-9.8 -15Q0 -19.5 9.8 -15L11.5 -1Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -14Q-8 -8 -8 -2" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2" stroke-linecap="round"/><path d="M-11 -5Q0 -2.5 11 -5" fill="none" stroke="${INK}" stroke-opacity=".2" stroke-width="3"/>
+      <path d="M-12 -2.5Q0 .5 12 -2.5L20.5 4.5Q0 11 -20.5 4.5Z" ${WF} ${OUT(2.4)}/><path d="M-16.5 4.4Q0 9.2 16.5 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-dasharray="1.6 2.2" stroke-linecap="round"/>`},
+    {id: "partyhat", name: "Party Hat", rarity: "common", icon: [12, .85], art: () =>
+      `<path d="M-12.5 3L0 -26L12.5 3Q0 7 -12.5 3Z" ${WF} ${OUT(2.4)}/><path d="M-8.2 -7Q0 -4 8.4 -7M-4.6 -15.5Q0 -14 4.7 -15.5" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="2.2" stroke-linecap="round"/><circle cx="-5" cy="-1" r="1.5" fill="#FFD35A"/><circle cx="5.5" cy="-.5" r="1.5" fill="#fff"/><circle cx="0" cy="-10.5" r="1.4" fill="#FFD35A"/><circle cx="1" cy="-19.5" r="1.2" fill="#fff"/>
+      <path d="M-4 -27.5l-2.4 -2.6M4 -27.5l2.4 -2.6M0 -29.5v-3" stroke="#FF7A9C" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-27" r="3.6" fill="#FFD35A" ${OUT(2)}/>`},
+    {id: "beret", name: "Beret", rarity: "common", pat: true, art: () =>
+      `<path d="M-17 -.5Q-21 -11 -5 -15Q13 -18 19.5 -7.5Q22 -1.5 13.5 .5Q0 2.5 -17 -.5Z" ${WF} ${OUT(2.4)}/><path d="M-11 -11Q-2 -14 8 -13" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-14.5 -1Q0 2.2 13.5 0L13.5 3.6Q0 6 -14.5 2.8Z" ${WF} ${OUT(2)}/><path d="M-14.5 -1Q0 2.2 13.5 0L13.5 3.6Q0 6 -14.5 2.8Z" fill="${INK}" opacity=".18"/><path d="M1.5 -15.6q.4 -3.4 3.2 -4.6" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`},
+    {id: "paperhat", name: "Paper Boat Hat", rarity: "common", def: "#F4EFE3", art: () =>
+      `<path d="M-16 -1L0 -22L16 -1Z" ${WF} ${OUT(2.2)}/><path d="M-7.5 -7h5.5M-5.5 -11h8M-2.5 -15h4M1.5 -7h6" stroke="#8C87A8" stroke-width="1.2" stroke-linecap="round"/><path d="M0 -22L-3.5 -1" stroke="${INK}" stroke-opacity=".18" stroke-width="1.4"/>
+      <path d="M-18 -3H18L17 4.5H-17Z" ${WF} ${OUT(2.2)}/><path d="M-18 -3H18L17 4.5H-17Z" fill="${INK}" opacity=".08"/><path d="M-13 .6h6M-4 .6h9M9 .6h4" stroke="#8C87A8" stroke-width="1.1" stroke-linecap="round"/>`},
+    // Rare
+    {id: "tophat", name: "Top Hat", rarity: "rare", def: "#E5484D", icon: [12, .85], art: () =>
+      `<path d="M-11 -1V-26Q0 -28.5 11 -26V-1Z" fill="#3A3450" ${OUT(2.4)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" fill="#4A4366" ${OUT(2)}/><path d="M-7 -22.5V-12" stroke="#fff" stroke-opacity=".22" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-11 -9.5Q0 -7.5 11 -9.5V-3Q0 -1 -11 -3Z" ${WF} ${OUT(2)}/><path d="M6 -8.6v5.2" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" fill="#3A3450" ${OUT(2.4)}/>`},
+    {id: "cowboy", name: "Cowboy Hat", rarity: "rare", def: "#B07A45", art: () =>
+      `<path d="M-10 -1Q-11.5 -15 -7 -19.5Q-3.4 -16.2 0 -18Q3.4 -16.2 7 -19.5Q11.5 -15 10 -1Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -16Q-8.4 -10 -8 -4" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M-10.6 -6Q0 -4 10.6 -6V-2Q0 0 -10.6 -2Z" fill="#5A3B22" ${OUT(1.6)}/>${star(0, -3.6, 2.4, "#F2C14E", 1)}
+      <path d="M-23 -7.5Q-20 1.5 0 1.8Q20 1.5 23 -7.5Q25 4.5 0 6.4Q-25 4.5 -23 -7.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 -2.4Q-16 3.6 0 4Q16 3.6 21 -2.4Q18 5.4 0 5.8Q-18 5.4 -21 -2.4Z" fill="${INK}" opacity=".14"/>`},
+    {id: "chefhat", name: "Chef's Hat", rarity: "rare", def: "#FFFFFF", icon: [12, .9], art: () =>
+      `<path d="M-10.5 0V-8.5Q-17.5 -10 -15.5 -16.5Q-13 -22.5 -6.5 -20.5Q-3 -27.5 4 -25.8Q10.5 -24.5 10.4 -19.4Q17.5 -18.5 16.2 -12Q15 -7.5 10.5 -8.5V0Z" ${WF} ${OUT(2.4)}/><path d="M-4.5 -9V-1M1 -10V-1M6 -9V-1" stroke="#C9C3D6" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 -15.5Q-9 -19 -5 -18M1 -23Q5 -23.6 7 -21" fill="none" stroke="#E4DEEE" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M-11.5 -2.6H11.5V4H-11.5Z" ${WF} ${OUT(2.2)}/><path d="M-11.5 -2.6H11.5V4H-11.5Z" fill="#B9B2C4" opacity=".25"/>`},
+    {id: "propeller", name: "Propeller Beanie", rarity: "rare", def: "#5A95FF", icon: [12, .9], art: () =>
+      `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/>
+      <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" fill="#4CB782" ${OUT(2)}/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+      <g class="cp-spin"><ellipse cx="-6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#E5484D" ${OUT(1.6)}/><ellipse cx="6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#FFD35A" ${OUT(1.6)}/></g><circle cx="0" cy="-23.4" r="1.9" fill="#fff" ${OUT(1.3)}/>`},
+    {id: "tricorn", name: "Pirate Hat", rarity: "rare", def: "#3A3450", art: () =>
+      `<path d="M-20 -6.5Q-12 2.2 0 1.2Q12 2.2 20 -6.5Q16.5 -14.5 8.5 -12.5Q4.5 -20.5 0 -20.5Q-4.5 -20.5 -8.5 -12.5Q-16.5 -14.5 -20 -6.5Z" ${WF} ${OUT(2.4)}/><path d="M-18 -5.6Q-11 .4 0 -.6Q11 .4 18 -5.6" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/>
+      <path d="M-4.2 -5.6L4.2 -1.4M4.2 -5.6L-4.2 -1.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-9.5" r="3.4" fill="#fff"/><path d="M-1.8 -7.6h3.6v1.6h-3.6Z" fill="#fff"/><circle cx="-1.2" cy="-9.6" r=".9" fill="${INK}"/><circle cx="1.2" cy="-9.6" r=".9" fill="${INK}"/>`},
+    // Exotic
+    {id: "wizard", name: "Wizard Hat", rarity: "exotic", def: "#5B4BC4", icon: [14, .72], art: () =>
+      `<path d="M-12 0Q-8 -14 -3 -26Q1 -35 10 -36.5Q4.5 -31 4.4 -24Q7 -12 12 0Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -10Q-4 -19 -.5 -25" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
+      ${star(-2.5, -12, 2.6, "#FFD35A", 1)}${star(3.5, -20.5, 1.9, "#FFD35A", .9)}<path d="M-1.4 -27.5a3 3 0 1 0 3.2 -3.6a2.3 2.3 0 1 1 -3.2 3.6Z" fill="#FFF3B0" ${OUT(.9)}/>${star(10, -36.5, 2.2, "#FFD35A", 1)}
+      <path d="M-22 2.5Q0 -4.5 22 2.5Q0 9 -22 2.5Z" ${WF} ${OUT(2.4)}/><path d="M-12 -.6Q0 2.5 12 -.6L11.3 -4.6Q0 -1.8 -11.3 -4.6Z" fill="#F2C14E" ${OUT(1.6)}/>`},
+    {id: "viking", name: "Viking Helmet", rarity: "exotic", def: "#8B6A4F", art: () =>
+      `<path d="M-12 -6Q-22.5 -8 -24.5 -23Q-18.5 -15 -10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M12 -6Q22.5 -8 24.5 -23Q18.5 -15 10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M-17 -9.6l-1.4 2.6M-20.6 -13.6l-2 2M17 -9.6l1.4 2.6M20.6 -13.6l2 2" stroke="#C9B48E" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" fill="#B9C0CC" ${OUT(2.4)}/><path d="M0 -17V0" stroke="#8E96A6" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
+    {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
+      `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
+      <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
+    {id: "plume", name: "Plumed Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
+      `<path d="M3 -11Q10 -31 28 -27Q21 -25 19 -18.5Q15 -11.5 6.5 -7.5Z" fill="#FF7A9C" ${OUT(2)}/><path d="M7 -10.5Q13 -22 24 -25.5M11 -18l-2.6 -1.4M14.5 -21.5l-2 -2M17 -16.5l-2.2 -.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M-11 -1Q-12.5 -13.5 0 -14.5Q12.5 -13.5 11 -1Z" ${WF} ${OUT(2.4)}/><path d="M-22.5 -3.5Q-12 3 0 2Q12 3 22.5 -3.5Q24.5 4.5 0 6.4Q-24.5 4.5 -22.5 -3.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 .4Q-12 4.4 0 4.4Q12 4.4 21 .4Q18 5.4 0 5.8Q-18 5.4 -21 .4Z" fill="${INK}" opacity=".15"/>
+      <path d="M-11.2 -5.4Q0 -3.4 11.2 -5.4V-1.8Q0 .2 -11.2 -1.8Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-3.5" r="2.1" fill="#2FB5C9" ${OUT(1.2)}/>`},
+    {id: "flowercrown", name: "Flower Crown", rarity: "exotic", def: "#FF7A9C", art: () => {
+      const pts = [[-16, -.5], [-9.5, -5], [0, -6.8], [9.5, -5], [16, -.5]];
+      return `<path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
+        ${[[-13, -4.4, -30], [-4.5, -8, -10], [4.5, -8, 10], [13, -4.4, 30]].map(([x, y, a]) => `<ellipse cx="${x}" cy="${y}" rx="3.4" ry="1.8" transform="rotate(${a} ${x} ${y})" fill="#7ED19B" ${OUT(1.2)}/>`).join("")}
+        ${pts.map(([x, y], i) => flower(x, y, i === 2 ? 5.6 : 4.6, i % 2 ? `fill="#FFF8F0"` : WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}`; }},
+    // Legendary
+    {id: "phoenix", name: "Phoenix Crest", rarity: "legendary", def: "#FF5A2B", icon: [13, .78], art: () => {
+      const fan = [[-42, 19], [-21, 25], [0, 30], [21, 25], [42, 19]];
+      return `<g transform="translate(0 -2)">${fan.map(([a, l]) => `<g transform="rotate(${a})">${feather(l, 7, WF, 2)}</g>`).join("")}${fan.map(([a, l]) => `<g transform="rotate(${a})">${feather(l * .62, 3.6, `fill="#FFD35A"`)}</g>`).join("")}${fan.map(([a, l]) => `<g transform="rotate(${a})"><path d="M0 -2V${f(-l * .8)}" stroke="#fff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/></g>`).join("")}</g>
+        <path d="M-15.5 -2Q0 2 15.5 -2V3.6Q0 7.6 -15.5 3.6Z" fill="${GOLD}" ${OUT(2.2)}/><path d="M-13 -.6Q0 2.8 13 -.6" fill="none" stroke="#FFF3B0" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M0 -3.4L3.2 1.4L0 6.2L-3.2 1.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M-1 -.4L0 -1.8" stroke="#fff" stroke-width="1" stroke-linecap="round"/><circle cx="-9" cy="1.4" r="1.5" fill="#FF9A3C" ${OUT(1)}/><circle cx="9" cy="1.4" r="1.5" fill="#FF9A3C" ${OUT(1)}/>
+        ${tw(-19, -20, 3.2, 0)}${tw(20, -25, 3.6, .8)}${tw(-4, -36, 2.6, 1.6)}`; }},
+    {id: "halo", name: "Celestial Halo", rarity: "legendary", def: "#FFD35A", art: () =>
+      `<ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" stroke="#FFE58A" stroke-opacity=".45" stroke-width="9"/><ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" stroke="${INK}" stroke-width="6.2"/><ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" ${WS("#FFD35A")} stroke-width="3.8"/>
+      <path d="M-11 -18.6Q-4 -20.6 4 -20.2" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>${star(-17.5, -22, 2.2, "#FFF3B0", .9)}${star(15, -7.5, 1.8, "#FFF3B0", .8)}
+      ${tw(18, -24, 3.4, 0)}${tw(-20, -10, 2.6, 1)}${tw(3, -27, 2.4, 1.7)}`},
+    {id: "imperial", name: "Imperial Crown", rarity: "legendary", def: "#C0283C", icon: [12, .85], art: () =>
+      `<path d="M-13 -2Q-15.5 -20 0 -22.5Q15.5 -20 13 -2Z" ${WF} ${OUT(2.4)}/><path d="M-8 -16Q-9.6 -10 -9.4 -5" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2.2" stroke-linecap="round"/>
+      ${line2("M-13 -2Q-13.5 -20.5 0 -22.5Q13.5 -20.5 13 -2M0 -22.5V-2", 2.8, GOLD)}${[[-11.6, -11], [-8, -17.6], [8, -17.6], [11.6, -11], [0, -12]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3" fill="#FFF8F0" ${OUT(.8)}/>`).join("")}
+      <circle cx="0" cy="-25.4" r="3.3" fill="${GOLD}" ${OUT(1.8)}/>${line2("M0 -28.6V-34.2M-2.6 -31.6H2.6", 1.5, GOLD)}
+      <path d="M-16.5 -4.6Q0 -1.4 16.5 -4.6V3.4Q0 6.6 -16.5 3.4Z" fill="${GOLD}" ${OUT(2.2)}/><path d="M-14 -2.6Q0 .4 14 -2.6" fill="none" stroke="#FFF3B0" stroke-width="1.2" stroke-linecap="round"/>
+      <circle cx="-9.5" cy=".6" r="2" fill="#2FB5C9" ${OUT(1.1)}/><path d="M0 -2.6L2.8 1.2L0 5L-2.8 1.2Z" fill="#E5484D" ${OUT(1.2)}/><circle cx="9.5" cy=".6" r="2" fill="#4CB782" ${OUT(1.1)}/>
+      ${tw(-18.5, -15, 3.2, 0)}${tw(19, -21, 3.4, .9)}${tw(8, -33, 2.4, 1.7)}`},
+    {id: "dragonhorns", name: "Dragon Horns", rarity: "legendary", def: "#7A2B3A", icon: [12, .8], art: () => {
+      const horn = s => `<g transform="scale(${s} 1)"><path d="M-13 -2Q-14 -14 -20 -21Q-25 -27 -25 -36Q-18.5 -31 -14.5 -25.5Q-8 -17 -5 -5Z" ${WF} ${OUT(2.2)}/><path d="M-12.6 -9.6l3.2 -.6M-14 -15.6l3.2 -1.2M-17.6 -21.2l3 -1.6M-21 -27.6l2.6 -1.8" stroke="#fff" stroke-opacity=".38" stroke-width="1.4" stroke-linecap="round"/></g>`;
+      return `${horn(1)}${horn(-1)}<path d="M-15.5 -2.4Q0 1.6 15.5 -2.4V3.4Q0 7.4 -15.5 3.4Z" fill="${GOLD}" ${OUT(2.2)}/>${[-11, -6, 6, 11].map(x => `<path d="M${x - 1.6} ${f(-1.4 + (x * x) * -.004)}L${x} ${f(-4.8 + (x * x) * -.004)}L${x + 1.6} ${f(-1.4 + (x * x) * -.004)}Z" fill="${GOLD_D}" ${OUT(1)}/>`).join("")}
+        <circle cx="0" cy="1.6" r="5.6" fill="#8CFFC8" opacity=".45"/><path d="M-4.4 1.6Q0 -3.4 4.4 1.6Q0 6.6 -4.4 1.6Z" fill="#3FE09A" ${OUT(1.3)}/><path d="M0 -.8Q-.9 1.6 0 4Q.9 1.6 0 -.8Z" fill="${INK}"/>
+        ${tw(-14, -34, 3, 0)}${tw(23, -18, 3.4, .9)}${tw(0, -12, 2.4, 1.7)}`; }},
+    {id: "unicorn", name: "Unicorn Horn", rarity: "legendary", def: "#FFD8EE", icon: [12, .85], art: () =>
+      `<path d="M-4 -2Q-11 -8 -16.5 -3.5" fill="none" stroke="#FF7A9C" stroke-width="3" stroke-linecap="round"/><path d="M-4 -.4Q-11.4 -4.6 -15 1" fill="none" stroke="#FFD35A" stroke-width="3" stroke-linecap="round"/><path d="M4 -2Q11 -8 16.5 -3.5" fill="none" stroke="#5A95FF" stroke-width="3" stroke-linecap="round"/><path d="M4 -.4Q11.4 -4.6 15 1" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
+      <path d="M-5.4 -1.5L0 -33L5.4 -1.5Q0 1 -5.4 -1.5Z" ${WF} ${OUT(2.2)}/><path d="M-4.4 -6.6L4.4 -9.6M-3.5 -12.4L3.5 -15.4M-2.6 -18.2L2.6 -21M-1.6 -24L1.6 -26.4" stroke="#F2B63A" stroke-width="1.8" stroke-linecap="round"/><path d="M-1.8 -8L-.6 -26" stroke="#fff" stroke-opacity=".7" stroke-width="1.1" stroke-linecap="round"/>
+      ${flower(-7.5, 0, 4.4, `fill="#FFB3D1"`, "#FFE07A")}${flower(7.5, 0, 4.4, `fill="#BFD8FF"`, "#FFE07A")}${tw(-11, -22, 3.2, 0)}${tw(11, -29, 3.4, .9)}${tw(13.5, -12, 2.4, 1.7)}`}
+  ];
+
+  /* ---------------- Face ---------------- */
+  const FACE = [
+    // Common
+    {id: "squareglasses", name: "Square Glasses", rarity: "common", def: "#2B2233", art: g => {
+      const hw = Math.min(g.R * 1.05, g.gap / 2 - .7), hh = g.R * .82, r = g.R * .32;
+      const lens = `${rr(-hw, -hh, hw * 2, hh * 2, r)}`;
+      return `${bridge(g, 2.4, 1.8, WS("#2B2233"))}${temples(g, 1.6, WS("#2B2233"))}${[g.lx, g.rx].map(x => `<path transform="translate(${x} ${g.y})" d="${lens}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4"/><path transform="translate(${x} ${g.y})" d="${lens}" fill="none" ${WS("#2B2233")} stroke-width="2.2"/><path transform="translate(${x} ${g.y})" d="M${f(-hw * .5)} ${f(-hh * .45)}l${f(hw * .55)} 0" stroke="#fff" stroke-opacity=".8" stroke-width="1.5" stroke-linecap="round"/>`).join("")}`; }},
+    {id: "sunglasses", name: "Sunglasses", rarity: "common", def: "#3A3450", art: g =>
+      `${bridge(g, 3, 1.8)}${temples(g)}${pair(g, R => `<circle r="${f(R * 1.02)}" ${WF} ${OUT(2.2)}/><path d="M${f(R * .05)} ${f(-R * .62)}q${f(R * .45)} ${f(R * .1)} ${f(R * .6)} ${f(R * .5)}" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.6" stroke-linecap="round"/><circle cx="${f(-R * .4)}" cy="${f(R * .4)}" r="${f(R * .14)}" fill="#fff" opacity=".6"/>`)}`},
+    {id: "halfmoons", name: "Reading Glasses", rarity: "common", def: "#C9A227", art: g => {
+      const y = f(g.y + g.R * .2), lens = R => `M${f(-R)} 0A${f(R)} ${f(R * .86)} 0 0 0 ${f(R)} 0Z`;
+      return `${line2(`M${f(g.lx + g.R)} ${y}Q${g.mx} ${f(g.y - g.R * .45)} ${f(g.rx - g.R)} ${y}`, 1.4, WS("#C9A227"))}${[g.lx, g.rx].map(x => `<g transform="translate(${x} ${y})"><path d="${lens(g.R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="3.6" stroke-linejoin="round"/><path d="${lens(g.R)}" fill="none" ${WS("#C9A227")} stroke-width="1.8" stroke-linejoin="round"/></g>`).join("")}${line2(`M${f(g.lx - g.R)} ${y}l-3 -1.6M${f(g.rx + g.R)} ${y}l3 -1.6`, 1.3, WS("#C9A227"))}`; }},
+    {id: "goggles", name: "Swim Goggles", rarity: "common", def: "#2FB5C9", art: g =>
+      `${line2(`M${f(g.lx - g.R * 1.1 - 6)} ${f(g.y - 1)}H${f(g.rx + g.R * 1.1 + 6)}`, 2.6, WS("#2FB5C9"))}${pair(g, R => `<ellipse rx="${f(R * 1.08)}" ry="${f(R * .88)}" fill="#BFE9FF" fill-opacity=".5" stroke="${INK}" stroke-width="5"/><ellipse rx="${f(R * 1.08)}" ry="${f(R * .88)}" fill="none" ${WS("#2FB5C9")} stroke-width="2.8"/>${shine(R)}`)}`},
+    {id: "tapeglasses", name: "Taped Glasses", rarity: "common", def: "#2B2233", art: g => {
+      const hw = Math.min(g.R * 1.02, g.gap / 2 - .8), hh = g.R * .86, lens = rr(-hw, -hh, hw * 2, hh * 2, g.R * .55);
+      return `${bridge(g, 1.2, 2.6, WS("#2B2233"))}${temples(g, 2, WS("#2B2233"))}${[g.lx, g.rx].map(x => `<path transform="translate(${x} ${g.y})" d="${lens}" fill="#fff" fill-opacity=".14" stroke="${INK}" stroke-width="5.4"/><path transform="translate(${x} ${g.y})" d="${lens}" fill="none" ${WS("#2B2233")} stroke-width="3.2"/>`).join("")}
+        <rect x="${f(g.mx - 2.6)}" y="${f(g.y - g.R * .62)}" width="5.2" height="${f(g.R * .82)}" rx=".8" fill="#FFF8F0" ${OUT(1.1)}/><path d="M${f(g.mx - 1.6)} ${f(g.y - g.R * .4)}h3.2M${f(g.mx - 1.6)} ${f(g.y - g.R * .1)}h3.2" stroke="#C9C3D6" stroke-width=".9"/>`; }},
+    // Rare
+    {id: "aviators", name: "Aviators", rarity: "rare", def: "#3A9AD9", art: g => {
+      const lens = R => `M${f(-R * 1.02)} ${f(-R * .7)}H${f(R * .95)}Q${f(R * 1.12)} ${f(R * .2)} ${f(R * .45)} ${f(R * .92)}Q${f(-R * .3)} ${f(R * 1.22)} ${f(-R * .9)} ${f(R * .4)}Q${f(-R * 1.15)} ${f(-R * .15)} ${f(-R * 1.02)} ${f(-R * .7)}Z`;
+      return `${line2(`M${f(g.lx + g.R * .95)} ${f(g.y - g.R * .7)}H${f(g.rx - g.R * .95)}`, 1.2, "#D9A93A")}${temples(g, 1.2, "#D9A93A")}<g transform="translate(${g.lx} ${g.y}) scale(-1 1)"><path d="${lens(g.R)}" ${WF} fill-opacity=".6" stroke="${INK}" stroke-width="3.4" stroke-linejoin="round"/><path d="${lens(g.R)}" fill="none" stroke="#E8B83A" stroke-width="1.5" stroke-linejoin="round"/>${shine(g.R)}</g><g transform="translate(${g.rx} ${g.y})"><path d="${lens(g.R)}" ${WF} fill-opacity=".6" stroke="${INK}" stroke-width="3.4" stroke-linejoin="round"/><path d="${lens(g.R)}" fill="none" stroke="#E8B83A" stroke-width="1.5" stroke-linejoin="round"/>${shine(g.R)}</g>`; }},
+    {id: "heartshades", name: "Heart Shades", rarity: "rare", def: "#FF4F8B", art: g => {
+      const s = g.R * 1.08, h = `M0 ${f(s * .9)}C${f(-s * 1.45)} ${f(s * .05)} ${f(-s * 1.05)} ${f(-s * 1.05)} 0 ${f(-s * .38)}C${f(s * 1.05)} ${f(-s * 1.05)} ${f(s * 1.45)} ${f(s * .05)} 0 ${f(s * .9)}Z`;
+      return `${bridge(g, 2.6, 1.8)}${temples(g)}${[g.lx, g.rx].map(x => `<g transform="translate(${x} ${g.y})"><path d="${h}" ${WF} fill-opacity=".9" ${OUT(2.2)}/><path d="M${f(-s * .7)} ${f(-s * .32)}q${f(s * .2)} ${f(-s * .38)} ${f(s * .5)} ${f(-s * .3)}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/></g>`).join("")}`; }},
+    {id: "starshades", name: "Star Shades", rarity: "rare", def: "#FFC93C", art: g =>
+      `${bridge(g, 2.4, 1.8)}${temples(g)}${[g.lx, g.rx].map(x => `${star(x, g.y + g.R * .1, g.R * 1.3, "", 2.1).replace('fill=""', WF)}<path d="M${f(x - g.R * .45)} ${f(g.y - g.R * .1)}l${f(g.R * .35)} ${f(-g.R * .4)}" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>`).join("")}`},
+    {id: "monocle", name: "Monocle", rarity: "rare", def: "#E0B03A", art: g => {
+      const R = g.R * 1.05, x = g.rx, y = g.y;
+      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.7)} ${f(y + R * 2.4)} ${f(x + R * .5)} ${f(y + R * 3.8)}`, 1.2, WS("#E0B03A"))}<circle cx="${x}" cy="${y}" r="${f(R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="4.6"/><circle cx="${x}" cy="${y}" r="${f(R)}" fill="none" ${WS("#E0B03A")} stroke-width="2.6"/><g transform="translate(${x} ${y})">${shine(R)}</g>`; }},
+    {id: "cateye", name: "Cat-Eye Glasses", rarity: "rare", def: "#E5484D", art: g => {
+      const lens = R => `M${f(-R)} ${f(-R * .32)}Q${f(-R * .1)} ${f(-R * .95)} ${f(R * 1.38)} ${f(-R * 1.08)}Q${f(R * 1.08)} ${f(R * .2)} ${f(R * .6)} ${f(R * .68)}Q${f(-R * .4)} ${f(R * 1.08)} ${f(-R * .95)} ${f(R * .36)}Q${f(-R * 1.15)} ${f(-R * .05)} ${f(-R)} ${f(-R * .32)}Z`;
+      return `${bridge(g, 2, 1.8, WS("#E5484D"))}${pair(g, R => `<path d="${lens(R)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4.2" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#E5484D")} stroke-width="2.3" stroke-linejoin="round"/><circle cx="${f(R * 1.08)}" cy="${f(-R * .82)}" r="1.1" fill="#fff"/><circle cx="${f(R * .7)}" cy="${f(-R * .86)}" r=".8" fill="#fff"/>`)}`; }},
+    // Exotic
+    {id: "steampunk", name: "Steampunk Goggles", rarity: "exotic", def: "#F2994A", art: g =>
+      `<path d="M${f(g.lx - g.R * 1.2 - 7)} ${f(g.y - g.R * .3)}H${f(g.rx + g.R * 1.2 + 7)}V${f(g.y + g.R * .3)}H${f(g.lx - g.R * 1.2 - 7)}Z" fill="#7A4E2D" ${OUT(1.8)}/>${line2(`M${f(g.lx + g.R)} ${g.y}H${f(g.rx - g.R)}`, 2.4, "#C98A3A")}
+      ${pair(g, R => `<circle r="${f(R * 1.2)}" fill="#C98A3A" ${OUT(2)}/><circle r="${f(R * .96)}" fill="#8A5A26" ${OUT(1.2)}/><circle r="${f(R * .78)}" ${WF} fill-opacity=".85" ${OUT(1.2)}/>${[45, 135, 225, 315].map(a => `<circle cx="${f(R * 1.08 * Math.cos(a * Math.PI / 180))}" cy="${f(R * 1.08 * Math.sin(a * Math.PI / 180))}" r=".9" fill="#F3D08A"/>`).join("")}${shine(R * .8)}`)}`},
+    {id: "visor", name: "Cyber Visor", rarity: "exotic", def: "#2FB5C9", art: g => {
+      const x0 = f(g.lx - g.R - 3.5), x1 = f(g.rx + g.R + 3.5), h = g.R * .78, d = rr(x0, g.y - h, x1 - x0, h * 2, h * .9);
+      return `<path d="${d}" fill="none" ${WS("#2FB5C9")} stroke-opacity=".35" stroke-width="6"/><path d="${d}" ${WF} fill-opacity=".55" ${OUT(2.4)}/><path d="M${f(x0 + 3)} ${f(g.y - h * .42)}H${f(x1 - 3)}" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><path d="M${f(x0 + 4)} ${f(g.y + h * .35)}H${f(x0 + 10)}M${f(x1 - 10)} ${f(g.y + h * .35)}H${f(x1 - 4)}" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/><circle cx="${f(x1 - 2.6)}" cy="${f(g.y - h * .6)}" r="1" fill="#E5FFFF"/>`; }},
+    {id: "pixelshades", name: "Pixel Shades", rarity: "exotic", def: "#1E1A28", art: g => {
+      const u = f(Math.max(1.6, g.R * .34)), n = Math.max(4, Math.round((g.R * 2.3) / u)), y0 = g.y - u * 1.6;
+      const x0 = f(g.lx - n * u / 2), x1 = f(g.rx + n * u / 2);
+      const lens = cx => { const l = cx - n * u / 2; return `<rect x="${f(l)}" y="${f(y0 + u)}" width="${f(n * u)}" height="${u}"/><rect x="${f(l)}" y="${f(y0 + u * 2)}" width="${f((n - 1) * u)}" height="${u}"/><rect x="${f(l + u)}" y="${f(y0 + u * 3)}" width="${f((n - 2) * u)}" height="${u}"/>`; };
+      const hl = cx => { const l = cx - n * u / 2; return `<rect x="${f(l + u)}" y="${f(y0 + u)}" width="${u}" height="${u}"/><rect x="${f(l + u * 2)}" y="${f(y0 + u * 2)}" width="${u}" height="${u}"/>`; };
+      return `<g shape-rendering="crispEdges"><g stroke="${INK}" stroke-width="2.2" stroke-linejoin="miter"><rect x="${x0}" y="${f(y0)}" width="${f(x1 - x0)}" height="${u}"/>${lens(g.lx)}${lens(g.rx)}</g><g ${WF}><rect x="${x0}" y="${f(y0)}" width="${f(x1 - x0)}" height="${u}"/>${lens(g.lx)}${lens(g.rx)}</g><g fill="#fff" opacity=".9">${hl(g.lx)}${hl(g.rx)}</g></g>`; }},
+    {id: "masquerade", name: "Masquerade Mask", rarity: "exotic", def: "#8E6BE0", art: g => {
+      const R = g.R, a = R * .92, b = R * .74, L = g.lx, Rx = g.rx, y = g.y, m = g.mx;
+      const outer = `M${f(m)} ${f(y + R * .35)}Q${f(L + R * .2)} ${f(y + R * 1.55)} ${f(L - R * 1.25)} ${f(y + R * .55)}Q${f(L - R * 2.1)} ${f(y - R * .4)} ${f(L - R * 1.9)} ${f(y - R * 1.6)}Q${f(L - R * .8)} ${f(y - R * 1.05)} ${f(L)} ${f(y - R * 1.2)}Q${f(m)} ${f(y - R * 1.3)} ${f(Rx)} ${f(y - R * 1.2)}Q${f(Rx + R * .8)} ${f(y - R * 1.05)} ${f(Rx + R * 1.9)} ${f(y - R * 1.6)}Q${f(Rx + R * 2.1)} ${f(y - R * .4)} ${f(Rx + R * 1.25)} ${f(y + R * .55)}Q${f(Rx - R * .2)} ${f(y + R * 1.55)} ${f(m)} ${f(y + R * .35)}Z`;
+      const hole = x => `M${f(x - a)} ${f(y)}A${f(a)} ${f(b)} 0 1 0 ${f(x + a)} ${f(y)}A${f(a)} ${f(b)} 0 1 0 ${f(x - a)} ${f(y)}Z`;
+      return `<path d="${outer}${hole(L)}${hole(Rx)}" fill-rule="evenodd" ${WF} ${OUT(2.2)}/><path d="${hole(L)}${hole(Rx)}" fill="none" stroke="#F2C14E" stroke-width="1.3"/><path d="M${f(L - R * 1.6)} ${f(y - R * .9)}q${f(R * .5)} ${f(R * .1)} ${f(R * .5)} ${f(R * .6)}M${f(Rx + R * 1.6)} ${f(y - R * .9)}q${f(-R * .5)} ${f(R * .1)} ${f(-R * .5)} ${f(R * .6)}" fill="none" stroke="#F2C14E" stroke-width="1.2" stroke-linecap="round"/><path d="M${f(m)} ${f(y - R * 1.55)}l1.8 2.2l-1.8 2.2l-1.8 -2.2Z" fill="#FFD35A" ${OUT(1)}/>`; }},
+    {id: "prism", name: "Prism Glasses", rarity: "exotic", def: "#B9A6FF", art: g => {
+      const hex = R => { let p = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; p += (i ? "L" : "M") + f(R * 1.08 * Math.cos(a)) + " " + f(R * .98 * Math.sin(a)); } return p + "Z"; };
+      return `<defs><linearGradient id="cpgPrism" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A9C"/><stop offset=".3" stop-color="#FFD35A"/><stop offset=".55" stop-color="#4CD7A0"/><stop offset=".8" stop-color="#5A95FF"/><stop offset="1" stop-color="#B57BFF"/></linearGradient></defs>${bridge(g, 2, 1.8, WS("#B9A6FF"))}${temples(g, 1.6, WS("#B9A6FF"))}${pair(g, R => `<path d="${hex(R)}" fill="url(#cpgPrism)" fill-opacity=".7" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="${hex(R)}" fill="none" ${WS("#B9A6FF")} stroke-width="2" stroke-linejoin="round"/>${shine(R)}`)}`; }},
+    // Legendary
+    {id: "diamondshades", name: "Diamond Shades", rarity: "legendary", def: "#5A95FF", art: g => {
+      const oct = R => `M${f(-R * .5)} ${f(-R * .92)}H${f(R * .5)}L${f(R * 1.1)} ${f(-R * .3)}L${f(R * .55)} ${f(R * .95)}H${f(-R * .55)}L${f(-R * 1.1)} ${f(-R * .3)}Z`;
+      const gem = (x, y, s) => `<path d="M${f(x)} ${f(y - s)}L${f(x + s * .8)} ${f(y)}L${f(x)} ${f(y + s)}L${f(x - s * .8)} ${f(y)}Z" fill="#E6F4FF" ${OUT(.9)}/>`;
+      return `${bridge(g, 2, 2, GOLD)}${temples(g, 1.8, GOLD)}${pair(g, R => `<path d="${oct(R)}" ${WF} fill-opacity=".7" stroke="${INK}" stroke-width="4.4" stroke-linejoin="round"/><path d="${oct(R)}" fill="none" stroke="${GOLD}" stroke-width="2.4" stroke-linejoin="round"/><path d="M${f(-R * .5)} ${f(-R * .92)}L${f(-R * .2)} ${f(-R * .3)}L${f(R * .2)} ${f(-R * .3)}L${f(R * .5)} ${f(-R * .92)}M${f(-R * 1.1)} ${f(-R * .3)}H${f(R * 1.1)}M${f(-R * .2)} ${f(-R * .3)}L0 ${f(R * .95)}L${f(R * .2)} ${f(-R * .3)}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width=".9"/>${gem(R * 1.1, -R * .95, 1.9)}`)}${gem(g.mx, g.y - g.R * .5, 1.8)}
+        ${tw(g.lx - g.R * 1.6, g.y - g.R * 1.4, 2.8, 0)}${tw(g.rx + g.R * 1.7, g.y + g.R * .4, 2.4, 1.1)}`; }},
+    {id: "galaxygoggles", name: "Galaxy Goggles", rarity: "legendary", def: "#2A1F5C", art: g =>
+      `${line2(`M${f(g.lx + g.R)} ${f(g.y - g.R * .2)}Q${g.mx} ${f(g.y - g.R * .7)} ${f(g.rx - g.R)} ${f(g.y - g.R * .2)}`, 2.4, "#E8B83A")}${pair(g, R => `<circle r="${f(R * 1.06)}" ${WF}/><ellipse cx="${f(-R * .3)}" cy="${f(R * .2)}" rx="${f(R * .6)}" ry="${f(R * .32)}" transform="rotate(-25)" fill="#FF7AC8" opacity=".55"/><ellipse cx="${f(R * .3)}" cy="${f(-R * .25)}" rx="${f(R * .5)}" ry="${f(R * .26)}" transform="rotate(-25)" fill="#4FD6FF" opacity=".5"/><circle cx="${f(R * .45)}" cy="${f(R * .42)}" r=".7" fill="#fff"/><circle cx="${f(-R * .5)}" cy="${f(-R * .35)}" r=".6" fill="#fff"/><circle cx="${f(R * .05)}" cy="${f(R * .7)}" r=".5" fill="#fff"/>${star(R * .55, -R * .5, 1.5, "#fff")}<circle r="${f(R * 1.06)}" fill="none" stroke="${INK}" stroke-width="5.4"/><circle r="${f(R * 1.06)}" fill="none" stroke="#E8B83A" stroke-width="3.2"/><circle r="${f(R * 1.06)}" fill="none" stroke="#FFF3B0" stroke-width=".8" stroke-dasharray="1 2.4"/>`)}
+      ${tw(g.lx - g.R * 1.7, g.y - g.R * 1.1, 2.8, 0)}${tw(g.rx + g.R * 1.6, g.y - g.R * 1.5, 2.4, .8)}${tw(g.rx + g.R * 1.9, g.y + g.R * .6, 2, 1.6)}`},
+    {id: "phoenixmask", name: "Phoenix Mask", rarity: "legendary", def: "#F5B83A", art: g => {
+      const R = g.R, a = R * .9, b = R * .72, L = g.lx, Rx = g.rx, y = g.y, m = g.mx;
+      const hole = x => `M${f(x - a)} ${f(y)}A${f(a)} ${f(b)} 0 1 0 ${f(x + a)} ${f(y)}A${f(a)} ${f(b)} 0 1 0 ${f(x - a)} ${f(y)}Z`;
+      const outer = `M${f(m)} ${f(y + R * .4)}Q${f(L + R * .1)} ${f(y + R * 1.5)} ${f(L - R * 1.3)} ${f(y + R * .45)}Q${f(L - R * 1.7)} ${f(y - R * .5)} ${f(L - R * 1.1)} ${f(y - R * 1.15)}Q${f(m)} ${f(y - R * 1.55)} ${f(Rx + R * 1.1)} ${f(y - R * 1.15)}Q${f(Rx + R * 1.7)} ${f(y - R * .5)} ${f(Rx + R * 1.3)} ${f(y + R * .45)}Q${f(Rx - R * .1)} ${f(y + R * 1.5)} ${f(m)} ${f(y + R * .4)}Z`;
+      const wing = (x, s) => `<g transform="translate(${f(x)} ${f(y - R * .5)}) scale(${s} 1)">${[[38, 15], [62, 13], [86, 10]].map(([an, l]) => `<g transform="rotate(${an})">${feather(l * R / 7, 3.6 * R / 7, `fill="#FF5A2B"`, 1.5)}${feather(l * R / 7 * .6, 1.8 * R / 7, `fill="#FFD35A"`)}</g>`).join("")}</g>`;
+      return `${wing(Rx + R * .9, 1)}${wing(L - R * .9, -1)}<path d="${outer}${hole(L)}${hole(Rx)}" fill-rule="evenodd" ${WF} ${OUT(2.2)}/><path d="${hole(L)}${hole(Rx)}" fill="none" stroke="#FFF3B0" stroke-width="1.1"/><path d="M${f(m)} ${f(y - R * 1.3)}l2 2.4l-2 2.4l-2 -2.4Z" fill="#E5484D" ${OUT(1.1)}/>
+        ${tw(L - R * 2.2, y + R * .8, 2.6, 0)}${tw(Rx + R * 2.4, y + R * .9, 2.8, 1)}${tw(m, y - R * 2.2, 2.2, 1.7)}`; }},
+    {id: "sunburst", name: "Sunburst Shades", rarity: "legendary", def: "#FF7A2F", art: g => {
+      const rays = R => { let p = ""; for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 + Math.PI / 10, c = Math.cos(a), s = Math.sin(a), w = .2; p += `M${f(R * 1.08 * Math.cos(a - w))} ${f(R * 1.08 * Math.sin(a - w))}L${f(R * 1.62 * c)} ${f(R * 1.62 * s)}L${f(R * 1.08 * Math.cos(a + w))} ${f(R * 1.08 * Math.sin(a + w))}Z`; } return `<path d="${p}" fill="#FFC93C" ${OUT(1.2)}/>`; };
+      return `${bridge(g, 2.6, 2, GOLD)}${pair(g, R => `${rays(R)}<circle r="${f(R * 1.06)}" ${WF} fill-opacity=".85" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R * 1.06)}" fill="none" stroke="${GOLD}" stroke-width="2.4"/>${shine(R)}`)}${tw(g.lx - g.R * 2, g.y - g.R * 1.3, 2.6, 0)}${tw(g.rx + g.R * 2, g.y + g.R * 1.2, 2.4, 1.2)}`; }},
+    {id: "aurora", name: "Aurora Visor", rarity: "legendary", def: "#7CF5FF", art: g => {
+      const L = f(g.lx - g.R - 4), Rr = f(g.rx + g.R + 4), R = g.R, y = g.y, m = g.mx;
+      const d = `M${L} ${f(y - R * .8)}Q${m} ${f(y - R * 1.3)} ${Rr} ${f(y - R * .8)}Q${f(Rr + 2.4)} ${f(y)} ${f(Rr - .6)} ${f(y + R * .8)}Q${m} ${f(y + R * 1.2)} ${f(L + .6)} ${f(y + R * .8)}Q${f(L - 2.4)} ${f(y)} ${L} ${f(y - R * .8)}Z`;
+      return `<defs><linearGradient id="cpgAurora" x1="0" y1="0" x2="1" y2=".4"><stop offset="0" stop-color="#4CFFB0"/><stop offset=".5" stop-color="#4FD6FF"/><stop offset="1" stop-color="#C77BFF"/></linearGradient></defs><path d="${d}" fill="none" ${WS("#7CF5FF")} stroke-opacity=".4" stroke-width="7"/><path d="${d}" fill="url(#cpgAurora)" fill-opacity=".72" ${OUT(2.4)}/>
+        <path d="M${f(L + 3)} ${f(y - R * .35)}Q${m} ${f(y - R * .95)} ${f(Rr - 3)} ${f(y - R * .35)}" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.4" stroke-linecap="round"/><path d="M${f(L + 6)} ${f(y + R * .45)}Q${m} ${f(y + R * .1)} ${f(Rr - 6)} ${f(y + R * .45)}" fill="none" ${WS("#7CF5FF")} stroke-width="1.2" stroke-linecap="round"/>
+        ${tw(L - 1, y - R * 1.2, 2.8, 0)}${tw(Rr + 1.5, y + R * .9, 2.6, 1)}${tw(m + R * .6, y - R * 1.6, 2, 1.8)}`; }}
+  ];
+
+  /* ---------------- Neck ---------------- */
+  const NECK = [
+    // Common
+    {id: "bandana", name: "Bandana", rarity: "common", def: "#E5484D", pat: true, icon: [-9, .9], art: hw => {
+      const a = f(Math.min(hw * .62, 15)), top = ny(hw, 2.6, 3.3, a), h = f(Math.max(14, a * 1.15) + 4);
+      return `${band(hw, -4.5, 3.3, 2.6, 3.3, WF, 2.2)}<path d="M${-a} ${top}Q0 ${f(top + 6)} ${a} ${top}L1.8 ${f(h - 1.4)}Q0 ${f(h + .8)} -1.8 ${f(h - 1.4)}Z" ${WF} ${OUT(2.2)}/>${[[-4, 9], [3.5, 8.6], [0, 13.5], [-7.5, 6.6], [7.6, 6.4]].filter(([x, y]) => y < h - 3 && Math.abs(x) < a * (1 - (y - 4) / h)).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="#fff" opacity=".85"/>`).join("")}<path d="M${f(-hw + 3)} -1.2Q0 4.4 ${f(hw - 3)} -1.2" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.3" stroke-dasharray="1.4 2.2" stroke-linecap="round"/>`; }},
+    {id: "lanyard", name: "Student Lanyard", rarity: "common", def: "#5A95FF", icon: [-10, .85], art: hw => {
+      const a = f(Math.min(hw * .55, 13));
+      return `${line2(`M${-a} ${ny(hw, -3, 3.4, -a)}L-2.6 10M${a} ${ny(hw, -3, 3.4, a)}L2.6 10`, 2.2, WS("#5A95FF"))}<rect x="-2.2" y="8.6" width="4.4" height="3.6" rx="1" fill="#C9D0DA" ${OUT(1.1)}/>
+        <rect x="-6.2" y="11.6" width="12.4" height="11.2" rx="2" fill="#fff" ${OUT(1.8)}/><path d="M-6.2 13.6Q-6.2 11.6 -4.2 11.6H4.2Q6.2 11.6 6.2 13.6V14.8H-6.2Z" ${WF}/><circle cx="-2.6" cy="18.6" r="2" fill="#C9D6EA"/><path d="M.8 17.6h3.2M.8 19.8h3.2" stroke="#B9B2C4" stroke-width="1" stroke-linecap="round"/>`; }},
+    {id: "beads", name: "Wooden Beads", rarity: "common", def: "#4CB782", art: hw => {
+      const n = Math.max(7, Math.round(hw / 3.1)), pts = along(hw, -2, 5, n, .9);
+      return `<path d="${arcP(hw, -2, 5, .95)}" fill="none" stroke="${INK}" stroke-width="1.4"/>${pts.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="2.7" ${i % 2 ? `fill="#C89B6D"` : WF} ${OUT(1.4)}/><circle cx="${f(x - .9)}" cy="${f(y - .9)}" r=".7" fill="#fff" opacity=".7"/>`).join("")}`; }},
+    {id: "bellcollar", name: "Bell Collar", rarity: "common", def: "#E5484D", art: hw =>
+      `${band(hw, -3.6, 3.2, 2.2, 3.3, WF, 2.2)}<path d="M${f(-hw + 2.5)} -.6Q0 5.2 ${f(hw - 2.5)} -.6" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.4" stroke-linecap="round"/>
+      <circle cx="0" cy="7.4" r="1.5" fill="none" stroke="${INK}" stroke-width="1.3"/><path d="M-4.8 15Q-5.2 8.2 0 7.9Q5.2 8.2 4.8 15Z" fill="#FFD35A" ${OUT(1.8)}/><path d="M-4.6 12.6H4.6" stroke="#E8A317" stroke-width="1.1"/><circle cx="0" cy="15.3" r="1.4" fill="#E8A317" ${OUT(1)}/><path d="M-2.4 10.2q.6 -1.2 1.8 -1.4" fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>`},
+    {id: "necktie", name: "School Tie", rarity: "common", def: "#2F4A8A", pat: true, icon: [-11, .8], art: () =>
+      `<path d="M-2.5 7L-4.6 21.5L0 26.4L4.6 21.5L2.5 7Z" ${WF} ${OUT(2)}/><path d="M-3.4 1.2H3.4L2.5 7H-2.5Z" ${WF} ${OUT(2)}/><path d="M-3.6 13l7 -3.4M-4.2 18.4l8.2 -4M-3.4 23.4l6.6 -3.2" stroke="#fff" stroke-opacity=".45" stroke-width="1.3" stroke-linecap="round"/>`},
+    // Rare
+    {id: "pearls", name: "Pearl Necklace", rarity: "rare", def: "#FF7A9C", art: hw => {
+      const n = Math.max(8, Math.round(hw / 2.4));
+      const pearl = ([x, y], r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="${f(x - r * .35)}" cy="${f(y - r * .35)}" r="${f(r * .3)}" fill="#fff"/>`;
+      return `${along(hw, -2.5, 4.5, n, .88).map(p => pearl(p, 1.9)).join("")}${along(hw, 0, 7.6, n + 1, .84).map(p => pearl(p, 2.1)).join("")}<path d="M0 9.6Q-3.4 13.4 0 17Q3.4 13.4 0 9.6Z" ${WF} ${OUT(1.4)}/><path d="M-.9 12.2l.6 -1.2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }},
+    {id: "lei", name: "Flower Lei", rarity: "rare", def: "#FF7A9C", art: hw => {
+      const n = Math.max(5, Math.round(hw / 5.2)), pts = along(hw, -1.5, 6, n, .86), lv = along(hw, -.5, 6.4, n - 1, .66);
+      return `${lv.map(([x, y], i) => `<ellipse cx="${x}" cy="${f(y + 2.2)}" rx="3.2" ry="1.6" transform="rotate(${i % 2 ? 25 : -25} ${x} ${f(y + 2.2)})" fill="#7ED19B" ${OUT(1.1)}/>`).join("")}${pts.map(([x, y], i) => flower(x, y, 4, i % 3 === 1 ? `fill="#FFD35A"` : i % 3 === 2 ? `fill="#FFF8F0"` : WF, i % 3 === 1 ? "#FF9A3C" : "#FFD35A")).join("")}`; }},
+    {id: "sailor", name: "Sailor Collar", rarity: "rare", def: "#2F4A8A", art: hw => {
+      const e = f(hw + 1.5);
+      return `<path d="M${-e} -4Q0 3 ${e} -4L${f(e + 1)} 4.6Q${f(hw * .45)} 6.8 0 14.5Q${f(-hw * .45)} 6.8 ${f(-e - 1)} 4.6Z" ${WF} ${OUT(2.2)}/><path d="M${f(e - 1.6)} 2.6Q${f(hw * .45)} 4.4 0 10.6Q${f(-hw * .45)} 4.4 ${f(-e + 1.6)} 2.6" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M0 13L-5.4 10.4L-5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M0 13L5.4 10.4L5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M-1 13.6L-3 20.4M1 13.6L3 20.4" stroke="#E5484D" stroke-width="2.4" stroke-linecap="round"/><circle cx="0" cy="13" r="2" fill="#E5484D" ${OUT(1.3)}/>`; }},
+    {id: "headphones", name: "Headphones", rarity: "rare", def: "#E5484D", art: hw => {
+      const c = f(Math.max(8, hw * .78));
+      return `${line2(`M${-c} 3Q0 ${f(16 + hw * .12)} ${c} 3`, 2.6, "#3A3450")}${[-1, 1].map(s => `<g transform="translate(${f(s * c)} 2)"><ellipse rx="5.2" ry="6.6" ${WF} ${OUT(2)}/><ellipse cx="${f(-s * 1.4)}" rx="3" ry="4.6" fill="#3A3450"/><path d="M${f(s * 2.2)} -4.4q${f(s * 1.4)} 2 ${f(s * 1.2)} 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/></g>`).join("")}`; }},
+    {id: "ruff", name: "Ruffled Collar", rarity: "rare", def: "#FFF8F0", art: hw => {
+      const n = Math.max(7, Math.round(hw * 2 / 5.2) + 1), pts = along(hw, -1, 4, n, .92);
+      return `${pts.map(([x, y]) => `<ellipse cx="${x}" cy="${f(y + .6)}" rx="3.8" ry="5.2" ${WF} ${OUT(1.5)}/><path d="M${x} ${f(y - 2.6)}V${f(y + 3.4)}" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>`).join("")}`; }},
+    // Exotic
+    {id: "boa", name: "Feather Boa", rarity: "exotic", def: "#FF7AC8", icon: [-8, .9], art: hw => {
+      const pts = along(hw, -1.5, 5, Math.max(8, Math.round(hw / 2.6)), 1).concat([[f(hw * .55 + 1), 12], [f(hw * .55 + 2), 17], [f(hw * .55 + 2.4), 22]]);
+      return `${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" fill="${INK}" stroke="${INK}" stroke-width="3.4"/>`).join("")}${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" ${WF}/>`).join("")}${pts.map(([x, y], i) => `<path d="M${f(x - 2)} ${f(y - 1.2)}q1.2 -1.8 3 -1.4M${f(x + .4)} ${f(y + 2)}q1.4 -.6 2 -2" fill="none" stroke="#fff" stroke-opacity="${i % 2 ? .55 : .35}" stroke-width="1.1" stroke-linecap="round"/>`).join("")}`; }},
+    {id: "crystal", name: "Crystal Pendant", rarity: "exotic", def: "#8E6BE0", art: hw =>
+      `<path d="${arcP(hw, -2, 9, .9)}" fill="none" stroke="#3A3450" stroke-width="1.6"/><circle cx="0" cy="13.6" r="8" ${WF} opacity=".28"/>
+      <rect x="-2.1" y="4.6" width="4.2" height="2.6" rx=".8" fill="${GOLD}" ${OUT(1.1)}/><path d="M0 7L4.2 10V16.4L0 21.4L-4.2 16.4V10Z" ${WF} ${OUT(1.6)}/><path d="M0 7V21.4M-4.2 10L0 12.6L4.2 10" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width=".9"/><path d="M-2.6 11.6V15.8" stroke="#fff" stroke-opacity=".85" stroke-width="1.1" stroke-linecap="round"/>${star(5.6, 6.6, 1.6, "#fff")}`},
+    {id: "rocker", name: "Rocker Collar", rarity: "exotic", def: "#2B2233", art: hw => {
+      const studs = along(hw, 3.2, 3.3, Math.max(4, Math.round(hw / 4.4)), .78);
+      return `${line2(`M${f(-hw * .6)} ${ny(hw, 1.5, 3.3, -hw * .6)}Q0 ${f(18 + hw * .08)} ${f(hw * .6)} ${ny(hw, 1.5, 3.3, hw * .6)}`, 1.8, "#C9D0DA").replace(/stroke="#C9D0DA" stroke-width="1.8"/, `stroke="#C9D0DA" stroke-width="1.8" stroke-dasharray="2.4 1.4"`)}${band(hw, -4, 3.2, 2.4, 3.3, WF, 2)}
+        ${studs.map(([x, y]) => `<path d="M${f(x - 1.7)} ${f(y - .6)}L${x} ${f(y + 3.6)}L${f(x + 1.7)} ${f(y - .6)}Z" fill="#E4E8EF" ${OUT(1)}/>`).join("")}${along(hw, -1, 3.3, Math.max(4, Math.round(hw / 4.4)), .7).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#C9D0DA"/>`).join("")}`; }},
+    {id: "jester", name: "Jester Collar", rarity: "exotic", def: "#8E6BE0", icon: [-8, .9], art: hw => {
+      const n = 7, pts = along(hw, -2, 3.2, n, .86), w = hw * .86 * 2 / (n - 1) * .62;
+      return `${pts.map(([x, y], i) => { const tx = f(x * 1.12), ty = f(y + 11 - Math.abs(x / hw) * 2); return `<path d="M${f(x - w)} ${f(y - .5)}L${tx} ${ty}L${f(x + w)} ${f(y - .5)}Z" ${i % 2 ? `fill="#FFD35A"` : WF} ${OUT(1.6)}/><circle cx="${tx}" cy="${f(ty + 1.2)}" r="1.7" fill="${GOLD}" ${OUT(1)}/>`; }).join("")}${band(hw, -4, 3.2, -.6, 3.2, WF, 1.8)}`; }},
+    {id: "fairylights", name: "Fairy Lights", rarity: "exotic", def: "#FFD35A", art: hw => {
+      const pts = along(hw, -2, 6, Math.max(6, Math.round(hw / 4.2)), .9), cols = [null, "#FF7A9C", "#5A95FF", "#4CB782"];
+      return `<path d="${arcP(hw, -2, 6, 1)}" fill="none" stroke="#3E7A4A" stroke-width="1.5"/>${pts.map(([x, y], i) => { const c = cols[i % 4], fl = c ? `fill="${c}"` : WF, a = f(-x / hw * 25); return `<g transform="translate(${x} ${f(y + 1)}) rotate(${a})"><circle cy="3" r="4.4" ${fl} opacity=".3"/><rect x="-1.1" y="-.6" width="2.2" height="1.8" rx=".4" fill="#3E7A4A"/><ellipse cy="3.2" rx="1.9" ry="2.6" ${fl} ${OUT(1)}/><circle cx="-.6" cy="2.4" r=".6" fill="#fff"/></g>`; }).join("")}`; }},
+    // Legendary
+    {id: "pharaoh", name: "Pharaoh's Collar", rarity: "legendary", def: "#2F6FD6", icon: [-8, .9], art: hw => {
+      const e = f(hw + 1), drops = along(hw, 8.4, 6, Math.max(7, Math.round(hw / 3)), .78);
+      return `<path d="M${-e} -4.5Q0 2 ${e} -4.5L${f(e + 1.4)} 2Q${f(hw * .6)} 14.5 0 14.8Q${f(-hw * .6)} 14.5 ${f(-e - 1.4)} 2Z" fill="${GOLD}" ${OUT(2.2)}/>
+        <path d="M${f(-hw)} -1.6Q0 7.4 ${f(hw)} -1.6" fill="none" ${WS("#2F6FD6")} stroke-width="2.8"/><path d="M${f(-hw)} 1.8Q0 13 ${f(hw)} 1.8" fill="none" stroke="#2FC9B5" stroke-width="2.4"/><path d="M${f(-hw)} -3.4Q0 4.6 ${f(hw)} -3.4M${f(-hw)} .1Q0 10.2 ${f(hw)} .1M${f(-hw)} 3.6Q0 15.6 ${f(hw)} 3.6" fill="none" stroke="${GOLD_D}" stroke-width=".8"/>
+        ${drops.map(([x, y], i) => `<path d="M${x} ${f(y - 1.6)}Q${f(x - 2)} ${f(y + 1.6)} ${x} ${f(y + 3.4)}Q${f(x + 2)} ${f(y + 1.6)} ${x} ${f(y - 1.6)}Z" ${i % 2 ? `fill="#E5484D"` : WF} ${OUT(.9)}/>`).join("")}
+        ${tw(f(-hw - 3), -7, 2.8, 0)}${tw(f(hw + 3), 6, 3, .9)}${tw(0, 19, 2.2, 1.7)}`; }},
+    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#E5484D", icon: [-9, .9], art: hw => {
+      let rays = ""; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; rays += `M${f(6.4 * Math.cos(a - .22))} ${f(13 + 6.4 * Math.sin(a - .22))}L${f(9.2 * Math.cos(a))} ${f(13 + 9.2 * Math.sin(a))}L${f(6.4 * Math.cos(a + .22))} ${f(13 + 6.4 * Math.sin(a + .22))}Z`; }
+      return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, GOLD).replace(`stroke="${GOLD}" stroke-width="1.6"`, `stroke="${GOLD}" stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" fill="${GOLD}" ${OUT(1)}/>
+        <circle cx="0" cy="13" r="6.4" fill="${GOLD}" ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" ${WF} ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
+        ${tw(-10, 6, 2.8, 0)}${tw(10.5, 19, 2.6, 1)}${tw(f(hw * .7), -6, 2.2, 1.7)}`; }},
+    {id: "phoenixstole", name: "Phoenix Feather Stole", rarity: "legendary", def: "#FF5A2B", icon: [-7, .85], art: hw => {
+      // plumes fanned along the neck from the sides in, each a fire-red feather with a gold heart, then two long tail plumes
+      const n = Math.max(6, Math.round(hw / 3.4)), pts = along(hw, -.5, 4.5, n, .9).map((p, i) => [p, i]).sort((a, b) => Math.abs(b[0][0]) - Math.abs(a[0][0]));
+      const plume = ([x, y], len, wd) => `<g transform="translate(${x} ${y}) rotate(${f(180 - 62 * x / hw)})">${feather(len, wd, WF, 1.6)}${feather(len * .62, wd * .5, `fill="#FFD35A"`)}<path d="M0 -1V${f(-len * .78)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/></g>`;
+      const tail = (x, l, a) => `<g transform="translate(${f(x)} ${ny(hw, -.5, 4.5, x)}) rotate(${a})">${feather(l, 4.6, WF, 1.6)}${feather(l * .68, 2.2, `fill="#FFD35A"`)}<path d="M0 -1V${f(-l * .82)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9"/><circle cy="${f(-l * .86)}" r="1.5" fill="#FFF3B0"/></g>`;
+      return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, `fill="#C2361C"`, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
+    {id: "ermine", name: "Royal Ermine Collar", rarity: "legendary", def: "#FFF8F0", art: hw => {
+      const spots = along(hw, 0, 3.6, Math.max(4, Math.round(hw / 5)), .78);
+      return `${line2(`M${f(-hw * .62)} ${ny(hw, 2.6, 3.6, -hw * .62)}Q0 ${f(17 + hw * .05)} ${f(hw * .62)} ${ny(hw, 2.6, 3.6, hw * .62)}`, 2, GOLD).replace(`stroke="${GOLD}" stroke-width="2"`, `stroke="${GOLD}" stroke-width="2" stroke-dasharray="2.6 1.2"`)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF} ${OUT(1.8)}/>`).join("")}${band(hw + 1, -5, 3.3, 4.4, 3.8, WF, 2.2)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF}/>`).join("")}<path d="M${f(-hw + 2)} -1.6Q0 4 ${f(hw - 2)} -1.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
+        ${spots.map(([x, y]) => `<path d="M${x} ${f(y - 1.8)}Q${f(x + 1.3)} ${f(y + .6)} ${x} ${f(y + 2.6)}Q${f(x - 1.3)} ${f(y + .6)} ${x} ${f(y - 1.8)}Z" fill="${INK}"/><circle cx="${f(x - 1.6)}" cy="${f(y - 1.4)}" r=".55" fill="${INK}"/><circle cx="${f(x + 1.6)}" cy="${f(y - 1.4)}" r=".55" fill="${INK}"/>`).join("")}
+        <circle cx="0" cy="${f(13 + hw * .03)}" r="4.6" fill="${GOLD}" ${OUT(1.6)}/>${star(0, 13 + hw * .03, 2.6, "#FFF3B0")}${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw + 2.4), 7, 2.6, .9)}${tw(7.5, f(18 + hw * .03), 2.2, 1.7)}`; }},
+    {id: "galaxyscarf", name: "Galaxy Scarf", rarity: "legendary", def: "#3B2A7A", icon: [-6, 1], art: hw => {
+      const k = f(hw * .45 - 9.5), e = f(hw + 4), h = f(hw - 2), G = `fill="url(#cpgGalaxy)"`;
+      const dots = along(hw, 0, 3.4, Math.max(5, Math.round(hw / 4)), .82);
+      return `<defs><linearGradient id="cpgGalaxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#3B2A7A)"/><stop offset=".55" stop-color="#6A3FC4"/><stop offset="1" stop-color="#D95FB0"/></linearGradient></defs>
+        <path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${G} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2.2" stroke-linecap="round"/>
+        ${dots.map(([x, y], i) => i % 2 ? star(x, y, 1.5, "#FFF3B0") : `<circle cx="${x}" cy="${y}" r=".8" fill="#fff"/>`).join("")}
+        <g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${G} ${OUT(2.4)}/><circle cx="12" cy="11" r=".8" fill="#fff"/>${star(13.6, 16.2, 1.5, "#FFF3B0")}<path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="#FFD35A" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${G} ${OUT(2.4)}/>${tw(20.5, 24, 2.6, 1)}</g>
+        ${tw(f(-hw - 3), -6, 2.8, 0)}${tw(f(hw * .1), 12, 2, 1.7)}`; }}
+  ];
+  HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
+  return HEAD.concat(FACE, NECK);
+};
 /* ===== module: 98-companion.js ===== */
 /* Studyboard 1.11.0 */
 (() => {
@@ -71029,16 +71319,16 @@ var COMP_EXTRA = [];
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
     // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
-    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
-    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
-    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
-    {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
+    {id: "scarf", rarity: "common", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", rarity: "common", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", rarity: "common", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", rarity: "common", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
+    {id: "medal", rarity: "rare", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
+    {id: "cape", rarity: "exotic", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", rarity: "rare", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
+    {id: "beanie", rarity: "rare", name: "Festive Beanie", paths: [["festive", 1]]},
+    {id: "cap", rarity: "exotic", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", rarity: "legendary", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -71150,9 +71440,43 @@ var COMP_EXTRA = [];
   };
   /* Body regions: an item declares the one it covers */
   const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "back"};
-  const slotOf = id => ACC_SLOT[id] || id;
   // The colour these were drawn in (the others follow the theme colour)
   const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
+  // Clothing patterns (Pro) go on these (the list grows with the fabric ones below)
+  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
+  // Where lenses sit on a face: the eyes' centres and a lens radius R, kept a little apart where the eyes are close together
+  function faceFit(e){
+    const gap = e.rx - e.lx, R = Math.min(Math.max(6.5, e.r * 1.8), Math.max(5.2, gap / 2 - .9));
+    return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap};
+  }
+  /* The wardrobe's other 60 (98-comp-acc.js): 20 each for the head, face and neck, 5 of each rarity. How rare a thing is sets how
+     much studying earns it (any one way unlocks it, as for every prop); commons and rares are free, exotics and legendaries are Pro */
+  const RARITY = ["common", "rare", "exotic", "legendary"];
+  const RARITY_NAME = {common: "Common", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  const MORE_WAYS = {
+    common: {hours: [3, 4, 6, 7, 9], cards: [40, 60, 80, 110, 130], quizzes: [3, 4, 5, 6, 8], head: ["checkins", 3, 4, 5, 6, 7], face: ["notes", 3, 4, 5, 6, 8], neck: ["studydays", 3, 4, 5, 6, 8]},
+    rare: {hours: [12, 16, 20, 24, 30], cards: [200, 260, 320, 380, 450], quizzes: [10, 12, 14, 16, 18], head: ["studydays", 12, 15, 18, 21, 25], face: ["prep", 6, 7, 8, 10, 12], neck: ["checkins", 14, 17, 20, 24, 28]},
+    exotic: {hours: [45, 55, 65, 75, 90], cards: [700, 850, 1000, 1150, 1300], quizzes: [28, 32, 36, 40, 45], head: ["stickers", 12, 14, 16, 18, 20], face: ["focusWeeks", 4, 4, 5, 5, 6], neck: ["spread", 4, 4, 5, 5, 6]},
+    legendary: {hours: [120, 150, 180, 210, 250], cards: [2000, 2500, 3000, 3500, 4000], quizzes: [55, 62, 70, 80, 90], head: ["stickers", 25, 28, 32, 36, 40], face: ["focusWeeks", 8, 9, 10, 11, 12], neck: ["studydays", 90, 105, 120, 135, 150]}
+  };
+  const MORE = typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : [];
+  const MORE_BY = {}, MORE_N = {};
+  MORE.forEach(a => {
+    if (ACC.some(x => x.id === a.id) || !RARITY.includes(a.rarity)) return;
+    const k = MORE_N[a.slot + a.rarity] = (MORE_N[a.slot + a.rarity] || 0) + 1, i = Math.min(4, k - 1), w = MORE_WAYS[a.rarity], x = w[a.slot];
+    MORE_BY[a.id] = a; ACC_SLOT[a.id] = a.slot;
+    if (a.def) ACC_DEF[a.id] = a.def;
+    if (a.pat) PAT_PROPS.push(a.id);
+    // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
+    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: a.rarity === "common" || a.rarity === "rare", hours: w.hours[i], paths: [["cards", w.cards[i]], ["quizzes", w.quizzes[i]], [x[0], x[i + 1]]]});
+  });
+  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
+  const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
+  const rarityTag = a => `<span class="cp-rar cp-rar-${rarityOf(a)}">${RARITY_NAME[rarityOf(a)]}</span>`;
+  // the wardrobe's sections, by where a thing is worn
+  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest and Back", ["chest", "back"]]];
+  const slotOf = id => ACC_SLOT[id] || id;
   const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
   const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
   // "hat_scarf" (presence), an array or a single id, to a clean list with one item per region
@@ -71209,7 +71533,7 @@ var COMP_EXTRA = [];
     const hands = pt(A.hands) ? A.hands : [60, 92];
     // the blush stays inside the face's outline (never over wings, arms, ears or the outline itself)
     // and goes under anything worn on the body (its shape is cut out of the blush), while a beak or snout stays in front of a scarf
-    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
+    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${MORE.filter(a => a.slot === "neck" && worn.includes(a.id)).map(a => acc(a.id, A.neck, a.art(wrapW ? hwAt(ns) : 21))).join("")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
     // the blush's mask only needs the face's shape (its filter paints it white), so the copy drops the colour gradients:
     // otherwise every gradient id appeared twice in the drawing, once in the mask
     // (clip paths stay, so the shape is exact, under ids of their own)
@@ -71221,11 +71545,11 @@ var COMP_EXTRA = [];
     const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
-    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
-        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
+        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}${MORE.filter(a => a.slot === "head" && worn.includes(a.id)).map(a => acc(a.id, A.top)).join("")}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
       </g></svg>`;
@@ -71253,9 +71577,8 @@ var COMP_EXTRA = [];
   // Clothing colours: the palette is free; any other colour (picked with the colour box) is Pro. Without Pro a picked colour
   // stays saved but isn't used, so the prop shows its usual colour until Pro comes back
   const inPalette = h => TINTS.some(x => x.toLowerCase() === String(h || "").toLowerCase());
-  // Clothing patterns (Pro): on the hat, beanie, scarf, bow tie and cape, drawn in the prop's own colour and a lighter tone
+  // Clothing patterns (Pro): on the fabric props (the hat, beanie, scarf, bow tie, cape and the fabric ones of the 60 more), drawn in the prop's own colour and a lighter tone
   // of it, tiled across the fabric. Without Pro a chosen pattern stays saved but isn't drawn
-  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
   const PATS = [["stripes", "Stripes"], ["dots", "Polka Dots"], ["plaid", "Plaid"], ["stars", "Stars"], ["checks", "Checks"], ["zigzag", "Zigzag"]];
   const shade = (h, to, t) => { const n = parseInt(String(h).slice(1), 16); if (!(n >= 0)) return h; const a = [n >> 16, (n >> 8) & 255, n & 255], b = to === "w" ? [255, 255, 255] : [20, 16, 40]; return "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join(""); };
   const starPath = (x, y, r) => { let p = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; p += (i ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + " " + (y + rr * Math.sin(a)).toFixed(2); } return p + "Z"; };
@@ -71278,7 +71601,10 @@ var COMP_EXTRA = [];
   // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
   function propIcon(a, tints){
     tints = tints || tintsNow();
-    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
+    // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
+    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : [0, 1]);
+      return `<svg viewBox="-26 -26 52 52" aria-hidden="true"><g transform="translate(0 ${y})${k !== 1 ? ` scale(${k})` : ""}">${ACC_ART[a.id]}</g></svg>`; }
     return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
   }
   const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
@@ -72752,7 +73078,8 @@ var COMP_EXTRA = [];
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
     try { refreshPicker(); } catch (e) {}
     // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
-    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
+    // (many at once, say after the wardrobe grew: the three rarest are shown, the rest wait quietly in the Wardrobe)
+    fresh.slice().sort((x, y) => RARITY.indexOf(rarityOf(y)) - RARITY.indexOf(rarityOf(x))).slice(0, 3).forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
     revealSoon();
   }
 
@@ -72777,7 +73104,7 @@ var COMP_EXTRA = [];
     const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
     const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
     const o = document.createElement("div");
-    o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
+    o.className = "cpu cpu-" + rarityOf(a) + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
     if (o.showPopover) o.setAttribute("popover", "manual");
     const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
     const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
@@ -72785,7 +73112,7 @@ var COMP_EXTRA = [];
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
       <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
       <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
     document.body.appendChild(o);
@@ -73619,12 +73946,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
     const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
-    const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
+    const howRow = a => `<li><b>${esc(a.name)} ${rarityTag(a)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
       const icon = propIcon(a, tints);
-      return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+      return `<button type="button" class="cp-acc-tile cp-r-${rarityOf(a)}${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
+        ${rarityTag(a)}<span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -73637,11 +73964,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <h3 class="fsec">Accessories</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
-      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
+      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
+      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
+        return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
+      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop. The rarer it is, the more studying it takes.</p><ul class="cp-how">${locked.sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y))).map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
@@ -74101,8 +74430,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const n = String(name || "").toLowerCase().replace(/\b(your|the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), now = wearOf(c);
       if (!on && /^(all|everything|it all|them all|accessories|all accessories)$/.test(n)) { setCfg({wear: {[c.id]: []}}); curSig = ""; build(); return "I took everything off."; }
       // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
-      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"]], [/\b(cap)\b/, ["cap"]], [/\b(glasses|specs|spectacles|sunglasses)\b/, ["glasses"]],
-        [/\b(scarf|something (for|on) (your|my) neck)\b/, ["scarf"]], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(medal|necklace)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id))], [/\b(cap)\b/, ["cap"]], [/\b(sunglasses|shades)\b/, ["sunglasses", "heartshades", "starshades", "diamondshades", "sunburst", "pixelshades"]], [/\b(glasses|specs|spectacles|eyewear)\b/, ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id))],
+        [/\b(goggles)\b/, ["goggles", "steampunk", "galaxygoggles"]], [/\b(mask)\b/, ["masquerade", "phoenixmask"]],
+        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
@@ -74124,7 +74454,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     tintByName: (item, color) => { try {
       const c = current(); if (!c) return "There's no companion to dress right now.";
       const n = String(item || "").toLowerCase(), now = wearOf(c);
-      const KIND = {hat: ["hat", "beanie", "cap", "crown"], cap: ["cap"], glasses: ["glasses"], scarf: ["scarf"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
+      const KIND = {hat: ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id)), cap: ["cap"], glasses: ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id)), scarf: ["scarf", "galaxyscarf", "boa", "bandana"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
       const k = Object.keys(KIND).find(x => new RegExp("\\b" + x + "s?\\b").test(n.replace(/bow ?tie/, "bowtie")));
       const ids = k ? KIND[k] : ACC.filter(a => n.includes(a.name.toLowerCase())).map(a => a.id);
       const a = ACC.find(x => ids.includes(x.id) && now.includes(x.id)) || ACC.find(x => ids.includes(x.id));
@@ -79228,7 +79558,7 @@ Examples:
     if (wm && window.SBCOMP && SBCOMP.wearByName) {
       const on = !(wm[4] || wm[5] || wm[6]), item = (wm[1] || wm[2] || wm[3] || wm[4] || wm[5] || wm[6] || "").trim();
       // (only when it's something to wear: "put my essay on Monday" isn't)
-      if (/\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|everything|accessor(y|ies)|outfit)\b/i.test(item) && !/\b(on|to|for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|the board|my board)\b/i.test(w)) return say(SBCOMP.wearByName(item, on));
+      if (/\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|everything|accessor(y|ies)|outfit|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant)\b/i.test(item) && !/\b(on|to|for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|the board|my board)\b/i.test(w)) return say(SBCOMP.wearByName(item, on));
     }
     return null;
   }
@@ -79711,7 +80041,7 @@ Careful, these are easy to mix up:
   }
   // The companion's look, read in code: "what accessories do I have", "wear the second one", "take them both off", "make it red" (the
   // accessory just talked about), "make packy purple" (it has no colour of its own: said, with what can change), "dress up for the holidays"
-  const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge)\b/i;
+  const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant)\b/i;
   const COLW = /\b(red|crimson|maroon|pink|rose|magenta|purple|violet|lavender|indigo|navy|dark blue|ocean blue|blue|light blue|sky blue|cyan|turquoise|teal|green|dark green|forest green|evergreen|mint|lime|olive|yellow|gold|orange|coral|peach|brown|tan|beige|gray|grey|silver|black|white)\b/i;
   function companionLook(q, chat){
     const w = String(q || "").toLowerCase().trim(), me = info() || {}, nm = String(me.name || "").toLowerCase(), say = a => ({answer: a, sources: [], followUps: [], actions: []});
@@ -80029,7 +80359,7 @@ ANSWERING
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
     // (and the one the student named, in this message or the one before: "put it on then" after asking about the crown is the crown,
     // and "darker" after "make packy purple" is about the companion itself, never the Tiny Hat it reached for instead)
-    const ACCW = /\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|accessor(?:y|ies)|outfit|everything)\b/i;
+    const ACCW = /\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|accessor(?:y|ies)|outfit|everything|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant)\b/i;
     const named = [q].concat((past || []).slice(-1).map(x => x.q || "")).map(s => (ACCW.exec(String(s)) || [])[0]).find(Boolean) || "";
     arr("wear").forEach(x => { let it = String(x.item || "").trim(); if (!it || !window.SBCOMP) return;
       if (!named) { extra.push(x.color ? "My own colour can't change, only my accessories' colours. Which one should I change?" : "Which accessory should I put on?"); return; }
