@@ -1005,7 +1005,9 @@ function sbSignInSheet(mode, email, note){
   mode = mode === "hello" && !first ? "signin" : mode || "signin"; email = email || (dlg.open && dlg.querySelector(".sb-acct input[name=email]") ? dlg.querySelector(".sb-acct input[name=email]").value.trim() : "");
   const back = location.origin + location.pathname, redirect = DESK || !/^https?:/.test(location.protocol) ? {} : null;
   const T = {hello: "Welcome to Studyboard", signin: first ? "Welcome to Studyboard" : "Sign In to Studyboard", signup: "Create Your Studyboard Account", confirm: "Check Your Email", forgot: "Reset Your Password", reset: "Set a New Password"}[mode];
-  const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="email" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
+  // passkeys: on the sign-in sheet the email field also offers a saved passkey (01-passkeys.js)
+  const pk = mode === "signin" && !!(window.SBPK && SBPK.can());
+  const emailIn = (ro) => `<label class="f"><span class="lh">Email ${REQ}</span><input type="email" name="email" required autocomplete="${pk ? "username webauthn" : "email"}" value="${esc(email)}" ${ro ? "readonly" : ""} ${email && !ro ? "" : "autofocus"}></label>`;
   const codeIn = `<label class="f"><span class="lh">Code ${REQ} <span class="hint">From the email</span></span><input type="text" name="code" required inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456" class="sb-code" autofocus></label>`;
   const pwIn = (lbl, ac) => `<label class="f"><span class="lh">${lbl} ${REQ}</span><input type="password" name="password" required minlength="8" autocomplete="${ac}" ${email && mode !== "reset" ? "autofocus" : ""}></label>`;
   const body = {
@@ -1018,7 +1020,7 @@ function sbSignInSheet(mode, email, note){
   }[mode];
   const links = {
     hello: "",
-    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
+    signin: `<button type="button" class="link-btn" data-sbm="forgot">Forgot Password?</button>${pk ? ` · <button type="button" class="link-btn" id="sbPasskey">Sign In With a Passkey</button>` : ""}${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     signup: `<button type="button" class="link-btn" data-sbm="signin">I Already Have an Account</button>${first ? "" : ` · <button type="button" class="link-btn" id="sbLater">Not Now</button>`}`,
     confirm: `<button type="button" class="link-btn" id="sbResend">Send a New Code</button> · <button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
     forgot: `<button type="button" class="link-btn" data-sbm="signin">Back to Sign In</button>`,
@@ -1056,6 +1058,7 @@ function sbSignInSheet(mode, email, note){
           if (error && /confirm/i.test(error.message)) { sbLinkAsked(); await sb.auth.resend({type: "signup", email: em}).catch(() => {}); busy = false; sbSignInSheet("confirm", em, "Your email isn't confirmed yet, so we sent a new code."); return; }
           if (error) throw error;
           done("Signed in");
+          if (window.SBPK) SBPK.offerLater();
         } else if (mode === "signup") {
           if (pw.length < 8) { say("Use a password of at least 8 characters."); return; }
           if (!sbStrength(pw).ok) { say(SB_WEAK); return; }
@@ -1113,6 +1116,17 @@ function sbSignInSheet(mode, email, note){
     finally { busy = false; dlg.querySelectorAll("[data-oauth]").forEach(x => { x.disabled = false; }); }
   }));
   sbPwWire(dlg);
+  if (pk) {
+    const pkIn = (data, err) => { if (err) { say(err); return; } if (data) done("Signed in"); };
+    SBPK.autofill(pkIn);
+    const pb = $("#sbPasskey");
+    if (pb) pb.addEventListener("click", async () => {
+      if (busy) return; busy = true; pb.disabled = true; say("Follow your device's prompt…");
+      try { const d = await SBPK.signIn(); say(""); pkIn(d); }
+      catch (e) { say(SBPK.words(e)); SBPK.autofill(pkIn); }
+      finally { busy = false; pb.disabled = false; }
+    });
+  }
   // A device that refused an account (a birthday under 13): no new account from here
   function sbNoAccount(){
     say(SBUNAME.NO_ACCOUNT);
