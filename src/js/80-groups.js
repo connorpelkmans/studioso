@@ -353,6 +353,10 @@
     if (!uid2) return "";
     let id = "";
     for (const k in S.members) { const m = (S.members[k] || []).find(x => x.user_id === uid2 && x.face); if (m) { id = m.face; break; } }
+    return faceHtml(id);
+  }
+  // A companion's face by its id (a friend's, from their profile)
+  function faceHtml(id){
     if (!id || !/^[a-z0-9-]{1,40}$/.test(id)) return "";
     if (faceCache[id] == null) {
       let h = ""; try { const C = window.SBCOMP; h = C && typeof C.head === "function" ? C.head(id) : ""; } catch(e) { h = ""; }
@@ -397,7 +401,7 @@
   };
   // A member's picture (their companion, or initials) in their colour
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
-  const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
+  const av = (name, id, gid, face) => { const f = id && id === myId() ? myFace() : faceHtml(face) || faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
   // Rows that belong to one person learn that person's colour (--mc)
   function paintRows(root){
@@ -3997,9 +4001,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     let cur = ""; try { cur = (window.SBCOMP && SBCOMP.current && SBCOMP.current()) || ""; } catch(e) {}
     if (!/^[a-z0-9-]{1,40}$/.test(cur)) cur = "";
     const mine = Object.values(S.members).flat().filter(m => m && m.user_id === myId());
-    if (!mine.length || !mine.some(m => "face" in m) || faceSent === cur || mine.every(m => (m.face || "") === cur)) return;
+    // also kept on your profile, so friends you share no group with see it: sent once per change, even with no groups
+    const PK = "studyboard:faceSent:" + myId(), prof = (() => { try { return localStorage.getItem(PK); } catch(e) { return null; } })();
+    const groupsOk = !mine.length || !mine.some(m => "face" in m) || mine.every(m => (m.face || "") === cur);
+    if (faceSent === cur || (groupsOk && prof === cur)) return;
     faceSent = cur;
-    api.setFace(cur).then(() => mine.forEach(m => { m.face = cur || null; })).catch(() => { faceSent = null; });
+    api.setFace(cur).then(() => { mine.forEach(m => { m.face = cur || null; }); try { localStorage.setItem(PK, cur); } catch(e) {} }).catch(() => { faceSent = null; });
   }
   hook("render", tab => { if (tab === "groups") setTimeout(syncMyFace, 1200); });
   async function gxLoad(ids){
@@ -4631,7 +4638,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
-    avatar: (gid, id, name) => av(name, id, gid),
+    avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
     profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
