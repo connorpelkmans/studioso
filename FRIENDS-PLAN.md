@@ -1,7 +1,20 @@
 # Friends, "Studying Now" and Study Together (plan, not built)
 
 This plan looks at what reviewers and users praise about Gizmo's friend features, keeps only those parts, and fits them into Studyboard's existing groups, rooms, live quiz, usernames, blocks and push reminders.
-Nothing here is built yet.
+**Step 1 (Friends) is built.** Steps 2 to 4 are not.
+
+| Part | Where |
+|---|---|
+| Server | `supabase-friends.sql`, checked by `supabase-friends-selftest.sql` (48 checks, rolls back) |
+| App | `src/js/81-friends.js`, `src/css/81-friends.css` |
+| Tests | `tests/friends.test.js` (unit), `tests/friends.e2e.js` (browser) |
+
+What changed from the plan below:
+
+- **The first-time prompt is a card on Groups, not an onboarding step.** The welcome setup runs before anyone has an account, often offline, and a friend link needs an account. The card says "Studying With Someone?", shows only while you have no friends or requests, and has a Not Now button.
+- **The friend list isn't a separate tab.** A Friends button sits in the Groups header with a count of requests waiting for you, and there is a Friends row in Settings > Account.
+- **Blocking uses the existing `group_blocks` table,** so one block covers both groups and friends.
+- **Reporting a friend isn't built.** `group_reports` needs a group, so reporting still happens from a group someone shares with you.
 
 ## 1. What Gizmo is praised for (and only that)
 
@@ -141,7 +154,7 @@ create table public.friend_prefs (                      -- per friend: alert me,
 
 ## 6. Build order
 
-1. **Friends** (§3.1, §4 tables and functions, the Friends sheet, the friend link and QR code, blocks, the onboarding step). This is useful on its own because of Send to Friend.
+1. **Friends** (built): §3.1, §4 tables and functions, the Friends sheet, the friend link and QR code, blocks, the first-time card. This is useful on its own because of Send to Friend.
 2. **Study Together** (§3.3): the together space, Invite to Study and Quiz Each Other. This is where most of the value is, based on the praise.
 3. **Studying Now** (§3.2): status, waves and the opt-in start alert.
 4. Optional: Days Studied Together.
