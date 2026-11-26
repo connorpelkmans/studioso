@@ -126209,14 +126209,20 @@ ui._day = todayISO();
   ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
   const recent = () => performance.now() - userAt < 600;
   const view = () => document.getElementById("view");
+  // When the whole page is redrawn (a tab tapped, even the one already open), the pieces other parts of the app add to it straight
+  // after (Today's Plan's Free Time and Flashcards menus, My Group Tasks...) are part of that page, not something just opened:
+  // they show at once with it, rather than blinking out and fading back in
+  let viewAt = -1e9;
+  const inFreshView = t => performance.now() - viewAt < 700 && t instanceof Element && !!t.closest("#view");
   const mo = new MutationObserver(list => {
+    if (list.some(m => m.type === "childList" && m.target.id === "view")) viewAt = performance.now();
     if (!recent() || !on()) return;
     let n = 0;
     for (const m of list) {
       if (n > 6) break;
       const t = m.target;
       if (m.type === "attributes") {
-        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip")) continue;
+        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip") || inFreshView(t)) continue;
         const a = m.attributeName;
         // a page's own section tabs (a group's Chat, Members...) switch at once, like the app's tabs: no fade-up each time
         if (a === "hidden" && t.matches("#view [role=tabpanel]")) continue;
@@ -126227,7 +126233,7 @@ ui._day = todayISO();
           if ((was.includes("shut") && !now.includes("shut")) || (was.includes("collapsed") && !now.includes("collapsed"))) { const b = t.querySelector(":scope > .ui-sec-b, :scope > .body, :scope > .sec-b") || t; play(b, "sm-in"); n++; }
           else if (!was.includes("open") && now.includes("open") && /\b(ui-col|acc|drop|more|panel)/.test(t.className)) { play(t, "sm-in"); n++; }
         }
-      } else if (m.type === "childList" && t !== view() && t.id !== "view") {
+      } else if (m.type === "childList" && t !== view() && t.id !== "view" && !inFreshView(t)) {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
         // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
         // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)
