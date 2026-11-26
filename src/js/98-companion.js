@@ -3070,6 +3070,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
+    // how an accessory is earned, in words, from its own unlock rules ("how do i get the little crown"): null for no such accessory
+    // (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
+    earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
+      const ways = (a.hours ? [PROP_ASK.hours(a.hours)] : []).concat((a.paths || []).map(([k, v]) => PROP_ASK[k] ? PROP_ASK[k](v) : "").filter(Boolean));
+      return `The ${a.name} is earned by studying: ${ways.length > 1 ? "any one of these: " + ways.map(x => x.charAt(0).toLowerCase() + x.slice(1)).join("; ") : ways.join("")}. Open Companion, then Wardrobe, to see how close you are.`; } catch (e) { return null; } },
+    accessoryNames: () => ACC.map(x => x.name),
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },

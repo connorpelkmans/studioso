@@ -656,6 +656,19 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     if (s.length > 120) return null;
     const P = typeof pomo !== "undefined" ? pomo : null, live = P && (P.running || P.left > 0), name = () => { const t = P && P.taskId && state.tasks[P.taskId]; return t ? ` for ${t.title}` : ""; };
     const left = () => { const ms = P.running ? P.endAt - Date.now() : P.left, m = Math.max(0, Math.round(ms / 60000)); return m >= 1 ? `${m} minute${m === 1 ? "" : "s"}` : "less than a minute"; };
+    // with a timer on (or paused): "make it 50 minutes", "change it to an hour" (the timer at that length, same task); "how long is left";
+    // "split it into 4 pomodoros" (rounds of 25 with short breaks, the first started)
+    if (P && live) {
+      const tk = P.taskId && state.tasks[P.taskId] ? state.tasks[P.taskId] : null;
+      const ch = /\b(?:make|change|set|switch|turn|extend|shorten|cut)\s+(?:it|that|the timer|my timer|this)\s+(?:to\s+|for\s+|into\s+)?(an?|one|two|three|half an?|\d{1,3})\s*(hours?|hrs?|h|minutes?|mins?|m)\b/.exec(s) || /^\s*(?:actually\s+|no\s+)?(?:make it\s+)?(\d{1,3})\s*(minutes?|mins?)\s*(?:instead)?$/.exec(s);
+      if (ch) { const NW = {a: 1, an: 1, one: 1, two: 2, three: 3, "half an": 0.5, "half a": 0.5}, k = NW[ch[1]] != null ? NW[ch[1]] : Number(ch[1]), mins = Math.round(k * (/^h/.test(ch[2]) ? 60 : 1));
+        if (mins < 1 || mins > 180) return {answer: "A focus timer can run from 1 minute to 3 hours. How long would you like?", show: []};
+        if (startTimer(mins, tk)) return {answer: `Your focus timer is now ${mins} minutes${tk ? ` for ${tk.title}` : ""}, starting now. You've got this!`, show: [], done: true, timer: mins}; }
+      if (/\b(how (much|long)( time)?( is| do i have)?( left| remaining)|time (left|remaining)|how long left|how long until (it'?s )?(done|over|up))\b/.test(s)) return {answer: `${left()} left on your focus timer${name()}${P.running ? "" : " (paused)"}.`, show: []};
+      const sp = /\b(?:split|break|divide|chop)\s+(?:it|that|this|the timer)\s+(?:up\s+)?into\s+(\d{1,2}|two|three|four|five|six)\s*(pomodoros?|rounds?|sessions?|chunks?|parts?|blocks?)\b/.exec(s);
+      if (sp) { const n = ({two: 2, three: 3, four: 4, five: 5, six: 6})[sp[1]] || Number(sp[1]), tot = Math.round((P.running ? P.endAt - Date.now() : P.left) / 60000) || 25 * n, each = Math.max(5, Math.min(60, Math.round(tot / n / 5) * 5 || 25));
+        if (startTimer(each, tk)) return {answer: `Okay: ${n} rounds of ${each} minutes with a 5-minute break after each. Round 1 of ${n} is running now${tk ? ` for ${tk.title}` : ""}. When it ends, say "next round" and I'll start the next one.`, show: [], done: true, timer: each}; }
+    }
     // with a timer on (or paused), a short "pause it", "stop that", "resume", "keep going" is about the timer
     if (P && TIMER_W.test(s) || P && live && /^\s*(ok(ay)?|please|now|can (you|u)|could you)?\s*(stop|pause|resume|unpause|cancel|end|continue|keep going|carry on)\b[\w\s']{0,18}$/.test(s)) {
       if (/\b(stop|end|cancel|quit|kill|turn off|switch off|finish|done with|reset|clear|get rid of|no more)\b/.test(s)) {
@@ -672,8 +685,14 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         return {answer: `${left()} left on your focus timer${name()}${P.running ? "" : " (paused)"}.`, show: []};
       }
     }
-    if (/\b(undo|reverse|revert|take (that|it) back|put (it|that|them) back|change (it|that) back|go back to how|unmark|cancel (that|the change|the last|what you did)|didn'?t mean (to|that))\b/.test(s) && !/\b(how (do|can) i|is there|can i)\b/.test(s)) {
+    // ("put it back to not started" is a status, not an undo; "undo that, i meant the journal" is the step that undoes and redoes it)
+    if (/\b(undo|reverse|revert|take (that|it) back|put (it|that|them) back(?!\s+(to|in|on|as|into)\b)|change (it|that) back(?!\s+to\b)|go back to how|unmark|cancel (that|the change|the last|what you did)|didn'?t mean (to|that))\b/.test(s) && !/\b(how (do|can) i|is there|can i)\b/.test(s) && !/\b(i meant|meant to|should have been|supposed to be|wrong one)\b/.test(s)) {
       if (typeof undoStack === "undefined") return null;
+      // "undo both", "undo the last 3", "undo all of that": that many steps, newest first
+      { const nm = /\bundo\s+(?:the\s+last\s+)?(both|two|2|three|3|four|4|all (?:of )?(?:that|those|them|it)|them all|those)\b/.exec(s);
+        if (nm) { const k = /both|two|2/.test(nm[1]) ? 2 : /three|3/.test(nm[1]) ? 3 : /four|4/.test(nm[1]) ? 4 : 3, done = [];
+          for (let i = 0; i < k; i++) { const st = undoStack.slice().reverse().find(x => !x.done && Date.now() - x.at < 30 * 60000); if (!st) break; undoStack.splice(undoStack.indexOf(st), 1); st.undo(); done.push(String(st.label || "a change").replace(/\.$/, "")); }
+          if (done.length) return {answer: `Undone: ${done.join("; ")}.`, show: [], done: true}; } }
       const st = undoStack.slice().reverse().find(x => !x.done && Date.now() - x.at < 30 * 60000);
       if (!st) return {answer: "There's nothing recent to undo. Deleted things stay in Settings, Data and Backups, Recently Deleted for 30 days.", show: []};
       undoStack.splice(undoStack.indexOf(st), 1); const kept = st.undo();
@@ -690,7 +709,8 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
   }
   const APPQ_HOW = /^\s*(how|where|can i|is there|what)\b/i;
   // (a study plan, a schedule for the week, a summary, cards or a quiz are things to write or make, not a task to add)
-  const ADD_Q = /^(?![^?]*\b(study plan|plan (for|my|out)|schedule (for|my) (the |this |next )?week|(make|create|write|give) (me )?(a |an )?(summary|outline|study guide|flash ?cards?|quiz|practice|mnemonic|concept map|mind map|note)\b))\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
+  // (a plan or schedule to make is advice, not one task called "Study schedule")
+  const ADD_Q = /^(?![^?]*\b(study plan|study schedule|revision (plan|schedule)|plan (for|my|out)|(?:a|my|weekly|daily|study|revision|new)\s+(?:schedule|timetable|routine)\b|schedule (for|my) (the |this |next )?week|(make|create|write|give) (me )?(a |an )?(summary|outline|study guide|flash ?cards?|quiz|practice|mnemonic|concept map|mind map|note)\b))\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up|new)\b|\bremind me to\b/i;
   // (what students call schoolwork: "a bio worksheet", "a problem set", "the discussion post", "my presentation", "a care plan")
   const ADD_WHAT = /\b(task|to-?do|reminder|assignment|homework|hw|exam|quiz|test|midterm|final|reading|readings|essay|paper|project|lab|study|remind me|worksheet|sheet|problem set|pset|practice (?:questions|problems|test|exam)|questions|discussion (?:post|board)|post|presentation|report|draft|outline|reflection|journal|module|chapter|ch\s?\d+|care plan|case study|review|revision|summary|annotated bibliography|bibliography|portfolio|poster|proposal|lit(?:erature)? review|research|interview|simulation|clinical|skills? check|competency|nclex|ati|hesi|prep)\b/i;
   // "add a task to email Dr. Lee tomorrow at 3pm" -> {title: "Email Dr. Lee", due, time}
@@ -707,7 +727,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?=\W)/i))) {
       const mo = MO.indexOf(m[1].toLowerCase().slice(0, 3)) + 1; let y = Number(today.slice(0, 4)), s2 = `${y}-${String(mo).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
     else if ((m = cut(/\s(?:due\s+|by\s+|on\s+|for\s+)?(\d{1,2})\/(\d{1,2})(?=\W)/))) { let y = Number(today.slice(0, 4)), s2 = `${y}-${String(m[1]).padStart(2, "0")}-${String(m[2]).padStart(2, "0")}`; if (s2 < today) s2 = `${y + 1}${s2.slice(4)}`; if (ISO.test(s2)) due = s2; }
-    t = t.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up)(\s+me)?(\s+(a|an|the|my))?(\s+new)?(\s+(task|to-?do|reminder|item))?(\s+(to|called|named|for|that says|saying|:))?\s*/i, " ")
+    t = t.replace(/^\s*(please\s+)?((can|could|would) you\s+)?(please\s+)?(add|create|make|put|schedule|set up)(\s+me)?(\s+(an|a|the|my)\b)?(\s+new)?(\s+(task|to-?do|reminder|item))?(\s+(to|called|named|for|that says|saying|:))?\s*/i, " ")
       .replace(/^\s*remind me to\s*/i, " ").replace(/\s+(to|on|in)\s+my\s+(list|planner|tasks|to-?do list)\b/i, " ").replace(/\s+(please|thanks|thank you)\s*$/i, " ")
       .replace(/\s+(due|by|on|at|for)\s*$/i, " ").replace(/\s+/g, " ").trim().replace(/[.?!,;:]+$/, "");
     if (t.length < 2) return null;
@@ -746,6 +766,21 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     return null;
   }
   // A new task from the request alone (the words, a course it names), as a change to confirm: no model needed
+  // A date counted from another task or event: {date, phrase} or null ("2 days before the history essay", "the day after the study group")
+  function relDate(s){
+    const low = x => String(x || "").toLowerCase().trim(), S = String(s || ""), NW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10};
+    const m = /\s*\b(?:due\s+|by\s+|on\s+)?(?:(\d{1,2}|a|an|one|two|three|four|five|six|seven|ten)\s+(days?|weeks?)|the\s+(day|week|night))\s+(before|after|prior to|ahead of)\s+(?:the\s+|my\s+|our\s+)?(.{2,50}?)\s*[?.!]*$/i.exec(S)
+      || /\s*\b(?:due\s+|on\s+)?(?:the\s+)?same\s+(?:day|date|due date|time)\s+as\s+(?:the\s+|my\s+)?(.{2,50}?)\s*[?.!]*$/i.exec(S);
+    if (!m) return null;
+    const same = m.length < 5 || !m[4], anchor = same ? m[1] : m[5];
+    const ev = Object.values(state.events || {}).find(e => e && e.title && low(anchor).includes(low(e.title).replace(/\s*\(.*\)$/, "").slice(0, 20)) || (e && e.title && low(e.title).includes(low(anchor).replace(/^(the|my)\s+/, ""))));
+    const t = taskFor(anchor), base = t && t.due ? t.due : ev && ev.date ? ev.date : "";
+    if (!base) return {phrase: m[0], date: ""};
+    if (same) return {phrase: m[0], date: base};
+    const n = (m[1] ? (NW[low(m[1])] || Number(m[1])) : 1) * (/^w/i.test(m[2] || m[3] || "") ? 7 : 1), sign = /after/i.test(m[4]) ? 1 : -1;
+    const x = new Date(base + "T12:00:00"); x.setDate(x.getDate() + sign * n);
+    return {phrase: m[0], date: `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`};
+  }
   function quickTask(q){
     // a meeting, practice or appointment is for the calendar, not the task list (the AI step decides those)
     // (so is anything from one time to another: "study session wednesday 7-9pm")
@@ -758,6 +793,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         const tw = String(ex.title).toLowerCase().split(/[^a-z0-9&]+/).filter(w => w.length > 2), qw = String(q).toLowerCase();
         if (tw.filter(w => qw.includes(w.replace(/s$/, ""))).length >= Math.min(2, tw.length)) return null; } }
     const lt = localTask(q); if (!lt || lt.title.length < 3) return null;
+    // a date from another item: "due 2 days before the history essay", "a week after care plan 2", "the day after the study group",
+    // "same day as the care plan" (the item's date, moved by that much; the phrase isn't part of the title)
+    { const r = relDate(lt.title) || relDate(q); if (r) { lt.title = lt.title.replace(r.phrase, "").replace(/\s+(?:due|by|on|for)\s*$/i, "").trim(); if (r.date) lt.due = r.date; } }
     // "in 3 days", "in a week", "in two weeks": the due date, not part of the title
     { const N = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, ten: 10};
       const m = /\s*\bin\s+(\d{1,2}|a|an|one|two|three|four|five|six|seven|ten)\s+(days?|weeks?)\b/i.exec(lt.title);
@@ -787,6 +825,10 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     const all = Object.values(state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim());
     if (!all.length) return {answer: "You don't have any notes yet. Make one from Notes, or ask me to make a note for you.", show: [], changes: [], local: true};
     if (!topic) return null;
+    // not a topic ("which one from my notes is that": "is that"), or a summary to write ("tldr of my heart notes", "sum up my psych notes",
+    // "key points from my notes"): the step that answers from the notes, not a list of them
+    if (/^(is|are|was|were|that|this|it|them|those|these|one|which)\b/i.test(topic) || !topic.split(/\s+/).some(w => w.length > 2 && !/^(that|this|them|those|these|which|what|one|ones|is|are|was)$/i.test(w))) return null;
+    if (/\b(tl;?dr|sum(?:marize|marise|mary)?\s*up|sum up|recap|overview|gist|key points|main points|in short|briefly|summari[sz]e|summary)\b/i.test(q)) return null;
     const found = new Map();
     try { const R = window.SBSEARCH ? await SBSEARCH.retrieve(topic, {max: 16, wait: 800, readWait: 1, semWait: 2500}) : null;
       (R && R.rows || []).forEach(x => { if (x.doc && x.doc.type === "note" && state.notes[x.doc.id] && !state.notes[x.doc.id].archived) found.set(x.doc.id, state.notes[x.doc.id]); }); } catch (e) {}
@@ -797,7 +839,9 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
     // the note's heading and the line about the topic (not just its first words, which may stop before it)
     const first = n => { const L = String(n.text).split(/\n+/).map(x => x.trim()).filter(Boolean), head = L[0] || "";
       const hit = L.slice(1).find(l => tw.some(w => l.toLowerCase().includes(w.replace(/s$/, ""))));
-      return hit ? `${clip(head, 50)} · ${clip(hit, 160)}` : clip(L.join(" · "), 110); };
+      // (cut at a word, never mid-word: "Normal resti")
+      const cw = (s, n) => { const x = String(s || ""); if (x.length <= n) return x; const y = x.slice(0, n), sp = y.lastIndexOf(" "); return (sp > n * 0.6 ? y.slice(0, sp) : y).replace(/[,;:\s]+$/, "") + "…"; };
+      return hit ? `${cw(head, 50)} · ${cw(hit, 200)}` : cw(L.join(" · "), 140); };
     if (!list.length) return {answer: `I couldn't find a note about ${topic}. Try other words, or open Notes and search there.`, show: [], changes: [], local: true};
     return {answer: list.length === 1 ? `Your note about ${topic}: "${first(list[0])}".` : `${list.length} notes about ${topic}:\n${list.map(n => "- " + first(n)).join("\n")}`,
       show: list.map(n => ({kind: "note", id: n.id, label: labelOf({kind: "note", id: n.id})})), changes: [], local: true};
@@ -992,5 +1036,5 @@ If you're not sure a feature exists, say where in Settings to look rather than i
 
   // Test handle (only when a test page sets window.__SB_TEST)
   if (window.__SB_TEST) window.__sbApp = {get state(){ return state; }, get ui(){ return ui; }, render: () => render(), get dlg(){ return dlg; }, undoLast: () => undoLast()};
-  window.SBASSIST = {isRequest, check, build, localTask, startTimer, control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
+  window.SBASSIST = {relDate, isRequest, check, build, localTask, startTimer, control, quickEdit, findNotes, taskFor, addNow, quickTask, timerMins, CLAIMS, ask, act, jump, propose, catalog, resolve, current, screenText, describeBoards, pack, here, wants, GUIDE, appQ, RULES, SHOW_CHANGE, labelOf, exists};
 })();

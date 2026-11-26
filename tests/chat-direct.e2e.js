@@ -451,6 +451,32 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     a = await chat("add nclex practice questions tmrw");
     const r = await p.evaluate(() => ({ev: Object.keys(window.__sbSync.state.events || {}).length, t: Object.values(window.__sbSync.state.tasks).some(t => /nclex/i.test(t.title))}));
     ok(r.t && r.ev === e0, "\"nclex practice questions tmrw\" is a task: " + JSON.stringify(r) + " " + a); }
+  // an event's length and a shift by hours ("make it an hour longer", "2 hours earlier"): from its own start and end
+  await fresh();
+  await p.evaluate(() => { const S = window.__sbSync, d = new Date(Date.now() + 2 * 864e5), iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    S.applyChanges([{kind: "event", id: "evx", after: {id: "evx", title: "Study group", date: iso, start: "18:00", end: "19:30", allDay: false}}], "x"); window.__stubIntent = {intent: "edit_item", kind: "event", item: "Study group", field: "duration", value: "longer"}; });
+  a = await chat("make the study group an hour longer");
+  ok(await p.evaluate(() => window.__sbSync.state.events.evx.end === "20:30"), "\"an hour longer\" moves the end from 7:30 to 8:30: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "move_task", task: "Study group"}; });
+  a = await chat("move the study group 2 hours earlier");
+  ok(await p.evaluate(() => window.__sbSync.state.events.evx.start === "16:00"), "\"2 hours earlier\" moves 6 pm to 4 pm, not 2 o'clock: " + a);
+  // a task named by when it's due, and the day it moves to (not the day that names it)
+  await fresh(); await resetT();
+  // (only Care Plan 2 due tomorrow, whatever day the test runs: tasks added earlier, "a bio worksheet due friday", move out of the way)
+  await p.evaluate(() => { const S = window.__sbSync, t8 = S.state.tasks.t8; Object.values(S.state.tasks).filter(t => t.id !== "t8" && t.due === t8.due).forEach(t => { const n = S.clone(t); n.due = "2031-01-01"; S.applyChanges([{kind: "task", id: t.id, after: n}], "x"); }); });
+  await p.evaluate(() => { window.__stubIntent = {intent: "mark_done", task: "the thing due tomorrow"}; });
+  a = await chat("the thing due tomorrow is done");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done"), "\"the thing due tomorrow is done\" marks the one task due tomorrow: " + a);
+  await resetT();
+  { const want = await p.evaluate(() => { const t = window.__sbSync.state.tasks.t9, x = new Date(t.due + "T12:00:00"); return t.due; });
+    await p.evaluate(() => { window.__stubIntent = {intent: "move_task", task: "Read Chapter 7"}; });
+    a = await chat("read chapter 7 on " + ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date(want + "T12:00:00").getDay()] + " is now friday");
+    ok(await p.evaluate(() => new Date(window.__sbSync.state.tasks.t9.due + "T12:00:00").getDay() === 5), "\"X on <day> is now friday\" moves it to friday: " + a); }
+  // "add an a&p worksheet": the title keeps its first word
+  await fresh();
+  a = await chat("add an a&p worksheet due wednesday");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /^a&p worksheet$/i.test(t.title))), "\"add an a&p worksheet\" is titled A&P worksheet: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
   // flashcards counted and found from the decks, how-to never makes a deck, a file that isn't here is said
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });

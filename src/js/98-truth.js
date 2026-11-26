@@ -201,7 +201,7 @@ window.SBTRUTH = (() => {
     const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
     // "psych midterm high priority + move it to dec 3", "rename the lab report to Cardiac Lab and push it 2 days", "journal done, ch7 done,
     // and got 9/10 on the journal", "got 17/20 on a&p quiz 4 and 40/50 on the lab report"
-    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+\+\s+|,?\s+and\s+(?=(?:push|bump|rename|record|got|get|put|tick|record|log|then)\b)|,\s+(?:and\s+)?(?=(?:got|get|scored|push|bump|rename|record|log|tick)\b)|,\s+(?!(?:both|all|them|these|those|each|everything)\b)(?=[\w&' ]{2,40}\s+(?:done|finished|complete[d]?|submitted|handed in)\b)|\s+and\s+(?=\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+\s+(?:on|for)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+\+\s+|,?\s+and\s+(?=(?:push|bump|rename|record|got|get|put|tick|record|log|then)\b)|,\s+(?:and\s+)?(?=(?:got|get|scored|push|bump|rename|record|log|tick)\b)|,\s+(?!(?:both|all|them|these|those|each|everything)\b)(?=[\w&' ]{2,40}\s+(?:done|finished|complete[d]?|submitted|handed in)\b)|\s+and\s+(?=\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+\s+(?:on|for)\b)|(?<=\d\s*(?:\/|out of)\s*\d+(?:\.\d+)?)\s*,?\s+and\s+(?=[\w&' ]{2,40}?\s+(?:got\s+|was\s+|is\s+|=\s*)?\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
     // only a real split: every part asks for something
     // ("push it 2 days", "40/50 on the lab report", "psych midterm high priority" ask for a change too)
     return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\b(push|bump|tick|record|log|priority|urgent|high|low|rename|due)\b|\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+|\d+\s*%/i.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
@@ -410,15 +410,24 @@ window.SBTRUTH = (() => {
     { const fn = fromNotes(q); if (fn) return fn; }
     // pointed at their own notes ("the ABC thing in my notes", "what do my notes say about projection", "from my lecture notes"):
     // answered from their notes only, and searched without those words, so a web page about another meaning never answers it
-    { const NQ = /\s*\b(?:(?:that|the) (?:\w+ )?(?:thing|stuff|part|bit) )?(?:(?:in|from|on|of|according to) (?:my|the|our) (?:\w+ )?(?:notes?|lecture|slides)|(?:my|the) (?:class |lecture )?notes? (?:say|said|says|on|about|for))\b/i;
-      if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/\b(thing|stuff)\b/gi, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 2 ? s : o.search}); } }
+    // (only "in my notes" goes: "the ABC thing in my notes" is searched as "ABC", never as "whats")
+    { const NQ = /\s*\b(?:(?:in|from|on|of|according to) (?:my|the|our) (?:\w+ )?(?:notes?|lecture|slides)|(?:my|the) (?:class |lecture )?notes? (?:say|said|says|on|about|for))\b/i;
+      if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/^\s*(?:what'?s|whats|what is|what are|explain|tell me|summari[sz]e)\s+/i, " ").replace(/\b(the|that|this|thing|things|stuff|part|bit)\b/gi, " ").replace(/[?!.]+/g, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 1 ? s : o.search}); } }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
     const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
     const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
-    const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    // (the search finding nothing on it, or not the note that has it: their notes read directly, a word spelled a little differently
+    // counting, "countertransfrence", "peplau's phases", "my freud notes")
+    let notes0 = mine && mine.text ? mine.text : "";
+    { const lk = (low(look).match(/[a-z0-9]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(notes?|summari[sz]e|summary|explain|tell|give|help|what|thing|stuff|using|wut|about|from|with|this|that|does|mean|means)$/.test(w));
+      const fz = (txt, k) => { const t = low(txt); if (t.includes(k.length > 5 ? k.slice(0, k.length - 2) : k)) return true; return k.length >= 7 && (t.match(/[a-z]{6,}/g) || []).some(x => x.slice(0, 6) === k.slice(0, 6) && Math.abs(x.length - k.length) <= 3); };
+      if (lk.length && !(notes0 && lk.some(k => fz(notes0, k)))) {
+        const hits = Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).map(n => ({n, s: lk.filter(k => fz(n.text, k)).length + lk.filter(k => fz(String(n.text).split("\n")[0], k)).length})).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 2);
+        if (hits.length) notes0 = hits.map(x => String(x.n.text).slice(0, 1500)).join("\n\n") + (notes0 ? "\n\n" + notes0 : ""); } }
+    const notes = notes0, covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     let webP = null;
     // a word with several meanings that their own notes use ("sublimation", "projection", "conduction"): looked up on the web in the
@@ -486,10 +495,14 @@ window.SBTRUTH = (() => {
     // (only when the notes mention what was asked at all: otherwise straight to the web)
     // the notes are about it when they hold the question's own topic words (not just "work", "use" or "different"): most of them,
     // and the most specific (longest) one always
-    const GENERIC = /^(work|works|working|happen|happens|mean|means|use|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|function|functions|process|role|cause|causes|effect|effects|type|types|kind|kinds|part|parts|step|steps|thing|things|way|ways|good|bad|best|need|needs|help|really|exactly|actually|basically|called|happening|affect|affects)$/;
+    // (what they ask to have done to it isn't the topic: "summarize my Freud notes" is about Freud, not "summarize")
+    const GENERIC = /^(work|works|working|happen|happens|mean|means|use|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|function|functions|process|role|cause|causes|effect|effects|type|types|kind|kinds|part|parts|step|steps|thing|things|way|ways|good|bad|best|need|needs|help|really|exactly|actually|basically|called|happening|affect|affects|summarize|summarise|summary|summarized|sum|bullet|bullets|points|point|list|three|two|four|five|short|shorter|brief|briefly|key|main|define|definition|meaning|notes|note|using|wut|tell|give|quick|quickly|simple|simply|detail|detailed|more)$/;
     const topic = keys.filter(k => !GENERIC.test(k)), stem = k => k.length > 5 ? k.slice(0, k.length - 2) : k;
     const longest = topic.slice().sort((a, b) => b.length - a.length)[0];
-    const touches = notes && (topic.length ? low(notes).includes(stem(longest)) && topic.filter(k => low(notes).includes(stem(k))).length >= Math.ceil(topic.length / 2) : keys.some(k => low(notes).includes(stem(k))));
+    // (spelled a little differently counts: "countertransfrence" is the note's "countertransference")
+    const nWords = notes ? [...new Set(low(notes).match(/[a-z]{6,}/g) || [])] : [];
+    const has = k => low(notes).includes(stem(k)) || (k.length >= 7 && nWords.some(x => x.slice(0, 6) === k.slice(0, 6) && Math.abs(x.length - k.length) <= 3));
+    const touches = notes && (topic.length ? has(longest) && topic.filter(has).length >= Math.ceil(topic.length / 2) : keys.some(has));
     if (notes && !touches && !o.noWeb) { web = web.length ? web : await getWeb(); }
     if (notes && (touches || o.noWeb || !web.length)) {
       useNotes = notes; useWeb = [];
