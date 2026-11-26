@@ -664,7 +664,7 @@ function decorateDeck(){
 })();
 const RA_MQ = matchMedia("(max-width:600px)");
 // A flashcard deck does the same on every screen size
-const RA_DECK_KEEP = ["fc-study", "fc-quiz", "mt-start", "pub-deck", "pro-ic-drafts"];
+const RA_DECK_KEEP = ["fc-study", "lrn-start", "fc-quiz", "mt-start", "pub-deck", "pro-ic-drafts"];
 // An iPad held upright: a header's buttons stay on one line at the right, the least useful folding into More until they fit
 const RA_TAB_MQ = matchMedia("(min-width:701px) and (max-width:1100px) and (orientation:portrait) and (pointer:coarse)");
 const RA_TAB_FOLD = ["import-syllabus", "lec-open", "lms-go"];
@@ -701,7 +701,9 @@ function raMore(onlyGx){
     if (!gxp && (deck ? btns.filter(b => !RA_DECK_KEEP.includes(b.dataset.act)).length < 2 : btns.length < 3 && !wraps)) return;
     ra.dataset.ra = "1";
     const primary = btns.find(b => b.classList.contains("primary")) || btns[btns.length - 1];
-    const keep = gxp && !RA_MQ.matches ? btns.filter(b => !b.classList.contains("gx-assign")) : deck ? btns.filter(b => b === primary || RA_DECK_KEEP.includes(b.dataset.act)) : [primary];
+    const keep = gxp && !RA_MQ.matches ? btns.filter(b => !b.classList.contains("gx-assign")) : deck ? btns.filter(b => b === primary || RA_DECK_KEEP.includes(b.dataset.act))
+      // a deck on a phone keeps Learn beside Study (97-learn.js)
+      : ra.closest(".deck-head") ? btns.filter(b => b === primary || b.dataset.act === "lrn-start") : [primary];
     const box = document.createElement("div"); box.className = "ra-more";
     box.innerHTML = `<button type="button" class="btn ra-more-btn" aria-haspopup="true" aria-expanded="false">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="ra-menu" role="menu" hidden></div>`;
     const menu = box.querySelector(".ra-menu");
