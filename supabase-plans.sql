@@ -510,7 +510,8 @@ declare owner uuid; lim bigint; pro_lim bigint;
 begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
-  select g.owner_id into owner from public.study_groups g where g.id = new.group_id;
+  select g.owner_id into owner from public.study_groups g where g.id = new.group_id
+    and coalesce(to_jsonb(g) ->> 'kind', 'study') <> 'course';   -- Course Hubs aren't anyone's group: their own cap (supabase-classmates.sql)
   if owner is null then return new; end if;
   lim := public.studyboard_limit(owner, 'groupMembers');
   if lim is not null and (select count(*) from public.group_members where group_id = new.group_id) >= lim then

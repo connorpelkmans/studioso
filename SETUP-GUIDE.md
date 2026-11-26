@@ -107,6 +107,7 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 14 | `supabase-cloud.sql` | Google Drive, OneDrive and OneNote (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once, and accounts are for people 13 and older only (an under-13 birthday is refused by `set_birthdate` and by a trigger on new sign-ups; the app then deletes the account through `delete-account`, so redeploy that function too) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
+| 15c | `supabase-classmates.sql` | Classmates and Course Hubs: students who turn it on see which classmates in their synced school site courses use Studyboard, and join one shared study group per course. Off until a student turns it on; teens and adults are never matched. Run it after steps 2, 3, 8 and 15b, then run `supabase-lean.sql` again. Optional check: `supabase-classmates-selftest.sql` (expect "ALL 50 CLASSMATES CHECKS PASSED"). See "Classmates and Course Hubs" below | Optional |
 | 15 | `supabase-sharing.sql` | Public share links (a deck, note, quiz or whiteboard opens in any browser, no account needed), published flashcards and quizzes at studyboardapp.com/flashcards and /quizzes (see PUBLIC-PAGES.md for the search-engine steps) and the Course Library (decks listed for a course code at a school). Run it after steps 2 and 3, then run `supabase-lean.sql` again so account deletion also clears it. Reports land in `share_reports`; the file's header has the review queries. Three reports from different people hide an item until you look | Recommended |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again keeps blocking in place (it rebuilds the group read rules with the block filter once `supabase-moderation.sql` has been run), so there's no need to run moderation again after it.
@@ -994,6 +995,25 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 - The short answer uses free Gemini too. If your only AI key is a paid one (Claude or ChatGPT), search asks you to tick "I understand" and confirm before it ever uses it for answers, and it asks again if you switch to a different paid model.
 
 **Without a Gemini key**, Ask With AI still works: it looks for your words plus common abbreviations and synonyms (like calc and calculus, bio and biology, or BP and blood pressure), and offers **Set Up AI**.
+
+## Classmates and Course Hubs
+
+On a course synced from a school site (Canvas, Brightspace, Blackboard, Moodle, Schoology or Google Classroom), the course page has a **Classmates** card. Once a student turns it on, it shows how many classmates in that course use Studyboard, lets them see their names (**See Who**), and offers one shared **Course Hub**: a study group for everyone in the course, with shared decks, deadlines, questions, sessions and chat. It's also under **Settings > Classmates**, where it can be turned off.
+
+**How courses are matched.** The app sends the school site's address and the course's id there (only for courses synced from a school site, never ones added by hand). The server turns them into a keyed hash with a secret only your database knows and keeps just the hash, so two students in the same course at the same school match, and nothing else about the course is stored.
+
+**Privacy rules (enforced on the server):**
+- Off until the student turns it on. Turning it off removes their courses right away.
+- You see classmates only while you're on yourself, and only people who turned it on too. Only their display name is shown.
+- People 13 to 17 are matched only with 13 to 17, and adults only with adults; each age group gets its own Course Hub. It needs a birthday (`supabase-usernames.sql`).
+- Blocks hide people both ways, and suspended accounts can't join hubs (`supabase-moderation.sql`).
+- A Course Hub has no owner: nobody can rename or delete it, remove people or make an invite code, and its invite code doesn't open it. It's joined only from the course page. It holds up to 300 people, and the Free plan's group size limit doesn't apply.
+- Limits against misuse: up to 40 courses per send, 30 sends an hour, and 80 different courses per account in 30 days.
+- Courses not synced for 120 days are removed, and empty hubs are deleted, every night (with `pg_cron`; otherwise run `select public.classmates_purge();` now and then). Deleting an account removes everything.
+
+**To turn it on:** run `supabase-groups.sql` and `supabase-plans.sql` again (they now know about Course Hubs), then `supabase-classmates.sql`, then `supabase-lean.sql` again. Check it with `supabase-classmates-selftest.sql`. Until the file is run, the app shows no Classmates card.
+
+**Not checked yet:** the server takes the app's word that the student is in the course (the course ids come from the app reading the school site). Someone who fakes a course only sees display names and a hub that reports and blocks cover. Checking it on the server is possible later for Google Classroom (through `cloud-files`) and for calendar links (through `lms-feed`).
 
 ## Share Decks and Study Groups
 
