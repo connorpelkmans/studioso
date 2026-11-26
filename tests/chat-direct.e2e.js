@@ -402,6 +402,68 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     a = await chat("undo that");
     const has = await p.evaluate(() => Object.values(window.__sbSync.state.notes).some(n => n && /Dr Okafor/.test(n.text || "")));
     ok(had && !has && /Undone/.test(a), "\"undo that\" removes the note the chat just added: " + a); }
+  // several tasks named one by one ("X and Y, both"): each changed, not just the first (the model named only one)
+  const resetT = () => p.evaluate(() => { const S = window.__sbSync; ["t8", "t9"].forEach(id => { const t = S.clone(S.state.tasks[id]); t.status = "todo"; t.doneAt = null; delete t.mark; S.applyChanges([{kind: "task", id, after: t}], "x"); }); });
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "mark_done", task: "Care Plan 2"}; });
+  a = await chat("tick off care plan 2 and read chapter 7, both handed in");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done" && window.__sbSync.state.tasks.t9.status === "done"), "\"X and Y, both\" marks both done: " + a);
+  // "same for X" after a change made straight from the words: the same change to X (it said "done" and changed nothing)
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("mark care plan 2 done");
+  a = await chat("same for chapter 7");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t9.status === "done"), "\"same for chapter 7\" marks it done too: " + a);
+  // a mark said as a statement ("record 16/20 for ..."): saved, not answered as a question
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("record 16/20 for read chapter 7");
+  ok(await p.evaluate(() => { const m = window.__sbSync.state.tasks.t9.mark; return !!m && m.got === 16 && m.outOf === 20; }), "\"record 16/20 for X\" saves the mark: " + a);
+  // a reply that says it marked something when nothing changed isn't left standing
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat", answer: "I have marked Read Chapter 7 as done for you.", found: true, followUps: [], actions: []}; });
+  a = await chat("chapter 7 is finished i think");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t9.status === "done") || !/I have marked/.test(a), "\"I have marked X\" with no change is done for real or not said: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
+  // several requests in one message: each done (the model only ever answers for one)
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("care plan 2 done, read chapter 7 done");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done" && window.__sbSync.state.tasks.t9.status === "done"), "\"X done, Y done\" does both: " + a);
+  // "make it high priority" right after adding a task: that task, never a second one
+  await fresh();
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.tasks).length);
+    a = await chat("add a bio worksheet due friday");
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Bio worksheet"}; });
+    a = await chat("make it high priority");
+    const r = await p.evaluate(() => { const L = Object.values(window.__sbSync.state.tasks).filter(t => /bio worksheet/i.test(t.title)); return {n: Object.keys(window.__sbSync.state.tasks).length, k: L.length, pr: L.map(t => t.priority)}; });
+    ok(r.k === 1 && r.n === n0 + 1 && r.pr[0] === "high", "\"make it high priority\" changes the task just added: " + JSON.stringify(r) + " " + a); }
+  // an event's time range ("wednesday 1-2"): from 1 to 2 in the afternoon
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "add_event", title: "Office hours with Prof Ruiz"}; });
+  a = await chat("add office hours with prof ruiz wednesday 1-2");
+  { const ev = await p.evaluate(() => Object.values(window.__sbSync.state.events || {}).find(e => /office hours/i.test(e.title || "")) || null);
+    ok(ev && ev.start === "13:00" && ev.end === "14:00", "\"wednesday 1-2\" is 1 to 2 pm: " + JSON.stringify(ev && {start: ev.start, end: ev.end}) + " " + a); }
+  // something to get done with no time is a task, not a calendar event
+  await fresh();
+  { const e0 = await p.evaluate(() => Object.keys(window.__sbSync.state.events || {}).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_event", title: "NCLEX practice questions"}; });
+    a = await chat("add nclex practice questions tmrw");
+    const r = await p.evaluate(() => ({ev: Object.keys(window.__sbSync.state.events || {}).length, t: Object.values(window.__sbSync.state.tasks).some(t => /nclex/i.test(t.title))}));
+    ok(r.t && r.ev === e0, "\"nclex practice questions tmrw\" is a task: " + JSON.stringify(r) + " " + a); }
+  // flashcards counted and found from the decks, how-to never makes a deck, a file that isn't here is said
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  { const d0 = await p.evaluate(() => Object.keys(window.__sbSync.state.decks).length);
+    a = await chat("how many cards in heart");
+    ok(/^Heart has \d+ cards?/.test(a), "\"how many cards in heart\" counts that deck: " + a);
+    a = await chat("how many flashcards do i have");
+    ok(/You have \d+ flashcards? in \d+ decks?/.test(a), "\"how many flashcards do i have\" counts them all: " + a);
+    a = await chat("how do i make a flashcard deck");
+    ok(/New Deck/.test(a) && await p.evaluate(n => Object.keys(window.__sbSync.state.decks).length === n, d0), "\"how do i make a deck\" says how, makes nothing: " + a);
+    a = await chat("make flashcards from the slides i uploaded yesterday");
+    ok(/attach/i.test(a) && await p.evaluate(n => Object.keys(window.__sbSync.state.decks).length === n, d0), "slides that aren't here are said, no empty deck: " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
   }
   // ---- With Claude (a Claude key in Studyboard AI Pro Mode): one step reads the whole planner and lists the changes; the app makes them
   {
