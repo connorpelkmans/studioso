@@ -154,7 +154,7 @@
         eyes: {lx: 48, rx: 68, y: 67, r: 5.3, style: "dot", color: "#2B1A22"},
         mouth: {x: 58, y: 76, w: 3.2, color: "#2B1A22"},
         cheeks: {lx: 39.5, rx: 76.5, y: 75, w: 4.6, h: 2.8, color: "#FF4F73"},
-        anchors: {top: [55, 37.5, 0.72, 0], neck: [58, 86, 0.85, 0, 64, 70], chest: [92, 90.5, 0.62], back: [100, 64, 0.75], hands: [58, 91, 0.85]},
+        anchors: {top: [55, 37.5, 0.72, 0], neck: [58, 86, 0.85, 0, 64, 70], chest: [92, 90.5, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi, champ!", "You're off to a running start!", "Every step forward counts! Go go!", "Laced up and cheering for you!", "Look at you, crushing your stride!", "One more lap? You've totally got this!", "You're my favorite running buddy!", "Speedy progress today! Woohoo!"],
           pet: ["Hehe! That tickles my laces!", "Squeak squeak! Happy sneaker noises!"],

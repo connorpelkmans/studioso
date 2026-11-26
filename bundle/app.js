@@ -59182,7 +59182,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 50, rx: 70, y: 56, r: 4.3, style: "dot", color: "#2B1E18"},
         mouth: {x: 60, y: 64, w: 2.6, style: "cat"},
         cheeks: {lx: 43, rx: 77, y: 63.5, w: 4.2, h: 2.6},
-        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 77, 0.9, 0, 44, 81], chest: [60, 88, 0.62], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
+        anchors: {top: [60, 37.5, 0.95, 0], neck: [60, 73, 0.85, 0, 42, 50], cape: [60, 73, 0.85, 70, 86], chest: [60, 88, 0.62], back: [24, 86, 0.8], hands: [60, 81, 0.9]},
         lines: {
           tap: ["Purr! Hello, my favorite person!", "You're the cream of the crop!", "Warm cup, calm mind, great you!", "One sip at a time, and you're doing it!", "Mew! You're doing great!", "This spot is extra cozy with you here!", "Cozy and capable, that's you!"],
           pet: ["Purr-fect! That's so nice!", "Mrrp! More chin scratches, please!"],
@@ -64096,7 +64096,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 51, rx: 69, y: 61, r: 5.2, style: "sparkle", color: "#2E2240"},
         mouth: {x: 60, y: 70, w: 2.8, color: "#2E2240"},
         cheeks: {lx: 43.5, rx: 76.5, y: 68.5, w: 4.2, h: 2.6, color: "#FF9FB7"},
-        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 48, 51], chest: [72, 84.5, 0.6], back: [104, 82, 0.72], hands: [60, 80, 0.85]},
+        anchors: {top: [60, 41.5, 0.85, 0], neck: [60, 78.5, 0.95, 0, 48, 51], chest: [72, 84.5, 0.6], back: [60, 58, 0.8], hands: [60, 80, 0.85]},
         lines: {
           tap: ["Flutter flutter! Hi! I'm so happy to see you!", "You're glowing like golden hour today!", "Look at you, showing up again! Wow!", "Every little step makes me flutter with joy!", "You're on fire today, softly and brightly!", "My fuzzy wings are cheering for you!", "You and the lavender, my favorite things!"],
           pet: ["Ooh! My fuzzy wings are all aflutter!", "Hehe! That's the softest pat ever!"],
@@ -65748,7 +65748,7 @@ var COMP_KIT = (() => {
         eyes: {lx: 48, rx: 68, y: 67, r: 5.3, style: "dot", color: "#2B1A22"},
         mouth: {x: 58, y: 76, w: 3.2, color: "#2B1A22"},
         cheeks: {lx: 39.5, rx: 76.5, y: 75, w: 4.6, h: 2.8, color: "#FF4F73"},
-        anchors: {top: [55, 37.5, 0.72, 0], neck: [58, 86, 0.85, 0, 64, 70], chest: [92, 90.5, 0.62], back: [100, 64, 0.75], hands: [58, 91, 0.85]},
+        anchors: {top: [55, 37.5, 0.72, 0], neck: [58, 86, 0.85, 0, 64, 70], chest: [92, 90.5, 0.62], back: [28, 56, 0.8], hands: [58, 91, 0.85]},
         lines: {
           tap: ["Zoom zoom! Hi, champ!", "You're off to a running start!", "Every step forward counts! Go go!", "Laced up and cheering for you!", "Look at you, crushing your stride!", "One more lap? You've totally got this!", "You're my favorite running buddy!", "Speedy progress today! Woohoo!"],
           pet: ["Hehe! That tickles my laces!", "Squeak squeak! Happy sneaker noises!"],
@@ -71405,11 +71405,8 @@ var COMP_ACC_MORE = K => {
       return `${ic.map(([x, y], i) => { const h = Math.abs(x) < 2 ? 0 : 2.6 + (i % 2) * 2.2; return h ? `<path d="M${f(x - 1.6)} ${f(y - .6)}L${x} ${f(y + h)}L${f(x + 1.6)} ${f(y - .6)}Z" fill="#A8DCF5" ${OUT(1.1)}/>` : ""; }).join("")}${band(hw, -3.6, 3.2, 2.2, 3.3, WF, 2)}<path d="M${f(-hw + 3)} -1Q0 4.6 ${f(hw - 3)} -1" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-dasharray="3 2" stroke-linecap="round"/>
         <path d="${flake}" stroke="${INK}" stroke-width="3" stroke-linecap="round"/><path d="${flake}" stroke="#F2FBFF" stroke-width="1.5" stroke-linecap="round"/><circle cy="12" r="1.5" ${WF} ${OUT(.8)}/>${star(7, 9, 1.4, "#fff")}`; }}
   );
-  /* ---------------- Chest and back: 20 each (10 common, 5 rare, 3 exotic, 2 legendary) ----------------
-     chest: art() around (0,0); at "pin" sits on the Star Badge's spot to one side, at "mid" in the middle like the Medal
-     back: "peek" things are carried behind the body at anchors.back and peek out past its side (art drawn with the outside to +x,
-     mirrored when the back point is on the left); "drape" things (wings, a jetpack) spread behind the body from the neck like the
-     cape: art(hw, bw), hw the collar's half-width, bw the body's widest half */
+  /* ---------------- Chest: 20 (10 common, 5 rare, 3 exotic, 2 legendary) ----------------
+     art() around (0,0); at "pin" sits on the Star Badge's spot to one side, at "mid" in the middle like the Medal */
   const sticker = (r, fill) => { let p = ""; for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, q = i % 2 ? r * .9 : r; p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); } return `<path d="${p}Z" ${fill} ${OUT(1.5)}/>`; };
   const txt = (t, x, y, sz, fill) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="${sz}" fill="${fill}">${t}</text>`;
   const CHEST = [
@@ -71442,59 +71439,9 @@ var COMP_ACC_MORE = K => {
     {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#2563EB", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
       return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" fill="#DDE2EA" ${OUT(1.5)}/><circle r="5.4" fill="${GOLD}" ${OUT(1.3)}/><circle r="3.9" ${WF} ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
   ];
-  // a wing for the back, drawn for the right side from its root (0,0) out to +x over span s
-  const BACK = [
-    // Common
-    {id: "backpack", name: "School Backpack", rarity: "common", at: "peek", def: "#E5484D", pat: true, art: () => `${line2("M-3 -13Q2 -19 7 -13", 1.6, INK)}<path d="${rr(-6, -13, 17, 23, 5.5)}" ${WF} ${OUT(2.2)}/><path d="${rr(-1, -1, 10.5, 8.5, 2.6)}" ${WF} ${OUT(1.6)}/><path d="${rr(-1, -1, 10.5, 8.5, 2.6)}" fill="${INK}" opacity=".12"/><path d="M0 1.6H8.6" stroke="#fff" stroke-opacity=".7" stroke-width="1" stroke-dasharray="1 1"/><path d="M-3 -10Q4 -12.4 9.4 -9.6" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1.6" stroke-linecap="round"/>`},
-    {id: "tote", name: "Canvas Tote", rarity: "common", at: "peek", def: "#F4EFE3", art: () => `<path d="M-1 -6Q0 -17 6 -17Q11 -16.4 10 -6" fill="none" stroke="${INK}" stroke-width="3.4"/><path d="M-1 -6Q0 -17 6 -17Q11 -16.4 10 -6" fill="none" stroke="#C9A36B" stroke-width="1.6"/><path d="M-5 -6H12L13 12H-6Z" ${WF} ${OUT(2)}/>${heart(4, 3, 3.2, `fill="#FF5C8A"`)}`},
-    {id: "umbrella", icon: [10, 1.05], name: "Rain Umbrella", rarity: "common", at: "peek", def: "#5A95FF", art: () => `<g transform="rotate(24)"><path d="M0 -24L4.4 4Q0 6.4 -4.4 4Z" ${WF} ${OUT(2)}/><path d="M0 -22L1.4 3.4M0 -22L-1.4 3.4" stroke="${INK}" stroke-opacity=".25" stroke-width="1"/><path d="M0 -24V-27" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/>${line2("M0 5V13Q0 16.6 3.2 16.6Q6 16.6 6 13.6", 1.4, "#8B6A4F")}</g>`},
-    {id: "baguette", name: "Baguette Bag", rarity: "common", at: "peek", def: "#E9D2A8", art: () => `${[[2, -14, 18], [6, -10, 10]].map(([x, y, a]) => `<g transform="rotate(${a} ${x} ${y + 9})"><rect x="${x - 2.6}" y="${y}" width="5.2" height="18" rx="2.6" fill="#E0A458" ${OUT(1.6)}/><path d="M${x - 1.4} ${y + 3}l2.6 1.4M${x - 1.4} ${y + 6.4}l2.6 1.4M${x - 1.4} ${y + 9.8}l2.6 1.4" stroke="#B5762E" stroke-width="1" stroke-linecap="round"/></g>`).join("")}<path d="M-5 -2H11L12 13H-6Z" ${WF} ${OUT(2)}/><path d="M-5 1.4L-3.6 -.4L-2 1.4L-.4 -.4L1.2 1.4L2.8 -.4L4.4 1.4L6 -.4L7.6 1.4L9.2 -.4L10.8 1.4" fill="none" stroke="${INK}" stroke-opacity=".25" stroke-width=".9"/>`},
-    {id: "bugnet", icon: [8, 1.15], name: "Butterfly Net", rarity: "common", at: "peek", def: "#4CB782", art: () => `${line2("M0 10L8 -16", 1.6, "#B07A45")}<path d="M3.6 -19Q2 -10 10 -8Q16 -9.4 15 -19" ${WF} fill-opacity=".35" stroke="#fff" stroke-width=".8"/><path d="M5 -17L11 -9M8.4 -19L13 -11M12 -19.4L8 -8.6M14.4 -17L5.4 -11" stroke="#fff" stroke-opacity=".7" stroke-width=".6"/><ellipse cx="9.4" cy="-19.4" rx="6" ry="2" fill="none" stroke="${INK}" stroke-width="2.6"/><ellipse cx="9.4" cy="-19.4" rx="6" ry="2" fill="none" ${WS("#4CB782")} stroke-width="1.3"/>`},
-    {id: "balloon", icon: [18, .9], name: "Balloon", rarity: "common", at: "peek", def: "#FF5C8A", art: () => `<path d="M0 6Q4 -2 1 -8T6 -21" fill="none" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><path d="M5.4 -21.6l1.4 -2.6l1.6 2.4Z" ${WF} ${OUT(1)}/><ellipse cx="7" cy="-31" rx="7.4" ry="8.8" ${WF} ${OUT(2)}/><path d="M3 -35q1.4 -3 4 -3.2" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1.6" stroke-linecap="round"/>`},
-    {id: "skateboard", icon: [4, 1.2], name: "Skateboard", rarity: "common", at: "peek", def: "#2FB5C9", pat: true, art: () => `<g transform="rotate(12)"><path d="${rr(-3, -20, 10, 32, 5)}" ${WF} ${OUT(2)}/><path d="M2 -16V8" stroke="#fff" stroke-opacity=".4" stroke-width="2.4" stroke-linecap="round"/><circle cx="8.4" cy="-14" r="2.2" fill="#FFD35A" ${OUT(1.2)}/><circle cx="8.4" cy="6" r="2.2" fill="#FFD35A" ${OUT(1.2)}/></g>`},
-    {id: "kite", icon: [14, 1], name: "Paper Kite", rarity: "common", at: "peek", def: "#FFD35A", art: () => `<path d="M0 6Q6 -2 9 -14" fill="none" stroke="${INK}" stroke-width=".9"/><path d="M9 -14Q16 -8 13 -2Q10 3 15 8" fill="none" stroke="${INK}" stroke-width=".9"/><path d="M12.6 -1.4l2.4 -1.6l-.2 2.8ZM14 5l2.4 -1.4l-.2 2.8Z" fill="#FF5C8A" ${OUT(.8)}/><path d="M9 -32L16 -22L9 -12L2 -22Z" ${WF} ${OUT(1.8)}/><path d="M9 -32L9 -12M2 -22H16" stroke="${INK}" stroke-opacity=".35" stroke-width="1"/><path d="M9 -32L16 -22L9 -22Z" fill="#FF5C8A" opacity=".55"/>`},
-    {id: "pennant", icon: [8, 1.2], name: "Team Pennant", rarity: "common", at: "peek", def: "#E5484D", art: () => `${line2("M0 8L3 -22", 1.4, "#B07A45")}<path d="M3 -22L20 -16.4L2.4 -11Z" ${WF} ${OUT(1.8)}/>${star(8, -16.6, 2.2, "#fff")}<circle cx="3" cy="-22.6" r="1.4" fill="${GOLD}" ${OUT(.8)}/>`},
-    {id: "beewings", name: "Bee Wings", rarity: "common", at: "drape", def: "#CDEBFF", art: (hw, bw) => {
-      const r = f(hw * .45), s = f(Math.max(10, bw - hw * .45 + 6)), k = f(Math.min(1.3, Math.max(.8, s / 16)));
-      const w = `<ellipse cx="${f(s * .55)}" cy="-6" rx="${f(s * .58)}" ry="${f(6.4 * k)}" transform="rotate(-22 0 0)" ${WF} fill-opacity=".8" ${OUT(1.6)}/><ellipse cx="${f(s * .4)}" cy="5" rx="${f(s * .42)}" ry="${f(4.4 * k)}" transform="rotate(18 0 0)" ${WF} fill-opacity=".8" ${OUT(1.6)}/><path d="M${f(s * .15)} -3Q${f(s * .5)} -8 ${f(s * .9)} -10M${f(s * .15)} 2Q${f(s * .45)} 5 ${f(s * .7)} 6" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>`;
-      return `<g transform="translate(${r} 8)">${w}</g><g transform="translate(${-r} 8) scale(-1 1)">${w}</g>`; }},
-    // Rare
-    {id: "guitar", icon: [8, 1.05], name: "Acoustic Guitar", rarity: "rare", at: "peek", def: "#C9803F", art: () => `<g transform="rotate(28 4 0)"><rect x="2.2" y="-30" width="3.6" height="22" fill="#6B4A2E" ${OUT(1.4)}/><path d="${rr(1.4, -35, 5.2, 6, 1.4)}" fill="#3A3450" ${OUT(1.2)}/><path d="M4 -9Q-3.4 -9 -3.4 -3.6Q-3.4 -.6 -1 .6Q-5 2.6 -5 7.4Q-5 15 4 15Q13 15 13 7.4Q13 2.6 9 .6Q11.4 -.6 11.4 -3.6Q11.4 -9 4 -9Z" ${WF} ${OUT(2)}/><circle cx="4" cy="2.4" r="2.6" fill="${INK}"/><path d="M1 10.4H7" stroke="${INK}" stroke-width="1.6" stroke-linecap="round"/><path d="M3.4 -30V10M4.6 -30V10" stroke="#F3E6C8" stroke-width=".5"/></g>`},
-    {id: "quiver", icon: [6, 1.2], name: "Archer's Quiver", rarity: "rare", at: "peek", def: "#8B6A4F", art: () => `<g transform="rotate(22)">${[[-1.6, -24, "#E5484D"], [1.4, -27, "#fff"], [4.2, -23, "#E5484D"]].map(([x, y, c]) => `<path d="M${x} ${y + 2}V-6" stroke="${INK}" stroke-width="1.2"/><path d="M${x} ${y}l-1.6 3.6l1.6 -1l1.6 1Z" fill="${c}" ${OUT(.8)}/>`).join("")}<path d="${rr(-4.6, -8, 11, 24, 3.6)}" ${WF} ${OUT(2)}/><path d="M-4.6 -4.4H6.4M-4.6 11H6.4" stroke="${GOLD}" stroke-width="1.6"/><path d="M-2 -2V9" stroke="#fff" stroke-opacity=".35" stroke-width="1.6" stroke-linecap="round"/></g>`},
-    {id: "woodsword", icon: [10, 1.1], name: "Wooden Sword", rarity: "rare", at: "peek", def: "#5A95FF", art: () => `<g transform="rotate(26)"><path d="M-2.2 -6V-27L0 -30L2.2 -27V-6Z" fill="#D9B27A" ${OUT(1.6)}/><path d="M0 -27V-8" stroke="#B5864A" stroke-width=".9"/><rect x="-6.4" y="-6.6" width="12.8" height="3.4" rx="1.4" fill="#B07A45" ${OUT(1.4)}/><rect x="-1.8" y="-3.2" width="3.6" height="9" rx="1" ${WF} ${OUT(1.3)}/><path d="M-1.8 -.6h3.6M-1.8 2.4h3.6" stroke="${INK}" stroke-opacity=".3" stroke-width=".9"/><circle cx="0" cy="7.6" r="2" fill="${GOLD}" ${OUT(1)}/></g>`},
-    {id: "snailshell", name: "Snail Shell", rarity: "rare", at: "peek", def: "#E9A86B", art: () => `<circle cx="3" cy="-3" r="12" ${WF} ${OUT(2.2)}/><path d="M3 -3m0 0a2.4 2.4 0 1 1 2.4 2.4a5 5 0 1 1 -5 -5a7.6 7.6 0 1 1 7.6 7.6a10.2 10.2 0 0 1 -10.4 -9" fill="none" stroke="${INK}" stroke-opacity=".55" stroke-width="1.4" stroke-linecap="round"/><path d="M-4 -10q3 -3.6 7.6 -3.6" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.6" stroke-linecap="round"/>`},
-    {id: "batwings", name: "Bat Wings", rarity: "rare", at: "drape", def: "#5B4BC4", art: (hw, bw) => {
-      const r = f(hw * .4), s = Math.max(12, bw - hw * .4 + 9), k = Math.min(1.3, Math.max(.8, s / 18));
-      const w = `<path d="M0 0Q${f(s * .4)} ${f(-12 * k)} ${f(s)} ${f(-9 * k)}Q${f(s * .9)} ${f(-2 * k)} ${f(s * .95)} ${f(4 * k)}Q${f(s * .78)} ${f(1 * k)} ${f(s * .66)} ${f(5 * k)}Q${f(s * .52)} ${f(1.6 * k)} ${f(s * .36)} ${f(6 * k)}Q${f(s * .24)} ${f(2.4 * k)} 0 ${f(6 * k)}Z" ${WF} ${OUT(1.8)}/><path d="M0 0L${f(s * .66)} ${f(5 * k)}M${f(s * .3)} ${f(-6 * k)}L${f(s * .36)} ${f(6 * k)}" stroke="${INK}" stroke-opacity=".35" stroke-width="1"/>`;
-      return `<g transform="translate(${r} 6)">${w}</g><g transform="translate(${-r} 6) scale(-1 1)">${w}</g>`; }},
-    // Exotic
-    {id: "jetpack", name: "Jetpack", rarity: "exotic", at: "drape", def: "#E5484D", art: (hw, bw) => {
-      const x = f(Math.max(hw * .8 + 3, bw - 4.5));
-      const tank = sx => `<g transform="translate(${f(sx * x)} 0)"><path d="M-2.6 20Q-4 25 0 30Q4 25 2.6 20Z" fill="#FF9A3C" ${OUT(1.2)}/><path d="M-1.2 20Q-2 23.4 0 26.4Q2 23.4 1.2 20Z" fill="#FFE07A"/><path d="M-3.4 17H3.4L2.6 20.6H-2.6Z" fill="#5B5670" ${OUT(1.2)}/><path d="${rr(-4.6, -4, 9.2, 21.6, 4.4)}" fill="#C9D0DA" ${OUT(1.8)}/><path d="M-4.6 2.6H4.6M-4.6 6.4H4.6" ${WS("#E5484D")} stroke-width="2.2"/><path d="M-2.2 -1V14" stroke="#fff" stroke-opacity=".6" stroke-width="1.3" stroke-linecap="round"/></g>`;
-      return `<path d="M${-x} 4H${x}" stroke="${INK}" stroke-width="5"/><path d="M${-x} 4H${x}" stroke="#8E96A6" stroke-width="3"/>${tank(-1)}${tank(1)}`; }},
-    {id: "fairywings", name: "Fairy Wings", rarity: "exotic", at: "drape", def: "#B57BFF", art: (hw, bw) => {
-      const r = f(hw * .35), s = Math.max(12, bw - hw * .35 + 8), k = Math.min(1.35, Math.max(.85, s / 17)), G = `fill="url(#cpgFairy)"`;
-      const w = `<path d="M0 0Q${f(s * .2)} ${f(-20 * k)} ${f(s * .9)} ${f(-17 * k)}Q${f(s * 1.15)} ${f(-8 * k)} ${f(s * .5)} ${f(-1 * k)}Z" ${G} fill-opacity=".85" ${OUT(1.6)}/><path d="M0 2Q${f(s * .6)} ${f(3 * k)} ${f(s * .7)} ${f(11 * k)}Q${f(s * .35)} ${f(14 * k)} 0 2Z" ${G} fill-opacity=".85" ${OUT(1.6)}/><path d="M${f(s * .1)} -2Q${f(s * .45)} ${f(-10 * k)} ${f(s * .8)} ${f(-14 * k)}M${f(s * .1)} 3Q${f(s * .4)} ${f(6 * k)} ${f(s * .55)} ${f(10 * k)}" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".9" stroke-linecap="round"/><circle cx="${f(s * .7)}" cy="${f(-12 * k)}" r="1" fill="#fff"/><circle cx="${f(s * .45)}" cy="${f(8 * k)}" r=".8" fill="#fff"/>`;
-      return `<defs><linearGradient id="cpgFairy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#B57BFF)"/><stop offset=".6" stop-color="#7CF5FF"/><stop offset="1" stop-color="#FF9AD5"/></linearGradient></defs><g transform="translate(${r} 6)">${w}</g><g transform="translate(${-r} 6) scale(-1 1)">${w}</g>`; }},
-    {id: "crystalstaff", icon: [14, .85], name: "Crystal Staff", rarity: "exotic", at: "peek", def: "#8E6BE0", art: () => `<g transform="rotate(16)">${line2("M0 14V-22", 2.2, "#7A4E2D")}<path d="M-1.6 -18H1.6M-1.6 -14H1.6" stroke="${GOLD}" stroke-width="1.4"/><circle cy="-30" r="9" ${WF} opacity=".3"/><path d="M-2.6 -22Q-6 -26 -3 -31M2.6 -22Q6 -26 3 -31" fill="none" stroke="${GOLD}" stroke-width="1.4" stroke-linecap="round"/><path d="M0 -38L3.6 -31L0 -23L-3.6 -31Z" ${WF} ${OUT(1.5)}/><path d="M0 -38V-23M-3.6 -31L0 -29.4L3.6 -31" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8"/>${star(6, -37, 1.4, "#fff")}${star(-5, -26, 1.1, "#fff")}</g>`},
-    // Legendary
-    {id: "angelwings", name: "Celestial Wings", rarity: "legendary", at: "drape", def: "#FFF6DA", art: (hw, bw) => {
-      // a feathered wing: a soft upper edge out to the tip, then rows of rounded feathers back along the bottom
-      const r = f(hw * .35), s = Math.max(14, bw - hw * .35 + 11), k = Math.min(1.35, Math.max(.85, s / 19));
-      const P = (x, y) => `${f(s * x)} ${f(y * k)}`;
-      const shape = `M0 2Q${P(.2, -15)} ${P(.62, -17)}Q${P(.9, -18)} ${P(1.05, -12)}Q${P(1.02, -8)} ${P(.9, -6)}Q${P(.96, -1)} ${P(.78, 1)}Q${P(.84, 6)} ${P(.62, 6)}Q${P(.66, 11)} ${P(.44, 10)}Q${P(.44, 14)} ${P(.24, 12)}Q${P(.18, 14)} 0 9Z`;
-      const row = `M${P(.16, -4)}Q${P(.5, -10)} ${P(.92, -9.6)}M${P(.12, 2)}Q${P(.45, -3)} ${P(.8, -2)}M${P(.1, 7)}Q${P(.35, 3.6)} ${P(.6, 4)}`;
-      const w = `<path d="${shape}" fill="#FFE58A" opacity=".45" transform="scale(1.08)"/><path d="${shape}" ${WF} ${OUT(1.8)}/><path d="${row}" fill="none" stroke="${GOLD_D}" stroke-width="1" stroke-linecap="round"/><path d="M${P(.2, -9)}Q${P(.5, -14.4)} ${P(.85, -13.4)}" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>`;
-      return `<g transform="translate(${r} 4)">${w}</g><g transform="translate(${-r} 4) scale(-1 1)">${w}</g>${tw(f(bw + 6), -12, 3, 0)}${tw(f(-bw - 8), -4, 2.6, .9)}${tw(f(bw * .6), -20, 2.2, 1.6)}`; }},
-    {id: "dragonwings", name: "Dragon Wings", rarity: "legendary", at: "drape", def: "#B8323F", art: (hw, bw) => {
-      const r = f(hw * .35), s = Math.max(14, bw - hw * .35 + 12), k = Math.min(1.35, Math.max(.85, s / 20));
-      const w = `<path d="M0 0L${f(s * .55)} ${f(-17 * k)}L${f(s)} ${f(-13 * k)}Q${f(s * .9)} ${f(-4 * k)} ${f(s * .96)} ${f(6 * k)}Q${f(s * .8)} ${f(2 * k)} ${f(s * .68)} ${f(7 * k)}Q${f(s * .52)} ${f(2.4 * k)} ${f(s * .38)} ${f(8 * k)}Q${f(s * .2)} ${f(3 * k)} 0 ${f(7 * k)}Z" ${WF} ${OUT(1.8)}/>
-        <path d="M0 0L${f(s * .55)} ${f(-17 * k)}L${f(s)} ${f(-13 * k)}M${f(s * .55)} ${f(-17 * k)}L${f(s * .68)} ${f(7 * k)}M${f(s * .55)} ${f(-17 * k)}L${f(s * .38)} ${f(8 * k)}" fill="none" stroke="#4A1A24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M${f(s * .55)} ${f(-17 * k)}l1 -3.4l1.6 3" fill="${GOLD}" ${OUT(.8)}/><path d="M${f(s * .2)} ${f(-3 * k)}L${f(s * .45)} ${f(-10 * k)}" stroke="#fff" stroke-opacity=".25" stroke-width="1.6" stroke-linecap="round"/>`;
-      return `<g transform="translate(${r} 5)">${w}</g><g transform="translate(${-r} 5) scale(-1 1)">${w}</g>${tw(f(bw + 8), -14, 3, 0)}${tw(f(-bw - 6), 0, 2.6, 1)}`; }}
-  ];
-  CHEST.forEach(a => { a.slot = "chest"; }); BACK.forEach(a => { a.slot = "back"; });
+  CHEST.forEach(a => { a.slot = "chest"; });
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
-  return HEAD.concat(FACE, NECK, CHEST, BACK);
+  return HEAD.concat(FACE, NECK, CHEST);
 };
 /* ===== module: 98-companion.js ===== */
 /* Studyboard 1.11.0 */
@@ -71527,7 +71474,7 @@ var COMP_ACC_MORE = K => {
     {id: "bowtie", rarity: "common", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
     {id: "glasses", rarity: "common", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
     {id: "medal", rarity: "rare", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
-    {id: "cape", rarity: "exotic", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "cape", rarity: "rare", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
     {id: "star", rarity: "rare", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
     {id: "beanie", rarity: "rare", name: "Festive Beanie", paths: [["festive", 1]]},
     {id: "cap", rarity: "exotic", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
@@ -71642,7 +71589,7 @@ var COMP_ACC_MORE = K => {
     cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" ${WEAR} ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
   /* Body regions: an item declares the one it covers */
-  const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "back"};
+  const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "neck"};
   // The colour these were drawn in (the others follow the theme colour)
   const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
   // Clothing patterns (Pro) go on these (the list grows with the fabric ones below)
@@ -71656,18 +71603,18 @@ var COMP_ACC_MORE = K => {
     const ext = half ? Math.max(2, Math.min(R * 1.2, half + 4 - (gap / 2 + R))) : R * 1.2;
     return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap, ext: f1(ext)};
   }
-  /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 each for the chest and back, from Common to Legendary. How rare a thing is sets
+  /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
      how much studying earns it (any one way unlocks it, as for every prop), spread evenly from the easiest to the hardest of its
      rarity; commons, uncommons and rares are free, exotics and legendaries are Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
   const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
   // [easiest, hardest] for each way, and a fourth way that depends on where it's worn
   const MORE_WAYS = {
-    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8], chest: ["checkins", 3, 9], back: ["studydays", 3, 9]},
-    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12], chest: ["notes", 9, 12], back: ["checkins", 9, 12]},
-    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28], chest: ["prep", 7, 13], back: ["stickers", 10, 18]},
-    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6], chest: ["spread", 4, 7], back: ["focusWeeks", 4, 7]},
-    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150], chest: ["focusWeeks", 9, 12], back: ["spread", 8, 12]}
+    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8], chest: ["checkins", 3, 9]},
+    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12], chest: ["notes", 9, 12]},
+    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28], chest: ["prep", 7, 13]},
+    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6], chest: ["spread", 4, 7]},
+    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150], chest: ["focusWeeks", 9, 12]}
   };
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
   const MORE_BY = {}, MORE_N = {}, MORE_OF = {};
@@ -71679,18 +71626,14 @@ var COMP_ACC_MORE = K => {
     if (a.def) ACC_DEF[a.id] = a.def;
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
-    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.at === "drape" ? a.art(8, 12) : a.art();
+    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
     ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: RARITY.indexOf(a.rarity) <= 2, hours: at(w.hours), paths: [["cards", at(w.cards)], ["quizzes", at(w.quizzes)], [x[0], at([x[1], x[2]])]]});
   });
   ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
-  // Companions whose back point sits deep behind a wide part (a wing, a petal): carried things move this far further out so they show
-  // (measured: the smallest shift that shows most of a backpack and an umbrella)
-  // (measured: the smallest shift that shows over half of a backpack, an umbrella and a balloon)
-  const PEEK_OUT = {"aquarium-curly": 2, "balloons-hamster": 4, "bokeh-dandelion": 4, "cafe-croissant": 28, "comms-mic": 6, "compsci-robot": 6, "culinary-twirly": 4, "diadelosmuertos-cempa": 2, "dunes-fennec": 20, "egypt-jamal": 10, "engineering-arm": 14, "film-spotty": 6, "greenhouse-prickles": 10, "halloween-bat": 2, "holi-rang": 2, "japan-kuri": 16, "knitting-alpaca": 4, "koi-lotus": 4, "lemonade-bird": 6, "marinebio-kelpie": 12, "mexico-pico": 8, "mexico-tito": 2, "morocco-fenn": 30, "morocco-nana": 2, "mushrooms-fiddle": 10, "neon-glider": 32, "nighttrain-stub": 18, "nursing-heart": 8, "pride-flamingo": 2, "rain-snail": 20, "ramen-nori": 8, "ruins-knight": 4, "savanna-stretch": 4, "sketchcity-compass": 2, "spring-butterfly": 24, "sunflowers-chirpy": 6, "sunflowers-sole": 22, "sunset-gull": 4, "sunset-starfish": 6, "thailand-chang": 2, "valley-turbine": 18, "venice-pippo": 8};
   const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
   const rarityTag = a => `<span class="cp-rar cp-rar-${rarityOf(a)}">${RARITY_NAME[rarityOf(a)]}</span>`;
   // the wardrobe's sections, by where a thing is worn
-  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest", ["chest"]], ["Back", ["back"]]];
+  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest", ["chest", "back"]]];
   const slotOf = id => ACC_SLOT[id] || id;
   const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
   const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
@@ -71743,14 +71686,10 @@ var COMP_ACC_MORE = K => {
     const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
-    // the back: wings and the like spread from the neck like the cape (hw: the collar's half-width, bw: the body's widest half);
-    // carried things peek out past the body's side at anchors.back, turned round when that point is on the left
-    const backA = pt(A.back) ? A.back : [92, 80, .9], flipB = backA[0] < (num(na[0]) ? na[0] : 60);
-    const peekOut = num(o.peekOut) ? o.peekOut : PEEK_OUT[c.id] || 0;
-    const dHw = wrapW ? collarAt(capeA[2]) : 14, dBw = drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 28;
-    // wings start at the upper back: near the back point's height, never far from the neck (a round body's neck point sits low)
-    const dDy = f1(Math.max(-18, Math.min(8, backA[1] - capeA[1])) / capeA[2]);
-    const backWear = MORE.filter(a => a.slot === "back" && worn.includes(a.id)).map(a => a.at === "drape" ? acc(a.id, capeA, `<g transform="translate(0 ${dDy})">${a.art(dHw, Math.max(dBw, dHw + 6))}</g>`) : acc(a.id, backA, `<g transform="${flipB ? "scale(-1 1) " : ""}translate(${peekOut} 0)">${a.art()}</g>`)).join("");
+    // anchors.cape (optional): where the cape itself hangs when it can't start at the neck (a cat in a cup: from the cup's back rim,
+    // wider than the cup so it shows on both sides) as [x, y, scale, top width, widest width]; the collar stays at the neck
+    const cA = A.cape, capeBack = Array.isArray(cA) && pt(cA) && num(cA[3]) && num(cA[4]) ? (worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at([cA[0], cA[1], cA[2]], patd("cape", capeArt(f1(cA[3] / 2 / cA[2]), f1(cA[4] / 2 / cA[2]))))}</g>` : "")
+      : capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape);
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
@@ -71770,7 +71709,7 @@ var COMP_ACC_MORE = K => {
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
     const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${backWear}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+      <g class="cp-rig">${capeBack}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
         <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}${MORE.filter(a => a.slot === "head" && worn.includes(a.id)).map(a => acc(a.id, A.top)).join("")}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
@@ -71826,7 +71765,7 @@ var COMP_ACC_MORE = K => {
     tints = tints || tintsNow();
     const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
     // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
-    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : m.slot === "chest" ? [0, 2] : m.at === "drape" ? [-3, .9] : m.slot === "back" ? [4, 1.4] : [0, 1]);
+    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : m.slot === "chest" ? [0, 2] : [0, 1]);
       return `<svg viewBox="-26 -26 52 52" aria-hidden="true"><g transform="translate(0 ${y})${k !== 1 ? ` scale(${k})` : ""}">${ACC_ART[a.id]}</g></svg>`; }
     return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
   }
@@ -74190,7 +74129,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
-      <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
+      <p class="mini" style="margin:0">Wear one prop each on the head, face, neck and chest. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
       ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop. The rarer it is, the more studying it takes.</p><ul class="cp-how">${locked.sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y))).map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
@@ -74442,7 +74381,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (c.cheeks && !(num(c.cheeks.lx) && num(c.cheeks.rx) && num(c.cheeks.y))) E(who, "cheeks needs lx, rx, y");
         const A = c.anchors || {};
         ANCHORS.forEach(k => { if (!pt(A[k])) E(who, `anchors.${k} [x, y, scale] is required`); else if (A[k][0] < 0 || A[k][0] > 120 || A[k][1] < 0 || A[k][1] > 120) E(who, `anchors.${k} is outside the box`); else if (A[k][2] != null && !(num(A[k][2]) && A[k][2] >= 0.5 && A[k][2] <= 1.6)) E(who, `anchors.${k} scale should be 0.5 to 1.6`); });
-        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow") E(who, `unknown anchor "${k}"`); });
+        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow" && k !== "cape") E(who, `unknown anchor "${k}"`); });
         const L = c.lines || {};
         Object.entries(LINE_KINDS).forEach(([k, min]) => {
           const arr = L[k];
@@ -74655,7 +74594,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
       const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id))], [/\b(cap)\b/, ["cap"]], [/\b(sunglasses|shades)\b/, ["sunglasses", "heartshades", "starshades", "diamondshades", "sunburst", "pixelshades"]], [/\b(glasses|specs|spectacles|eyewear)\b/, ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id))],
         [/\b(goggles)\b/, ["goggles", "steampunk", "galaxygoggles"]], [/\b(mask)\b/, ["masquerade", "phoenixmask"]],
-        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(wings)\b/, ["beewings", "batwings", "fairywings", "angelwings", "dragonwings"]], [/\b(bag)\b/, ["backpack", "tote", "baguette"]], [/\b(pin|brooch)\b/, MORE.filter(a => a.slot === "chest" && a.at === "pin").map(a => a.id)], [/\b(something (for|on) (your|my) back)\b/, ["cape"].concat(MORE.filter(a => a.slot === "back").map(a => a.id))], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf", "cape"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(pin|brooch)\b/, MORE.filter(a => a.slot === "chest" && a.at === "pin").map(a => a.id)], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
