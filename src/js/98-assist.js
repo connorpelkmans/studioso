@@ -82,7 +82,11 @@ window.SBLOCALANS = (() => {
     const done = all.filter(t => t.status === "done").sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 30);
     const tl = t => `${ref("T", {kind: "task", id: t.id})} | ${clip(t.title, 90)} | ${cl(t.courseId)} | ${t.type} | ${t.due ? `due ${t.due} (${wd(t.due)})${t.time ? " " + t.time : ""}${t.status !== "done" && t.due < today ? " OVERDUE" : ""}` : "no due date"} | ${t.status} | ${t.priority || "med"}${t.hours ? " | est " + t.hours + "h" : ""}${t.weight ? " | worth " + t.weight + "%" : ""}`;
     if (open.length) L.push("OPEN TASKS (ref | title | course | type | due | status | priority):\n" + open.map(tl).join("\n"));
-    if (done.length) L.push("RECENTLY FINISHED TASKS:\n" + done.map(tl).join("\n"));
+    // (how many there are in all, so "clear all my done tasks" names every one, not the two it noticed; and the ones finished a while
+    // ago, which Studyboard moves to the Archive on its own, are still theirs: three graded quizzes were missing)
+    const archived = typeof allTasks === "function" && typeof isArchived === "function" ? allTasks().filter(t => isArchived(t)).sort((a, b) => (b.due || "").localeCompare(a.due || "")).slice(0, 40) : [];
+    const doneN = all.filter(t => t.status === "done").length + archived.length;
+    if (done.length || archived.length) L.push(`FINISHED (DONE) TASKS (${doneN} in all${done.length + archived.length < doneN ? `, the latest listed` : ""}):\n` + done.map(tl).concat(archived.map(t => tl(t) + " | archived")).join("\n"));
     // classes and events, one line per day they happen (two weeks back, five ahead)
     try {
       const occ = schOccurrences(addDays(today, -14), addDays(today, 35)).filter(x => x.type === "meet" || x.type === "event").sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start)).slice(0, 300);
@@ -101,10 +105,10 @@ window.SBLOCALANS = (() => {
     } catch (e) { console.warn("assist grades", e); }
     // decks, quizzes, and the cards of the deck on screen
     const ds = decksArr();
-    if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
+    if (ds.length) L.push("FLASHCARD DECKS AND QUIZZES (ref | name | course | cards | quizzes):\n" + ds.map(d => `${ref("D", {kind: "deck", id: d.id})} | ${clip(d.name, 60)} | ${cl(d.courseId)} | ${d.cards.length} cards${typeof cardDue === "function" ? `, ${d.cards.filter(c => !c.draft && cardDue(c)).length} due for review today, ${d.cards.filter(c => !c.draft && cardNew(c)).length} never studied` : ""} | ${(d.aiQuizzes || []).filter(z => !z.archived).map(z => `${ref("Z", {kind: "quiz", deck: d.id, id: z.id})} "${clip(z.title, 50)}" (${(z.questions || []).length} questions)`).join(", ")}`).join("\n"));
     const onDeck = ui.tab === "flashcards" && ui.deckId && state.decks[ui.deckId] ? state.decks[ui.deckId] : null;
     // (o.decks: more decks whose cards are listed, for a step that changes cards in them: Claude's, in the Companion tab)
-    (o.decks || []).map(id => state.decks[id]).filter(d => d && d !== onDeck && d.cards.length).slice(0, 8).forEach(d => L.push(`CARDS IN "${clip(d.name, 60)}" (ref | front | back | times right / wrong in study):\n` + d.cards.slice(0, 120).map(c => `${ref("F", {kind: "card", deck: d.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)} | ${c.right || 0} right / ${c.wrong || 0} wrong`).join("\n")));
+    (o.decks || []).map(id => state.decks[id]).filter(d => d && d !== onDeck && d.cards.length).slice(0, 8).forEach(d => L.push(`CARDS IN "${clip(d.name, 60)}" (ref | front | back | times right / wrong in study):\n` + d.cards.slice(0, 120).map(c => `${ref("F", {kind: "card", deck: d.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)} | ${c.right || 0} right / ${c.wrong || 0} wrong${typeof cardDue === "function" ? (cardDue(c) ? " | due for review" : cardNew(c) ? " | new" : "") : ""}`).join("\n")));
     if (onDeck && onDeck.cards.length) L.push(`CARDS IN "${clip(onDeck.name, 60)}" (ref | front | back):\n` + onDeck.cards.slice(0, 200).map(c => `${ref("F", {kind: "card", deck: onDeck.id, id: c.id})} | ${clip(c.front, 140)} | ${clip(c.back, 140)}`).join("\n"));
     // notes and whiteboards
     const ns = notesArr().filter(n => !n.archived && String(n.text || "").trim()).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 150);

@@ -2682,7 +2682,7 @@ function reviewHtml(){
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
     // the assignment's title heads the page, in the app's own type so it reads as the card's name, not the paper's text
-    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 90))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 160))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
       <div class="wsr-foot wsr-foot-bar">

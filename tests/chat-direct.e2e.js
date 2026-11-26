@@ -529,6 +529,9 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     replyFor = () => { const k = (/\b(X\d+) \| Lab Report/.exec(sent[sent.length - 1].text) || [])[1]; return {answer: "Brought it back and marked it done.", undo: true, changes: [{ref: k, item: "Lab Report", field: "status", value: "done"}]}; };
     a = await say("wait don't delete it, mark it done instead");
     ok((await task("t2") || {}).status === "done", "a task just deleted is sent with a ref, so undo plus \"mark it done\" works: " + a);
+    // a discount worked out exactly: the price is its own number ("15% off a $48 jacket" was "$1 with 5% off")
+    a = await say("whats 15% off a $48 jacket");
+    ok(/\$48 with 15% off is \$40\.8/.test(a), "\"15% off a $48 jacket\" is $40.80: " + a);
     // a reply written as plain words instead of the JSON is the answer (it was thrown away and asked for again)
     replyFor = () => "Friday has clinical orientation from 8 to 12.";
     a = await say("and the day after?");

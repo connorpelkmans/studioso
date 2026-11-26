@@ -359,6 +359,29 @@ function viewFlashcards(){
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
+/* Titles on the Review cards' covers (a deck's front card, a quiz's sheet, a presentation's screen, a paper's page) shrink to fit their
+   three lines rather than being cut off: after each render, each one too long for its box gets the largest size that fits (down to 55%;
+   past that the "…" stays, for a title that long) */
+const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pane b, .wsr-page .wsr-t";
+function rvFit(root){
+  const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    el.style.fontSize = "";
+    if (!el.clientHeight || fits(el)) return;
+    const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
+    el.style.fontSize = lo + "px"; if (!fits(el)) return;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; el.style.fontSize = mid + "px"; if (fits(el)) lo = mid; else hi = mid; }
+    el.style.fontSize = lo.toFixed(2) + "px";
+  });
+}
+(() => {
+  if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
+  let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  addEventListener("resize", go);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+})();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
