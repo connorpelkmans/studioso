@@ -3022,20 +3022,30 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   // the companion says "On it" once, and one line at the end for how the whole job went, not one per request
   let cpAiBusy = 0, cpAiTalkT = 0, cpJobT = 0, cpJobTalked = false;
   const CP_JOB_GAP = (window.__SB_TEST && window.__SB_CP_GAP) || 1500;
+  // A request that failed isn't a job that failed: most features try again, try another AI or use the app's own reading, and
+  // the result still arrives (it used to say "that didn't work" and then the result popped up). So after a failed request it
+  // waits longer, and stays quiet if anything worked or a result was shown on screen in the meantime.
+  const CP_FAIL_GAP = (window.__SB_TEST && window.__SB_CP_FAIL_GAP) || 6000;
+  const dlgSig = () => { try { return dlg.open ? dlg.innerHTML.length + ":" + ((dlg.firstElementChild || {}).className || "") : "closed"; } catch (e) { return ""; } };
+  let cpOkAt = 0;
   try {
     const origAI = aiCall;
     const settle = ok => {
+      if (ok) cpOkAt = Date.now();
       cpAiBusy = Math.max(0, cpAiBusy - 1);
       if (cpAiBusy) return;
       clearTimeout(cpAiTalkT); clearTimeout(cpJobT);
+      const failAt = Date.now(), sig0 = dlgSig();
       cpJobT = setTimeout(() => {
         if (cpAiBusy) return;
         cpJobTalked = false;
         if (!act || quietNow2() || ok === null) return;
         if (ok && Date.now() - cpJobFail < CP_JOB_GAP + 500) ok = false;
-        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); }
-        else say(pickFrom("ai:oops", OOPS), {ms: 4000});
-      }, CP_JOB_GAP);
+        if (ok) { lastCheer = 0; cheer("task"); say(pickFrom("ai:ready", READY), {cheer: true, ms: 3600}); return; }
+        // it came through after all (a later request worked, or its result is on screen): nothing to apologise for
+        if (cpOkAt > failAt || dlgSig() !== sig0) return;
+        say(pickFrom("ai:oops", OOPS), {ms: 4000});
+      }, ok === false ? CP_FAIL_GAP : CP_JOB_GAP);
     };
     // the AI answered but the job still failed: "didn't work" instead of the "done" line that was waiting
     let cpJobFail = 0;

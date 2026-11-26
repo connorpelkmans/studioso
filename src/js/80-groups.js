@@ -353,6 +353,10 @@
     if (!uid2) return "";
     let id = "";
     for (const k in S.members) { const m = (S.members[k] || []).find(x => x.user_id === uid2 && x.face); if (m) { id = m.face; break; } }
+    return faceHtml(id);
+  }
+  // A companion's face by its id (a friend's, from their profile)
+  function faceHtml(id){
     if (!id || !/^[a-z0-9-]{1,40}$/.test(id)) return "";
     if (faceCache[id] == null) {
       let h = ""; try { const C = window.SBCOMP; h = C && typeof C.head === "function" ? C.head(id) : ""; } catch(e) { h = ""; }
@@ -397,7 +401,7 @@
   };
   // A member's picture (their companion, or initials) in their colour
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
-  const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
+  const av = (name, id, gid, face) => { const f = id && id === myId() ? myFace() : faceHtml(face) || faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
   // Rows that belong to one person learn that person's colour (--mc)
   function paintRows(root){
@@ -1122,7 +1126,9 @@
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
-  const isOwner = g => g && g.owner_id === myId();
+  // A Course Hub (kind "course", supabase-classmates.sql) has no owner: whoever started it is just a member
+  const isOwner = g => g && g.kind !== "course" && g.owner_id === myId();
+  const isHub = g => !!g && g.kind === "course";
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
@@ -1138,16 +1144,17 @@
     return `<div class="grp-err" role="alert"><span>${esc(msg)}</span><button class="btn small" data-act="grp-retry">Try Again</button>${""}</div>`;
   }
   const isProj = g => !!g && g.kind === "project";
+  const I_PROFILE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.3-2.2 3.4-3.4 5.8-3.4s4.5 1.2 5.8 3.4"/></svg>';
   function listView(){
     const gOrd = (() => { try { return JSON.parse(localStorage.getItem("studyboard:grpOrder") || "[]"); } catch (e) { return []; } })();
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
     const cards = (gs || []).map(g => {
       const ms = S.members[g.id] || [], ch = S.changed[g.id] || 0;
-      const meta = [isProj(g) ? "Group Project" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
+      const meta = [isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
       const pill = isProj(g) && g.project_due ? `<span class="g2-pill due">Due ${esc(fmtShort(g.project_due))}</span>` : ch ? `<span class="g2-pill grp-upd">${plural(ch, "Update")} for Your Copies</span>` : "";
       return `<article class="grp-card g2-card k-${isProj(g) ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" data-sort-id="${esc(g.id)}" style="--c:${esc(grpColor(g))}">
         <button class="grp-main" data-act="grp-open" data-id="${esc(g.id)}">
-          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : "Study Group"))}</span></span>
+          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"))}</span></span>
           <span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
           <span class="grp-name">${esc(g.name)}</span>
           <span class="g2-meta">${esc(meta)}</span>
@@ -1155,7 +1162,10 @@
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
+    // Profile (the name and picture classmates see), beside Friends at the top
+    const prof = `<button type="button" class="btn small grp-prof-btn" data-act="grp-name" title="${esc(name ? `Classmates see you as ${name}` : "Choose the name classmates see")}" aria-label="Profile${name ? `: classmates see you as ${esc(name)}` : ""}">${I_PROFILE}<span>Profile</span></button>`;
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}${prof}</div>
+      ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
@@ -1165,8 +1175,7 @@
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
           <div class="grp-item-btns"><button class="btn small" data-act="grp-restore" data-id="${esc(b.id)}">Restore</button></div></li>`).join("")}</ul></section>` : ""}
-      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>
-      <p class="hint-line">${name ? `Classmates see you as <b>${esc(name)}</b>. <button class="link-btn" data-act="grp-name">${window.SBUNAME && SBUNAME.live && SBUNAME.live() ? "Edit Profile" : "Change"}</button>` : `You'll pick the name classmates see the first time you share or join.`}</p>`;
+      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>`;
   }
   function sharesHtml(){
     const list = S.shares;
@@ -1278,8 +1287,8 @@
     const bits = [plural(ms.length, "Member")].concat(proj ? (GTL.isDay(g.project_due) ? ["Due " + fmtShort(g.project_due)] : [])
       : [[n("deck"), "Deck", "Decks"], [n("quiz"), "Quiz", "Quizzes"], [n("qa"), "Question", "Questions"], [n("task"), "Deadline", "Deadlines"]].filter(x => x[0]).map(x => plural(x[0], x[1], x[2])));
     return `<div class="deck-head grp-head g2-head k-${proj ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" id="grpHead" style="--c:${esc(grpColor(g))}">
-      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : "Study Group"}</span>
-        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
+      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"}</span>
+        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}${isHub(g) ? "" : `<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>`}${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
         <div class="g2-txt"><h2>${esc(g.name)}</h2>
           <div class="g2-meta">${g.course ? `<span class="g2-code">${esc(g.course)}</span>` : ""}<span class="grp-avs">${ms.slice(0, 8).map(m => av(m.display_name, m.user_id)).join("")}${ms.length > 8 ? `<span class="grp-av more">+${ms.length - 8}</span>` : ""}</span><span>${esc(bits.join(" · "))}</span></div>
@@ -3086,7 +3095,7 @@
           <p style="margin:0">Make a link and short code for this deck. Anyone with the link can open it in a browser, no account needed, and add a copy. They get your cards, not your progress.</p>
           ${qBox}${picNote(d, "link")}${rightsBox()}
           <p class="mini" style="margin:0">They'll see your name as <b>${esc(S.name || "")}</b>. You can update the shared copy or stop sharing any time.</p></div>
-          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
+          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
           if (!rightsOk()) return false;
           const wq = !!($("#grpWithQ") || {}).checked;
           doShare(d, wq, $("#grpMake")); return false;
@@ -3102,7 +3111,7 @@
         ${window.SBSHARE ? SBSHARE.libRow(d, row.code) : ""}
         ${changed ? `<div class="grp-note">You've changed this deck since you shared it. Update the shared copy so new people get the latest cards.</div>` : ""}
         ${qBox}${picNote(d, "link")}${changed ? rightsBox() : ""}
-        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
+        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="grpUpd"${changed ? "" : " hidden"}>Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="grpSend">Send</button>`}</div></form>`);
       // nothing changed: Update appears only if the practice-quiz choice is changed
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
@@ -3591,7 +3600,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-new": if (needOnline()) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
-      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
+      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
       case "grp-member-del": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
         confirmSheet(`Remove ${m.display_name || "This Member"}?`, `They'll stop seeing ${g.name}. What they shared stays unless you remove it. They could rejoin with the invite code, so make a new code in Edit Group if needed.`, "Remove", async () => {
@@ -3645,7 +3654,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (!online()) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Sign in to share ${deck ? "decks" : "quizzes"}`); return true; }
         if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
         if (!gs.length) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Join or start a study group to share ${deck ? "decks" : "quizzes"}`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
-        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
+        const friendRow = window.SBFSHARE ? `<button type="button" data-act="fs-send" data-kind="${deck ? "deck" : "quiz"}" data-ref="${esc(ref)}"><span><b>Your Friends</b><span class="sub">Send it straight to friends, no code needed</span></span></button>` : "";
+        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${friendRow}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
         return true;
       }
       case "qz-share-to": { const gg = groupOf(el.dataset.id); if (gg) (el.dataset.kind === "deck" ? shareDeckToGroupSheet(gg, el.dataset.ref) : shareQuizSheet(gg, el.dataset.ref)); return true; }
@@ -3992,9 +4002,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     let cur = ""; try { cur = (window.SBCOMP && SBCOMP.current && SBCOMP.current()) || ""; } catch(e) {}
     if (!/^[a-z0-9-]{1,40}$/.test(cur)) cur = "";
     const mine = Object.values(S.members).flat().filter(m => m && m.user_id === myId());
-    if (!mine.length || !mine.some(m => "face" in m) || faceSent === cur || mine.every(m => (m.face || "") === cur)) return;
+    // also kept on your profile, so friends you share no group with see it: sent once per change, even with no groups
+    const PK = "studyboard:faceSent:" + myId(), prof = (() => { try { return localStorage.getItem(PK); } catch(e) { return null; } })();
+    const groupsOk = !mine.length || !mine.some(m => "face" in m) || mine.every(m => (m.face || "") === cur);
+    if (faceSent === cur || (groupsOk && prof === cur)) return;
     faceSent = cur;
-    api.setFace(cur).then(() => mine.forEach(m => { m.face = cur || null; })).catch(() => { faceSent = null; });
+    api.setFace(cur).then(() => { mine.forEach(m => { m.face = cur || null; }); try { localStorage.setItem(PK, cur); } catch(e) {} }).catch(() => { faceSent = null; });
   }
   hook("render", tab => { if (tab === "groups") setTimeout(syncMyFace, 1200); });
   async function gxLoad(ids){
@@ -4614,7 +4627,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(),
+    // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
+    openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
@@ -4624,7 +4639,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
-    avatar: (gid, id, name) => av(name, id, gid),
+    avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
     profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does

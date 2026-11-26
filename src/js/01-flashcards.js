@@ -366,6 +366,12 @@ const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pa
 function rvFit(root){
   const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
   (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    // A title is fitted again only when its card's size or its text changed: other redraws around it (a pop-up opening,
+    // the page's scrollbar going away) used to reset it and sometimes leave it at full size, so titles jumped behind pop-ups
+    const box = el.parentElement, key = box ? `${box.clientWidth}x${box.clientHeight}|${el.textContent}` : "";
+    if (!box || !box.clientWidth || !box.clientHeight) return;   // not laid out right now: leave it as it is
+    if (el.dataset.fit === key) return;
+    el.dataset.fit = key;
     el.style.fontSize = "";
     if (!el.clientHeight || fits(el)) return;
     const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
@@ -377,10 +383,15 @@ function rvFit(root){
 (() => {
   if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
   let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
-  const start = () => { new MutationObserver(ms => { if (ms.some(m => m.addedNodes.length)) go(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  // New titles are sized at once, in the observer's own step, which runs before the browser paints. Waiting a frame let a redraw
+  // made inside an animation frame (the scene themes redraw often) paint every long title at full size for one frame before it
+  // shrank: the titles flickered and spilled out of their cards. Only additions that hold a title are measured.
+  const holds = n => n.nodeType === 1 && (n.matches(RV_FIT) || !!n.querySelector(RV_FIT));
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(holds))) rvFit(); }).observe(document.body, {childList: true, subtree: true}); go(); };
   if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
   addEventListener("resize", go);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go);
+  // once the fonts arrive, text has new widths in the same boxes: fit everything again
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { document.querySelectorAll(RV_FIT).forEach(el => { delete el.dataset.fit; }); go(); });
 })();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";

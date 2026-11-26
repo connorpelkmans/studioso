@@ -578,6 +578,38 @@ await test("portal: only the caller's own customer; none gives 404", async () =>
   assert.equal((await pt.handle(new Request("https://x/", { method: "POST", body: "{}" }), coDeps().deps)).status, 401);
 });
 
+await test("portal cancel: stops renewal at the end of the paid period (no refund, no proration, no portal); already canceled; none; Stripe down", async () => {
+  const req = (b = {}) => new Request("https://x/functions/v1/create-portal-session", { method: "POST", headers: { authorization: "Bearer jwt", origin: SITE }, body: JSON.stringify(b) });
+  const END = 1798000000;
+  const mk = (subs, o = {}) => {
+    const base = coDeps({ customer: "cus_mine" }), seen = [], posts = [];
+    const inner = base.deps.fetch;
+    base.deps.fetch = async (url, init = {}) => {
+      const u = String(url);
+      if (u.startsWith("https://api.stripe.com/v1/subscriptions?")) { seen.push(u); return o.down ? new Response("{}", { status: 500 }) : new Response(JSON.stringify({ data: subs })); }
+      if (u.startsWith("https://api.stripe.com/v1/subscriptions/")) { posts.push([u, init.method, String(init.body)]); return new Response(JSON.stringify({ id: "sub_live", cancel_at_period_end: true, items: { data: [{ current_period_end: END }] } })); }
+      return inner(url, init);
+    };
+    return { ...base, seen, posts };
+  };
+  let m = mk([{ id: "sub_old", status: "canceled" }, { id: "sub_live", status: "active", cancel_at_period_end: false }]);
+  let r = await pt.handle(req({ flow: "cancel" }), m.deps), b = await r.json();
+  assert.equal(r.status, 200); assert.equal(b.canceled, true); assert.equal(b.ends_at, new Date(END * 1000).toISOString());
+  assert.equal(m.posts.length, 1); assert.equal(m.posts[0][0], "https://api.stripe.com/v1/subscriptions/sub_live"); assert.equal(m.posts[0][1], "POST");
+  assert.deepEqual(parse(m.posts[0][2]), { cancel_at_period_end: "true" }, "only cancel_at_period_end: nothing about refunds, proration or cancelling now");
+  assert.ok(!m.stripeBodies.some(x => x[0] === "portal"), "no portal session");
+  assert.ok(/customer=cus_mine/.test(m.seen[0]), "only the caller's own subscriptions are read");
+  m = mk([{ id: "sub_live", status: "active", cancel_at_period_end: true, current_period_end: END }]);
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); b = await r.json();
+  assert.equal(r.status, 409); assert.equal(b.error, "already_canceled"); assert.equal(m.posts.length, 0);
+  m = mk([]);
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); assert.equal(r.status, 404); assert.equal((await r.json()).error, "no_subscription");
+  m = mk([], { down: true });
+  r = await pt.handle(req({ flow: "cancel" }), m.deps); assert.equal(r.status, 500); assert.equal(m.posts.length, 0);
+  m = mk([{ id: "sub_live", status: "active" }]);
+  r = await pt.handle(req({}), m.deps); assert.equal(r.status, 200); assert.equal(m.seen.length + m.posts.length, 0, "without flow: just the billing page");
+});
+
 // -- delete-account
 function delDeps(o = {}) {
   const calls = [];

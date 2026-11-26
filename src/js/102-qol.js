@@ -229,6 +229,11 @@
   const tipText = el => {
     if (el.dataset && el.dataset.why) return {why: el.dataset.why};
     if (el.dataset && el.dataset.tip) return el.dataset.tip;
+    // the full text of something cut off ("…"), only while it is
+    if (el.dataset && el.dataset.tipfull) {
+      const cut = x => x && (x.scrollWidth > x.clientWidth + 1 || x.scrollHeight > x.clientHeight + 1);
+      return cut(el) || [...el.querySelectorAll("*")].slice(0, 12).some(cut) ? el.dataset.tipfull : "";
+    }
     // the companion speaks for itself: its long screen-reader label isn't shown as a hover message
     if (el.closest && el.closest(".cp, [data-notip]")) return "";
     // icon-only: no visible letters or digits (an icon, or a sign like − or ×)
@@ -270,7 +275,7 @@
   };
   document.addEventListener("pointerover", e => {
     if (e.pointerType && e.pointerType !== "mouse") return;
-    const el = e.target.closest && e.target.closest("[data-why],[data-tip],button,a[href],[role=button],[role=tab]");
+    const el = e.target.closest && e.target.closest("[data-why],[data-tip],[data-tipfull],button,a[href],[role=button],[role=tab]");
     if (!el || el === tipFor) return;
     if (tipFor) hideTip();
     want(el, 500);

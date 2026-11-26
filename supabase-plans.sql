@@ -99,6 +99,8 @@ alter table public.studyboard_entitlements add column if not exists ai_included 
 -- Billing bookkeeping
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
+-- The length of the plan last paid for (monthly, quarterly or yearly), from the billing webhook
+alter table public.studyboard_entitlements add column if not exists term text check (term is null or term in ('monthly', 'quarterly', 'yearly'));
 alter table public.studyboard_entitlements drop constraint if exists studyboard_entitlements_source_check;
 alter table public.studyboard_entitlements add constraint studyboard_entitlements_source_check
   check (source is null or source in ('stripe', 'apple', 'google', 'revenuecat', 'promo', 'lifetime', 'grant', 'welcome'));
@@ -510,7 +512,8 @@ declare owner uuid; lim bigint; pro_lim bigint;
 begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
-  select g.owner_id into owner from public.study_groups g where g.id = new.group_id;
+  select g.owner_id into owner from public.study_groups g where g.id = new.group_id
+    and coalesce(to_jsonb(g) ->> 'kind', 'study') <> 'course';   -- Course Hubs aren't anyone's group: their own cap (supabase-classmates.sql)
   if owner is null then return new; end if;
   lim := public.studyboard_limit(owner, 'groupMembers');
   if lim is not null and (select count(*) from public.group_members where group_id = new.group_id) >= lim then
@@ -833,6 +836,10 @@ begin
   end blk;
 
   update public.studyboard_billing_events set outcome = v_out, user_id = v_uid where family = v_family and event_id = v_event;
+  -- The plan length of a payment that counted
+  if v_uid is not null and v_paid and v_term in ('monthly', 'quarterly', 'yearly') and v_out in ('pro', 'extended') then
+    update public.studyboard_entitlements set term = v_term where user_id = v_uid and term is distinct from v_term;
+  end if;
   -- Founders and Early Supporters (below). A problem there must never stop a payment from counting
   if v_uid is not null and (v_out = 'revoked' or (v_paid and v_out not like 'ignored%' and v_out not like 'rejected%')) then
     begin
@@ -1036,6 +1043,8 @@ begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
   if not exists (select 1 from public.study_groups g where g.id = new.group_id) then return new; end if;
+  -- Course Hubs aren't anyone's group: they have their own cap (300, in classmates_join_hub, supabase-classmates.sql)
+  if exists (select 1 from public.study_groups g where g.id = new.group_id and coalesce(to_jsonb(g) ->> 'kind', 'study') = 'course') then return new; end if;
   tier := case when public.plans_group_is_pro(new.group_id) then 'pro' else 'free' end;
   select (coalesce(value, '{}'::jsonb) -> tier ->> 'groupMembers')::bigint into lim from public.studyboard_config where key = 'limits';
   if lim is null then lim := case when tier = 'pro' then 100 else 3 end; end if;

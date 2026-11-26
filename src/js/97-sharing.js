@@ -233,7 +233,7 @@
       openSheet(`<div class="sheet">${head(title)}<div class="sheet-body">
         <p style="margin:0">Make a link for this ${what}. Anyone with the link can ${kind === "note" ? "read it" : kind === "board" ? "see it" : "take it"} in a browser, no account needed, and save their own copy.${kind === "board" ? " It's a copy: your changes after this show up for them when you update the link. Pictures on the board are shared too, so only share pictures you have the right to." : ""}${kind === "note" ? " Only the text is shared, not photos or stickers." : kind === "quiz" ? " They get the questions, not your scores." : ""}</p>
         <p class="mini" style="margin:0">They'll see your name as <b>${esc(g.myName())}</b>. You can update it or stop sharing any time.</p></div>
-        <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
+        <div class="sheet-foot">${kind === "quiz" && window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="quiz" data-ref="${esc(ref)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" id="shMake">Create Link</button></div></div>`);
       $("#shMake").addEventListener("click", e => make(kind, ref, e.currentTarget));
       return;
     }
@@ -245,7 +245,7 @@
       <p class="mini" style="margin:0">Shared ${esc(ago(row.updated_at))}${row.saves ? `. ${plural(row.saves, "person", "people")} saved a copy` : ""}.</p>
       ${kind === "quiz" ? pubRow("quiz", row.code, src.title) : ""}
       ${row.hidden ? `<div class="grp-note">This link is paused while a report is reviewed.</div>` : changed ? `<div class="grp-note">You've changed this ${what} since you shared it. Update the shared copy so new people get the latest.</div>` : ""}
-      <div class="grp-sub"><button type="button" class="link-btn grp-stop" id="shStop">Stop Sharing</button></div></div>
+      <div class="grp-sub">${kind === "quiz" && window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="quiz" data-ref="${esc(ref)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="shStop">Stop Sharing</button></div></div>
       <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="shUpd">Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="shSend">Send</button>`}</div></div>`);
     const cp = $("#shCopy"); if (cp) cp.addEventListener("click", () => g.copyText(link, "Link copied"));
     const li = $("#shLinkIn"); if (li) li.addEventListener("focus", () => li.select());
