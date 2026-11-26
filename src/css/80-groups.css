@@ -549,5 +549,3 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 /* Profile, beside Friends at the top of Groups */
 .grp-prof-btn{display:inline-flex;align-items:center;gap:6px;margin-inline-start:8px}
 .view-head > h2 + .grp-prof-btn,.pg-right > .grp-prof-btn:first-child{margin-inline-start:auto}
-/* phones push the first header button to the left edge: Friends and Profile stay side by side */
-@media (max-width:639px){:is(#view > .view-head,#view > section > .view-head).ph-btns .btn.small.frd-head-btn.frd-head-btn:has(+ .grp-prof-btn){margin-right:0!important}}
