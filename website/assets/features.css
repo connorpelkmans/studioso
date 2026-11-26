@@ -121,10 +121,10 @@
 .fc-next{position:absolute;left:0;right:0;bottom:10px;text-align:center;font:700 .72rem var(--display);color:var(--muted);opacity:0}
 .s3 .fc-next{opacity:1}
 
-/* Board: a task moves from To Do to In Work to Done */
+/* Board: a task moves from To Do to In Progress to Complete */
 .bd-cols{position:absolute;inset:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .bd-cols>div{border-radius:10px;background:color-mix(in srgb,var(--soft) 80%,transparent);border:1px solid var(--line);padding:7px 6px;display:grid;gap:6px;align-content:start}
-.bd-cols b{font:700 .7rem var(--display);color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding-left:2px}
+.bd-cols b{font:700 .72rem var(--display);color:var(--muted);padding-left:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .bd-cols i{height:22px;border-radius:7px;background:var(--surface);border:1px solid var(--line);opacity:.75}
 .bd-cols>div:first-child i:first-of-type{margin-top:36px}
 .bd-cols>div:nth-child(2) i{margin-top:36px}
