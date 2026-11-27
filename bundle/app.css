@@ -6393,6 +6393,24 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 .gi-su-bar{height:10px;border-radius:99px;background:var(--soft);position:relative;overflow:hidden}
 .gi-su-bar > i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:var(--accent)}
 .gi-su > .btn{justify-self:start}
+
+/* A course's Grades tab: Marks, Breakdown, Outlook, What If */
+.gi-tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--soft);overflow-x:auto;scrollbar-width:none}
+.gi-tabs::-webkit-scrollbar{display:none}
+.gi-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:6px 14px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:700 .9rem var(--display);cursor:pointer}
+.gi-tab:hover{color:var(--ink)}
+.gi-tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.gi-tab .n{font:700 .72rem var(--body);background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--ink);border-radius:99px;padding:0 7px}
+.gi-tab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* the bar's Pass label hangs below it: keep room for it so the legend or the tabs don't run into it */
+.gr-card > .gr-bar{margin-bottom:14px}
+.gr-card > .gi-tabs{margin-top:4px}
+.gi-pan{display:grid;gap:16px}
+.gi-pan > .gr-sub + .gr-sub{padding-top:14px;border-top:1px solid var(--line)}
+@media (max-width:520px){.gi-tabs{gap:2px;padding:3px}.gi-tab{flex:1 1 0;min-width:0;padding:6px 4px;font-size:.8rem;gap:4px}.gi-tab .n{padding:0 5px;font-size:.66rem}}
+/* phones: a mark row with two buttons (a missed item) puts them on their own line under the title, so the title isn't squeezed */
+@media (max-width:520px){.gr-work > li:has(> .gr-mz-acts){flex-wrap:wrap;row-gap:2px}.gr-work > li:has(> .gr-mz-acts) > .gr-row-main{flex:1 1 100%;min-height:0}.gr-work > li > .gr-mz-acts{flex:1 1 100%}}
+.gr-work .pill{white-space:nowrap}
 /* ===== module: 96-classmates.css ===== */
 /* Classmates card on a course page, and its sheets */
 .mates-card .mates-txt{margin:0 0 8px;line-height:1.4}

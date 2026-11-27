@@ -107,9 +107,19 @@ const txt = async loc => ((await loc.textContent()) || "").replace(/\s+/g, " ");
       ok(cmp.length === 4 && cmp.some(x => /Lab Report 3/.test(x) && /Top quarter/.test(x)), tag("How You Compare places each mark in the class's spread"));
       const su = await txt(card.locator(".gi-su"));
       ok(/Exams are where you've lost the most so far/.test(su) && /Osmoregulation\s?you rated it shaky/.test(su) && /Fish Anatomy18 cards · 21% ready/.test(su.replace(/ · /g, " · ")), tag("What to Shore Up: weakest topics and decks: " + su.slice(0, 220)));
-      // the order inside the card
-      const sub = await card.locator(":scope > .gr-sub > h4").allTextContents();
-      ok(sub.indexOf("Forecast") < sub.indexOf("Where Your Points Went") && sub.indexOf("Where Your Points Went") < sub.indexOf("How You Compare") && sub.indexOf("How You Compare") < sub.indexOf("What to Shore Up"), tag("sections in order: " + sub.join(" | ")));
+      // the summary stays on top, the rest in tabs
+      const tabs = await card.locator(".gi-tabs .gi-tab").allInnerTexts();
+      ok(tabs.map(x => x.replace(/\s*\d+$/, "").trim()).join() === "Marks,Breakdown,Outlook,What If", tag("four tabs: " + tabs.join(" | ")));
+      const inPan = async (k, sel) => card.locator(`#gpan-${k} ${sel}`).count();
+      ok(await inPan("marks", ".gr-work") === 2 && await inPan("breakdown", ".gb") === 1 && await inPan("breakdown", ".gi-lost") === 1 && await inPan("breakdown", ".gi-cmp") === 1
+        && await inPan("outlook", ".gi-fc") === 1 && await inPan("outlook", ".gt-sec") === 1 && await inPan("outlook", ".gi-su") === 1 && await inPan("whatif", ".gr-wi") === 1, tag("each section is in its tab"));
+      ok(await card.locator(":scope > .gr-sub", {hasText: "What You Need"}).count() === 1 && await card.locator(":scope > .gr-bar").count() === 1, tag("What You Need and the grade bar stay in the summary"));
+      ok(await card.locator("#gpan-marks").isVisible() && !(await card.locator("#gpan-outlook").isVisible()), tag("Marks shows first"));
+      await card.locator('.gi-tab[data-id="outlook"]').click(); await page.waitForTimeout(150);
+      ok(await card.locator("#gpan-outlook").isVisible() && !(await card.locator("#gpan-marks").isVisible()), tag("a tab shows its sections"));
+      await card.locator('.gi-tab[data-id="outlook"]').press("ArrowRight"); await page.waitForTimeout(100);
+      ok(await card.locator('.gi-tab[data-id="whatif"][aria-selected="true"]').count() === 1 && await card.locator("#gpan-whatif").isVisible(), tag("arrow keys move between tabs"));
+      await card.locator('.gi-tab[data-id="marks"]').click(); await page.waitForTimeout(100);
       await page.screenshot({path: path.join(SHOTS, vp.name + "-course.png"), fullPage: true});
 
       // The mark moment: saving a mark says what it did

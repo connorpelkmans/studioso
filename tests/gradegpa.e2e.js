@@ -88,7 +88,8 @@ const textOf = body => { try { const out = []; const walk = v => { if (typeof v 
     ok(/Current Grade\s*86%/.test(top) && !/Projected Final/.test(top) && /could finish between 52% and 94%/.test(top), "projection (the same 86%, so not shown twice) counts the drop, earned bonus and bonus still possible: " + top);
 
     // What If still works with rules
-    await page.fill('[data-wi]', "100"); await page.waitForTimeout(150);
+    // What If sits in its own tab on a course's Grades tab
+    await page.evaluate(() => window.SBGTAB && SBGTAB("whatif")); await page.fill('[data-wi]', "100"); await page.waitForTimeout(150);
     const wi = await text(".gr-wi-out"); ok(/would finish the course on <?b?>?9[0-9.]+%/.test(wi) || /would finish the course on 9[0-9.]+%/.test(wi), "What If counts the rules (85 kept, bonus 1, final 100): " + wi);
 
     // Credits sheet

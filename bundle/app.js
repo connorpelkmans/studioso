@@ -47969,6 +47969,58 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     const T = timeline(all); if (T && T.mv.last != null) out.push(`Average across courses changed ${r1(T.mv.last)} points since last week.`);
     return out;
   });
+  /* A course's Grades tab, organized: the summary stays on top (the numbers, the letter cutoff, the goal, the bar and What You
+     Need), and everything else sits in four tabs: Marks, Breakdown, Outlook and What If. Runs after every other section is in
+     place (this is the last course section), and only moves what's there. The tab is remembered while the app is open. */
+  const GTABS = [
+    ["marks", () => tr("gt.marks", "Marks"), c => c.marks],
+    ["breakdown", () => tr("gt.breakdown", "Breakdown"), c => c.breakdown],
+    ["outlook", () => tr("gt.outlook", "Outlook"), c => c.outlook],
+    ["whatif", () => tr("gt.whatif", "What If"), c => c.whatif]];
+  const h4Of = el => ((el.querySelector(":scope > h4") || {}).textContent || "").trim();
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(":scope > .gi-tabs")) return;
+    const kids = [...card.children];
+    const subs = kids.filter(el => el.classList.contains("gr-sub"));
+    const groups = {
+      marks: subs.filter(el => /^(Marked|Still to Mark)\b/.test(h4Of(el))),
+      breakdown: subs.filter(el => el.matches(".gb, .gi-lost, .gi-cmp")),
+      outlook: subs.filter(el => el.matches(".gi-fc, .gt-sec, .gi-su")),
+      whatif: subs.filter(el => el.matches(".gr-wi"))};
+    const tabs = GTABS.filter(([k, , f]) => f(groups).length);
+    if (tabs.length < 2) return;
+    const want = ui.grTab && tabs.some(t => t[0] === ui.grTab) ? ui.grTab : tabs[0][0];
+    const cid = gr.c.id, n = groups.marks.reduce((s, el) => s + el.querySelectorAll(":scope > .gr-work > li").length, 0);
+    const bar = document.createElement("div");
+    bar.className = "gi-tabs"; bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", tr("gt.label", "Course grade details"));
+    bar.innerHTML = tabs.map(([k, name]) => `<button type="button" role="tab" id="gtab-${k}" class="gi-tab" data-act="gi-gtab" data-id="${k}" aria-controls="gpan-${k}" aria-selected="${k === want}" tabindex="${k === want ? 0 : -1}">${esc(name())}${k === "marks" && n ? `<span class="n">${n}</span>` : ""}</button>`).join("");
+    // the summary keeps its order on top; the tabs and their sections go after it
+    card.appendChild(bar);
+    let at = bar;
+    tabs.forEach(([k, , f]) => {
+      const p = document.createElement("div");
+      p.className = "gi-pan"; p.id = "gpan-" + k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "gtab-" + k); p.dataset.cid = cid;
+      if (k !== want) p.hidden = true;
+      f(groups).forEach(el => p.appendChild(el));
+      at.after(p); at = p;
+    });
+  });
+  function gtabGo(k, focus){
+    ui.grTab = k;
+    document.querySelectorAll(".gi-tabs .gi-tab").forEach(b => { const on = b.dataset.id === k; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
+    document.querySelectorAll(".gi-pan").forEach(p => { p.hidden = p.id !== "gpan-" + k; });
+  }
+  hook("act", (act, el, id) => { if (act !== "gi-gtab") return false; gtabGo(id); return true; });
+  // arrow keys move between tabs, as tabs do
+  document.addEventListener("keydown", e => {
+    const t = e.target; if (!t || !t.classList || !t.classList.contains("gi-tab") || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const all = [...t.parentNode.querySelectorAll(".gi-tab")], i = all.indexOf(t);
+    const j = e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length;
+    e.preventDefault(); gtabGo(all[j].dataset.id, true);
+  });
+  // something that points at a mark (search, the companion) opens the Marks tab
+  window.SBGTAB = gtabGo;
+
   Object.assign(window.SBGINS, {recapSlides, habitsOf, timeline, digest, markAt});
 })();
 /* ===== module: 92-estimates.js ===== */
@@ -75359,6 +75411,8 @@ window.SBLOCALANS = (() => {
     } catch (e) {}
     const view = document.getElementById("view");
     let text = ""; try { text = view ? view.innerText : ""; } catch (e) {}
+    // a course's Grades tab keeps Breakdown, Outlook and What If in tabs: what's in the hidden ones is on the page too
+    try { if (view) view.querySelectorAll(".gi-pan[hidden]").forEach(p => { const t = (p.textContent || "").replace(/\s+/g, " ").trim(); if (t) text += "\n" + t; }); } catch (e) {}
     let sheet = "";
     try { if (dlg && dlg.open) { const h = dlg.querySelector("h2"); sheet = `${h ? h.textContent.trim() + ": " : ""}${clip(dlg.innerText, 2500)}`; } } catch (e) {}
     return {tab, name: NAMES[tab] || tab, detail: bits.join("; "), text: clip(text, 5000), sheet, at: Date.now()};
@@ -75668,7 +75722,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         case "grade": {
           // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
           const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
-          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; ui.grTab = "marks"; render(); await frame(); await wait(60);
           const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
           if (!flash(row && (row.closest("li") || row))) taskView(k);
           return true;

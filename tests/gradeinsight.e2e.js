@@ -61,7 +61,8 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
     ok(/pts (above|to) goal/.test(await page.locator(".gr-pass").textContent()), "goal distance sits beside the pass mark");
     ok(/Nothing is saved/.test(await page.locator(".gr-wi-out").textContent()), "what-if starts empty");
     const before = await page.evaluate(() => JSON.stringify(Object.values(JSON.parse(localStorage.getItem("coursework:v2")).tasks || {})));
-    await page.fill('[data-wi]', "100"); await page.waitForTimeout(150);
+    // What If sits in its own tab on a course's Grades tab
+    await page.evaluate(() => window.SBGTAB && SBGTAB("whatif")); await page.fill('[data-wi]', "100"); await page.waitForTimeout(150);
     const out = await page.locator(".gr-wi-out").textContent();
     ok(/would be/.test(out) && /goal|pass/.test(out), "typing a mark updates the projection: " + out);
     await page.fill('[data-wi]', "abc"); await page.waitForTimeout(100);
