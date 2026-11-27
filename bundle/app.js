@@ -22312,8 +22312,8 @@ function viewStudy(){
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
-    // the credits it earned, on their own screen (98-0study-credits.js)
-    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(total); } catch (e) {} }, 350); }
+    // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
@@ -58922,8 +58922,11 @@ var SBSC = (() => {
     const d = todayISO(); pend[d] = (pend[d] || 0) + k; invalidate();
     if (++pendN >= 15) flushCards();
   }
-  hook("fc-rated", () => cardRated(1));
-  hook("fc-unrated", () => cardRated(-1));
+  // Each card counts once per study session, however it was rated: a card marked Again comes back in the same session, and
+  // seeing it again earns nothing more (so credits follow how many cards were gone through, never the ratings)
+  const sessSeen = () => { try { const f = ui.fc; if (!f || f.mode !== "study") return null; return f.crSeen = f.crSeen || {}; } catch (e) { return null; } };
+  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; } cardRated(1); });
+  hook("fc-unrated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id && m[id]) { m[id]--; if (m[id] > 0) return; } cardRated(-1); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
   window.addEventListener("pagehide", flushCards);
   const evSum = kind => Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (k.indexOf(kind + ":") === 0 ? Number(v) || 0 : 0), 0) + (Number((sc().evOld || {})[kind]) || 0);

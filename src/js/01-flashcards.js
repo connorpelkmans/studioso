@@ -784,8 +784,8 @@ function viewStudy(){
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
-    // the credits it earned, on their own screen (98-0study-credits.js)
-    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(total); } catch (e) {} }, 350); }
+    // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }

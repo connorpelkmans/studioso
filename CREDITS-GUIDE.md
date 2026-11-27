@@ -23,7 +23,7 @@ Students earn credits for real work, scaled to how hard it is (about one credit 
 | Work | Credits | Why |
 |---|---|---|
 | Focus time | 1 per minute, at most 3 hours a day | The easiest: just keeping the timer going. The cap stops a timer left running from farming credits |
-| Flashcards | 1 per card reviewed, at most 150 a day | Active recall. The cap stops tapping through cards just for credits |
+| Flashcards | 1 per card gone through, at most 150 a day | However the card was rated: a card marked Again that comes back in the same session counts once. The cap stops tapping through cards just for credits |
 | Practice quizzes | 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; up to 3 tries of the same quiz a day | Longer quizzes earn more; a failed try still counts its right answers |
 | Tasks | Exam 40, Project 30, Quiz 20, Assignment or Lab 12, Reading or Study 6, Other 4; a step of a broken-down task 3 | By size. At most 8 tasks a day count, so splitting work into tiny tasks doesn't pay |
 | Presentations | 3 per slide finished inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day per presentation | A slide is on time within 17% or 3 seconds of its share; the whole talk within 10 seconds over its goal and at least 75% of it |

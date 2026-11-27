@@ -109,8 +109,11 @@ var SBSC = (() => {
     const d = todayISO(); pend[d] = (pend[d] || 0) + k; invalidate();
     if (++pendN >= 15) flushCards();
   }
-  hook("fc-rated", () => cardRated(1));
-  hook("fc-unrated", () => cardRated(-1));
+  // Each card counts once per study session, however it was rated: a card marked Again comes back in the same session, and
+  // seeing it again earns nothing more (so credits follow how many cards were gone through, never the ratings)
+  const sessSeen = () => { try { const f = ui.fc; if (!f || f.mode !== "study") return null; return f.crSeen = f.crSeen || {}; } catch (e) { return null; } };
+  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; } cardRated(1); });
+  hook("fc-unrated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id && m[id]) { m[id]--; if (m[id] > 0) return; } cardRated(-1); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
   window.addEventListener("pagehide", flushCards);
   const evSum = kind => Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (k.indexOf(kind + ":") === 0 ? Number(v) || 0 : 0), 0) + (Number((sc().evOld || {})[kind]) || 0);

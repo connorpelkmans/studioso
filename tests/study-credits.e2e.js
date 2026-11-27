@@ -125,9 +125,15 @@ const WANT = {focus: 260, cards: 100, quiz: 29, task: 93};
     ok(f1 === 30 && /Focus Session Done/i.test(await p.textContent(".scr-rw .scr-kick")), "30 minutes of focus: 30 credits on the Focus Session Done screen: " + f1);
     await closeReward();
 
-    // 9b. flashcards: 1 a card, at most 150 a day
-    const c1 = await p.evaluate(() => { const e0 = SBSC.earned(true); for (let i = 0; i < 160; i++) window.__sbFire("fc-rated", {rating: "good"}); return SBSC.earned(true) - e0; });
-    ok(c1 === 150, "160 cards reviewed today earn 150 (the daily limit): " + c1);
+    // 9b. a study session: each card once, whatever it was rated (Again brings a card back in the same session; that earns nothing more)
+    const c4 = await p.evaluate(() => { const S = window.__sbSync, keep = S.ui.fc; S.ui.fc = {mode: "study"}; const e0 = SBSC.earned(true);
+      ["again", "again", "good"].forEach(r => window.__sbFire("fc-rated", {rating: r, cardId: "y1"})); window.__sbFire("fc-rated", {rating: "easy", cardId: "y2"}); window.__sbFire("fc-rated", {rating: "hard", cardId: "y3"});
+      const n = SBSC.earned(true) - e0; S.ui.fc = keep; return n; });
+    ok(c4 === 3, "3 cards gone through (one rated Again twice and seen three times) earn 3, whatever the ratings: " + c4);
+
+    // 9c. flashcards: 1 a card, at most 150 a day
+    const c1 = await p.evaluate(() => { const e0 = SBSC.earned(true); for (let i = 0; i < 157; i++) window.__sbFire("fc-rated", {rating: "good"}); return SBSC.earned(true) - e0; });
+    ok(c1 === 147, "157 more cards today (160 in all) earn only up to the daily limit of 150: " + c1);
     await p.evaluate(() => SBSC.cardsDone(160)); await p.waitForSelector(".scr-rw");
     ok(/Only 150 cards a day earn credits/.test(await p.textContent(".scr-rw")), "the session screen says the daily limit was reached");
     await closeReward();
