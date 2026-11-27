@@ -332,7 +332,7 @@ var COMP_ACC_MORE = K => {
     // fluff: overlapping puffs drawn twice (an ink outline, then white), so they read as one soft roll
     const puffs = pts => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFDF8"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${f(x - r * .3)}" cy="${f(y - r * .35)}" r="${f(r * .32)}" fill="#fff"/>`).join("")}`;
     // a few big puffs, wide apart, so the cotton rolls in long soft arches
-    const band = [[-15.2, 1, 3.8], [-10.9, .5, 4], [-6.5, .1, 4.1], [-2.2, 0, 4.1], [2.2, 0, 4.1], [6.5, .1, 4.1], [10.9, .5, 4], [15.2, 1, 3.8]];
+    const band = [[-15, 1, 4], [-10, .4, 4.2], [-5, 0, 4.3], [0, -.1, 4.3], [5, 0, 4.3], [10, .4, 4.2], [15, 1, 4]];
     return `<path d="M-13.5 -1.5Q-15 -17 -2 -23.5Q10 -28.5 19.5 -19.5Q24.5 -14 23.8 -6L16.8 -6.6Q16.6 -12.6 12.2 -13.4Q14.8 -8 13.8 -1.5Z" ${WF} ${OUT(2.4)}/>
       <path d="M-8.4 -12.6Q-6.4 -19.6 1 -21.6" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2" stroke-linecap="round"/>
       ${puffs(band)}${puffs([[20.2, -4.6, 3.6], [23.2, -2.6, 3.2], [19.4, -1.2, 3], [22.2, .4, 2.6]])}
