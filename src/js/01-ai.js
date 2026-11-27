@@ -2196,6 +2196,7 @@ function aiFinish(){
   // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
   if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
+  setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.quizDone(right, total, "ai-" + (f.quizId || f.deckId)); } catch (e) {} }, 350);
   // what you missed becomes cards in this deck, so the quiz ends with a next step (Undo on the results)
   try { quizMissedToCards(f); } catch (e) { console.warn("missed to cards", e); }
 }

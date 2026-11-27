@@ -20,23 +20,22 @@
     wave: "armL|armR", headTilt: "head", topBob: "top", bounce: "", hop: "", spin: "", sway: "", waddle: "", sparkle: ""
   };
   /* Props (accessories) */
-  // Props follow effort and consistency (focus time, flashcards, practice quizzes, study days, spreading exam study over days), never how many
-  // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
+  // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
+  // quizzes, tasks and presentations, each by how hard it is. The price is set by the prop's rarity (PRICE). Once bought, a prop is kept for
+  // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
+  // Props earned the old way (cfg().earned, before credits) stay yours.
   const ACC = [
-    // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
-    {id: "scarf", rarity: "common", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
-    {id: "hat", rarity: "common", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
-    {id: "bowtie", rarity: "common", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
-    {id: "glasses", rarity: "common", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
-    {id: "medal", rarity: "rare", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
-    {id: "cape", rarity: "rare", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", rarity: "rare", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
-    {id: "beanie", rarity: "rare", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", rarity: "exotic", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
-    {id: "crown", rarity: "legendary", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
+    {id: "scarf", rarity: "common", name: "Cozy Scarf"},
+    {id: "hat", rarity: "common", name: "Tiny Hat"},
+    {id: "bowtie", rarity: "common", name: "Party Bow Tie"},
+    {id: "glasses", rarity: "common", name: "Round Glasses"},
+    {id: "medal", rarity: "rare", name: "Champion Medal"},
+    {id: "cape", rarity: "rare", name: "Hero Cape"},
+    {id: "star", rarity: "rare", name: "Star Badge"},
+    {id: "beanie", rarity: "rare", name: "Festive Beanie", festive: true},
+    {id: "cap", rarity: "exotic", name: "Graduation Cap"},
+    {id: "crown", rarity: "legendary", name: "Little Crown"}
   ];
-  // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
-  if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
     pet: ["Hehe, that tickles! Again!", "You're the best, you know that?"], hello: ["You're back! Yay! Ready when you are!", "Hello hello! I missed you!"],
@@ -85,7 +84,6 @@
     if (STYLE_LISTS.comp.some(x => x.id === c.id)) return;
     STYLE_LISTS.comp.push({id: c.id, name: c.name, theme: th, get tier(){ return themeTier(th); }});
   }));
-  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
 
   /* ---------- Drawing ---------- */
   const OUT = (w = 3) => `stroke="${INK}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"`;
@@ -159,32 +157,24 @@
     return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap, ext: f1(ext)};
   }
   /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
-     how much studying earns it (any one way unlocks it, as for every prop), spread evenly from the easiest to the hardest of its
-     rarity; commons, uncommons and rares are free, exotics and legendaries are Pro */
+     its price in Studyboard Credits (PRICE); none of them needs Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
   const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
-  // [easiest, hardest] for each way, and a fourth way that depends on where it's worn
-  const MORE_WAYS = {
-    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8], chest: ["checkins", 3, 9]},
-    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12], chest: ["notes", 9, 12]},
-    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28], chest: ["prep", 7, 13]},
-    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6], chest: ["spread", 4, 7]},
-    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150], chest: ["focusWeeks", 9, 12]}
-  };
+  // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
+  const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
-  const MORE_BY = {}, MORE_N = {}, MORE_OF = {};
-  MORE.forEach(a => { MORE_OF[a.slot + a.rarity] = (MORE_OF[a.slot + a.rarity] || 0) + 1; });
+  const MORE_BY = {};
   MORE.forEach(a => {
-    const key = a.slot + a.rarity, i = MORE_N[key] = (MORE_N[key] || 0) + 1, t = MORE_OF[key] > 1 ? (i - 1) / (MORE_OF[key] - 1) : 0;
-    const w = MORE_WAYS[a.rarity], at = ([lo, hi]) => Math.round(lo + (hi - lo) * t), x = w[a.slot];
     MORE_BY[a.id] = a; ACC_SLOT[a.id] = a.slot;
     if (a.def) ACC_DEF[a.id] = a.def;
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: RARITY.indexOf(a.rarity) <= 2, hours: at(w.hours), paths: [["cards", at(w.cards)], ["quizzes", at(w.quizzes)], [x[0], at([x[1], x[2]])]]});
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot});
   });
-  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
+  // every prop is priced by its rarity, bought with earned credits, never Pro
+  ACC.forEach(a => { a.price = PRICE[RARITY.includes(a.rarity) ? a.rarity : "common"]; });
+  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return "free"; }}); });
   const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
   const rarityTag = a => `<span class="cp-rar cp-rar-${rarityOf(a)}">${RARITY_NAME[rarityOf(a)]}</span>`;
   // the wardrobe's sections, by where a thing is worn
@@ -378,51 +368,17 @@
   const ownName = id => { const n = (cfg().names || {})[id]; return typeof n === "string" ? n.replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim() : ""; };
   const nameOf = c => ownName(c.id) || c.name;
   const hours = () => { try { return typeof SBSTATS !== "undefined" ? SBSTATS.totalFocusMinutes() / 60 : 0; } catch (e) { return 0; } };
-  /* Earning props */
-  const PROP_UNIT = {hours: "h of focus", studydays: "study days", spread: "exams studied for over several days", streak: "day streak", cards: "cards reviewed", quizzes: "quizzes passed",
-    notes: "notes written", stickers: "scrapbook stickers", prep: "study-plan sessions done", checkins: "daily check-ins", groups: "Study Group or Room", focusWeeks: "weeks with 4+ focus days", festive: "Winter Holiday Visit"};
-  const PROP_ASK = {hours: n => `Focus for ${n} ${n === 1 ? "hour" : "hours"}`, studydays: n => `Study on ${n} different days`, spread: n => `Study for ${n === 1 ? "an exam or quiz" : n + " exams or quizzes"} on 3 or more days, starting 5 days before`,
-    streak: n => `Reach a ${n}-day streak`, cards: n => `Review ${n} flashcards`, quizzes: n => `Pass ${n === 1 ? "a practice quiz" : n + " practice quizzes"} (70% or more)`, notes: n => `Write ${n} notes`,
-    stickers: n => `Earn ${n} Term Scrapbook stickers`, prep: n => `Finish ${n} study-plan sessions`, checkins: n => `Open Studyboard on ${n} different days`,
-    groups: () => "Join a study group or a Study Together room", focusWeeks: n => `Focus for 15+ minutes on 4 or more days in ${n} different ${n === 1 ? "week" : "weeks"}`, festive: () => "Visit between Dec 1 and Jan 6"};
-  let pStat = null, pStatAt = 0, pStatSc;
-  // Lifetime numbers, cached for a few seconds (the picker and the unlock check ask a lot); a scrapbook update counts again at once
-  function propStats(){
-    const now = Date.now(), sc0 = state.settings && state.settings.scrap; if (pStat && now - pStatAt < 4000 && sc0 === pStatSc) return pStat;
-    pStatSc = sc0;
-    const s = {hours: 0, studydays: 0, spread: 0, streak: 0, cards: 0, quizzes: 0, notes: 0, stickers: 0, prep: 0, checkins: 0, groups: 0, focusWeeks: 0, festive: 0};
-    const tr = f => { try { f(); } catch (e) {} };
-    tr(() => { s.hours = hours(); });
-    tr(() => { s.studydays = window.SBSTREAK && SBSTREAK.studyDays ? SBSTREAK.studyDays(addDays(todayISO(), -400)).length : 0; });
-    tr(() => { s.spread = Object.values(state.tasks || {}).filter(t => MILESTONE(t.type) && !t.prepFor && t.due && t.due <= todayISO() && examSpread(t)).length; });
-    tr(() => { const k = rewardStreak(); s.streak = Math.max(Number(k.best) || 0, Number(k.cur) || 0); });
-    tr(() => Object.values(state.decks || {}).forEach(d => {
-      (d.cards || []).forEach(x => { s.cards += Number(x.seen) || 0; });
-      (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => q.results || [])).forEach(r => { if (r && Number(r.total) >= 3 && Number(r.score) / Number(r.total) >= 0.7) s.quizzes++; });
-    }));
-    tr(() => { s.notes = Object.values(state.notes || {}).filter(n => String(n.text || "").trim().length >= 15).length; });
-    tr(() => { const sc = state.settings && state.settings.scrap; if (sc) { s.stickers = [sc.cur].concat(sc.past || []).reduce((n, p) => n + (p && p.g ? Object.keys(p.g).length : 0), 0);
-      s.groups = ["gp", "rm"].filter(k => sc.f && sc.f[k]).length; } });
-    tr(() => { s.checkins = (cfg().ci || []).length; });
-    tr(() => { s.prep = Object.values(state.tasks || {}).filter(t => t && t.prepFor && t.status === "done").length; });
-    tr(() => { const per = {}; Object.entries(SBSTATS.focusDays()).forEach(([d, m]) => { if (Number(m) >= 15) { const w = mondayOf(d); per[w] = (per[w] || 0) + 1; } }); s.focusWeeks = Object.values(per).filter(n => n >= 4).length; });
-    tr(() => { const d = new Date(), m = d.getMonth(), day = d.getDate(); s.festive = m === 11 || (m === 0 && day <= 6) ? 1 : 0; });
-    pStat = s; pStatAt = now;
-    return s;
-  }
-  const pathsOf = a => (a.hours ? [["hours", a.hours]] : []).concat(a.paths || []);
+  /* Getting props: bought with Studyboard Credits */
+  const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
+  const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
   const wasEarned = a => !!(cfg().earned || {})[a.id];
-  // How far along each way of getting this prop is
-  const propProg = a => { const s = propStats(); return pathsOf(a).map(([k, n]) => { const v = Math.min(Number(s[k]) || 0, n); return {k, n, v: k === "hours" ? Math.round(v * 10) / 10 : Math.floor(v), p: v / n, ask: PROP_ASK[k](n), unit: PROP_UNIT[k]}; }); };
-  const isEarned = a => !!a && (wasEarned(a) || propProg(a).some(x => x.p >= 1));
-  const unlocked = () => ACC.filter(isEarned);
-  // The goal a prop shows stays the same for the session: the scrapbook's sticker count only arrives a few seconds after load,
-  // and a "closest" path picked before it would flip under the student. So nothing is pinned until the scrapbook is ready.
-  const pinPath = {};
-  const closestPath = a => { const ps = propProg(a), pin = pinPath[a.id] && ps.find(x => x.k === pinPath[a.id]); if (pin) return pin;
-    const b = ps.sort((x, y) => y.p - x.p)[0]; if (b && (!window.__sbScrap || (state.settings && state.settings.scrap))) pinPath[a.id] = b.k; return b; };
-  const pathShort = x => x.k === "festive" || x.k === "groups" ? x.unit : `${x.v} of ${x.n} ${x.unit}`;
-  const canWear = a => !!a && isEarned(a) && owns("prop", a.id);
+  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  // the Festive Beanie is on sale between Dec 1 and Jan 6
+  const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
+  const forSale = a => !!a && (!a.festive || inSeason());
+  const coinHtml = px => SC() ? SC().coin(px) : "";
+  const creditsTxt = n => `${(+n || 0).toLocaleString()} ${+n === 1 ? "credit" : "credits"}`;
+  const canWear = a => !!a && isEarned(a);
   // What it wears now
   const wearOf = c => wornList((cfg().wear || {})[c.id]).filter(id => canWear(ACC.find(x => x.id === id)));
   function wearColor(c){
@@ -1778,7 +1734,6 @@
     later(checkUnlocks, 5000);
   }
   // A new accessory
-  const LEGACY_ACC = ["scarf", "hat", "glasses", "backpack", "star", "cap"];
   let lastUnlockChk = 0;
   function checkIn(){
     try {
@@ -1786,29 +1741,12 @@
       const t = todayISO(), ci = cfg().ci || [];
       if (ci[ci.length - 1] === t) return;
       setCfg({ci: ci.concat(t).slice(-400)});
-      pStat = null;
     } catch (e) {}
   }
+  // (props aren't unlocked by milestones any more: they're bought with credits, so this only notes the day's visit)
   function checkUnlocks(){
     lastUnlockChk = Date.now();
     checkIn();
-    const have = cfg().earned, seen = Number(cfg().seen);
-    const earnedNow = ACC.filter(isEarned);
-    if (!have) {
-      const quiet = earnedNow.filter(a => !LEGACY_ACC.includes(a.id) || !Number.isFinite(seen) || LEGACY_ACC.indexOf(a.id) < seen);
-      setCfg({earned: Object.fromEntries(quiet.map(a => [a.id, 1]))});
-      if (!Number.isFinite(seen) && !quiet.length) return;
-      if (earnedNow.length === quiet.length) return;
-    }
-    const got = cfg().earned || {};
-    const fresh = earnedNow.filter(a => !got[a.id]);
-    if (!fresh.length) return;
-    setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
-    try { refreshPicker(); } catch (e) {}
-    // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
-    // (many at once, say after the wardrobe grew: the three rarest are shown, the rest wait quietly in the Wardrobe)
-    fresh.slice().sort((x, y) => RARITY.indexOf(rarityOf(y)) - RARITY.indexOf(rarityOf(x))).slice(0, 3).forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
-    revealSoon();
   }
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
@@ -1829,20 +1767,20 @@
   const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
   function revealProp(a){
     revealOn = true;
-    const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
+    const c = current(), wearNow = !!c && canWear(a), worn = !!c && wearOf(c).includes(a.id);
     const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
     const o = document.createElement("div");
     o.className = "cpu cpu-" + rarityOf(a) + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
     if (o.showPopover) o.setAttribute("popover", "manual");
     const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
-    const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
+    const how = !c ? "Pick a companion to wear it." : worn ? "Your companion is wearing it now." : wearNow ? "Your companion can wear it now." : "It's in your companion's wardrobe.";
     o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
-      <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
-      <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
+      <span class="cpu-kick">New Accessory!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : ""}${esc(how)}</p>
+      <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     sbHaptic("success", {force: true});
@@ -1859,7 +1797,7 @@
       // the companion celebrates too
       if (act && cur) {
         hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Thanks for working so hard!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
@@ -2650,7 +2588,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (key === accPrevKey) return; accPrevKey = key;
     const art = box.querySelector(".cp-acc-prev-art"), t = box.querySelector(".cp-acc-prev-t");
     if (art) art.innerHTML = previewHtml(c, next, 110);
-    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : " (not earned yet)"}`;
+    if (t) t.textContent = !id ? "Nothing on" : `${a ? a.name : "This"}${isEarned(a) ? "" : a ? ` (${creditsTxt(a.price)})` : ""}`;
   }
   ["mouseover", "focusin"].forEach(ev => document.addEventListener(ev, e => { const t = e.target && e.target.closest && e.target.closest(".cp-acc-tile"); if (t) accPreview(t); }));
   function previewHtml(c, wear, px){
@@ -2670,16 +2608,15 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
           : locked ? `<button type="button" class="btn small" data-act="comp-pick" data-slot="${i}">🔒 Go Pro</button>` : on ? `<span class="cp-chosen shop-inuse" role="status">✓ In Use</span>` : `<button type="button" class="btn small primary" data-act="comp-pick" data-slot="${i}">Use</button>`}
       </div>`;
     }).join("");
-    const h = hours(), nGot = ACC.filter(isEarned).length, locked = ACC.filter(a => !isEarned(a));
-    const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
+    const nGot = ACC.filter(isEarned).length, bal = credits();
     const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
-    const howRow = a => `<li><b>${esc(a.name)} ${rarityTag(a)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
-      const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
+      const got = isEarned(a), on = wear.includes(a.id), sale = forSale(a), afford = sale && bal >= a.price;
       const icon = propIcon(a, tints);
-      return `<button type="button" class="cp-acc-tile cp-r-${rarityOf(a)}${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        ${rarityTag(a)}<span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+      const sub = got ? (on ? "Wearing" : "Wear") : !sale ? "Back Dec 1" : `${coinHtml(14)}<b>${a.price.toLocaleString()}</b>`;
+      return `<button type="button" class="cp-acc-tile cp-r-${rarityOf(a)}${on ? " on" : ""}${got ? "" : " off"}${!got && afford ? " can-buy" : ""}" data-act="comp-wear" data-acc="${a.id}" ${got ? `aria-pressed="${on}"` : `aria-label="${esc(a.name)}: ${sale ? `buy for ${creditsTxt(a.price)}` : "on sale again Dec 1"}"`}>
+        ${rarityTag(a)}<span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}</span><span class="mini cp-acc-p">${sub}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -2689,20 +2626,56 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       return `<div class="cp-tint" role="group" aria-label="${esc(a.name)} color"><span class="cp-tint-n">${esc(a.name)}</span><span class="cp-tint-sw">${TINTS.map(h => `<button type="button" class="cp-sw${cur.toLowerCase() === h.toLowerCase() ? " on" : ""}" style="background:${h}" data-act="comp-tint" data-acc="${id}" data-color="${h}" aria-label="${h}" aria-pressed="${cur.toLowerCase() === h.toLowerCase()}"></button>`).join("")}${pro() ? `<input type="color" class="cp-tint-in" data-acc="${id}" value="${cur}" aria-label="Pick any color for ${esc(a.name)}">` : `<button type="button" class="cp-tint-any" data-act="comp-tint-pro" aria-label="Any color for ${esc(a.name)}, with Studyboard Pro" title="Any color, with Pro">${PRO_BADGE}</button>`}<button type="button" class="btn small" data-act="comp-tint" data-acc="${id}" data-color="" ${hexOk(tints[id]) ? "" : "disabled"}>Reset</button></span></div>`; };
     return `<div class="cp-tiles">${tiles}</div>
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
-      <h3 class="fsec">Accessories</h3>
+      <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
-      <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
+      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck and chest. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop. The rarer it is, the more studying it takes.</p><ul class="cp-how">${locked.sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y))).map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
+      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
       ${smartRow()}`;
+  }
+  /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
+  let buyBack = "";
+  function buyProp(a){
+    if (!a) return;
+    if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
+    stopPreviews();
+    const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
+    const wear = c ? wearOf(c).filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id) : [];
+    const chip = !sale ? `<span class="cp-buy-chip">On sale Dec 1 to Jan 6</span>` : enough ? `<span class="cp-buy-chip ok">${(bal - a.price).toLocaleString()} left after</span>` : `<span class="cp-buy-chip">${(a.price - bal).toLocaleString()} more to earn</span>`;
+    openSheet(`<div class="sheet cp-buy" data-acc="${a.id}">${head(a.name)}<div class="sheet-body">
+      <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
+      <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
+      <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 25 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
+      ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
+    </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
+    if (!dlg.open) try { dlg.showModal(); } catch (e) {}
+  }
+  function buyNow(a, btn){
+    if (!a || !SC()) return;
+    if (!isEarned(a)) {
+      if (!forSale(a)) { buyProp(a); return; }
+      if (!SC().buy(a.id, a.price)) { toast("Not enough credits yet. Keep studying!"); buyProp(a); return; }
+    }
+    const back = buyBack; buyBack = "";
+    // it goes straight on
+    const c = current();
+    if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
+    sbHaptic("success", {force: true});
+    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    try { refreshPicker(); } catch (e) {}
+    if (back) {
+      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
+      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
+    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
@@ -2728,7 +2701,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   // Change: just this theme's companions
   function changeBody(){
-    const b = pickerBody(), i = b.indexOf('<div class="cp-tiles">'), j = b.indexOf('<h3 class="fsec">Accessories</h3>');
+    const b = pickerBody(), i = b.indexOf('<div class="cp-tiles">'), j = b.indexOf('<h3 class="fsec cp-acc-h">');
     const mine = i < 0 ? "" : b.slice(i, j > i ? j : undefined), here = themeKey(skinId());
     const rank = k => window.SBUI && typeof SBUI.themeRank === "function" ? SBUI.themeRank(k) : SKINS.findIndex(x => x.id === k);
     const others = Object.keys(REG).filter(k => k !== here && k !== "plain" && SKINS.some(x => x.id === k) && (REG[k].list || []).length).sort((a, b) => rank(a) - rank(b));
@@ -2792,13 +2765,14 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     }
     if (a === "comp-wear") {
       const id = el.dataset.acc || "", acc = ACC.find(x => x.id === id), c = current(); if (!c) return true;
-      if (id && !isEarned(acc)) { const w = closestPath(acc); toast(`${acc.name}: ${w.ask}. ${pathShort(w)}.`); return true; }
-      if (id && !canWear(acc)) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Every companion accessory comes with Studyboard Pro."); return true; }
+      if (id && !isEarned(acc)) { buyProp(acc); return true; }
       const now = wearOf(c), next = !id ? [] : now.includes(id) ? now.filter(x => x !== id) : now.filter(x => slotOf(x) !== slotOf(id)).concat(id);
       setCfg({wear: {[c.id]: next}}); curSig = ""; build(); refreshPicker();
       if (id && next.includes(id) && act) { act.motion("bounce"); spawnFx("sparkle", 2); }
       return true;
     }
+    if (a === "comp-buy") { buyNow(ACC.find(x => x.id === el.dataset.acc), el); return true; }
+    if (a === "comp-buy-back") { const b = buyBack; buyBack = ""; if (b === "picker") openPicker(); else if (b === "shop") styleShop("companions"); else if (dlg.open) dlg.close(); return true; }
     if (a === "comp-pat") {
       const id = el.dataset.acc, k = el.dataset.pat || "";
       if (!PAT_PROPS.includes(id) || (k && !PATS.some(x => x[0] === k))) return true;
@@ -3142,15 +3116,18 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const quietNow2 = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden;
 
   window.SBCOMP = {
-    // how an accessory is earned, in words, from its own unlock rules ("how do i get the little crown"): null for no such accessory
-    // (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
+    // how an accessory is got, in words ("how do i get the little crown"): its price in Studyboard Credits and how credits are earned;
+    // null for no such accessory (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
     earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
-      const ways = (a.hours ? [PROP_ASK.hours(a.hours)] : []).concat((a.paths || []).map(([k, v]) => PROP_ASK[k] ? PROP_ASK[k](v) : "").filter(Boolean));
-      return `The ${a.name} is earned by studying: ${ways.length > 1 ? "any one of these: " + ways.map(x => x.charAt(0).toLowerCase() + x.slice(1)).join("; ") : ways.join("")}. Open Companion, then Wardrobe, to see how close you are.`; } catch (e) { return null; } },
+      if (isEarned(a)) return `You already have the ${a.name}. Open Companion, then Wardrobe, to put it on.`;
+      const bal = credits();
+      return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
+    // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
+    propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
-    wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec">Accessories</h3>'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn More</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn More</summary>' + w.slice(k + '<h3 class="fsec">How to Earn More</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
+    wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
     wearColor: () => { try { const c = current(); return c ? wearColor(c) : ""; } catch (e) { return ""; } },
     // Wearing or taking off an accessory by its name (the chat's "put on your scarf", "take off the glasses"): what happened, in words
     wearByName: (name, on) => { try {
@@ -3164,7 +3141,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
-        if (!have.length) return `I haven't earned ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. The Wardrobe shows how to unlock ${kind[1].length > 1 ? "them" : "it"}.`;
+        if (!have.length) return `I haven't unlocked ${kind[1].length > 1 ? "a " + n.replace(/^(a|an|some)\s+/, "") : "the " + opts[0].name} yet. You can buy ${kind[1].length > 1 ? "one" : "it"} in the Wardrobe with Studyboard Credits.`;
         const pick = have.find(x => !now.includes(x.id)) || have[0];
         if (now.includes(pick.id)) return `I'm already wearing my ${pick.name}!`;
         setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(pick.id)).concat(pick.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
@@ -3174,7 +3151,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
       if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
-      if (!canWear(a)) return `I haven't earned the ${a.name} yet. The Wardrobe shows how to unlock it.`;
+      if (!canWear(a)) return `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
@@ -3197,8 +3174,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     } catch (e) { return "I couldn't change that colour just now."; } },
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
-    // how each accessory is earned, in words (for the chat: "how do I get the little crown"): any one of its ways unlocks it
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), ways: [x.hours ? PROP_ASK.hours(x.hours) : null].concat((x.paths || []).map(([k, n]) => PROP_ASK[k] ? PROP_ASK[k](n) : null)).filter(Boolean)})); } catch (e) { return []; } },
+    // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [`Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    // Studyboard Credits for the chat ("how many credits do I have")
+    credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
     // A close-up of the face (a headshot, for small round pictures)
     head: (id, o) => {
@@ -3209,9 +3188,10 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     },
     // For tools/companion-wear-review.js
     fit: id => { const c = BYID[id]; return c ? JSON.parse(JSON.stringify({anchors: c.anchors, eyes: c.eyes, mouth: c.mouth, neck: c.neck, head: !!partSvg(c.parts.head), hatTop: !!c.hatTop})) : null; },
-    // The next accessory a kind of effort ("cards", "quizzes") is working toward: {id, name, n, v, left}, for the end of a session
-    nextFor: k => { try { const a = ACC.find(x => !isEarned(x) && (x.free || owns("prop", x.id)) && (x.paths || []).some(p => p[0] === k)); if (!a) return null;
-      const p = propProg(a).find(x => x.k === k); return p ? {id: a.id, name: a.name, n: p.n, v: p.v, left: Math.max(0, p.n - p.v)} : null; } catch (e) { return null; } },
+    // The next accessory to save up for (the cheapest one not yet owned that's on sale), for the end of a study session:
+    // {id, name, price, have, left}; the kind of effort no longer matters, every kind earns credits
+    nextFor: () => { try { const a = ACC.filter(x => !isEarned(x) && forSale(x)).sort((x, y) => x.price - y.price)[0]; if (!a) return null;
+      const have = credits(); return {id: a.id, name: a.name, price: a.price, have: Math.min(have, a.price), left: Math.max(0, a.price - have)}; } catch (e) { return null; } },
     check, gallery, rigSvg: (id, o) => BYID[id] ? rigSvg(BYID[id], o) : "", stillUrl: id => BYID[id] ? stillUrl(BYID[id]) : "", stillHtml: (id, px) => BYID[id] ? stillHtml(BYID[id], px || 64) : "", wearColorOf: id => BYID[id] ? wearColor(BYID[id]) : "",
     themes: () => Object.keys(REG), list: k => (REG[k] ? REG[k].list : []).map(c => ({id: c.id, name: c.name, kind: c.kind, pose: c.pose})),
     // Every companion, for the Your Photo theme editor's "Companions" picker

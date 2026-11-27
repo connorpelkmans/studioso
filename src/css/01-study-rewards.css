@@ -56,6 +56,9 @@
 .sd-tile.gold{border-color:#E9C46A;background:color-mix(in srgb,#F8E7B8 45%,var(--surface))}
 .sd-tile.gold b{color:#8A5A00}
 .sd-next{width:100%;max-width:460px;display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;border:1px solid var(--line);background:var(--surface);box-sizing:border-box;text-align:left}
+.sd-credits{display:inline-flex;align-items:center;gap:8px;margin:0;padding:6px 14px 6px 8px;border-radius:999px;border:1px solid color-mix(in srgb,#E2A82A 50%,var(--line));background:color-mix(in srgb,#F6C34A 14%,var(--surface))}
+.sd-credits b{font:800 1rem var(--display);color:#8A5A00}
+:root[data-theme="dark"] .sd-credits b{color:#FFD36B}
 .sd-next-t{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
 .sd-bar{height:10px;border-radius:5px;background:color-mix(in srgb,var(--line) 80%,var(--surface));overflow:hidden}
 .sd-bar i{display:block;height:100%;border-radius:5px;background:var(--accent)}
@@ -91,3 +94,7 @@
 /* the session summary sits in the middle of the page, its heading over it */
 .done-card.sd{margin-inline:auto}
 .view-head.sd-head{justify-content:center;text-align:center;max-width:760px;margin-inline:auto}
+/* dark mode from the system setting (no data-theme set) */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .sd-credits b{color:#FFD36B}
+}
