@@ -5808,6 +5808,13 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
 :root[data-theme="dark"] .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}}
+
+/* Pro: double accessory chances on every spin, marked (x2) PRO */
+.wh-x2{display:inline-flex;align-items:center;gap:4px;font:800 .78rem var(--display);color:#E8487A;white-space:nowrap}
+.wh-x2 .pro-badge{font-size:.6rem;padding:2px 5px}
+.wh-x2-line{margin:6px 0 2px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 .88rem var(--display);color:var(--ink)}
+:root[data-theme="dark"] .wh-x2{color:#FF8FB0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wh-x2{color:#FF8FB0}}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */

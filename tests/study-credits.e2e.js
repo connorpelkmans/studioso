@@ -211,6 +211,15 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
       SBSC.planTest(null); return out.join(); });
     ok(pr === "true,0,1,1,0,true", "Pro: one free spin a week, apart from the exam spins; free students see Get Pro: " + pr);
     await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+    // Pro: double the accessory chances on every spin, marked (x2) PRO; the coins share what's left
+    await p.evaluate(() => { SBSC.planTest({paywall: true, pro: true}); window.__sbSync.state.settings.sc.wsq = [{id: "px", title: "Final Exam", pct: 91}]; SBSC.spinSoon(); });
+    await p.waitForSelector(".scr-wh .wh-go", {timeout: 6000});
+    const px = await p.evaluate(() => { const li = [...document.querySelectorAll(".wh-odds li")], pc = l => parseFloat(l.querySelector("b").textContent);
+      const items = li.filter(l => l.querySelector(".cp-rar")); return {sum: Math.round(li.reduce((a, l) => a + pc(l), 0)), items: Math.round(items.reduce((a, l) => a + pc(l), 0)), x2: items.every(l => l.querySelector(".wh-x2")), line: !!document.querySelector(".wh-x2-line .pro-badge")}; });
+    ok(px.sum === 100 && px.items === 56 && px.x2 && px.line, "Pro: accessories 56% (double), marked (x2) PRO, odds add up to 100: " + JSON.stringify(px));
+    await p.click(".wh-go"); await p.waitForSelector(".scr-wh.wh-won", {timeout: 8000}); await p.waitForTimeout(300);
+    await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
+    await p.evaluate(() => { SBSC.planTest(null); window.__sbSync.state.settings.sc.wsq = []; });
 
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);

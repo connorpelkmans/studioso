@@ -305,6 +305,8 @@ var SBSC = (() => {
      says so to free students, with Get Pro, and shows Pro students theirs. */
   const WHEEL_ITEMS = [["legendary", 1, 0.02], ["exotic", 2, 0.04], ["rare", 3, 0.06]];
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
+  // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
+  const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
   const weekKey = () => mondayOf(todayISO());
@@ -356,7 +358,8 @@ var SBSC = (() => {
   function wheelPrizes(){
     const list = (() => { try { return window.SBCOMP && SBCOMP.accList ? SBCOMP.accList() : []; } catch (e) { return []; } })();
     const out = [], used = new Set();
-    WHEEL_ITEMS.forEach(([r, count, p]) => {
+    const x2 = proNow();
+    WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
       const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
       for (let i = 0; i < count; i++) {
         const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
@@ -364,7 +367,7 @@ var SBSC = (() => {
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }
     });
-    WHEEL_COINS.forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
+    (x2 ? WHEEL_COINS_PRO : WHEEL_COINS).forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
     // items spread between the coins, so the small slices aren't all bunched together
     const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
     while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
@@ -419,12 +422,13 @@ var SBSC = (() => {
     const still = calm(), prizes = wheelPrizes(), o = document.createElement("div");
     o.className = "scr-rw scr-wh" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrWhT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    const list = prizes.slice().sort((a, b) => a.p - b.p);
+    const list = prizes.slice().sort((a, b) => a.p - b.p), x2 = proNow(), X2 = `<span class="wh-x2">(x2) <span class="pro-badge">PRO</span></span>`;
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
       <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
       <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
       <div class="wh-result" aria-live="polite"></div>
-      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
+      ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
+      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
     document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
