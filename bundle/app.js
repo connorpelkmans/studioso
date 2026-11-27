@@ -19951,7 +19951,7 @@ const SY = (() => {
       .replace(/\s*[|•·;]\s*/g, " ")
       .replace(/\(\s*\d{1,3}(?:\.\d+)?\s*%[^)]*\)/g, " ")
       .replace(/\(\s*\)/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/\s+/g, " ").replace(/ ([:,;])/g, "$1")
       .replace(/^[\s,:;.\-–—@#*]+|[\s,:;\-–—@#*]+$/g, "")
       .trim();
   }
@@ -20019,8 +20019,9 @@ const SY = (() => {
     if (!info.instructor) { for (const l of top) { const x = l.match(/\b((?:Dr|Prof|Professor)\.?\s+[A-Z][a-zA-Z'’\-]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-zA-Z'’\-]+)?)/); if (x) { info.instructor = x[1]; break; } } }
     info.office = clean(field(/(?:^|[;,.]\s*)(?:instructor\s+|student\s+)?(?:office|drop-?in|student|help)\s+hours?\s*[:\-–]?\s*(.+)/i)).split(";")[0].trim();
     info.room = clean(field(/^\s*(?:class\s*room|room|location|lecture location|classroom|where|place)\s*[:\-–]\s*(.+)/i));
-    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
-    const dayTime = /\b((?:M|T|W|Th|R|F|Tu|MWF|MW|TTh|TR|TuTh|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri)(?:[\/,&\s-]+(?:M|T|W|Th|R|F|Tu|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|and))*(?:days?)?)\s*,?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/i;
+    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meetings?|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
+    const DT = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|MWF|MW|TTh|TR|TuTh|Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Th|Tu|M|T|W|R|F)";
+    const dayTime = new RegExp("\\b(" + DT + "(?:[\\/,&\\s-]+(?:" + DT + "|and))*(?:days?)?)\\s*,?\\s*" + /(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/.source, "i");
     const hasDays = x => /\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b(MWF|MW|TTh|TR|TuTh|WF|MTWRF)\b/i.test(x || "");
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
@@ -20090,8 +20091,8 @@ const SY = (() => {
     let total = 0;
     for (const l of lines) { const m = l.match(/^(?:grand\s+)?total(?:\s+points)?\b[^\d%]*(\d{2,4})(?:\s*(?:pts|points))?\s*$/i); if (m) { total = Number(m[1]); break; } }
     const CATS = [[/^(?:the\s+)?final(?:\s+exam(?:ination)?)?\b/i, "Final"], [/^(?:mid-?terms?|exams?|examinations?|tests?)(?:\s+(?:exams?|tests?))?\b/i, "Exam"],
-      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?)\b/i, "Assignment"],
-      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^(?:readings?|reading\s+responses?)\b/i, "Reading"]];
+      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?|reading\s+responses?|response\s+papers?|reflections?|discussion\s+posts?|journals?)\b/i, "Assignment"],
+      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^readings?\b/i, "Reading"]];
     const WORDN = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, twelve:12};
     // "Quizzes 20%, Homework 20%, Midterm 30%" on one line: each part is its own entry
     const isCat = p => CATS.some(([re]) => re.test(p.replace(/^[\s•\-*·]+/, "").trim()));
@@ -20300,6 +20301,8 @@ const SY = (() => {
     // Numbered lines in the breakdown go to the item with that number
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
+    // A breakdown line naming one item ("Research Paper 15%") is that item's weight, when exactly one item has that name
+    breakdown(text).forEach(b => { const k = normTitle(b.t); if (k.length < 4 || /^(home ?work|hw|quiz|exam|midterm|test|lab|assignment|project|reading|essay|paper|report|presentation|discussion|problem set|worksheet)$/i.test(b.t.trim())) return; const hit = final.filter(x => x.weight == null && normTitle(x.title).includes(k)); if (hit.length === 1) { hit[0].weight = b.w; hit[0].ownW = true; } });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
     const splits = {};
@@ -20561,7 +20564,11 @@ function importSheet(courseId, file){
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
     // a breakdown line with no date is the course's item of that name, whatever its date
-    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // A task you named your own way is the same one too: "Quiz 5" is your "Psych Quiz 5 (Ch. 12-13)" (same kind and number), and an
+    // exam or quiz is the one of that type already on that day ("Final Exam" and "Psych Final (online)" on Dec 16)
+    const kindNo = s => { const m = String(s || "").toLowerCase().match(/\b(quiz|exam|midterm|test|lab|homework|hw|problem set|assignment|essay|paper|project|reading response|response)\s*#?\s*(\d+)\b/); return m ? m[1].replace(/^hw$/, "homework") + " " + Number(m[2]) : ""; };
+    const sameOne = (i, cid) => allTasks().some(t => t.courseId === cid && !t.prepFor && t.type === i.type && ((kindNo(i.title) && kindNo(t.title) === kindNo(i.title)) || (!!i.due && t.due === i.due && /^(Exam|Quiz)$/.test(i.type))));
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)) || sameOne(i, cid));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
@@ -46324,7 +46331,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     const loose = mine.filter(t => wOf(t) == null && !excused(t) && markPct(t) != null);
     const gr = {c, g, R, xc: xcs, xcGot, xcOpen, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
-      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01,
+      finish: fill => GRULES.finalWith(items, RU, D, fill)};
     // an unweighted average says where you are, not what's left: there's no total to finish
     if (gr.unw) Object.assign(gr, {done: false, need: () => null, projected: null, remaining: 0, minFinal: 0, maxFinal: 100});
     // every listed item marked isn't a final grade: more can still be added until classes are over
@@ -46333,6 +46341,21 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     gr.risk = riskOf(gr);
     return gr;
   }
+  /* How much of its course a task counts for: its share of a category weight (Grade Settings, "Quizzes 20%") when its course
+     has one for its type, otherwise its own weight. 0 when it has neither. Used outside the grade itself (the mark sheet, Today's
+     Plan, Rough Week Rescue), so work weighted by category counts there as it does on the Grades page. */
+  let SHARE_AT = null;
+  function gradeShare(t){
+    if (!t) return 0;
+    const c = t.courseId && !t.prepFor ? courseOf(t.courseId) : null;
+    if (c && catsOf(c).length) {
+      if (!SHARE_AT || SHARE_AT.st !== state || SHARE_AT.at !== state.updated) SHARE_AT = {st: state, at: state.updated, done: new Set()};
+      if (!SHARE_AT.done.has(c.id)) { courseGrade(c); SHARE_AT.done.add(c.id); }
+      const e = EFFW.get(t.id); if (e && e.how === "cat") return e.w;
+    }
+    return hasWeight(t) ? Number(t.weight) : 0;
+  }
+  const shareCat = t => { const e = gradeShare(t) > 0 && EFFW.get(t.id); return e && e.how === "cat" ? e.cat : ""; };
   /* "Must pass" parts (Grade Settings): an average on one type of work, or the final exam alone, that has to reach its own minimum.
      avg: on what's marked; need: the average still needed on the rest of that part (0 once it's safe, over 100 out of reach). */
   const mustName = cat => cat === "Final" ? "Final Exam" : typePl(cat);
@@ -46424,7 +46447,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const pen0 = t.mark && t.mark.pen ? penTxt(t.mark.pen) : "";
     openSheet(`<form class="sheet">${head(t.mark ? "Edit Your Mark" : "Add Your Mark")}
       <div class="sheet-body">
-        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
+        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${shareCat(t) ? `Worth ${fmtW(gradeShare(t))} of your course grade (a share of ${esc(shareCat(t) === "Final" ? "the Final Exam" : typePl(shareCat(t)))}).` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
         <label class="f"><span class="lh">Your Mark <span class="hint">a score like 43/50, a percent like 86%, or a letter like B+</span></span><input type="text" id="gmIn" autocomplete="off" maxlength="24" value="${esc(baseInput(t.mark))}" placeholder="e.g. 43/50" autofocus></label>
         <div class="chips gr-mk-chips" role="group" aria-label="Other kinds of mark"><button type="button" class="chip" data-gm="Pass">Pass</button><button type="button" class="chip" data-gm="Fail">Fail</button><button type="button" class="chip" data-gm="Excused" title="It won't count toward your grade">Excused / Doesn't Count</button></div>
         <details class="gr-pen"${pen0 ? " open" : ""}><summary>Late Penalty</summary><label class="f"><span class="lh">Taken Off for Being Late <span class="hint">a percent of the mark like 10%, or points like 2</span></span><input type="text" id="gmPen" autocomplete="off" maxlength="12" value="${esc(pen0)}" placeholder="e.g. 10%"></label></details>
@@ -46628,7 +46651,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!gset().prompt || !Array.isArray(changes) || changes.length !== 1) return;
     const ch = changes[0], t = ch.after;
     if (ch.kind !== "task" || !t || t.status !== "done" || !t.doneAt || Date.now() - t.doneAt > 10000) return;
-    if (!hasWeight(t) || t.mark || t.prepFor || asked().includes(t.id)) return;
+    if (!(gradeShare(t) > 0) || t.mark || t.prepFor || asked().includes(t.id)) return;
     setAsked(t.id);
     clearTimeout(promptT);
     promptT = setTimeout(() => showPrompt(t.id), 6800);
@@ -46695,7 +46718,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     out.push(...mustTxt);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
-    if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
+    // a category weight with nothing in it yet (Quizzes 15% before the first quiz is added) is named, not left as a mystery share
+    const emptyCats = (gr.cats || []).filter(k => !gr.ts.some(t => (EFFW.get(t.id) || {}).cat === k.cat)), emptyW = emptyCats.reduce((s, k) => s + k.w, 0);
+    if (gr.unlisted > 0.5 && emptyCats.length && Math.abs(emptyW - gr.unlisted) < 0.5) out.push(`<span class="mini">Nothing has been added to ${emptyCats.map(k => `${esc(k.cat === "Final" ? "Final Exam" : typePl(k.cat))} (${fmtW(k.w)})`).join(" or ")} yet, so ${emptyCats.length === 1 ? "it counts" : "they count"} as work still to come.</span>`);
+    else if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
   const riskPill = r => r === "risk" ? `<span class="pill gr-risk">Pass Mark at Risk</span>` : r === "out" ? `<span class="pill gr-risk">Talk to Your Instructor</span>` : r === "watch" ? `<span class="pill gr-watch">Close to Pass Mark</span>` : "";
@@ -46798,7 +46824,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const p = {}; let n = 0, mk = 0;
     gr.ts.forEach(t => { const v = vals && vals[t.id]; if (isNum(v) && !gr.missed.includes(t)) { p[t.id] = Number(v); n++; if (gr.pm.get(t.id) != null) mk++; } });
     const w = courseGrade(gr.c, null, p);
-    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need};
+    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need, finish: w.finish};
   }
   function whatIfOut(gr, vals){
     const w = whatIf(gr, vals), g = gr.g, L = p => letterOf(p, g.scale);
@@ -46808,6 +46834,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
+      // where that leaves the course, on the same footing as Solve (your average so far on the rest), so the two agree
+      if (gr.base != null && w.rem > 0.01 && w.finish) out.push(`With your average so far (${fmtP(gr.base)}) on the rest, you'd finish on ${lt(w.finish(gr.base))}.`);
       const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
@@ -47419,7 +47447,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
         <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk, "At risk")}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -48114,7 +48142,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (x.dl > 21 || (x.dl < 0 && x.dead)) return;
       const gr = risk[t.courseId];
       if (gr) {
-        if (!(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null) return;
+        if (!(gradeShare(t) > 0 || PTS_W[t.id]) || markPct(t) != null) return;
         // Work due now keeps its own order (what saves the most marks today), so only its reason changes
         if (!x.tier) x.score *= BOOST[gr.risk];
         x.passBoost = gr.risk; any = true;
@@ -48125,7 +48153,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       // Under a goal: graded work, and study sessions for a graded exam, get a smaller lift than a pass-mark risk
       const s = short[t.courseId]; if (!s) return;
       const ex = t.prepFor ? allTasks().find(y => y.id === t.prepFor) : null;
-      if (!(ex ? hasWeight(ex) && markPct(ex) == null : (hasWeight(t) || PTS_W[t.id]) && markPct(t) == null)) return;
+      if (!(ex ? gradeShare(ex) > 0 && markPct(ex) == null : (gradeShare(t) > 0 || PTS_W[t.id]) && markPct(t) == null)) return;
       if (!x.tier) x.score *= 1.06 + Math.min(0.12, s.gs.gap / 100);
       x.goalBoost = true; any = true;
       const nm = courseLabel(s.gr.c), goal = s.gr.g.goal;
@@ -48177,13 +48205,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const overdue = open.filter(t => t.due < w.today && t.late !== "none").length;
     const fixed = [], sugg = [];
     items.forEach(x => {
-      const t = x.t, W = hasWeight(t) ? Number(t.weight) : 0, exam = t.prepFor && state.tasks[t.prepFor];
+      const t = x.t, W = gradeShare(t), exam = t.prepFor && state.tasks[t.prepFor];
       const fix = why => fixed.push(Object.assign({}, x, {why}));
       if (MILESTONE(t.type)) return fix(t.type === "Exam" ? "Exam date" : "Quiz date");
       if (t.due > w.end && t.status === "todo" && !blockers(t).length) {
         const ns = addDays(w.end, 1), left = dayDiff(ns, t.due);
-        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3, label: `Start ${fmtShort(ns)} instead`,
-          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
+        // big work left for the few days before its due date isn't ticked: starting it later would crowd them
+        const R = remainingOf(t) || 0, roomy = R <= left * dailyHours() * 0.5;
+        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3 && roomy, label: `Start ${fmtShort(ns)} instead`,
+          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : !roomy ? `It isn't due until ${fmtShort(t.due)}, but it still needs about ${fmtHM(R)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
       }
       if (W >= 15) return fix(`Worth ${fmtW(W)} of your grade`);
       if (t.late === "none") return fix("No late work accepted");
@@ -48202,7 +48232,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       }
       fix(W ? `Graded deadline, worth ${fmtW(W)}` : t.type === "Study" ? "Study session" : "Class deadline");
     });
-    const heavy = items.filter(x => !MILESTONE(x.t.type) && hasWeight(x.t) && Number(x.t.weight) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
+    const heavy = items.filter(x => !MILESTONE(x.t.type) && gradeShare(x.t) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
       && !tasksArr().some(e => e.extFor === x.t.id && e.status !== "done")).sort((a, b) => b.h - a.h)[0] || null;
     const need = items.reduce((s, x) => s + x.h, 0);
     const plan = {w, items, fixed, sugg, heavy, need, overdue, ext: false};
@@ -48298,7 +48328,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
       // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
-      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+      if (s.ov.due && s.ov.due !== cur.due && gradeShare(cur) > 0 && !/^(Study|Reading)$/.test(cur.type)) {
         if (!n.origDue) n.origDue = cur.due;
         const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
         n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
@@ -48473,7 +48503,7 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     const rows = d.pts.map(p => `<tr><th scope="row">${esc(p.title)}</th><td>${esc(dayTxt(p.key))}</td><td>${esc(pctTxt(p.pct))}${d.letter(p.pct) ? " " + esc(d.letter(p.pct)) : ""}</td></tr>`).join("");
     return `<figure class="gt-fig">${svg}
       <figcaption><b class="gt-sum">${esc(sum)}</b><span class="mini">${esc(tr("trend.cap", "Your grade after each graded item, in due date order."))}</span></figcaption>
-      <table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></figure>`;
+      <div class="sr"><table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></div></figure>`;
   }
   function sectionHtml(c){
     const d = dataFor(c); if (!d || !d.gr.ts.length) return "";
@@ -106294,7 +106324,7 @@ const HM = (() => {
   const legendHtml = () => `<div class="hm-legend" aria-hidden="true"><span>Less</span>${[0, 1, 2, 3, 4].map(l => `<i class="hm-c" data-l="${l}" title="${esc(RANGE[l])}"></i>`).join("")}<span>More</span></div>`;
   function tableHtml(V, from, to, caption){
     const rows = HM.months(V, from, to);
-    return `<table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table>`;
+    return `<div class="sr"><table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table></div>`;
   }
   const hasAny = V => Object.keys(V).some(d => V[d].study);
   const tipHtml = () => `<div class="hm-tip" aria-hidden="true" hidden></div><p class="sr hm-live" role="status" aria-live="polite"></p>`;
@@ -116620,7 +116650,10 @@ var SBCLS = null;
       eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
       if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
-      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
+      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180);
+        // there are no lectures in finals week: classes end the day before the first final exam coming up
+        const fin = allTasks().filter(t => mine.has(t.courseId) && t.type === "Exam" && /\bfinal\b/i.test(t.title || "") && isDate(t.due) && t.due > today).map(t => t.due).sort()[0];
+        if (fin && addDays(fin, -1) < until && addDays(fin, -1) >= from) until = addDays(fin, -1); }
     }
     if (until < from) until = from;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};

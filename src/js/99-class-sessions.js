@@ -81,7 +81,10 @@ var SBCLS = null;
       eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
       if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
-      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
+      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180);
+        // there are no lectures in finals week: classes end the day before the first final exam coming up
+        const fin = allTasks().filter(t => mine.has(t.courseId) && t.type === "Exam" && /\bfinal\b/i.test(t.title || "") && isDate(t.due) && t.due > today).map(t => t.due).sort()[0];
+        if (fin && addDays(fin, -1) < until && addDays(fin, -1) >= from) until = addDays(fin, -1); }
     }
     if (until < from) until = from;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};

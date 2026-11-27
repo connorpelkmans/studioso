@@ -6645,6 +6645,8 @@ body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px)
 .gt-spark{display:inline-flex;align-items:center;margin-left:4px}
 .gt-spark svg{display:block;stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
 .gt-spark circle{fill:var(--accent);stroke:none}
+/* a narrow phone card has no room for the sparkline beside a due pill: the pill matters more */
+@media (max-width:480px){#view .c2-card .c2-foot:has(> .g2-pill) .gt-spark{display:none}}
 html[data-hc="1"] .gt-line{stroke-width:2.8}
 @media (forced-colors:active){.gt-line,.gt-spark svg{stroke:Highlight}.gt-dot,.gt-spark circle{fill:Highlight;stroke:Canvas}.gt-dot.last{fill:Canvas;stroke:Highlight}.gt-goal{stroke:CanvasText}.gt-grid{stroke:GrayText}.gt-ax,.gt-val,.gt-goal-t{fill:CanvasText}}
 
