@@ -1817,8 +1817,8 @@
   // (browser tests see them only when they ask; giftPro is the tests' stand-in for a paid plan)
   const giftOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:gift-test") !== "1"; } catch (e) { return false; } };
   const giftProNow = () => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:gift-pro")) return localStorage.getItem("studyboard:gift-pro") === "1"; } catch (e) {} return paidPro(); };
-  // when this student joined: the account's creation, or (with no account) when the welcome setup was finished
-  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:at")) || 0;
+  // when this student joined: the account's creation, or (with no account) when their first welcome setup was finished
+  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:first")) || Number(localStorage.getItem("sb:onboarded:at")) || 0;
     if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } catch (e) { return ""; } };
   const plusDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   // in its window; or, for a gift with join (Christmas, New Year's), a student who joined within that many days of the holiday
@@ -1862,9 +1862,14 @@
       <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="${w.knot}" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
       <circle cx="0" cy="-24" r="5" fill="${w.knot}" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
   }
+  const GIFT_AFTER_SETUP = 5 * 60000;
+  // how long until the first welcome setup (sb:onboarded:first: a replay from Settings doesn't count) is 5 minutes old (0 once it is, or with no setup on record)
+  const setupJustDone = () => { try { const at = Number(localStorage.getItem("sb:onboarded:first")) || 0, left = at ? at + GIFT_AFTER_SETUP - Date.now() : 0; return left > 0 && left <= GIFT_AFTER_SETUP ? left + 500 : 0; } catch (e) { return 0; } };
   function giftSoon(){
     clearTimeout(giftT);
     if (giftOn || giftLater || !giftNow()) return;
+    // a new student: presents wait until 5 minutes after the welcome setup is finished, so they don't arrive with the welcome spin
+    const fresh = setupJustDone(); if (fresh) { giftT = setTimeout(giftSoon, fresh); return; }
     if (revealOn || revealBusy() || document.querySelector(".scr-rw, .cpu") || (window.SBTOUR && SBTOUR.active())) { giftT = setTimeout(giftSoon, 2500); return; }
     showGift(giftNow());
   }
