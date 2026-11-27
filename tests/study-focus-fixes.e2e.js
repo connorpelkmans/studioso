@@ -12,7 +12,9 @@ const server = http.createServer((req, res) => {
 let checks = 0; const ok = (c, m) => { checks++; console.log((c ? "ok - " : "FAIL: ") + m); if (!c) process.exitCode = 1; };
 const iso = d => new Date(Date.now() + d * 864e5 - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 const card = (id, o) => Object.assign({id, front: "Front " + id, back: "Back " + id, box: 0, due: "", seen: 0, right: 0, wrong: 0}, o);
-const SEED = {v: 2, updated: 1, tasks: [], files: [], notes: [], events: [], settings: {},
+const SEED = {v: 2, updated: 1, files: [],
+  tasks: [{id: "tA", title: "Problem Set A", courseId: "c1", type: "Assignment", status: "todo", priority: "med", due: iso(3), hours: 2, created: 1, history: [], checklist: []},
+    {id: "tB", title: "Reading B", courseId: "c1", type: "Reading", status: "todo", priority: "med", due: iso(4), hours: 1, created: 1, history: [], checklist: []}], notes: [], events: [], settings: {},
   courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#3B6FE0"}],
   decks: [
     {id: "dEarly", name: "Crammed", courseId: "c1", created: 1, sched: "classic", cards: [card("e1", {seen: 3, box: 2, due: iso(5), last: iso(-2)})]},
@@ -46,7 +48,7 @@ const studyDeck = async (p, id) => { await p.evaluate(() => { document.querySele
   await ctx.addInitScript(seed, SEED);
   try {
     /* S1: two tabs share one timer, and only one finishes a session */
-    const a = await open(ctx), b = await open(ctx);
+    let a = await open(ctx), b = await open(ctx);
     await act(a, "pomo-start"); await a.waitForTimeout(300);
     const pa = await P(a), pb = await P(b);
     ok(pa.running && pb.running && pa.endAt === pb.endAt, "a timer started in one tab runs in the other too");
@@ -131,6 +133,34 @@ const studyDeck = async (p, id) => { await p.evaluate(() => { document.querySele
     await studyDeck(a, "dEarly");
     await a.focus('.view-head [data-act="fc-exit"]'); await a.keyboard.press("Enter"); await a.waitForTimeout(150);
     ok(!(await fc(a)), "Enter on End Session ends the session instead of flipping the card");
+
+    /* S4b: a focus session that changes task part way credits each task with its own minutes; one that ended while
+       Studyboard was closed for hours still counts, on the day it ended */
+    const work = id => a.evaluate(id => { const t = window.__sbSync.state.tasks[id]; return {m: Number(t.focusMin) || 0, days: (t.workLog || []).map(e => e.d)}; }, id);
+    await a.evaluate(() => { const p = window.__sbPomo.pomo; p.mode = "focus"; p.running = false; p.left = 0; p.len = 0; p.preset = 0; p.taskId = "tA"; window.__sbPomo.save(); });
+    await act(a, "pomo-open"); await a.waitForTimeout(150);
+    await act(a, "pomo-start"); await a.waitForTimeout(150);
+    await a.evaluate(() => { const p = window.__sbPomo.pomo; p.len = 25 * 60000; p.endAt = Date.now() + 15 * 60000; window.__sbPomo.save(); });
+    await a.selectOption("#pomoTask", "tB"); await a.waitForTimeout(300);
+    ok((await work("tA")).m === 10 && (await P(a)).taskId === "tB" && (await P(a)).running, "changing Working On 10 minutes in logs those 10 on the first task and keeps the timer going");
+    await a.evaluate(() => { const p = window.__sbPomo.pomo; p.endAt = Date.now() - 10; window.__sbPomo.finish(); });
+    await a.waitForTimeout(200);
+    ok((await work("tB")).m === 15 && (await work("tA")).m === 10, `the rest of the session goes to the new task: A ${(await work("tA")).m}, B ${(await work("tB")).m}`);
+    await a.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close()));
+    const yday = iso(-1);
+    const base = "http://127.0.0.1:" + server.address().port;
+    await a.goto("about:blank");
+    const g = await ctx.newPage(); g.errs = []; g.on("pageerror", e => g.errs.push(e.message));
+    await g.goto(base + "/bundle/app.css");
+    await g.evaluate(() => { const p = JSON.parse(localStorage.getItem("studioso:pomo")); Object.assign(p, {mode: "focus", running: true, left: 0, taskId: "tA", len: 25 * 60000, done: 0, endAt: (() => { const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(12, 0, 0, 0); return d.getTime(); })()}); localStorage.setItem("studioso:pomo", JSON.stringify(p)); });
+    await g.goto(base + "/index.html");
+    await g.waitForFunction(() => window.__sbPomo && window.__sbSync && document.readyState === "complete", null, {timeout: 20000}); await g.waitForTimeout(800);
+    const wa = await g.evaluate(() => { const t = window.__sbSync.state.tasks.tA; return {m: Number(t.focusMin) || 0, days: (t.workLog || []).map(e => e.d), fd: window.__sbSync.state.settings.focusDays}; });
+    ok(wa.m === 35 && wa.days[wa.days.length - 1] === yday && (wa.fd[yday] || 0) >= 25, "a session that ended yesterday at noon is counted on the day it ended: " + JSON.stringify(wa));
+    ok(!(await g.evaluate(() => document.getElementById("alarmDlg").open)) && !(await P(g)).running && (await P(g)).mode === "focus", "with no alarm, and the timer ready for a new focus session");
+    await g.close(); await a.close();
+    a = await open(ctx);
+
     await studyDeck(a, "dEarly");
     await a.focus('[data-act="fc-flip"]'); await a.keyboard.press("Enter"); await a.waitForTimeout(100);
     ok((await fc(a)).flipped, "Enter on the card itself still flips it");

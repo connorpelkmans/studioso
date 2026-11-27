@@ -24321,7 +24321,7 @@ function pomoStart(){
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   nativeAlarm();
-  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
+  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) { pomo.len = modeMs(pomo.mode); pomo.done = 0; }
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
@@ -24336,18 +24336,26 @@ function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
   const total = pomoLen(), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
-  return Math.max(0, (total - left) / 60000);
+  return Math.max(0, (total - left) / 60000 - (Number(pomo.done) || 0));
 }
 // Stopping a focus session early
 const pomoEarly = (min, why) => {
-  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return;
+  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return 0;
   const A = accOf();
   if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
+  return m;
 };
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
-function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one
+function pomoRetask(id){
+  id = id || "";
+  if (id === (pomo.taskId || "")) return;
+  if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; }
+  pomo.taskId = id; pomoSave();
+}
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
   if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
@@ -24374,18 +24382,22 @@ function pomoEnd(missed){
   try { if (navigator.locks && navigator.locks.request) { navigator.locks.request("studioso-pomo-finish", go).catch(e => console.warn(e)); return; } } catch(e) {}
   go();
 }
-function pomoFinish(missed){
+// quiet: a session that ended long ago, counted without the alarm
+function pomoFinish(missed, quiet){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000)) : 0;
-  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer);
+  // minutes already logged to another task when the session changed task part way (pomoRetask) aren't counted twice
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)) : 0;
+  // a session that ended while Studyboard was closed counts on the day it ended
+  const endDay = missed && pomo.endAt ? isoDay(pomo.endAt) : todayISO(), endAt = missed && pomo.endAt ? pomo.endAt : 0;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
-    pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
+    pomo.cycle++; if (endDay === todayISO()) { pomo.sessions++; pomo.minutes += fm; }
     const t = pomo.taskId && state.tasks[pomo.taskId];
     // A group project task: the minutes go to its own focus record (see gtAddWork)
     if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
-      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
+      const n = addWork(clone(t), fm, "focus", endDay, endAt); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
@@ -24394,11 +24406,12 @@ function pomoFinish(missed){
   if (done === "long") pomo.cycle = 0;
   pomo.mode = next;
   const auto = !missed && ((next !== "focus" && cfg.autoBreak) || (next === "focus" && cfg.autoFocus));
+  if (quiet) { pomo.mode = "focus"; if (done === "long") pomo.cycle = 0; }
   pomoSave();
   if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
-  pomoAlarm(done, next, auto, missed);
+  if (!quiet) pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed, taskId: done === "focus" ? pomo.taskId : ""});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : ""});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -24445,7 +24458,8 @@ let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
   const l = SBSC.focusLive(); pomoCrN = l.n;
-  return SBSC.liveHtml(l.n);
+  // nothing until the first credit (a "+0" at the start of every session is just noise)
+  return l.n > 0 ? SBSC.liveHtml(l.n) : "";
 }
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
@@ -24573,7 +24587,7 @@ function nativeAlarm(){
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
   if (taskId === undefined && window.SBEXAM) SBEXAM.pomoDefault();
-  if (taskId !== undefined) { pomo.taskId = taskId; if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
+  if (taskId !== undefined) { pomoRetask(taskId); if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
   const d = $("#pomoDlg");
   renderPomo();
   if (!d.open) { d.showModal(); const b = d.querySelector(".pomo-ctl .btn.primary"); if (b) b.focus(); }
@@ -24650,7 +24664,7 @@ function renderPomo(){
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
   pomoIslandNote();
-  $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
+  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
   const saveCfg = () => {
@@ -24675,12 +24689,26 @@ setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(()
 // Another tab or window changed the timer: show the same
 window.addEventListener("storage", e => { if (e.key === POMO_LS && e.newValue) { const p = pomoStored(); if (p) pomoAdopt(p); } });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); } });
+// "3:40 PM", "yesterday at 3:40 PM" or "Tue, Nov 24 at 3:40 PM"
+function pomoWhen(ms){
+  const d = new Date(ms), day = isoDay(ms), t = d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"});
+  return day === todayISO() ? t : day === addDays(todayISO(), -1) ? `yesterday at ${t}` : `${d.toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})} at ${t}`;
+}
 function pomoBoot(){
   if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {
-    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    if (pomo.running && Date.now() >= pomo.endAt) {
+      if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true);
+      // finished long ago: a focus session still counts (on the day it ended), with a note instead of the alarm
+      else if (pomo.mode === "focus") {
+        const m = Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)), at = pomo.endAt;
+        pomoFinish(true, true);
+        // a moment after start-up, so the start-up reminders don't write over it
+        setTimeout(() => toast(`Your ${m}-minute focus session from ${pomoWhen(at)} ended while Studyboard was closed. It's counted.`), 6000);
+      } else { pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.mode = "focus"; pomoSave(); }
+    }
     pomoSchedule(); pomoUI(true);
   });
 }
@@ -24702,7 +24730,10 @@ function pomoAction(act, el){
       else web();
       return true;
     }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId;
+      // Start on another task while a focus session runs: the time so far goes to the first task (pomoRetask), and a new session starts
+      if (prevTask !== el.dataset.id && pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { pomoRetask(el.dataset.id); pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer); pomoSave(); }
+      openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
@@ -61473,7 +61504,7 @@ var SBSTATS = (() => {
     const fromTasks = allTasks().reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
     return Math.max(logged, fromTasks);
   }
-  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true, e.day); });
   return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 
@@ -61732,11 +61763,20 @@ var SBSC = (() => {
   const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
   // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
   // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  // An open modal dialog (the Focus timer, a sheet) makes the rest of the page inert, popovers included, so a screen shown over one
+  // couldn't be tapped: it goes inside the top one, and moves out (to the next one, or the page) when that dialog closes
+  const topModal = () => { const l = [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return false; } }); return l[l.length - 1] || null; };
+  function mount(o){
+    const host = topModal() || document.body;
+    host.appendChild(o);
+    try { if (o.showPopover && !o.matches(":popover-open")) o.showPopover(); } catch (e) {}
+    if (host !== document.body) host.addEventListener("close", function moved(){ host.removeEventListener("close", moved); if (o.isConnected && host.contains(o)) mount(o); });
+  }
   function openChests(list, done){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     let i = 0, opened = false;
     const draw = () => {
       const c = list[i]; opened = false;
@@ -61920,7 +61960,7 @@ var SBSC = (() => {
       ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let state0 = "ready", won = null;
     const spin = () => {
@@ -61966,12 +62006,16 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
-  const rq = []; let rOpen = false;
+  const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
   // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    // the Focus timer's alarm comes first (Start Break, Mark Done); this screen follows once it's put away
+    const al = document.getElementById("alarmDlg");
+    // (meanwhile the quiet count waits, so it doesn't take this work's credits as arriving from elsewhere)
+    if (al && al.open && !screensOff()) { rWait++; al.addEventListener("close", () => setTimeout(() => { rWait--; reward(spec); }, 300), {once: true}); return; }
     const ch = spec.compact ? [] : takeChests();
     if (!ch.length) { rewardNow(spec, []); return; }
     // the coins are added as the chests are opened (or at once, where the screens aren't shown)
@@ -62041,8 +62085,7 @@ var SBSC = (() => {
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
@@ -62068,8 +62111,7 @@ var SBSC = (() => {
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
 </span>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
@@ -62086,12 +62128,13 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
-    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
-    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest and the big screen only at a
+    // session's real end, a small card that goes by itself for one stopped part way
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes || e.why === "switch") return;
     if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", compact: e.type !== "end", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
@@ -62165,7 +62208,7 @@ var SBSC = (() => {
   let noticeT = 0;
   function noticeSoon(){
     clearTimeout(noticeT);
-    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen || rWait) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
@@ -84287,7 +84330,7 @@ ANSWERING
     const tm0 = d.timer && typeof d.timer === "object" ? d.timer : null, td = tm0 ? String(tm0.do || "").toLowerCase() : "";
     if (td && td !== "none") { const tt = tm0.task ? refs.get(String(tm0.task).trim().toUpperCase()) : null, task = tt && tt.kind === "task" ? state.tasks[tt.id] : null;
       if (td === "start") { const mins = Number(tm0.minutes) > 0 && Number(tm0.minutes) <= 180 ? Math.round(Number(tm0.minutes)) : 25; if (A.startTimer(mins, task)) log.push(`started a ${mins}-minute focus timer${task ? " for " + task.title : ""}`); else fails.push("start the timer"); }
-      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { pomo.taskId = task.id; try { pomoSave(); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
+      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { try { pomoRetask(task.id); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
       else { const k = A.control(`${td} the timer`); if (k && k.done) log.push(k.answer.replace(/\.$/, "").toLowerCase()); else if (k) extra.push(k.answer); } }
     if (d.theme) { const was = agLook().replace(/^LOOK NOW: |\.$/g, ""), r = themeAct({value: d.theme}); if (/^(Switched|Studyboard now)/.test(r.answer)) log.push(`${r.answer.replace(/\.$/, "")} (before: ${was})`); else extra.push(r.answer); }
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
@@ -93114,8 +93157,8 @@ function underBoost(t){
 function staleScan(){
   try {
     if (pomo.mode === "focus" && !pomo.running && pomo.left > 0 && pomo.pausedAt && Date.now() - pomo.pausedAt > 2 * 3600000) {
-      const done = Math.max(0, (modeMs("focus") - pomo.left) / 60000), tid = pomo.taskId;
-      pomo.left = 0; pomo.preset = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
+      const done = pomoElapsedMin(), tid = pomo.taskId;
+      pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
       early(done, tid, "abandoned");
     }
   } catch (e) { }
@@ -94716,7 +94759,7 @@ function offer(){
     const ex = m.exam, nm = examTitle(ex), w = EXAMMODE.rel(m.days);
     const key = EXAMMODE.studyKey(EXAMMODE.dueMs(ex), laneOpts(m), planSessions(ex.id).filter(t => t.status !== "done" && t.due && t.due >= todayISO()).map(t => EXAMMODE.dueMs(t)));
     const first = m.also.find(t => { const x = FOCUS && FOCUS.info && FOCUS.info[t.id]; return EXAMMODE.leads({dueMs: EXAMMODE.dueMs(t), risk: !!x && riskOf(x)}, key); });
-    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: `${first.title} is due ${dueText(first)}, around ${nm}. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
+    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: dayDiff(todayISO(), first.due) < 0 ? `${first.title} is overdue (it was due ${fmtShort(first.due)}). Let's get it done first, then study for ${nm}.` : `${first.title} is due ${dueText(first)}, with ${nm} coming up. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
     const lines = m.days === 0
       ? [`${nm} is today. A calm review of the key ideas is all you need now.`, `Big day! ${nm} is today. Quick look over your notes, then trust what you know.`]
       : m.days === 1
