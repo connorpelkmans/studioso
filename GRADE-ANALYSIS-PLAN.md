@@ -117,6 +117,22 @@ Feature 10 at the end of the first term after launch. Feature 11 only if usage s
 - **Pro split (decision needed):** the suggestion is that Phase 1 stays free for everyone (it makes the core better). Forecast, Target GPA Planner, Habits and Term Timeline are a natural **Pro** bundle ("Grade Insights"), using `proBtns("grades")` / `99-pro.js`.
 - **Tests:** unit tests for each pure core (edge cases: drops, bonus, must-pass, excused, points courses, unweighted, pass/fail, 0–2 marks), plus one Playwright e2e that seeds a term and checks each new section renders and reads correctly.
 
+## Status (built)
+
+Features 1 to 10 are built, plus a light version of 11 that needs no new tagging. The code:
+- `src/js/90-grade-insights.js`: the math for every feature (`GINS`, tested alone in `tests/grade-insights.test.js`), plus Phase 1: Where Your Points Went, letter cutoffs, How You Compare, and the mark moment.
+- `src/js/90-grade-forecast.js`: the forecast (course and term GPA), Target GPA, and Best Use of Your Next Hour.
+- `src/js/90-grade-habits.js`: Your Patterns, Your Term So Far, This Week in Grades, What to Shore Up, and the grade cards in the Term Recap (`99-pro.js` calls `SBGINS.recapSlides`).
+- `tests/grade-insights.e2e.js` checks it all on a computer and a phone, using the term in `tests/grade-insights-seed.js`.
+
+Decisions taken while building (each easy to change):
+- **Nothing is behind Pro yet** except the Term Recap, which already was. The open Pro question above still stands.
+- **At-risk courses** don't show a chance of failing. They get the likely range and what would change it.
+- **The weekly summary** shows on Today from Saturday to Monday (behind Notices, like other board notices) and on the Grades page all week. There's no push notification yet.
+- **The timeline is rebuilt from the marks** rather than from stored weekly snapshots. That avoids writing settings (and syncing) on every redraw.
+- **Best Use of Your Next Hour** ranks by points per hour and doesn't change Today's Plan yet.
+- **Topics (11)** reads the next exam's prep-plan topics and the course's flashcard decks. There's no per-mark topic tagging yet.
+
 ## Open questions
 1. Free vs Pro split for Phases 2–3 (see above).
 2. Should forecast probabilities be shown to students in at-risk courses, or only the range plus "what would change it"? (Option: show the probability only when it's encouraging, and show the range otherwise.)
