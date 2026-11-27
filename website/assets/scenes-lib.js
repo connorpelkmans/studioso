@@ -1498,7 +1498,6 @@ SCENES.candy = function (W, H, dk, rnd) {
   if (ANIM) ANIM.gum = dk ? ['#9A4A8A', '#6A58B0', '#3F8C88'] : ['#F5A3C7', '#C6B2F7', '#9EDFD2'];
   add(refl, 'd', sticks[0], dk ? '#D8C8E6' : '#FFFFFF'); add(refl, 'e', disc[0][0], dcol[0]); add(refl, 'f', disc[0][1], dcol[1]); add(refl, 'g', disc[0][2], dcol[2]); add(refl, 'i', sw[0], PC.sw); add(refl, 'j', shd[0], PC.sh); add(refl, 'k', gls[0], PC.gl);
   add(mid, 'f', sticks[1], dk ? '#D8C8E6' : '#FFFFFF'); add(mid, 'g', disc[1][0] + disc[1][2], dcol[0]); add(mid, 'h', disc[1][1], dcol[1]); add(mid, 'i', stS[1], PC.st); add(mid, 'j', sw[1], PC.sw); add(mid, 'k', shd[1], PC.sh); add(mid, 'l', gls[1], PC.gl);
-  if (dk) { mid.h.d = mid.h.d; }
   var gum = ['', '', ''], sug = '';
   spread(0, hz + H * 0.24, W, H * 0.8 - hz, ph ? 90 : 120, 80, rnd, 1).forEach(function (c) { if (c.q > 0.5) return; var tt = 0, best = 1e9; for (var q = 0; q <= 1; q += 0.02) { var d = Math.abs(py(q) - c.y); if (d < best) { best = d; tt = q; } } if (Math.abs(c.x - px(tt)) < pw(tt) * 1.3) return; var r = (9 + c.r * 7) * u * (0.6 + (c.y - hz) / (H - hz)); gum[Math.floor(c.k * 3)] += 'M' + PT(c.x - r, c.y) + ' a' + n1(r) + ' ' + n1(r * 1.15) + ' 0 0 1 ' + n1(2 * r) + ' 0 Z '; sug += circ(c.x - r * 0.3, c.y - r * 0.7, r * 0.12) + circ(c.x + r * 0.25, c.y - r * 0.45, r * 0.1); });
   add(near, 'a', gum[0], dk ? '#9A4A8A' : '#F5A3C7'); add(near, 'b', gum[1], dk ? '#6A58B0' : '#C6B2F7'); add(near, 'c', gum[2], dk ? '#3F8C88' : '#9EDFD2');
@@ -5342,7 +5341,7 @@ SCENES.compsci = function (W, H, dk, rnd) {
         if (x < -30 || y < -30 || x > W + 30 || y > H + 30) { out.push([x, y]); break; }
         var hit = false; if (s > 10) for (var dy = -1; dy <= 1 && !hit; dy++) for (var dx = -1; dx <= 1; dx++) { var cc = cell(x + dx * G, y + dy * G); if (cc >= 0 && occ[cc] && occ[cc] !== o.id && Math.floor(occ[cc] / 16) !== bun) { hit = true; break; } }
         if (hit) { blocked = true; break; }
-        var me = cell(x, y); if (me >= 0 && occ[me] !== o.id) occ[me] = id; out.push([x, y]); s = s; if (s + 2 > total) { blocked = true; }
+        var me = cell(x, y); if (me >= 0 && occ[me] !== o.id) occ[me] = id; out.push([x, y]); if (s + 2 > total) { blocked = true; }
       }
       var simp = [out[0]]; for (var q = 1; q < out.length - 1; q++) { var a = simp[simp.length - 1], b = out[q], cN = out[q + 1], cr = (b[0] - a[0]) * (cN[1] - b[1]) - (b[1] - a[1]) * (cN[0] - b[0]); if (Math.abs(cr) > 0.5) simp.push(b); } simp.push(out[out.length - 1]);
       var Lt = m2_len(simp), tl = Lt[Lt.length - 1];

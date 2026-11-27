@@ -72,7 +72,11 @@ ok(/^ default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'sel
 const embBlocks = hdr.split(/\n\s*\n/).filter(b => /^\/vendor\/embed-/m.test(b));
 const embPol = embBlocks.length === 1 ? (embBlocks[0].split("Content-Security-Policy:")[1] || "") : "";
 ok(/^ default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https:\/\/huggingface\.co https:\/\/\*\.huggingface\.co https:\/\/\*\.hf\.co; worker-src 'self'\s*$/m.test(embPol.split("\n")[0]), "the on-device search model's own policy is narrow: its scripts, WebAssembly and the model host only");
-const pol = [...hdr.split(/\n\s*\n/).filter(b => !/^\/yt-embed/m.test(b) && !/^\/vendor\/(tesseract|webllm|embed)-/m.test(b)).join("\n\n").matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
+// (the stronger on-device AI's folder, vendor/litertlm-*, holds worker scripts too: its own scripts, WebAssembly and LiteRT-LM's runtime host only)
+const ltBlocks = hdr.split(/\n\s*\n/).filter(b => /^\/vendor\/litertlm-/m.test(b));
+const ltPol = ltBlocks.length === 1 ? (ltBlocks[0].split("Content-Security-Policy:")[1] || "").split("\n")[0] : "";
+ok(/^ default-src 'none'; script-src 'self' 'wasm-unsafe-eval' https:\/\/cdn\.jsdelivr\.net; connect-src 'self' https:\/\/cdn\.jsdelivr\.net blob:; worker-src 'self' blob:\s*$/.test(ltPol), "the LiteRT-LM worker's own policy is narrow: its scripts, WebAssembly and the runtime host only");
+const pol = [...hdr.split(/\n\s*\n/).filter(b => !/^\/yt-embed/m.test(b) && !/^\/vendor\/(tesseract|webllm|embed|litertlm)-/m.test(b)).join("\n\n").matchAll(/^\s*Content-Security-Policy:\s*(.+)$/gm)].map(m => m[1]);
 ok(pol.length >= 1 && pol.every(p => { const f = (/(?:^|;)\s*frame-src ([^;]+)/.exec(p) || [])[1]; return f && CMAP.EMBED_HOSTS.every(h => f.trim().split(/\s+/).includes("https://" + h)); }), `every website policy (${pol.length}) lets the embed sites load in a frame`);
 const pp = (/^\s*Permissions-Policy:\s*(.+)$/m.exec(hdr) || [])[1] || "";
 ok(["autoplay", "fullscreen"].every(f => { const m = new RegExp(f + "=\\(([^)]*)\\)").exec(pp); return m && CMAP.EMBED_HOSTS.every(h => m[1].includes('"https://' + h + '"')); }), "the website lets the players autoplay and go fullscreen");

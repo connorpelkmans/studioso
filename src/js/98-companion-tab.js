@@ -429,7 +429,7 @@
     "start_timer", "stop_timer", "pause_timer", "resume_timer", "undo", "make_flashcards", "make_quiz", "make_map", "find_notes",
     "delete_item", "rename_item", "open_item", "edit_item", "change_setting", "set_theme", "wear_accessory", "remove_accessory",
     "add_card", "make_deck", "study_deck", "add_mark", "new_group", "join_group", "open_page", "cant"];
-  const KINDS = ["", "task", "event", "course", "deck", "quiz", "note", "board", "file"];
+  const KINDS = ["task", "event", "course", "deck", "quiz", "note", "board", "file"];
   const ISCHEMA = {type: "OBJECT", properties: {
     intent: {type: "STRING", enum: INTENTS},
     task: {type: "STRING", description: "the existing task it's about, in the student's words or as listed; \"it\" if they only say it/that"},
@@ -442,7 +442,7 @@
     end: {type: "STRING", description: "24-hour HH:MM end time"},
     where: {type: "STRING"},
     minutes: {type: "NUMBER"},
-    priority: {type: "STRING", enum: ["", "urgent", "high", "med", "low"]},
+    priority: {type: "STRING", enum: ["urgent", "high", "med", "low"]},
     text: {type: "STRING", description: "a note's exact words; PHOTO_TEXT if the note should say what the attached picture says"},
     board: {type: "STRING", description: "the note board named, if any"},
     topic: {type: "STRING", description: "the topic for flashcards, a quiz, a map or a note search"},

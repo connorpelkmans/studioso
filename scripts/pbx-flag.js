@@ -17,7 +17,7 @@ function setSwiftFlag(pbx, marker, flag, on) {
 }
 
 function editBody(body, flag, on) {
-  const indent = (/\n(\s+)\S/.exec(body) || [, "\t\t\t\t"])[1];
+  const indent = (/\n(\s+)\S/.exec(body) || [null, "\t\t\t\t"])[1];
   // a list: KEY = ( DEBUG, "$(inherited)", );
   const list = new RegExp("(\\n\\s*" + KEY + " = \\()([\\s\\S]*?)(\\);)").exec(body);
   if (list) {

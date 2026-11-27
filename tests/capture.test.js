@@ -23,7 +23,7 @@ t("times and durations", () => {
 });
 t("the example sentence: Bio lab report, due Fri 5 PM", () => {
   const d = P("bio lab report due fri 5pm");
-  assert.strictEqual(d.title, "Lab report", "the course word goes to the course, not the title"); assert.strictEqual(d.due, "2026-10-09"); assert.strictEqual(d.time, "17:00"); assert.strictEqual(d.type, "Lab"); assert.strictEqual(d.courseId, "c1"); assert.ok(d.confident);
+  assert.strictEqual(d.title, "Lab Report", "the course word goes to the course, not the title"); assert.strictEqual(d.due, "2026-10-09"); assert.strictEqual(d.time, "17:00"); assert.strictEqual(d.type, "Lab"); assert.strictEqual(d.courseId, "c1"); assert.ok(d.confident);
 });
 t("types by keyword", () => {
   [["midterm oct 20", "Exam"], ["final exam dec 5", "Exam"], ["quiz fri", "Quiz"], ["lab 4 fri", "Lab"], ["group project fri", "Project"], ["read chapter 3 fri", "Reading"], ["hw 3 fri", "Assignment"], ["study notes fri", "Study"]]
@@ -31,7 +31,7 @@ t("types by keyword", () => {
 });
 t("study or review phrasing wins over exam words, and keeps its hours", () => {
   const d = P("study for midterm 2 hrs tomorrow");
-  assert.strictEqual(d.type, "Study"); assert.strictEqual(d.hours, 2); assert.strictEqual(d.title, "Study for midterm"); assert.strictEqual(d.due, "2026-10-04");
+  assert.strictEqual(d.type, "Study"); assert.strictEqual(d.hours, 2); assert.strictEqual(d.title, "Study for Midterm"); assert.strictEqual(d.due, "2026-10-04");
   assert.strictEqual(P("review for the quiz fri").type, "Study"); assert.strictEqual(P("cram for final exam mon").type, "Study");
   assert.strictEqual(P("midterm oct 20").type, "Exam"); assert.strictEqual(P("peer review essay fri").type, "Assignment");
 });
@@ -217,7 +217,7 @@ t("a weekday said with the date, spelled-out days, and more ways to say when (to
    ["essay due friday the 20th", "2026-11-20", "Essay"], ["essay due mon 11/23", "2026-11-23", "Essay"], ["essay due 23/11", "2026-11-23", "Essay"], ["quiz on the first", "2026-12-01", "Quiz"],
    ["quiz december first", "2026-12-01", "Quiz"], ["quiz the first of december", "2026-12-01", "Quiz"], ["report due nov thirtieth", "2026-11-30", "Report"],
    ["lab day after tomorrow", "2026-11-17", "Lab"], ["paper 3 days from now", "2026-11-18", "Paper"], ["paper a week from today", "2026-11-22", "Paper"],
-   ["midterm wednesday december 2nd 2026 at 9am", "2026-12-02", "Midterm"], ["read the first chapter fri", "2026-11-20", "Read the first chapter"], ["second draft fri", "2026-11-20", "Second draft"]]
+   ["midterm wednesday december 2nd 2026 at 9am", "2026-12-02", "Midterm"], ["read the first chapter fri", "2026-11-20", "Read the First Chapter"], ["second draft fri", "2026-11-20", "Second Draft"]]
     .forEach(([s, due, title]) => { const d = Q(s); assert.strictEqual(d.due, due, s); assert.strictEqual(d.title, title, s); });
   assert.ok(Q("homework 2 due on friday oct 30").flags.includes("past"), "a date already gone by still asks");
   assert.ok(Q("essay due thursday nov 20").flags.includes("date"), "a weekday that doesn't match the date asks");
@@ -226,7 +226,7 @@ t("a weekday said with the date, spelled-out days, and more ways to say when (to
 t("time estimates said many ways never stay in the title", () => {
   const c = {today: "2026-11-15", courses};
   [["homework 2 due on friday oct 30, 4 hrs long", 4, "Homework 2"], ["reading for 2 hours tomorrow", 2, "Reading"], ["project, takes about 1.5 hours of work, thu", 1.5, "Project"],
-   ["study half an hour tonight", 0.5, "Study"], ["essay an hour long fri", 1, "Essay"], ["a 3-hour lab report mon", 3, "Lab report"], ["hw 45 min long wed", 0.75, "Homework"], ["lab 2 hours fri", 2, "Lab"]]
+   ["study half an hour tonight", 0.5, "Study"], ["essay an hour long fri", 1, "Essay"], ["a 3-hour lab report mon", 3, "Lab Report"], ["hw 45 min long wed", 0.75, "Homework"], ["lab 2 hours fri", 2, "Lab"]]
     .forEach(([s, h, title]) => { const d = CAP.parseLine(s, c); assert.strictEqual(d.hours, h, s); assert.strictEqual(d.title, title, s); });
   assert.strictEqual(CAP.parseLine("office hours thu", c).hours, null, "office hours isn't a time estimate");
 });
