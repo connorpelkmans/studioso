@@ -486,6 +486,74 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
+  /* ---------- How much more ready for an exam this work made you ----------
+     Exam readiness (examReadiness, 01-helpers.js: the same number the exam shows everywhere) for each exam in the next 60 days,
+     noted while nothing is being earned (readyBase); a reward screen shows the exams it went up for since then, before and
+     after, with a soft chime. Readiness from somewhere else (another device, a slider) is noted quietly, never shown as earned. */
+  const READY_DAYS = 60;
+  let readyBase = null;
+  const readyNow = () => {
+    const m = {}, today = todayISO(), last = typeof addDays === "function" ? addDays(today, READY_DAYS) : "9999";
+    try { Object.values(state.tasks || {}).forEach(t => {
+      if (!t || !MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < today || t.due > last) return;
+      const r = examReadiness(t); m[t.id] = r && r.pct != null ? r.pct : 0;
+    }); } catch (e) {}
+    return m;
+  };
+  const readySet = () => { readyBase = readyNow(); };
+  function readyUps(){
+    const before = readyBase, now = readyNow(); readyBase = now;
+    if (!before) return [];
+    const today = todayISO();
+    return Object.keys(now).filter(id => before[id] != null && now[id] - before[id] >= 1).map(id => {
+      const t = state.tasks[id], days = Math.max(0, Math.round((parse(t.due) - parse(today)) / 864e5));
+      return {id, title: t.title || "Exam", from: before[id], to: now[id], days};
+    }).sort((a, b) => (b.to - b.from) - (a.to - a.from) || a.days - b.days).slice(0, 2);
+  }
+  // A soft, short rising chime (two bell-like notes), quiet, only when Reward Sounds is on (Settings, Appearance)
+  const FX_KEY = "studyboard:fx";
+  const fxOn = () => { try { return localStorage.getItem(FX_KEY) !== "off"; } catch (e) { return true; } };
+  let fxAc = null;
+  function chime(force){
+    try {
+      if ((!fxOn() && !force) || document.hidden || (window.__SB_TEST && !window.__SB_FX)) return;
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      fxAc = fxAc || new C(); if (fxAc.state === "suspended") fxAc.resume();
+      const t0 = fxAc.currentTime + 0.02, out = fxAc.createGain(); out.gain.value = 0.11; out.connect(fxAc.destination);
+      [[659.25, 0], [987.77, 0.11]].forEach(([f, at]) => {
+        [[1, 1], [2.01, 0.18]].forEach(([mul, lv]) => {
+          const o = fxAc.createOscillator(), g = fxAc.createGain(), s = t0 + at;
+          o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(lv, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0008, s + (mul > 1 ? 0.35 : 0.9));
+          o.connect(g); g.connect(out); o.start(s); o.stop(s + 1);
+        });
+      });
+    } catch (e) {}
+  }
+  window.SBSC_FX = force => chime(force);
+  const TARGET = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+  const whenTxt = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+  const readyHtml = ups => !ups || !ups.length ? "" : `<div class="scr-ready" role="group" aria-label="Exam readiness">
+      <div class="scr-ready-h">${TARGET}<span>Exam Readiness</span></div>
+      ${ups.map(u => `<div class="scr-rd" data-from="${u.from}" data-to="${u.to}" aria-label="${esc(u.title)}: ${u.from} percent ready, now ${u.to} percent">
+        <div class="scr-rd-top"><span class="scr-rd-t"><b>${esc(u.title)}</b><span class="mini">${whenTxt(u.days)}</span></span><span class="scr-rd-n"><b data-rn>${u.from}</b>%</span></div>
+        <div class="scr-rd-bar" aria-hidden="true"><i class="scr-rd-was" style="width:${u.from}%"></i><i class="scr-rd-gain" style="left:${u.from}%;width:0"></i></div>
+        <span class="scr-rd-up" aria-hidden="true">+${u.to - u.from}% ready</span></div>`).join("")}</div>`;
+  // the bars fill to their new readiness, the numbers count up, and the chime plays once
+  function readyPlay(o, still, at){
+    const rows = [...o.querySelectorAll(".scr-rd")]; if (!rows.length) return;
+    setTimeout(() => {
+      if (!o.isConnected) return;
+      rows.forEach((row, i) => setTimeout(() => {
+        const a = Number(row.dataset.from), b = Number(row.dataset.to), g = row.querySelector(".scr-rd-gain");
+        if (g) g.style.width = (b - a) + "%";
+        countUp(row.querySelector("[data-rn]"), a, b, still ? 0 : 900);
+        row.classList.add("on");
+      }, still ? 0 : i * 260));
+      chime();
+      try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
+    }, still ? 0 : at);
+  }
   const rq = []; let rOpen = false;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
@@ -520,13 +588,13 @@ var SBSC = (() => {
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
-    if (!gained) return;
+    if (!gained) { readySet(); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
     let welcome = 0;
     if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
-    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome, ready: readyUps()}));
     showNext();
   }
   // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
@@ -559,6 +627,7 @@ var SBSC = (() => {
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     document.body.appendChild(o);
@@ -566,6 +635,7 @@ var SBSC = (() => {
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
+    readyPlay(o, still, tickAt * 1000 + 700);
     setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
@@ -587,16 +657,17 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-</span>`;
+      ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
-    setTimeout(close, 3600);
+    setTimeout(close, r.ready && r.ready.length ? 5200 : 3600);
   }
   function openWardrobe(){
     try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
@@ -660,25 +731,28 @@ var SBSC = (() => {
   });
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
-  function notice(){
+  // nothing to show: readiness as it is now is the new starting point for the next reward screen
+  function notice(){ if (!notice0()) readySet(); }
+  function notice0(){
     try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return false; }
     const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
     doneSeen = done;
-    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return false; }
     const gained = t.earned - seenTotal;
     // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
-    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return false; }
     if (fresh.length) {
       const top = fresh.slice(0, 3);
       reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
-      return;
+      return true;
     }
     // credits with no one piece of work behind them (counted quietly): the balance just goes up
     seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
+    return false;
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
@@ -689,7 +763,7 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); readySet(); }, 3000); setTimeout(openLeftovers, 12000);
     // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
     setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
   /* ---------- "+7 credits": a little chip while studying ----------
@@ -729,7 +803,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};

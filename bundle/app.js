@@ -13239,23 +13239,26 @@ function examEvidence(ex){
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -13263,7 +13266,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -13274,7 +13277,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -61966,6 +61969,74 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
+  /* ---------- How much more ready for an exam this work made you ----------
+     Exam readiness (examReadiness, 01-helpers.js: the same number the exam shows everywhere) for each exam in the next 60 days,
+     noted while nothing is being earned (readyBase); a reward screen shows the exams it went up for since then, before and
+     after, with a soft chime. Readiness from somewhere else (another device, a slider) is noted quietly, never shown as earned. */
+  const READY_DAYS = 60;
+  let readyBase = null;
+  const readyNow = () => {
+    const m = {}, today = todayISO(), last = typeof addDays === "function" ? addDays(today, READY_DAYS) : "9999";
+    try { Object.values(state.tasks || {}).forEach(t => {
+      if (!t || !MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < today || t.due > last) return;
+      const r = examReadiness(t); m[t.id] = r && r.pct != null ? r.pct : 0;
+    }); } catch (e) {}
+    return m;
+  };
+  const readySet = () => { readyBase = readyNow(); };
+  function readyUps(){
+    const before = readyBase, now = readyNow(); readyBase = now;
+    if (!before) return [];
+    const today = todayISO();
+    return Object.keys(now).filter(id => before[id] != null && now[id] - before[id] >= 1).map(id => {
+      const t = state.tasks[id], days = Math.max(0, Math.round((parse(t.due) - parse(today)) / 864e5));
+      return {id, title: t.title || "Exam", from: before[id], to: now[id], days};
+    }).sort((a, b) => (b.to - b.from) - (a.to - a.from) || a.days - b.days).slice(0, 2);
+  }
+  // A soft, short rising chime (two bell-like notes), quiet, only when Reward Sounds is on (Settings, Appearance)
+  const FX_KEY = "studyboard:fx";
+  const fxOn = () => { try { return localStorage.getItem(FX_KEY) !== "off"; } catch (e) { return true; } };
+  let fxAc = null;
+  function chime(force){
+    try {
+      if ((!fxOn() && !force) || document.hidden || (window.__SB_TEST && !window.__SB_FX)) return;
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      fxAc = fxAc || new C(); if (fxAc.state === "suspended") fxAc.resume();
+      const t0 = fxAc.currentTime + 0.02, out = fxAc.createGain(); out.gain.value = 0.11; out.connect(fxAc.destination);
+      [[659.25, 0], [987.77, 0.11]].forEach(([f, at]) => {
+        [[1, 1], [2.01, 0.18]].forEach(([mul, lv]) => {
+          const o = fxAc.createOscillator(), g = fxAc.createGain(), s = t0 + at;
+          o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(lv, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0008, s + (mul > 1 ? 0.35 : 0.9));
+          o.connect(g); g.connect(out); o.start(s); o.stop(s + 1);
+        });
+      });
+    } catch (e) {}
+  }
+  window.SBSC_FX = force => chime(force);
+  const TARGET = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+  const whenTxt = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+  const readyHtml = ups => !ups || !ups.length ? "" : `<div class="scr-ready" role="group" aria-label="Exam readiness">
+      <div class="scr-ready-h">${TARGET}<span>Exam Readiness</span></div>
+      ${ups.map(u => `<div class="scr-rd" data-from="${u.from}" data-to="${u.to}" aria-label="${esc(u.title)}: ${u.from} percent ready, now ${u.to} percent">
+        <div class="scr-rd-top"><span class="scr-rd-t"><b>${esc(u.title)}</b><span class="mini">${whenTxt(u.days)}</span></span><span class="scr-rd-n"><b data-rn>${u.from}</b>%</span></div>
+        <div class="scr-rd-bar" aria-hidden="true"><i class="scr-rd-was" style="width:${u.from}%"></i><i class="scr-rd-gain" style="left:${u.from}%;width:0"></i></div>
+        <span class="scr-rd-up" aria-hidden="true">+${u.to - u.from}% ready</span></div>`).join("")}</div>`;
+  // the bars fill to their new readiness, the numbers count up, and the chime plays once
+  function readyPlay(o, still, at){
+    const rows = [...o.querySelectorAll(".scr-rd")]; if (!rows.length) return;
+    setTimeout(() => {
+      if (!o.isConnected) return;
+      rows.forEach((row, i) => setTimeout(() => {
+        const a = Number(row.dataset.from), b = Number(row.dataset.to), g = row.querySelector(".scr-rd-gain");
+        if (g) g.style.width = (b - a) + "%";
+        countUp(row.querySelector("[data-rn]"), a, b, still ? 0 : 900);
+        row.classList.add("on");
+      }, still ? 0 : i * 260));
+      chime();
+      try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
+    }, still ? 0 : at);
+  }
   const rq = []; let rOpen = false;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
@@ -62000,13 +62071,13 @@ var SBSC = (() => {
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
-    if (!gained) return;
+    if (!gained) { readySet(); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
     let welcome = 0;
     if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
-    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome, ready: readyUps()}));
     showNext();
   }
   // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
@@ -62039,6 +62110,7 @@ var SBSC = (() => {
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     document.body.appendChild(o);
@@ -62046,6 +62118,7 @@ var SBSC = (() => {
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
+    readyPlay(o, still, tickAt * 1000 + 700);
     setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
@@ -62067,16 +62140,17 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-</span>`;
+      ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
-    setTimeout(close, 3600);
+    setTimeout(close, r.ready && r.ready.length ? 5200 : 3600);
   }
   function openWardrobe(){
     try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
@@ -62140,25 +62214,28 @@ var SBSC = (() => {
   });
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
-  function notice(){
+  // nothing to show: readiness as it is now is the new starting point for the next reward screen
+  function notice(){ if (!notice0()) readySet(); }
+  function notice0(){
     try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return false; }
     const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
     doneSeen = done;
-    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return false; }
     const gained = t.earned - seenTotal;
     // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
-    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return false; }
     if (fresh.length) {
       const top = fresh.slice(0, 3);
       reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
-      return;
+      return true;
     }
     // credits with no one piece of work behind them (counted quietly): the balance just goes up
     seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
+    return false;
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
@@ -62169,7 +62246,7 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); readySet(); }, 3000); setTimeout(openLeftovers, 12000);
     // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
     setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
   /* ---------- "+7 credits": a little chip while studying ----------
@@ -62209,7 +62286,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -93654,16 +93731,20 @@ const EXAMPREP = (() => {
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
-    const doneS = sess.filter(s => s.done), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
+    const doneS = sess.filter(s => s.done || Number(s.part) >= 5), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
     const byTopic = {}; let wsum = 0, rsum = 0;
     topics.forEach(t => {
-      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.filter(s => s.done).reduce((a, s) => a + (s.min || 0), 0);
+      // a session counts in full once it's done; before that, the time actually focused on it counts, up to its length
+      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.reduce((a, s) => a + (s.done ? (s.min || 0) : Math.min(s.min || 0, Math.max(0, Number(s.part) || 0))), 0);
       const cov = t.done && !planned ? 1 : planned ? Math.min(1, got / planned) : 0;
       const links = t.links || [], ds = links.filter(l => l.k === "deck" && decks[l.id] && decks[l.id].mastery > 0), qs = links.filter(l => l.k === "quiz" && quiz[l.id] != null);
       const mastery = ds.length ? ds.reduce((a, l) => a + decks[l.id].mastery, 0) / ds.length : null, qz = qs.length ? qs.reduce((a, l) => a + quiz[l.id], 0) / qs.length / 100 : null;
       if (mastery != null) ev.cards++; if (qz != null) ev.quizzes++;
       let parts = [[cov, 0.5]]; if (mastery != null) parts.push([mastery, 0.3]); if (qz != null) parts.push([qz, 0.2]);
-      const ws = parts.reduce((a, p) => a + p[1], 0), r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
+      // evidence that isn't there yet (no flashcards, no quiz) holds half its share back: doing the sessions shows the work, not
+      // what you can recall, so sessions alone top out in the mid-70s and the rest is shown with cards and quizzes
+      const missing = (mastery == null ? 0.3 : 0) + (qz == null ? 0.2 : 0);
+      const ws = parts.reduce((a, p) => a + p[1], 0) + missing / 2, r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
       const base = t.done ? 0.6 : prior[t.conf] != null ? prior[t.conf] : 0.2;
       const r = clamp(base + (1 - base) * r0, 0, 1);
       byTopic[t.id] = {cov: Math.round(cov * 100), pct: Math.round(r * 100), mastery: mastery == null ? null : Math.round(mastery * 100), quiz: qz == null ? null : Math.round(qz * 100)};
@@ -93782,13 +93863,20 @@ function inputFor(ex, P, topics, due){
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 // doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+// The topics readiness is measured over: the plan's own, or, for a plan made without named topics, the exam itself (the planner
+// puts its sessions on topic "t0", the exam's name), so those plans get a readiness too
+function readyTopics(ex, P){
+  if (P.topics.length) return P.topics;
+  return sessionsOf(ex.id).some(s => s.topicId === "t0") ? [{id: "t0", name: ex.title || "the exam", conf: "ok", weight: null, done: false, links: [], edited: false}] : [];
+}
 function readyFor(ex, doneOf){
-  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
-  P.topics.forEach(t => (t.links || []).forEach(l => {
-    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
+  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {}, topics = readyTopics(ex, P);
+  topics.forEach(t => (t.links || []).forEach(l => {
+    // a linked deck: how well its cards are known now, with forgetting (DR, the same score as everywhere else), not just its boxes
+    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).ready / 100};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), part: Number(s.focusMin) || 0, done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
@@ -93805,7 +93893,7 @@ function forecastOf(ex){
   const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
-  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const topics = readyTopics(ex, P).map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
   const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
@@ -132998,12 +133086,15 @@ const AUTOPILOT = (() => {
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Reward Sounds<span class="sub">A soft chime when a study session makes you more ready for an exam. <button type="button" class="link-btn" data-act="fx-try">Play It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="fx-sounds" ${(() => { try { return localStorage.getItem("studyboard:fx") !== "off"; } catch (e) { return true; } })() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "fx-sounds") { ls("studyboard:fx", el.checked ? null : "off"); if (el.checked && window.SBSC_FX) window.SBSC_FX(); return true; }
+    if (act === "fx-try") { if (window.SBSC_FX) window.SBSC_FX(true); return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
