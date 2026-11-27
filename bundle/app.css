@@ -6255,23 +6255,27 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 
 /* How You Compare */
 .gi-cmp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.gi-cmp-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,1.1fr) auto;gap:10px;align-items:center}
+.gi-cmp-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,1.1fr) 8.6em;gap:10px;align-items:center}
+.gi-cmp-list .gi-band{justify-self:end}
 .gi-cmp-t{display:grid;gap:1px;min-width:0}
 .gi-cmp-t b{font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gi-st{width:100%;height:28px;display:block}
-.gi-st-ax{stroke:var(--line);stroke-width:2}
-.gi-st-rng{stroke:color-mix(in srgb,var(--ink) 35%,var(--surface));stroke-width:2}
-.gi-st-box{fill:color-mix(in srgb,var(--accent) 22%,var(--surface));stroke:color-mix(in srgb,var(--accent) 50%,var(--line))}
-.gi-st-mid{stroke:var(--ink);stroke-width:2}
-.gi-st-me{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.gi-st{display:block;height:22px;padding:0 7px}
+.gi-st-in{display:block;position:relative;height:100%}
+.gi-st-in::before{content:"";position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;border-radius:99px;background:var(--soft)}
+.gi-st-in > i{position:absolute;top:50%;display:block}
+.gi-st-rng{height:4px;margin-top:-2px;border-radius:99px;background:color-mix(in srgb,var(--ink) 16%,var(--surface))}
+.gi-st-box{height:10px;margin-top:-5px;border-radius:99px;background:color-mix(in srgb,var(--accent) 24%,var(--surface))}
+.gi-st-mid{width:2px;height:14px;margin:-7px 0 0 -1px;border-radius:2px;background:color-mix(in srgb,var(--ink) 60%,var(--surface))}
+.gi-st-me{width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2.5px var(--surface),0 1px 4px rgba(0,0,0,.22)}
+.gi-st-me.gi-st-low{background:var(--late)}
 .gi-band{font-size:.74rem;white-space:nowrap}
 .gi-band-top{background:color-mix(in srgb,var(--accent) 18%,var(--surface))}
 .gi-band-low{background:color-mix(in srgb,var(--late) 14%,var(--surface))}
 .gi-cmp-key{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0}
 .gi-cmp-key span{display:inline-block}
-.gi-k-box{width:14px;height:9px;border-radius:2px;background:color-mix(in srgb,var(--accent) 22%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 50%,var(--line));margin-left:4px}
-.gi-k-mid{width:2px;height:12px;background:var(--ink);margin-left:6px}
-.gi-k-me{width:9px;height:9px;border-radius:50%;background:var(--accent);margin-left:6px}
+.gi-k-box{width:16px;height:8px;border-radius:99px;background:color-mix(in srgb,var(--accent) 24%,var(--surface));margin-left:4px}
+.gi-k-mid{width:2px;height:12px;border-radius:2px;background:color-mix(in srgb,var(--ink) 60%,var(--surface));margin-left:8px}
+.gi-k-me{width:10px;height:10px;border-radius:50%;background:var(--accent);margin-left:8px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
 @media (max-width:520px){.gi-cmp-list li{grid-template-columns:minmax(0,1fr) auto}.gi-cmp-list .gi-st{grid-column:1 / -1;grid-row:2}}
 
 /* The mark moment */
@@ -6355,7 +6359,7 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 .gi-rc-tile .v{font:800 1.3rem var(--display)}
 .gi-rc-tile .s{font-size:.82rem;color:var(--muted)}
 
-@media (forced-colors:active){.gi-lost-bar > i,.gi-fc-bar > span{forced-color-adjust:none}.gi-st-me,.gi-tl-dot{fill:Highlight}.gi-tl-avg,.gi-st-mid{stroke:CanvasText}}
+@media (forced-colors:active){.gi-lost-bar > i,.gi-fc-bar > span{forced-color-adjust:none}.gi-tl-dot{fill:Highlight}.gi-tl-avg{stroke:CanvasText}.gi-st-in::before,.gi-st-rng,.gi-st-box{background:GrayText}.gi-st-mid{background:CanvasText}.gi-st-me{background:Highlight;box-shadow:0 0 0 2px Canvas}}
 
 /* What to Shore Up */
 .gi-su-lead{margin:0;font-size:.93rem}

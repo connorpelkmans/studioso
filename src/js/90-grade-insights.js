@@ -294,14 +294,16 @@
     const m = M(), L = LMS_KEYS.map(f => t && t[f]).find(Boolean), fb = L && L.fb, p = m.markPct(t);
     return fb && fb.cls ? GINS.spread(fb.cls, fb.of, p) : null;
   }
+  // The class's spread on one item: a light track (0 to 100%), the full range, the middle half as a soft pill, the median as a thin
+  // tick, and your mark as a ringed dot. Drawn in HTML so it stays crisp at any width.
   function stripSvg(s){
-    const x = v => (Math.max(0, Math.min(100, v)) * 1.8 + 10).toFixed(1), y = 14, parts = [];
-    parts.push(`<line class="gi-st-ax" x1="10" x2="190" y1="${y}" y2="${y}"/>`);
-    if (s.lo != null && s.hi != null) parts.push(`<line class="gi-st-rng" x1="${x(s.lo)}" x2="${x(s.hi)}" y1="${y}" y2="${y}"/>`);
-    if (s.lq != null && s.uq != null) parts.push(`<rect class="gi-st-box" x="${x(s.lq)}" y="${y - 6}" width="${Math.max(1, x(s.uq) - x(s.lq)).toFixed(1)}" height="12" rx="3"/>`);
-    parts.push(`<line class="gi-st-mid" x1="${x(s.mid)}" x2="${x(s.mid)}" y1="${y - 8}" y2="${y + 8}"/>`);
-    if (s.mine != null) parts.push(`<circle class="gi-st-me" cx="${x(s.mine)}" cy="${y}" r="5"/>`);
-    return `<svg class="gi-st" viewBox="0 0 200 28" aria-hidden="true" focusable="false">${parts.join("")}</svg>`;
+    const p = v => Math.max(0, Math.min(100, v)).toFixed(2) + "%", w = (a, b) => Math.max(0.5, Math.min(100, b) - Math.max(0, a)).toFixed(2) + "%";
+    const parts = [];
+    if (s.lo != null && s.hi != null) parts.push(`<i class="gi-st-rng" style="left:${p(s.lo)};width:${w(s.lo, s.hi)}"></i>`);
+    if (s.lq != null && s.uq != null) parts.push(`<i class="gi-st-box" style="left:${p(s.lq)};width:${w(s.lq, s.uq)}"></i>`);
+    parts.push(`<i class="gi-st-mid" style="left:${p(s.mid)}"></i>`);
+    if (s.mine != null) parts.push(`<i class="gi-st-me gi-st-${esc(s.band || "upper")}" style="left:${p(s.mine)}"></i>`);
+    return `<span class="gi-st" aria-hidden="true"><span class="gi-st-in">${parts.join("")}</span></span>`;
   }
   function compareHtml(gr){
     const m = M(); if (!m.gset().cls) return "";
