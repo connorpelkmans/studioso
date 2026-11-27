@@ -988,13 +988,13 @@ function viewQuiz(){
     const right = f.ans.filter(x => x && x.correct).length, total = f.qs.length, pct = total ? Math.round(right / total * 100) : 0;
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Review the few you missed." : pct >= 50 ? "Getting there. Study the missed cards, then try again." : "Keep going. Study these cards, then retake the quiz.";
-    return `<div class="view-head"><h2>Quiz Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>Quiz Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="fc-retry-missed">Retry the ${missed.length} Missed</button><button class="btn" data-act="fc-study-missed">Study Missed Cards</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="fc-new-quiz">New Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Missed Questions</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.prompt)}</span><span class="a">Answer: <b>${esc(y.x.answer)}</b></span>${y.a && y.a.given && y.x.type !== "tf" ? `<span class="mini">You answered: ${esc(y.a.given)}</span>` : y.x.type === "tf" ? `<span class="mini">Shown: ${esc(y.x.shown)} (${y.x.truth ? "true" : "false"})</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const d = state.decks[q.deckId];
