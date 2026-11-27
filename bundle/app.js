@@ -61877,7 +61877,7 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     const list = prizes.slice().sort((a, b) => a.p - b.p);
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
-      <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2><p class="mini wh-sub">A Pro perk, every week.</p>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
+      <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
       <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
       <div class="wh-result" aria-live="polite"></div>
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
