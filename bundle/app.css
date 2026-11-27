@@ -5355,6 +5355,31 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
 .cp-acc-tile.off{opacity:.55;cursor:default}
+/* Rarity: grey Common, green Uncommon, blue Rare, purple Exotic, yellow Legendary */
+.cp-rar{display:inline-block;font:700 .58rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:999px;color:#fff;background:#6B7280;vertical-align:middle;white-space:nowrap}
+.cp-rar-uncommon{background:#15803D}
+.cp-rar-rare{background:#2563EB}
+.cp-rar-exotic{background:#7C3AED}
+.cp-rar-legendary{background:#FACC15;color:#3A2A00}
+.cp-acc-tile{position:relative}
+.cp-acc-tile.cp-r-uncommon{border-color:color-mix(in srgb,#15803D 30%,var(--line))}
+.cp-acc-tile.cp-r-rare{border-color:color-mix(in srgb,#2563EB 35%,var(--line))}
+.cp-acc-tile.cp-r-exotic{border-color:color-mix(in srgb,#7C3AED 40%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#7C3AED 7%,var(--surface)),var(--surface))}
+.cp-acc-tile.cp-r-legendary{border-color:color-mix(in srgb,#E6A800 60%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#FACC15 14%,var(--surface)),var(--surface))}
+.cp-acc-tile.on.cp-r-legendary,.cp-acc-tile.on.cp-r-exotic,.cp-acc-tile.on.cp-r-rare,.cp-acc-tile.on.cp-r-uncommon{border-color:var(--accent)}
+.cp-acc-grp{margin:6px 0 0;font:700 .85rem/1.2 var(--display);display:flex;align-items:baseline;gap:6px}
+.cp-how li b .cp-rar{margin-left:4px}
+.cpu .cp-rar{font-size:.72rem;padding:4px 10px;animation:cpu-up .5s ease-out .6s both}
+/* Legendary twinkles and the propeller's spin: still under reduced motion */
+.cp-tw{transform-box:fill-box;transform-origin:center}
+.cp-spin{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:no-preference){
+  .cp-tw{animation:cp-tw 2.4s ease-in-out infinite}
+  .cp-spin{animation:cp-spin 1.1s linear infinite}
+}
+.cp-still .cp-tw,.cp-still .cp-spin{animation:none!important}
+@keyframes cp-tw{0%,100%{transform:scale(.55);opacity:.55}50%{transform:scale(1.1);opacity:1}}
+@keyframes cp-spin{0%,100%{transform:scaleX(1)}50%{transform:scaleX(-1)}}
 .cp-how{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .cp-how li{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .cp-how-ways{display:grid;gap:6px}
