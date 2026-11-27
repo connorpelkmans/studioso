@@ -13,6 +13,7 @@
   const DAYS = 14;
   const ICON_MORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/></svg>';
   const ICON_EXAM = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="M14.5 15.5l1.6 1.6 3-3.2"/></svg>';
+  const ICON_TABS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 14v6M14 17h6"/></svg>';
   const ICON_X = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const ROWS = {
     notes: {t: "Notes", s: "Sticky notes and whiteboards, one board per course"},
@@ -44,23 +45,28 @@
     } else if (b.nextElementSibling && b.nextElementSibling.dataset && b.nextElementSibling.dataset.tab) inn.insertBefore(b, inn.querySelector("#navPomo") || null);   // a tab added later (Groups) goes before More
     return b;
   }
-  const hiddenTabs = () => TABS.filter(t => navBtn(t) && !SBESS.shows(t));
+  // tabs Essentials is keeping out of the menu right now (on phones the companion always keeps its seat in the bar, so it isn't one)
+  const offMenu = b => { try { return getComputedStyle(b).display === "none"; } catch (e) { return true; } };
+  const hiddenTabs = () => TABS.filter(t => navBtn(t) && !SBESS.shows(t) && offMenu(navBtn(t)));
   function navApply(){
     const on = SBESS.on();
     TABS.forEach(t => { const b = navBtn(t); if (!b) return; b.classList.toggle("ess-hide", on && !SBESS.shows(t)); b.classList.toggle("ess-new", on && fresh.has(t) && (typeof ui === "undefined" || ui.tab !== t)); });
     if (typeof ui !== "undefined") fresh.delete(ui.tab);
-    // phones: the companion lives in its tab's seat in the bottom bar; while that tab waits under More, so does the companion
-    document.documentElement.classList.toggle("ess-no-seat", on && !SBESS.shows("companion"));
     const b = moreBtn(); if (!b) return;
     const label = typeof tr === "function" ? tr("ess.more", "More") : "More";
     const l = b.querySelector(".em-l"); if (l && l.textContent !== label) l.textContent = label;
     const names = hiddenTabs().map(t => ROWS[t].t).concat(SBESS.shows("tools") ? [] : ["Calculator", "Style Shop"]);
     b.setAttribute("aria-label", names.length ? `${label}: ${names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0]}` : label);
     // the page you're on is one of the tabs under More: More is the menu item that shows it
-    const here = on && typeof ui !== "undefined" && TABS.includes(ui.tab) && !SBESS.shows(ui.tab);
+    const here = on && typeof ui !== "undefined" && TABS.includes(ui.tab) && !SBESS.shows(ui.tab) && !!navBtn(ui.tab) && offMenu(navBtn(ui.tab));
     b.setAttribute("aria-current", here ? "page" : "false");
-    b.hidden = !on;
+    // phones: More earns its place in the bottom bar only while a tab is waiting behind it. Once Notes and Groups are both in
+    // the bar, all More would hold is the Calculator and Style Shop, which Settings (the ⋯ button) already has, and a fourth
+    // tab beside the companion's seat is too tight to read.
+    b.hidden = !on || (phoneMq() && !hiddenTabs().length);
   }
+  const phoneMq = () => { try { return matchMedia("(max-width:639px)").matches; } catch (e) { return false; } };
+  try { const mq = matchMedia("(max-width:639px)"); (mq.addEventListener ? mq.addEventListener("change", () => navApply()) : mq.addListener(() => navApply())); } catch (e) {}
   function goTab(t){
     if (dlg.open) dlg.close();
     ui.tab = t; if (t !== "courses") ui.courseId = null; if (t === "groups") ui.grp = null;
@@ -149,6 +155,25 @@
       <span class="ess-card-acts"><button type="button" class="btn small primary" data-act="ess-exam-go" data-id="${esc(x.t.id)}">Plan My Prep</button><button type="button" class="icon-btn ess-card-x" data-act="ess-exam-x" aria-label="Dismiss the Exam Prep card">${ICON_X}</button></span>
     </section>`);
   }
+  /* After a week: offer every tab, once. A card on the Board (never a popup), only for students Essentials started for
+     (not someone who switched it back on themselves), and not while the tour runs. "Show All Tabs" is Show Everything;
+     "Keep It Simple" keeps Essentials and says where the switch is. Either answer is final. */
+  const WEEK = 7 * 864e5;
+  function weekDue(){
+    const st = SBESS.state();
+    return st.on && st.why === "new" && !st.setAt && Date.now() - Number(st.at || Date.now()) >= WEEK && !SBESS.said("week-prompt") && !busy() && !inPrev();
+  }
+  function weekCard(v){
+    if (!weekDue() || v.querySelector(".ess-week")) return;
+    const qa = v.querySelector(":scope > .qa-wrap"); if (!qa) return;
+    const n = hiddenTabs().length + (SBESS.shows("tools") ? 0 : 2);
+    qa.insertAdjacentHTML("afterend", `<section class="ess-card ess-week" aria-labelledby="essWkT">
+      <span class="ess-card-ic">${ICON_TABS}</span>
+      <p class="ess-card-t" id="essWkT"><b>You've had a week with Studyboard.</b> Want every tab in the menu? ${n ? `${n} more ${n === 1 ? "thing is" : "things are"} waiting under More, and` : "The rest of"} Today's Plan has a few more cards too.</p>
+      <span class="ess-card-acts"><button type="button" class="btn small primary" data-act="ess-week-all">Show All Tabs</button><button type="button" class="btn small" data-act="ess-week-keep">Keep It Simple</button></span>
+    </section>`);
+  }
+  window.SBESSWEEK = {due: weekDue};
   function calmBoard(){
     const v = document.getElementById("view"); if (!v) return;
     const extras = SBESS.shows("plan-extras");
@@ -168,7 +193,7 @@
       plan.querySelectorAll(".plan-notes").forEach(s => { if (!s.querySelector("li")) s.remove(); });
       if (!extras) { plan.querySelectorAll('.pf-link[data-id="how"], #plan-how').forEach(e => e.remove()); }
     }
-    examCard(v);
+    if (weekDue()) weekCard(v); else examCard(v);   // one card at a time
   }
   function calmReview(){
     // Before the first deck, Review is just Flashcards: Quizzes, Concept Maps and Presentations come with it
@@ -193,6 +218,18 @@
         const all = !!el.checked;
         SBESS.set(!all, "user");
         toast(all ? "Showing everything" : "Back to the essentials. The rest is under More.", () => { SBESS.set(all, "user"); const i = document.querySelector('[data-act="ess-toggle"]'); if (i) i.checked = !all; });
+        return true;
+      }
+      case "ess-week-all": {
+        SBESS.said("week-prompt", true);
+        SBESS.set(false, "user");
+        toast("Every tab is in the menu now. You can go back to the essentials in Settings.", () => SBESS.set(true, "user"));
+        return true;
+      }
+      case "ess-week-keep": {
+        SBESS.said("week-prompt", true);
+        const c = document.querySelector(".ess-week"); if (c) c.remove();
+        toast("Keeping it simple. Show Everything is in Settings › Appearance whenever you want it.");
         return true;
       }
       case "ess-exam-go": SBESS.said("exam-card", true); fire("act", "prep-plan", el, el.dataset.id); return true;

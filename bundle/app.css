@@ -1614,6 +1614,8 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .btn.ai-tier-get{justify-self:start;background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:700}
 .btn.ai-tier-get:hover{filter:brightness(1.06)}
 .ai-tier .pro-badge{font-size:.56rem}
+/* the 16GB AI on a device that can't run it: a tag shaped like PRO, in quiet greys so it reads as information, not an offer */
+.ai-tier-na{font:800 .56rem var(--display);letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 6px;background:color-mix(in srgb,var(--ink) 10%,var(--surface));color:var(--muted);border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);white-space:nowrap}
 .ai-tier.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .ai-tier-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ai-tier-chip{font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#fff)}
@@ -8182,7 +8184,7 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   /* the tomato fills its round button like the other top-bar icons (it was 20px in a 40px circle) */
   .head-actions > .pomo-btn:not(.active):not(.run) .tomato-ic{width:26px;height:26px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
-  /* Bottom tabs: five, with the companion's seat in the middle */
+  /* Bottom tabs: the companion's seat always in the exact middle; 101-phone-v2.js (arrangeBar) places the other tabs either side */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
   nav.tabs{left:10px;right:10px;padding:6px 4px;bottom:var(--ph-bar-b)}
   nav.tabs .in > :is(.nav-focus,.nav-more){display:none!important}
@@ -8206,12 +8208,12 @@ html.sb-apple .cc-custom input[type=color]{pointer-events:auto;z-index:2;cursor:
   nav.tabs .in [data-tab="companion"] svg{position:absolute;left:50%;top:-3px;margin-left:-14px;width:28px;height:28px;color:var(--accent)}
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
   nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}
-  /* the tabs either side of the seat */
+  /* the tabs either side of the seat (.ph-nl / .ph-nr, set by 101-phone-v2.js arrangeBar, whichever tabs those are) */
   /* the cut-out is on a backing layer so the count badge on the button is never masked */
-  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]{position:relative;background:transparent}
-  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
-  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
-  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in :is(.ph-nl,.ph-nr)[aria-current="page"]{position:relative;background:transparent}
+  nav.tabs.ph-seatcut .in :is(.ph-nl,.ph-nr)[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
+  nav.tabs.ph-seatcut .in .ph-nl[aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in .ph-nr[aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */
@@ -11351,8 +11353,8 @@ html[data-ess="on"] nav.tabs .nav-foot :is(.calc-btn,.style-btn){display:none!im
 nav.tabs .in .ess-more{position:relative}
 html:not([data-ess="on"]) nav.tabs .in .ess-more,nav.tabs .in .ess-more[hidden]{display:none!important}
 @media (max-width:979px){nav.tabs .in .ess-more{order:8}}
-/* phones: no seat in the bar for the companion while its tab is under More, so it waits there too (it still shows on its own page) */
-@media (max-width:639px){html.ess-no-seat body:not([data-view="companion"]) :is(#compLayer,#compFront){display:none!important}}
+/* phones: the companion keeps its seat in the bottom bar in Essentials too (it's the bar's centre); only desktop moves it under More */
+@media (max-width:639px){html[data-ess="on"] nav.tabs .in [data-tab="companion"].ess-hide{display:flex!important}}
 /* a tab that just came back to the menu: a small dot until it's opened */
 nav.tabs .in .ess-new{position:relative}
 nav.tabs .in .ess-new::before{content:"";position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--spine,var(--surface));pointer-events:none}

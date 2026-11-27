@@ -40,7 +40,8 @@ const EMPTY = {v: 2, updated: 1, files: [], notes: [], events: [], decks: [], ta
         const body = document.querySelector(".pro-ins-body"), card = body.querySelector(".hm-card"), kids = [...body.children];
         const sc = card.querySelector(".hm-scroll"), r = card.getBoundingClientRect();
         return {title: card.querySelector("h3").textContent, badge: !!card.querySelector(".pro-badge, .badge-pro, [class*='pro-b']") || /PRO/.test(card.querySelector("h3").innerHTML),
-          afterGarden: kids.findIndex(x => x.classList.contains("sp-garden")) > 0 && kids.indexOf(card) === kids.findIndex(x => x.classList.contains("sp-garden")) + 1,
+          // right after the Focus Garden when the sprout is on (off by default), otherwise right after the first card
+          afterGarden: kids.some(x => x.classList.contains("sp-garden")) ? kids.indexOf(card) === kids.findIndex(x => x.classList.contains("sp-garden")) + 1 : !!card.previousElementSibling && /Study Time and Grades/.test(card.previousElementSibling.textContent),
           cells: card.querySelectorAll(".hm-grid .hm-c").length, levels: [...new Set([...card.querySelectorAll(".hm-grid .hm-c")].map(c => c.dataset.l))].sort().join(""),
           stats: [...card.querySelectorAll(".hm-stat")].map(s => s.textContent), today: !!card.querySelector(".hm-today"),
           sw: sc.scrollWidth, cw: sc.clientWidth, sl: Math.round(sc.scrollLeft), page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -49,7 +50,7 @@ const EMPTY = {v: 2, updated: 1, files: [], notes: [], events: [], decks: [], ta
       });
       ok(ins.title === "Study Heatmap" && !ins.badge, `${w}px: Insights shows the free Study Heatmap card, with no Pro badge: ` + ins.title);
       ok(ins.locked > 0, `${w}px: this student is on the free plan (other Insights cards are previews)`);
-      ok(ins.afterGarden, `${w}px: it sits right after the Focus Garden`);
+      ok(ins.afterGarden, `${w}px: it sits right after Study Time and Grades (or the Focus Garden, when the sprout is on)`);
       ok(ins.cells >= 365 && ins.cells <= 371, `${w}px: a year of days: ${ins.cells}`);
       ok(ins.levels === "01234", `${w}px: all 5 steps are used by 6 months of history: ` + ins.levels);
       ok(ins.stats.length === 3 && /Current run/.test(ins.stats[0]) && /Longest run/.test(ins.stats[1]) && /This term/.test(ins.stats[2]), `${w}px: current run, longest run and this term: ` + JSON.stringify(ins.stats));

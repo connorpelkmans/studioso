@@ -5,13 +5,15 @@
 var SBCUSH = (() => {
 /*CUSH-START*/
 const CUSH = (() => {
-  const WINDOW = 14, TIGHT = 30;
+  // Colours: green when everything fits, yellow when short by up to an hour, red when more than an hour short.
+  // The hour is judged on the rounded figure the pill shows, so "1h short" is always yellow and "1h 15m short" red.
+  const WINDOW = 14, TIGHT = 60;
   // to the nearest 5 minutes, so "have - need" always equals the cushion shown
   const m5 = h => Math.round((Number(h) || 0) * 12) * 5;
   /* o.rows: [{id, title, due, dl, R, L, A, noEst}] in due order: R work left on it, L all work due up to and including it,
      A study time until it is due (hours). o.overdue: hours of late work still to do (already inside L).
      o.roomToday: hours more Time Today would really add. o.offDays: [{date, i, h}] days off in the next two weeks.
-     Returns {state: spare|tight|short|none, mins, by, dl, groups, tight, noEst, overdueM, fixes} */
+     Returns {state: spare (fits) | tight (up to 1h short) | short (over 1h short) | none, mins, by, dl, groups, tight, noEst, overdueM, fixes} */
   function calc(o){
     o = o || {};
     const rows = (o.rows || []).filter(r => r && r.dl >= 0 && r.dl <= WINDOW && r.R > 0);
@@ -32,10 +34,11 @@ const CUSH = (() => {
     res.groups.forEach((g, i) => { if (res.tight < 0 || g.mins < res.groups[res.tight].mins) res.tight = i; });
     const T = res.groups[res.tight];
     res.mins = T.mins; res.by = T.due; res.dl = T.dl;
-    res.state = T.mins < 0 ? "short" : T.mins < TIGHT ? "tight" : "spare";
+    const over = -T.mins, shown = over < 30 ? Math.round(over / 5) * 5 : Math.round(over / 15) * 15;
+    res.state = T.mins >= 0 ? "spare" : shown > TIGHT ? "short" : "tight";
     if (res.state === "spare") return res;
     // Fixes: more time before the tightest deadline (today first, else a day off before it), then starting big work earlier
-    const gap = res.state === "short" ? -T.mins : TIGHT - T.mins, want = Math.max(30, Math.ceil(gap / 30) * 30);
+    const gap = -T.mins, want = Math.max(30, Math.ceil(gap / 30) * 30);
     const room = Math.floor(Math.max(0, Number(o.roomToday) || 0) * 60 / 30) * 30;
     if (room >= 30) res.fixes.push({kind: "today", mins: Math.min(want, room), all: room >= want});
     const off = (o.offDays || []).filter(d => d && d.i >= 0 && d.i < T.dl && d.h > 0).sort((a, b) => a.i - b.i)[0];
@@ -73,9 +76,9 @@ function fromPlan(p){
 const fm = m => { const a = Math.abs(Number(m) || 0); return fmtMins(a < 30 ? Math.round(a / 5) * 5 : Math.round(a / 15) * 15) || "0m"; };
 const byWord = (d, dl) => dl === 0 ? tr("cush.byToday", "today") : dl === 1 ? tr("cush.byTomorrow", "by tomorrow") : dl < 7 ? tr("cush.byDay", "by {day}", {day: parse(d).toLocaleDateString(undefined, {weekday: "short"})}) : tr("cush.byDay", "by {day}", {day: fmtShort(d)});
 function pillText(c){
-  if (c.state === "spare") return tr("cush.spare", "{time} to spare", {time: fm(c.mins)});
-  if (c.state === "tight") return c.mins > 0 ? tr("cush.tight", "Tight: {time} spare {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)}) : tr("cush.tight0", "Tight: no spare time {by}", {by: byWord(c.by, c.dl)});
-  return tr("cush.short", "{time} short {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)});
+  if (c.state === "spare") return Math.round(c.mins) >= 5 ? tr("cush.spare", "{time} to spare", {time: fm(c.mins)}) : tr("cush.fits", "Just fits {by}", {by: byWord(c.by, c.dl)});
+  // yellow and red both say how far short; a few minutes short still reads as at least 5m
+  return tr("cush.short", "{time} short {by}", {time: fm(Math.min(c.mins, -5)), by: byWord(c.by, c.dl)});
 }
 const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
 const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
@@ -111,7 +114,6 @@ hook("render", tab => {
 function body(c){
   const T = c.groups[c.tight], when = dayIn(T.due, T.dl);
   const big = c.state === "spare" ? tr("cush.sumSpare", "to spare at your tightest point, {day}", {day: when})
-    : c.state === "tight" ? tr("cush.sumTight", "spare at your tightest point, {day}", {day: when})
     : tr("cush.sumShort", "short for what's due by {day}", {day: when});
   const rows = c.groups.map((g, i) => {
     const what = g.titles.length > 1 ? tr("cush.andMore", "{title} and {n} more", {title: g.titles[0], n: g.titles.length - 1}) : g.titles[0];

@@ -6735,7 +6735,7 @@ function aiTiersCard(){
     const byCat = `<div class="ai-tier-fact"><b>By Kind of Question</b>${cats}</div>`;
     if (t.id === "8") return fact("Model", `${esc(aiLevel8Model())}. Chrome uses its built-in AI, Edge uses its own, and other browsers use Google's Gemma 4 E2B.`) + PRIVATE
       + fact("Setup", "Nothing to set up in Chrome or Edge, which download their own AI. Gemma 4 E2B is a one-time download of about 2.8 GB, then it also works offline.") + byCat;
-    if (t.id === "16") return fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
+    if (t.id === "16") return (na16 ? fact("On This Device", esc(DEVAI.e4bNoWhy || "This device can't run it.") + (DEVAI.e4bNoKind === "mobile" ? " Studyboard AI Pro works on any device." : " The 8GB AI may run here instead, and Studyboard AI Pro works on any device.")) : "") + fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
       + fact("Setup", "A one-time download of about 3.3 GB, then it also works offline. It needs 16 GB of memory and a graphics chip that supports WebGPU.") + byCat;
     return fact("Model", "Claude, by Anthropic. It reads long files, photos and PDFs, and can search the web.")
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
@@ -6743,8 +6743,11 @@ function aiTiersCard(){
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
       + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
-  return `<div class="ai-tiers" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
-    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+  // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
+  // is never marked); the reason goes in its details
+  const na16 = typeof DEVAI !== "undefined" && DEVAI.e4bNo === true && now !== "16";
+  return `<div class="ai-tiers" id="aiTiersLive" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
+    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === "16" && na16 ? `<span class="ai-tier-na">Unavailable on Your Device</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
       <div class="ai-tier-bar" role="img" aria-label="${t.pct}% of common student questions"><i style="width:${t.pct}%"></i></div><span class="mini ai-tier-where">${t.where}</span></summary>
       <div class="ai-tier-more">${more(t)}</div></details>`).join("")}
     <p class="mini ai-tiers-foot">Share of common student questions each one answers correctly. Tap one for more.</p></div>`;
@@ -7746,6 +7749,30 @@ async function e4bFits(){
     return !!(ad.features && ad.features.has && ad.features.has("shader-f16")) && (ad.limits.maxBufferSize || 0) >= 268435456 && (ad.limits.maxStorageBufferBindingSize || 0) >= 134217728;
   } catch (e) { return false; }
 }
+/* Is this device certainly unable to run the 16GB AI? Only for the "Unavailable on Your Device" tag in AI Features, so it says yes
+   only when it's sure, and never for a computer that could run it:
+   - phones and tablets: yes (the 16GB AI is for laptops and desktops);
+   - the desktop app knows the exact memory: yes under 15 GB (16 GB machines report a little under 16);
+   - a browser that reports memory: yes under 8 GB, or exactly 8 on Chrome or Edge 147+ (those report 16 or 32 when there is more;
+     older ones stop at 8, so 8 there could be a 16 GB computer);
+   - everything else is "can't tell" (Safari and Firefox don't report memory; a browser without WebGPU is the browser, not the
+     computer): no tag. Sets DEVAI.e4bNo (true only when sure) and DEVAI.e4bNoWhy (a short reason). */
+const chromiumMajor = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; const x = b && b.find(v => /Chromium|Google Chrome|Microsoft Edge/i.test(v.brand)); if (x) return parseInt(x.version, 10) || 0; } catch (e) {} const m = /\b(?:Chrome|Edg)\/(\d+)/.exec(navigator.userAgent || ""); return m ? +m[1] : 0; };
+async function e4bCantHere(){
+  const no = (why, kind) => { DEVAI.e4bNo = true; DEVAI.e4bNoWhy = why; DEVAI.e4bNoKind = kind || "memory"; return true; }, unsure = () => { DEVAI.e4bNo = false; DEVAI.e4bNoWhy = ""; DEVAI.e4bNoKind = ""; return false; };
+  try {
+    if (window.__SB_TEST && window.__SB_E4B_NO) return window.__SB_E4B_NO.no ? no(window.__SB_E4B_NO.why || "test") : unsure();
+    if (devPhone()) return no("It runs on laptops and desktop computers, not phones.", "mobile");
+    if (devTablet()) return no("It runs on laptops and desktop computers, not tablets.", "mobile");
+    const D = e4bDesk();
+    if (D) { try { const i = await D.info(); if (i && i.ram) { const gb = i.ram / 1073741824; return gb < 15 ? no(`This computer has ${Math.round(gb)} GB of memory, and it needs 16 GB.`) : unsure(); } } catch (e) {} return unsure(); }
+    const m = Number(navigator.deviceMemory) || 0;
+    if (!m || m >= 15) return unsure();
+    if (m < 8 || chromiumMajor() >= 147) return no(`This computer has ${m < 8 ? "less than 8" : "8"} GB of memory, and it needs 16 GB.`);
+    return unsure();
+  } catch (e) { return unsure(); }
+}
+devProbe().then(() => e4bCantHere()).then(() => { try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
 // How much is downloaded (0 to 1), and whether all of it is
 async function e4bHave(){
   const D = e4bDesk();
@@ -24652,7 +24679,16 @@ if (window.__SB_TEST) window.__sbPomo = {get pomo(){ return pomo; }, save: pomoS
       Choose Apps (Screen Time). start({until, apps, dnd}) when a focus session runs, stop() when it pauses, stops or ends.
       The row is hidden when the plugin is missing or says neither is available. The choice is kept on this device
       ("studioso:focusguard"), since it depends on the phone. The desktop's site blocking (99-pro.js) is separate. */
-var SBSPROUT = (() => {
+/* Off for now (hidden, the code kept as an option): with it off, SBSPROUT is undefined, so the Focus timer, its alarm and Insights
+   look and behave exactly as they did before the sprout (every use in 01-focus.js and 99-pro.js checks typeof SBSPROUT), and
+   nothing here runs: no listeners, no timers, no garden, no Block Distracting Apps row. To turn it on for a device:
+   localStorage.setItem("studyboard:focusSprout", "on") and reload (tests set window.__SB_SPROUT = true). */
+const SPROUT_ON = (() => { try { return !!window.__SB_SPROUT || localStorage.getItem("studyboard:focusSprout") === "on"; } catch (e) { return false; } })();
+if (!SPROUT_ON) {
+  // a phone left blocking apps by an earlier session that had it on: let it go
+  try { const g = JSON.parse(localStorage.getItem("studioso:focusguard") || "null"); const N = window.StudyboardNative; if (g && g.until > Date.now() && N && N.focusGuard && N.focusGuard.stop) N.focusGuard.stop().catch(() => {}); } catch (e) {}
+}
+var SBSPROUT = !SPROUT_ON ? undefined : (() => {
   const LS = "studioso:sprout", GLS = "studioso:focusguard", GRACE = 5000, WILT = 60000, KEEP_DAYS = 63, PER_DAY = 24;
   const STAGE = ["", "seed", "sprout", "seedling", "young plant", "in bloom"];
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };
@@ -48569,13 +48605,15 @@ window.SBEST = SBEST;
 var SBCUSH = (() => {
 /*CUSH-START*/
 const CUSH = (() => {
-  const WINDOW = 14, TIGHT = 30;
+  // Colours: green when everything fits, yellow when short by up to an hour, red when more than an hour short.
+  // The hour is judged on the rounded figure the pill shows, so "1h short" is always yellow and "1h 15m short" red.
+  const WINDOW = 14, TIGHT = 60;
   // to the nearest 5 minutes, so "have - need" always equals the cushion shown
   const m5 = h => Math.round((Number(h) || 0) * 12) * 5;
   /* o.rows: [{id, title, due, dl, R, L, A, noEst}] in due order: R work left on it, L all work due up to and including it,
      A study time until it is due (hours). o.overdue: hours of late work still to do (already inside L).
      o.roomToday: hours more Time Today would really add. o.offDays: [{date, i, h}] days off in the next two weeks.
-     Returns {state: spare|tight|short|none, mins, by, dl, groups, tight, noEst, overdueM, fixes} */
+     Returns {state: spare (fits) | tight (up to 1h short) | short (over 1h short) | none, mins, by, dl, groups, tight, noEst, overdueM, fixes} */
   function calc(o){
     o = o || {};
     const rows = (o.rows || []).filter(r => r && r.dl >= 0 && r.dl <= WINDOW && r.R > 0);
@@ -48596,10 +48634,11 @@ const CUSH = (() => {
     res.groups.forEach((g, i) => { if (res.tight < 0 || g.mins < res.groups[res.tight].mins) res.tight = i; });
     const T = res.groups[res.tight];
     res.mins = T.mins; res.by = T.due; res.dl = T.dl;
-    res.state = T.mins < 0 ? "short" : T.mins < TIGHT ? "tight" : "spare";
+    const over = -T.mins, shown = over < 30 ? Math.round(over / 5) * 5 : Math.round(over / 15) * 15;
+    res.state = T.mins >= 0 ? "spare" : shown > TIGHT ? "short" : "tight";
     if (res.state === "spare") return res;
     // Fixes: more time before the tightest deadline (today first, else a day off before it), then starting big work earlier
-    const gap = res.state === "short" ? -T.mins : TIGHT - T.mins, want = Math.max(30, Math.ceil(gap / 30) * 30);
+    const gap = -T.mins, want = Math.max(30, Math.ceil(gap / 30) * 30);
     const room = Math.floor(Math.max(0, Number(o.roomToday) || 0) * 60 / 30) * 30;
     if (room >= 30) res.fixes.push({kind: "today", mins: Math.min(want, room), all: room >= want});
     const off = (o.offDays || []).filter(d => d && d.i >= 0 && d.i < T.dl && d.h > 0).sort((a, b) => a.i - b.i)[0];
@@ -48637,9 +48676,9 @@ function fromPlan(p){
 const fm = m => { const a = Math.abs(Number(m) || 0); return fmtMins(a < 30 ? Math.round(a / 5) * 5 : Math.round(a / 15) * 15) || "0m"; };
 const byWord = (d, dl) => dl === 0 ? tr("cush.byToday", "today") : dl === 1 ? tr("cush.byTomorrow", "by tomorrow") : dl < 7 ? tr("cush.byDay", "by {day}", {day: parse(d).toLocaleDateString(undefined, {weekday: "short"})}) : tr("cush.byDay", "by {day}", {day: fmtShort(d)});
 function pillText(c){
-  if (c.state === "spare") return tr("cush.spare", "{time} to spare", {time: fm(c.mins)});
-  if (c.state === "tight") return c.mins > 0 ? tr("cush.tight", "Tight: {time} spare {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)}) : tr("cush.tight0", "Tight: no spare time {by}", {by: byWord(c.by, c.dl)});
-  return tr("cush.short", "{time} short {by}", {time: fm(c.mins), by: byWord(c.by, c.dl)});
+  if (c.state === "spare") return Math.round(c.mins) >= 5 ? tr("cush.spare", "{time} to spare", {time: fm(c.mins)}) : tr("cush.fits", "Just fits {by}", {by: byWord(c.by, c.dl)});
+  // yellow and red both say how far short; a few minutes short still reads as at least 5m
+  return tr("cush.short", "{time} short {by}", {time: fm(Math.min(c.mins, -5)), by: byWord(c.by, c.dl)});
 }
 const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
 const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
@@ -48675,7 +48714,6 @@ hook("render", tab => {
 function body(c){
   const T = c.groups[c.tight], when = dayIn(T.due, T.dl);
   const big = c.state === "spare" ? tr("cush.sumSpare", "to spare at your tightest point, {day}", {day: when})
-    : c.state === "tight" ? tr("cush.sumTight", "spare at your tightest point, {day}", {day: when})
     : tr("cush.sumShort", "short for what's due by {day}", {day: when});
   const rows = c.groups.map((g, i) => {
     const what = g.titles.length > 1 ? tr("cush.andMore", "{title} and {n} more", {title: g.titles[0], n: g.titles.length - 1}) : g.titles[0];
@@ -128762,6 +128800,7 @@ const AUTOPILOT = (() => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
+      arrangeBar();
       const s = sig(), nav = document.querySelector("nav.tabs");
       const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + ((document.querySelector('nav.tabs .in [data-tab="companion"]') || {}).offsetWidth ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
@@ -128866,12 +128905,56 @@ const AUTOPILOT = (() => {
   hook("render", () => courseDots(document));
   window.SBBARTINT = barTint;
   try { const mq = matchMedia("(prefers-color-scheme: dark)"); (mq.addEventListener ? mq.addEventListener("change", () => setTimeout(barTint, 50)) : mq.addListener(() => setTimeout(barTint, 50))); } catch (e) {}
+  /* The bottom bar on phones: the companion's seat is always there, in the exact middle, and the other tabs share the space
+     either side of it. Board, Calendar and Review stay on the left (where thumbs expect them); everything else (Notes, Courses,
+     Groups, Essentials' More, and anything added later) goes on the right. Each side gets half of the bar, so the seat stays
+     centred whether a side has 2, 3 or 4 tabs; tabs on one side share their half equally. */
+  const LEFT = ["board", "plan", "flashcards"];
+  const RANK = {board: 1, plan: 2, flashcards: 3, notes: 5, courses: 6, groups: 7};
+  const shown = el => { if (!el || el.hidden) return false; const cs = getComputedStyle(el); return cs.display !== "none" && cs.visibility !== "hidden"; };
+  const rankOf = el => el.dataset.tab ? (RANK[el.dataset.tab] || 8) : el.classList.contains("ess-more") ? 9 : 10;
+  let barSig = "";
+  function arrangeBar(){
+    const inn = document.querySelector("nav.tabs .in"); if (!inn) return;
+    const comp = inn.querySelector(':scope > [data-tab="companion"]');
+    const kids = [...inn.children];
+    if (!isPhone() || !comp || !shown(comp)) {
+      if (barSig) { barSig = ""; inn.style.removeProperty("grid-template-columns"); kids.forEach(k => { k.style.removeProperty("grid-column"); k.style.removeProperty("grid-row"); k.classList.remove("ph-nl", "ph-nr"); }); }
+      return;
+    }
+    const rest = kids.filter(k => k !== comp && shown(k)).sort((a, b) => rankOf(a) - rankOf(b));
+    let left = rest.filter(k => LEFT.includes(k.dataset.tab)), right = rest.filter(k => !left.includes(k));
+    // a side with nothing on it (shouldn't happen: Board, Calendar and Review always show) splits the rest evenly instead
+    if (!left.length || !right.length) { const h = Math.ceil(rest.length / 2); left = rest.slice(0, h); right = rest.slice(h); }
+    const L = left.length, R = right.length;
+    const sig = rest.map(k => k.dataset.tab || k.className).join(",") + "|" + L;
+    if (sig === barSig) return;
+    barSig = sig;
+    // L tracks of R fr on the left and R tracks of L fr on the right: both sides add up to L*R fr, so the seat sits in the middle
+    // (important: the phone stylesheet sets the bar's columns with !important, which an ordinary inline style can't beat)
+    const put = (el, col) => { el.style.setProperty("grid-column", String(col), "important"); el.style.setProperty("grid-row", "1", "important"); };
+    inn.style.setProperty("grid-template-columns", `${L ? `repeat(${L},minmax(0,${R || 1}fr)) ` : ""}var(--ph-seat-w,58px)${R ? ` repeat(${R},minmax(0,${L || 1}fr))` : ""}`, "important");
+    kids.forEach(k => { k.style.removeProperty("grid-column"); k.style.removeProperty("grid-row"); k.classList.remove("ph-nl", "ph-nr"); });
+    left.forEach((k, i) => put(k, i + 1));
+    put(comp, L + 1);
+    right.forEach((k, i) => put(k, L + 2 + i));
+    // the tabs either side of the seat get its cut-out when they're the page you're on
+    if (L) left[L - 1].classList.add("ph-nl");
+    if (R) right[0].classList.add("ph-nr");
+    seatSig = "";   // the neighbours (and their sizes) changed: redraw the cut-outs
+  }
+  // Tabs come and go (Essentials unlocks, Show Everything, Groups after signing in): re-arrange when the bar's buttons change
+  // (arrangeBar only re-applies when the set of shown tabs differs, so its own neighbour classes don't loop back here)
+  try { const inn0 = () => document.querySelector("nav.tabs .in"); const mo = new MutationObserver(() => later(false));
+    const watch = () => { const i = inn0(); if (i) mo.observe(i, {childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"]}); else setTimeout(watch, 300); }; watch(); } catch (e) {}
+  if (mqPhone) { try { (mqPhone.addEventListener ? mqPhone.addEventListener("change", () => later(true)) : mqPhone.addListener(() => later(true))); } catch (e) {} }
+  window.addEventListener("sb:essentials", () => { barSig = ""; later(true); });
   // The tabs either side of the companion's seat
   function seatCut(){
     const nav = document.querySelector("nav.tabs"), comp = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!nav) return;
     const fresh = [];
-    [["flashcards", "--ph-selm-l"], ["notes", "--ph-selm-r"]].forEach(([t, k]) => {
-      const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); if (!b || !isPhone() || !comp) return;
+    [[".ph-nl", "--ph-selm-l"], [".ph-nr", "--ph-selm-r"]].forEach(([q, k]) => {
+      const b = document.querySelector(`nav.tabs .in > ${q}`); if (!b || !isPhone() || !comp) return;
       const br = b.getBoundingClientRect(), cr = comp.getBoundingClientRect(); if (!br.width || !cr.width) return;
       const w = br.width, h = br.height, right = cr.left > br.left;
       const cx = right ? cr.left + cr.width / 2 - br.left : br.right - (cr.left + cr.width / 2), cy = cr.top - 16 + 28 - br.top;
@@ -129316,6 +129399,7 @@ const AUTOPILOT = (() => {
   const DAYS = 14;
   const ICON_MORE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5.5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18.5" cy="12" r="1.5"/></svg>';
   const ICON_EXAM = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h5M8 16h3"/><path d="M14.5 15.5l1.6 1.6 3-3.2"/></svg>';
+  const ICON_TABS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M17 14v6M14 17h6"/></svg>';
   const ICON_X = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const ROWS = {
     notes: {t: "Notes", s: "Sticky notes and whiteboards, one board per course"},
@@ -129347,23 +129431,28 @@ const AUTOPILOT = (() => {
     } else if (b.nextElementSibling && b.nextElementSibling.dataset && b.nextElementSibling.dataset.tab) inn.insertBefore(b, inn.querySelector("#navPomo") || null);   // a tab added later (Groups) goes before More
     return b;
   }
-  const hiddenTabs = () => TABS.filter(t => navBtn(t) && !SBESS.shows(t));
+  // tabs Essentials is keeping out of the menu right now (on phones the companion always keeps its seat in the bar, so it isn't one)
+  const offMenu = b => { try { return getComputedStyle(b).display === "none"; } catch (e) { return true; } };
+  const hiddenTabs = () => TABS.filter(t => navBtn(t) && !SBESS.shows(t) && offMenu(navBtn(t)));
   function navApply(){
     const on = SBESS.on();
     TABS.forEach(t => { const b = navBtn(t); if (!b) return; b.classList.toggle("ess-hide", on && !SBESS.shows(t)); b.classList.toggle("ess-new", on && fresh.has(t) && (typeof ui === "undefined" || ui.tab !== t)); });
     if (typeof ui !== "undefined") fresh.delete(ui.tab);
-    // phones: the companion lives in its tab's seat in the bottom bar; while that tab waits under More, so does the companion
-    document.documentElement.classList.toggle("ess-no-seat", on && !SBESS.shows("companion"));
     const b = moreBtn(); if (!b) return;
     const label = typeof tr === "function" ? tr("ess.more", "More") : "More";
     const l = b.querySelector(".em-l"); if (l && l.textContent !== label) l.textContent = label;
     const names = hiddenTabs().map(t => ROWS[t].t).concat(SBESS.shows("tools") ? [] : ["Calculator", "Style Shop"]);
     b.setAttribute("aria-label", names.length ? `${label}: ${names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0]}` : label);
     // the page you're on is one of the tabs under More: More is the menu item that shows it
-    const here = on && typeof ui !== "undefined" && TABS.includes(ui.tab) && !SBESS.shows(ui.tab);
+    const here = on && typeof ui !== "undefined" && TABS.includes(ui.tab) && !SBESS.shows(ui.tab) && !!navBtn(ui.tab) && offMenu(navBtn(ui.tab));
     b.setAttribute("aria-current", here ? "page" : "false");
-    b.hidden = !on;
+    // phones: More earns its place in the bottom bar only while a tab is waiting behind it. Once Notes and Groups are both in
+    // the bar, all More would hold is the Calculator and Style Shop, which Settings (the ⋯ button) already has, and a fourth
+    // tab beside the companion's seat is too tight to read.
+    b.hidden = !on || (phoneMq() && !hiddenTabs().length);
   }
+  const phoneMq = () => { try { return matchMedia("(max-width:639px)").matches; } catch (e) { return false; } };
+  try { const mq = matchMedia("(max-width:639px)"); (mq.addEventListener ? mq.addEventListener("change", () => navApply()) : mq.addListener(() => navApply())); } catch (e) {}
   function goTab(t){
     if (dlg.open) dlg.close();
     ui.tab = t; if (t !== "courses") ui.courseId = null; if (t === "groups") ui.grp = null;
@@ -129452,6 +129541,25 @@ const AUTOPILOT = (() => {
       <span class="ess-card-acts"><button type="button" class="btn small primary" data-act="ess-exam-go" data-id="${esc(x.t.id)}">Plan My Prep</button><button type="button" class="icon-btn ess-card-x" data-act="ess-exam-x" aria-label="Dismiss the Exam Prep card">${ICON_X}</button></span>
     </section>`);
   }
+  /* After a week: offer every tab, once. A card on the Board (never a popup), only for students Essentials started for
+     (not someone who switched it back on themselves), and not while the tour runs. "Show All Tabs" is Show Everything;
+     "Keep It Simple" keeps Essentials and says where the switch is. Either answer is final. */
+  const WEEK = 7 * 864e5;
+  function weekDue(){
+    const st = SBESS.state();
+    return st.on && st.why === "new" && !st.setAt && Date.now() - Number(st.at || Date.now()) >= WEEK && !SBESS.said("week-prompt") && !busy() && !inPrev();
+  }
+  function weekCard(v){
+    if (!weekDue() || v.querySelector(".ess-week")) return;
+    const qa = v.querySelector(":scope > .qa-wrap"); if (!qa) return;
+    const n = hiddenTabs().length + (SBESS.shows("tools") ? 0 : 2);
+    qa.insertAdjacentHTML("afterend", `<section class="ess-card ess-week" aria-labelledby="essWkT">
+      <span class="ess-card-ic">${ICON_TABS}</span>
+      <p class="ess-card-t" id="essWkT"><b>You've had a week with Studyboard.</b> Want every tab in the menu? ${n ? `${n} more ${n === 1 ? "thing is" : "things are"} waiting under More, and` : "The rest of"} Today's Plan has a few more cards too.</p>
+      <span class="ess-card-acts"><button type="button" class="btn small primary" data-act="ess-week-all">Show All Tabs</button><button type="button" class="btn small" data-act="ess-week-keep">Keep It Simple</button></span>
+    </section>`);
+  }
+  window.SBESSWEEK = {due: weekDue};
   function calmBoard(){
     const v = document.getElementById("view"); if (!v) return;
     const extras = SBESS.shows("plan-extras");
@@ -129471,7 +129579,7 @@ const AUTOPILOT = (() => {
       plan.querySelectorAll(".plan-notes").forEach(s => { if (!s.querySelector("li")) s.remove(); });
       if (!extras) { plan.querySelectorAll('.pf-link[data-id="how"], #plan-how').forEach(e => e.remove()); }
     }
-    examCard(v);
+    if (weekDue()) weekCard(v); else examCard(v);   // one card at a time
   }
   function calmReview(){
     // Before the first deck, Review is just Flashcards: Quizzes, Concept Maps and Presentations come with it
@@ -129496,6 +129604,18 @@ const AUTOPILOT = (() => {
         const all = !!el.checked;
         SBESS.set(!all, "user");
         toast(all ? "Showing everything" : "Back to the essentials. The rest is under More.", () => { SBESS.set(all, "user"); const i = document.querySelector('[data-act="ess-toggle"]'); if (i) i.checked = !all; });
+        return true;
+      }
+      case "ess-week-all": {
+        SBESS.said("week-prompt", true);
+        SBESS.set(false, "user");
+        toast("Every tab is in the menu now. You can go back to the essentials in Settings.", () => SBESS.set(true, "user"));
+        return true;
+      }
+      case "ess-week-keep": {
+        SBESS.said("week-prompt", true);
+        const c = document.querySelector(".ess-week"); if (c) c.remove();
+        toast("Keeping it simple. Show Everything is in Settings › Appearance whenever you want it.");
         return true;
       }
       case "ess-exam-go": SBESS.said("exam-card", true); fire("act", "prep-plan", el, el.dataset.id); return true;

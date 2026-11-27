@@ -40,11 +40,22 @@ function plan({dh = 3, th = dh, off = [], tasks = [], overdue = 0, roomToday = 0
   ok(c.groups[c.tight].ids[0] === "b" && c.by === "2026-12-14", "tightest is b: " + JSON.stringify(c.groups.map(g => g.mins)));
   ok(c.groups.every(g => g.haveM - g.needM === g.mins), "time minus work is the cushion on every row");
 }
-// tight: under 30 minutes spare. 3 + 3 + 2.25 = 8h 15m of time against 8h of work
+// green until it no longer fits: 15m spare is still spare (8h 15m of time against 8h of work), with nothing to fix
 {
   const c = plan({tasks: [{id: "a", dl: 2, R: 8}], roomToday: 2});
-  ok(c.state === "tight" && c.mins === 15, "tight: " + c.state + " " + c.mins);
-  ok(c.fixes[0] && c.fixes[0].kind === "today" && c.fixes[0].mins === 30, "tight: add 30m today " + JSON.stringify(c.fixes));
+  ok(c.state === "spare" && c.mins === 15 && c.fixes.length === 0, "15m spare is green: " + c.state + " " + c.mins);
+  const z = plan({tasks: [{id: "a", dl: 2, R: 8.25}], roomToday: 2});
+  ok(z.state === "spare" && z.mins === 0, "exactly fits is green: " + z.state + " " + z.mins);
+}
+// yellow ("tight"): short by up to an hour, judged on the rounded figure the pill shows
+{
+  const c = plan({tasks: [{id: "a", dl: 2, R: 8.75}], roomToday: 2});
+  ok(c.state === "tight" && c.mins === -30, "30m short is yellow: " + c.state + " " + c.mins);
+  ok(c.fixes[0] && c.fixes[0].kind === "today" && c.fixes[0].mins === 30, "yellow: add 30m today " + JSON.stringify(c.fixes));
+  ok(plan({tasks: [{id: "a", dl: 2, R: 9.25}], roomToday: 2}).state === "tight", "exactly 1h short is yellow");
+  ok(plan({tasks: [{id: "a", dl: 2, R: 558 / 60}], roomToday: 2}).state === "tight", "63m short shows as 1h: yellow");
+  ok(plan({tasks: [{id: "a", dl: 2, R: 563 / 60}], roomToday: 2}).state === "short", "68m short shows as 1h 15m: red");
+  { const f = plan({tasks: [{id: "a", dl: 2, R: 500 / 60}], roomToday: 2}); ok(f.state === "tight" && f.mins === -5, "5m short is yellow, not green: " + f.state + " " + f.mins); }
 }
 // short: more work than time
 {
@@ -60,7 +71,7 @@ function plan({dh = 3, th = dh, off = [], tasks = [], overdue = 0, roomToday = 0
 // work that is overdue counts against every deadline after it
 {
   const c = plan({tasks: [{id: "a", dl: 2, R: 2}], overdue: 6});
-  ok(c.state === "tight" && c.mins === 15 && c.overdueM === 360, "overdue work eats the cushion: " + c.mins);
+  ok(c.state === "spare" && c.mins === 15 && c.overdueM === 360, "overdue work eats the cushion: " + c.mins);
 }
 // no work: nothing due in the next 14 days, or nothing left to do
 {
@@ -77,7 +88,7 @@ function plan({dh = 3, th = dh, off = [], tasks = [], overdue = 0, roomToday = 0
   ok(off.state === "short" && off.mins === -165, "two days off before it: short " + off.mins);
   ok(off.fixes.some(f => f.kind === "dayoff" && f.date === "2026-12-11" && f.mins === 180), "fix: study on the first day off " + JSON.stringify(off.fixes));
   const today = plan({tasks: [{id: "a", dl: 2, R: 6}], off: [0], roomToday: 3});
-  ok(today.state === "short" && !today.fixes.some(f => f.kind === "today"), "today off: no add-today fix " + JSON.stringify(today));
+  ok(today.state === "tight" && today.mins === -45 && !today.fixes.some(f => f.kind === "today"), "today off: 45m short (yellow), no add-today fix " + JSON.stringify(today));
   ok(today.fixes.some(f => f.kind === "dayoff" && f.date === "2026-12-10"), "today off: studying today is offered " + JSON.stringify(today.fixes));
   const after = plan({tasks: [{id: "a", dl: 2, R: 9}], off: [5]});
   ok(!after.fixes.some(f => f.kind === "dayoff"), "a day off after the deadline doesn't help");

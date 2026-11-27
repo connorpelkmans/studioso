@@ -20,7 +20,7 @@ data class WNext(val id: String, val title: String, val course: String, val colo
 data class WCountdown(val id: String, val title: String, val course: String, val color: String, val days: Int, val ready: Int?,
                       val exam: Boolean, val due: String)
 
-/** state: "spare", "tight" or "short" (src/js Time Cushion, phoneData().cushion). */
+/** state: "spare" (fits, green), "tight" (up to 1h short, yellow) or "short" (over 1h short, red); src/js/92-cushion.js, phoneData().cushion. */
 data class WCushion(val text: String, val state: String)
 
 data class TodayModel(
@@ -87,9 +87,8 @@ object HomeWidgetModel {
         val by = o.optString("by")
         val byTxt = if (DAY.matches(by) && by >= today) (if (by == today) " today" else if (daysBetween(today, by, tz) == 1) " by tomorrow" else " by " + weekday(by, tz)) else ""
         val text = when (state) {
-            "spare" -> "${mins(m)} to spare"
-            "tight" -> "Tight: ${mins(m)} spare$byTxt"
-            else -> "${mins(m)} short$byTxt"
+            "spare" -> if (m >= 5) "${mins(m)} to spare" else "Just fits$byTxt"
+            else -> "${mins(maxOf(m, 5))} short$byTxt"   // yellow (up to 1h) and red (over 1h) both say how far short
         }
         return WCushion(text, state)
     }

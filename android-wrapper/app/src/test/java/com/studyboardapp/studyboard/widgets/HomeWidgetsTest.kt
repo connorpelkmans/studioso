@@ -118,8 +118,8 @@ class HomeWidgetsTest {
         assertEquals(3, m.exam?.days)
         assertEquals("Chemistry midterm in 3 days · ready 72%", HomeWidgets.examLine(m.exam!!))
         assertEquals("2h 30m to spare", m.cushion?.text)
-        val tight = HomeWidgetModel.cushion(JSONObject().put("mins", 20).put("by", day(5)).put("state", "tight"), today, tz)
-        assertTrue(tight!!.text.startsWith("Tight: 20m spare by "))
+        val tight = HomeWidgetModel.cushion(JSONObject().put("mins", -20).put("by", day(5)).put("state", "tight"), today, tz)
+        assertTrue(tight!!.text.startsWith("20m short by "))
         assertEquals("45m short by tomorrow", HomeWidgetModel.cushion(JSONObject().put("mins", -45).put("by", day(1)).put("state", "short"), today, tz)?.text)
         assertNull("no cushion sent: no line", HomeWidgetModel.today(sample(cushion = false), now, clock, clockOf, tz).cushion)
         assertNull("an unknown state: no line", HomeWidgetModel.cushion(JSONObject().put("mins", 5).put("state", "odd"), today, tz))
@@ -207,7 +207,7 @@ class HomeWidgetsTest {
         draw("today-4x4-dark", 320, 330, HomeWidgets.todayViews(ctx, sample(), now, 320, 330))
         draw("countdown-4x2-dark", 320, 110, HomeWidgets.countdownViews(ctx, sample(), now, 320, 110))
         draw("countdown-2x1-dark", 150, 60, HomeWidgets.countdownViews(ctx, sample(), now, 150, 60))
-        val tight = sample().put("cushion", JSONObject().put("mins", 20).put("by", day(5)).put("state", "tight"))
+        val tight = sample().put("cushion", JSONObject().put("mins", -20).put("by", day(5)).put("state", "tight"))
         draw("today-3x3-tight-dark", 250, 250, HomeWidgets.todayViews(ctx, tight, at(0, 14, 50), 250, 250))
     }
 

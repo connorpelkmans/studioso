@@ -124,6 +124,7 @@
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
+      arrangeBar();
       const s = sig(), nav = document.querySelector("nav.tabs");
       const seat = s + "|" + (nav ? nav.dataset.fit || "" : "") + "|" + ((document.querySelector('nav.tabs .in [data-tab="companion"]') || {}).offsetWidth ? 1 : 0);
       if (seat !== seatSig) { seatSig = seat; seatCut(); }
@@ -228,12 +229,56 @@
   hook("render", () => courseDots(document));
   window.SBBARTINT = barTint;
   try { const mq = matchMedia("(prefers-color-scheme: dark)"); (mq.addEventListener ? mq.addEventListener("change", () => setTimeout(barTint, 50)) : mq.addListener(() => setTimeout(barTint, 50))); } catch (e) {}
+  /* The bottom bar on phones: the companion's seat is always there, in the exact middle, and the other tabs share the space
+     either side of it. Board, Calendar and Review stay on the left (where thumbs expect them); everything else (Notes, Courses,
+     Groups, Essentials' More, and anything added later) goes on the right. Each side gets half of the bar, so the seat stays
+     centred whether a side has 2, 3 or 4 tabs; tabs on one side share their half equally. */
+  const LEFT = ["board", "plan", "flashcards"];
+  const RANK = {board: 1, plan: 2, flashcards: 3, notes: 5, courses: 6, groups: 7};
+  const shown = el => { if (!el || el.hidden) return false; const cs = getComputedStyle(el); return cs.display !== "none" && cs.visibility !== "hidden"; };
+  const rankOf = el => el.dataset.tab ? (RANK[el.dataset.tab] || 8) : el.classList.contains("ess-more") ? 9 : 10;
+  let barSig = "";
+  function arrangeBar(){
+    const inn = document.querySelector("nav.tabs .in"); if (!inn) return;
+    const comp = inn.querySelector(':scope > [data-tab="companion"]');
+    const kids = [...inn.children];
+    if (!isPhone() || !comp || !shown(comp)) {
+      if (barSig) { barSig = ""; inn.style.removeProperty("grid-template-columns"); kids.forEach(k => { k.style.removeProperty("grid-column"); k.style.removeProperty("grid-row"); k.classList.remove("ph-nl", "ph-nr"); }); }
+      return;
+    }
+    const rest = kids.filter(k => k !== comp && shown(k)).sort((a, b) => rankOf(a) - rankOf(b));
+    let left = rest.filter(k => LEFT.includes(k.dataset.tab)), right = rest.filter(k => !left.includes(k));
+    // a side with nothing on it (shouldn't happen: Board, Calendar and Review always show) splits the rest evenly instead
+    if (!left.length || !right.length) { const h = Math.ceil(rest.length / 2); left = rest.slice(0, h); right = rest.slice(h); }
+    const L = left.length, R = right.length;
+    const sig = rest.map(k => k.dataset.tab || k.className).join(",") + "|" + L;
+    if (sig === barSig) return;
+    barSig = sig;
+    // L tracks of R fr on the left and R tracks of L fr on the right: both sides add up to L*R fr, so the seat sits in the middle
+    // (important: the phone stylesheet sets the bar's columns with !important, which an ordinary inline style can't beat)
+    const put = (el, col) => { el.style.setProperty("grid-column", String(col), "important"); el.style.setProperty("grid-row", "1", "important"); };
+    inn.style.setProperty("grid-template-columns", `${L ? `repeat(${L},minmax(0,${R || 1}fr)) ` : ""}var(--ph-seat-w,58px)${R ? ` repeat(${R},minmax(0,${L || 1}fr))` : ""}`, "important");
+    kids.forEach(k => { k.style.removeProperty("grid-column"); k.style.removeProperty("grid-row"); k.classList.remove("ph-nl", "ph-nr"); });
+    left.forEach((k, i) => put(k, i + 1));
+    put(comp, L + 1);
+    right.forEach((k, i) => put(k, L + 2 + i));
+    // the tabs either side of the seat get its cut-out when they're the page you're on
+    if (L) left[L - 1].classList.add("ph-nl");
+    if (R) right[0].classList.add("ph-nr");
+    seatSig = "";   // the neighbours (and their sizes) changed: redraw the cut-outs
+  }
+  // Tabs come and go (Essentials unlocks, Show Everything, Groups after signing in): re-arrange when the bar's buttons change
+  // (arrangeBar only re-applies when the set of shown tabs differs, so its own neighbour classes don't loop back here)
+  try { const inn0 = () => document.querySelector("nav.tabs .in"); const mo = new MutationObserver(() => later(false));
+    const watch = () => { const i = inn0(); if (i) mo.observe(i, {childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden"]}); else setTimeout(watch, 300); }; watch(); } catch (e) {}
+  if (mqPhone) { try { (mqPhone.addEventListener ? mqPhone.addEventListener("change", () => later(true)) : mqPhone.addListener(() => later(true))); } catch (e) {} }
+  window.addEventListener("sb:essentials", () => { barSig = ""; later(true); });
   // The tabs either side of the companion's seat
   function seatCut(){
     const nav = document.querySelector("nav.tabs"), comp = document.querySelector('nav.tabs .in [data-tab="companion"]'); if (!nav) return;
     const fresh = [];
-    [["flashcards", "--ph-selm-l"], ["notes", "--ph-selm-r"]].forEach(([t, k]) => {
-      const b = document.querySelector(`nav.tabs .in [data-tab="${t}"]`); if (!b || !isPhone() || !comp) return;
+    [[".ph-nl", "--ph-selm-l"], [".ph-nr", "--ph-selm-r"]].forEach(([q, k]) => {
+      const b = document.querySelector(`nav.tabs .in > ${q}`); if (!b || !isPhone() || !comp) return;
       const br = b.getBoundingClientRect(), cr = comp.getBoundingClientRect(); if (!br.width || !cr.width) return;
       const w = br.width, h = br.height, right = cr.left > br.left;
       const cx = right ? cr.left + cr.width / 2 - br.left : br.right - (cr.left + cr.width / 2), cy = cr.top - 16 + 28 - br.top;

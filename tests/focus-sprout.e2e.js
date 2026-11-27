@@ -18,7 +18,7 @@ async function newPage(browser, w, h, mob, opts){
   const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: w, height: h}, isMobile: mob, hasTouch: mob, reducedMotion: opts.reduce ? "reduce" : "no-preference"});
   await ctx.addInitScript(require("./consent-ok")); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
   await ctx.addInitScript(guard => {
-    window.__SB_TEST = true;
+    window.__SB_TEST = true; window.__SB_SPROUT = true;   // the sprout is off by default (01-focus-sprout.js); these tests turn it on
     const p = n => String(n).padStart(2, "0"), d = new Date(Date.now() + 3 * 864e5), due = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     if (!localStorage.getItem("coursework:v2")) localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIOL 1200", color: "#1E9E74"}],
       tasks: [{id: "t1", title: "Lab Report", courseId: "c1", type: "Assignment", start: "", due, time: "", priority: "med", status: "todo", notes: "", hours: 3, checklist: [], pct: 0, dependsOn: [], history: [], created: Date.now(), order: 10}], settings: {}}));

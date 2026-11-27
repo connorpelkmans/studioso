@@ -5,8 +5,8 @@ html[data-ess="on"] nav.tabs .nav-foot :is(.calc-btn,.style-btn){display:none!im
 nav.tabs .in .ess-more{position:relative}
 html:not([data-ess="on"]) nav.tabs .in .ess-more,nav.tabs .in .ess-more[hidden]{display:none!important}
 @media (max-width:979px){nav.tabs .in .ess-more{order:8}}
-/* phones: no seat in the bar for the companion while its tab is under More, so it waits there too (it still shows on its own page) */
-@media (max-width:639px){html.ess-no-seat body:not([data-view="companion"]) :is(#compLayer,#compFront){display:none!important}}
+/* phones: the companion keeps its seat in the bottom bar in Essentials too (it's the bar's centre); only desktop moves it under More */
+@media (max-width:639px){html[data-ess="on"] nav.tabs .in [data-tab="companion"].ess-hide{display:flex!important}}
 /* a tab that just came back to the menu: a small dot until it's opened */
 nav.tabs .in .ess-new{position:relative}
 nav.tabs .in .ess-new::before{content:"";position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--spine,var(--surface));pointer-events:none}

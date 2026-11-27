@@ -20,7 +20,8 @@ const EXISTING = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: 
 const FLAGS = {"sb:onboarded": "1", "studioso:welcomed": "1", "studioso:sb": '"local"', "studyboard:tour": "done"};
 // What every student saw before Essentials existed (and an existing student still sees)
 const ALL_TABS = {phone: ["board", "plan", "flashcards", "notes", "courses", "companion", "groups"], desktop: ["board", "plan", "flashcards", "notes", "courses", "companion", "groups", "navPomo"]};
-const MAIN_TABS = {phone: ["board", "plan", "flashcards", "courses", "ess-more"], desktop: ["board", "plan", "flashcards", "courses", "ess-more", "navPomo"]};
+// (on phones the companion keeps its seat in the bottom bar, so it is in the menu in Essentials too)
+const MAIN_TABS = {phone: ["board", "plan", "flashcards", "courses", "companion", "ess-more"], desktop: ["board", "plan", "flashcards", "courses", "ess-more", "navPomo"]};
 
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
@@ -35,7 +36,9 @@ const MAIN_TABS = {phone: ["board", "plan", "flashcards", "courses", "ess-more"]
   };
   // the welcome setup, skipped the way a student would
   const skipSetup = async page => {
-    for (let k = 0; k < 6 && await page.locator("dialog[open]").count(); k++) {
+    // (closing one setup step opens the next about 0.6 s later, so a moment with no dialog isn't the end: wait for the next one)
+    const next = () => page.waitForSelector("dialog[open]", {timeout: 1500}).then(() => true, () => false);
+    for (let k = 0; k < 6 && (await page.locator("dialog[open]").count() || await next()); k++) {
       for (const sel of ['dialog[open] .sheet-head [data-act="close"]', '[data-ob="skip"]', ".sheet.ob .ob-foot .btn.primary"]) {
         const b = page.locator(sel).first(); if (await b.count() && await b.isVisible()) { await b.click(); await page.waitForTimeout(500); break; }
       }
@@ -65,7 +68,8 @@ const MAIN_TABS = {phone: ["board", "plan", "flashcards", "courses", "ess-more"]
         // More, by keyboard: a dialog with the hidden tabs and tools; Escape gives focus back to More
         await page.focus("nav.tabs .ess-more"); await page.keyboard.press("Enter"); await page.waitForTimeout(500);
         const sheet = await page.evaluate(() => { const d = document.querySelector("dialog[open]"); return d && {text: d.innerText, ids: [...d.querySelectorAll("[data-act]")].map(b => b.dataset.act + ":" + (b.dataset.id || ""))}; });
-        ok(sheet && ["ess-go:notes", "ess-go:companion", "ess-go:groups", "calc-open:", "shop:", "ess-all:"].every(k => sheet.ids.includes(k)), `${tag}: More opens Notes, Companion, Groups, Calculator, Style Shop and Show Everything: ` + (sheet && sheet.ids.join(",")));
+        ok(sheet && ["ess-go:notes", "ess-go:groups", "calc-open:", "shop:", "ess-all:"].concat(tag === "phone" ? [] : ["ess-go:companion"]).every(k => sheet.ids.includes(k)) && (tag !== "phone" || !sheet.ids.includes("ess-go:companion")),
+          `${tag}: More opens Notes, Groups, Calculator, Style Shop and Show Everything (and Companion on desktop; on phones it is in the bar): ` + (sheet && sheet.ids.join(",")));
         ok(await page.getAttribute("nav.tabs .ess-more", "aria-expanded") === "true" && await page.getAttribute("nav.tabs .ess-more", "aria-haspopup") === "dialog", `${tag}: More says it opens a dialog, and that it's open`);
         await page.keyboard.press("Escape"); await page.waitForTimeout(400);
         ok(await page.evaluate(() => document.activeElement && document.activeElement.classList.contains("ess-more")) && await page.getAttribute("nav.tabs .ess-more", "aria-expanded") === "false", `${tag}: Escape closes it and focus is back on More`);

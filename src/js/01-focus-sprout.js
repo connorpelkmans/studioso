@@ -13,7 +13,16 @@
       Choose Apps (Screen Time). start({until, apps, dnd}) when a focus session runs, stop() when it pauses, stops or ends.
       The row is hidden when the plugin is missing or says neither is available. The choice is kept on this device
       ("studioso:focusguard"), since it depends on the phone. The desktop's site blocking (99-pro.js) is separate. */
-var SBSPROUT = (() => {
+/* Off for now (hidden, the code kept as an option): with it off, SBSPROUT is undefined, so the Focus timer, its alarm and Insights
+   look and behave exactly as they did before the sprout (every use in 01-focus.js and 99-pro.js checks typeof SBSPROUT), and
+   nothing here runs: no listeners, no timers, no garden, no Block Distracting Apps row. To turn it on for a device:
+   localStorage.setItem("studyboard:focusSprout", "on") and reload (tests set window.__SB_SPROUT = true). */
+const SPROUT_ON = (() => { try { return !!window.__SB_SPROUT || localStorage.getItem("studyboard:focusSprout") === "on"; } catch (e) { return false; } })();
+if (!SPROUT_ON) {
+  // a phone left blocking apps by an earlier session that had it on: let it go
+  try { const g = JSON.parse(localStorage.getItem("studioso:focusguard") || "null"); const N = window.StudyboardNative; if (g && g.until > Date.now() && N && N.focusGuard && N.focusGuard.stop) N.focusGuard.stop().catch(() => {}); } catch (e) {}
+}
+var SBSPROUT = !SPROUT_ON ? undefined : (() => {
   const LS = "studioso:sprout", GLS = "studioso:focusguard", GRACE = 5000, WILT = 60000, KEEP_DAYS = 63, PER_DAY = 24;
   const STAGE = ["", "seed", "sprout", "seedling", "young plant", "in bloom"];
   const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } };

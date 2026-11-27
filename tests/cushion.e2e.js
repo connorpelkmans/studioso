@@ -1,4 +1,4 @@
-// node tests/cushion.e2e.js  Time Cushion: the pill next to Time Today (spare, tight, short, nothing due, a day off) and its sheet,
+// node tests/cushion.e2e.js  Time Cushion: the pill next to Time Today (spare: green, up to 1h short: yellow, over 1h short: red, nothing due, a day off) and its sheet,
 // at phone (402 px) and desktop (1300 px) width. CUSH_SHOT=<dir> saves screenshots of each state.
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
@@ -62,21 +62,21 @@ const data = (tasks, settings) => JSON.stringify({v: 2, updated: 1, courses: [{i
         }
         await shot("spare", p);
 
-        // tight: tune one task so under 30 minutes are left over
-        const H = 2 + (c.mins - 15) / 60;
+        // yellow ("tight"): tune one task so it's about 30 minutes short (short by up to an hour is yellow; more is red)
+        const H = 2 + (c.mins + 30) / 60;
         await load([T("a", "Lab Report", D(4), {hours: Math.round(H * 100) / 100}), T("b", "Reading Notes", D(6), {hours: 1, courseId: "c2"})]);
         c = await cush(); p = await pill();
         if (!dark) {
-          ok(c.state === "tight" && c.mins >= 0 && c.mins < 30, `${w}px tight: ` + JSON.stringify(c));
-          ok(p && /^Tight: (\d+m spare|no spare time) by Mon$/.test(p.text) && /cush-tight/.test(p.cls) && p.oneLine && !p.over && p.right <= w, `${w}px tight: "Tight: …m spare by Mon": ` + JSON.stringify(p));
+          ok(c.state === "tight" && c.mins < 0 && c.mins >= -60, `${w}px yellow, up to an hour short: ` + JSON.stringify(c));
+          ok(p && /^\d+m short by Mon$/.test(p.text) && /cush-tight/.test(p.cls) && p.oneLine && !p.over && p.right <= w, `${w}px yellow: "…m short by Mon": ` + JSON.stringify(p));
         }
         await shot("tight", p);
 
-        // short: more work than time, with one task that has no estimate
-        await load([T("a", "Lab Report", D(4), {hours: 15}), T("b", "Reading Notes", D(6), {hours: null, courseId: "c2", type: "Reading"}), T("c", "Essay Plan", D(9), {hours: 3, courseId: "c2"})]);
+        // red ("short"): well over an hour more work than time, with one task that has no estimate
+        await load([T("a", "Lab Report", D(4), {hours: 17}), T("b", "Reading Notes", D(6), {hours: null, courseId: "c2", type: "Reading"}), T("c", "Essay Plan", D(9), {hours: 3, courseId: "c2"})]);
         c = await cush(); p = await pill();
         if (!dark) {
-          ok(c.state === "short" && c.mins < 0 && c.by === D(4) && c.noEst === 1, `${w}px short: ` + JSON.stringify(c));
+          ok(c.state === "short" && c.mins < -60 && c.by === D(4) && c.noEst === 1, `${w}px red, over an hour short: ` + JSON.stringify(c));
           ok(p && /^(\d+h )?\d+m short by Mon$|^\d+h short by Mon$/.test(p.text) && /cush-short/.test(p.cls) && p.oneLine && !p.over && p.right <= w, `${w}px short: "… short by Mon": ` + JSON.stringify(p));
           const heads = await page.evaluate(() => /you're about .* short for what's due by then/.test(document.querySelector("section.plan").textContent));
           ok(heads, `${w}px short: the Heads Up shortfall line is still there`);
@@ -155,7 +155,7 @@ const data = (tasks, settings) => JSON.stringify({v: 2, updated: 1, courses: [{i
           // the widget feed carries it, in whole numbers
           await load([T("a", "Lab Report", D(4), {hours: 15})]);
           const wd = await page.evaluate(() => window.__sbPhoneWidgets.data().cushion);
-          ok(Number.isInteger(wd.mins) && wd.state === "short" && wd.by === D(4), `${w}px widget numbers are whole: ` + JSON.stringify(wd));
+          ok(Number.isInteger(wd.mins) && wd.mins < 0 && ["tight", "short"].includes(wd.state) && wd.by === D(4), `${w}px widget numbers are whole: ` + JSON.stringify(wd));
           ok(!errs.length, `${w}px no page errors: ` + errs.join(" | "));
         }
         await ctx.close();
