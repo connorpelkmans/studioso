@@ -348,3 +348,20 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 @media (prefers-color-scheme:dark){
 :root:not([data-theme="light"]) .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
 }
+
+/* The Christmas present (98-companion.js showGift): the wrapped box bobs; Open It lifts the lid away in a burst */
+.cpg-stage{border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+.cpg-stage:focus-visible{outline:3px solid #FFD983;outline-offset:6px;border-radius:50%}
+.cpg-box{position:relative;width:62%;height:62%;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
+.cpg-lid{transform-box:fill-box;transform-origin:50% 100%}
+@media (prefers-reduced-motion:no-preference){
+  .cpu-gift:not(.cpu-still) .cpg-box{animation:cpg-bob 1.6s ease-in-out infinite}
+  .cpu-gift:not(.cpu-still) .cpg-stage:hover .cpg-box{animation:cpg-wiggle .5s ease-in-out infinite}
+  .cpu-gift.cpg-opening .cpg-box{animation:none}
+  .cpu-gift.cpg-opening .cpg-lid{animation:cpg-lid .8s cubic-bezier(.2,.8,.3,1) forwards}
+  .cpu-gift.cpg-opening .cpu-glow{animation:cpg-flash .8s ease-out forwards}
+}
+@keyframes cpg-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes cpg-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+@keyframes cpg-lid{0%{transform:none}30%{transform:translateY(-6px) rotate(-6deg)}100%{transform:translate(60%,-180%) rotate(38deg);opacity:0}}
+@keyframes cpg-flash{0%{opacity:.7;transform:scale(1)}60%{opacity:1;transform:scale(1.5)}100%{opacity:.9;transform:scale(1.35)}}

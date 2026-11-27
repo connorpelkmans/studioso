@@ -327,6 +327,16 @@ var COMP_ACC_MORE = K => {
       return `${[[-11, 6, 2.2], [-5.6, 9.5, 2.6], [5.6, 9.5, 2.6], [11, 6, 2.2]].map(([x, h, w]) => gem(x, h, w, WF)).join("")}${gem(0, 14, 3.4, WF)}<circle cx="0" cy="${f(yA(0) - 6)}" r="1.8" fill="#FF7AC8" ${OUT(.9)}/>
         ${line2("M-16 3Q0 -3 16 3", 2.2, WS("#9AD8FF"))}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
   );
+  // The Christmas gift (98-companion.js): never sold, only found in the present that pops up from Dec 25
+  HEAD.push({id: "santahat", name: "Santa Hat", rarity: "legendary", def: "#D7263D", gift: true, icon: [11, .82], art: () => {
+    // fluff: overlapping puffs drawn twice (an ink outline, then white), so they read as one soft roll
+    const puffs = pts => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFDF8"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${f(x - r * .3)}" cy="${f(y - r * .35)}" r="${f(r * .32)}" fill="#fff"/>`).join("")}`;
+    // a few big puffs, wide apart, so the cotton rolls in long soft arches
+    const band = [[-15.2, 1, 3.8], [-10.9, .5, 4], [-6.5, .1, 4.1], [-2.2, 0, 4.1], [2.2, 0, 4.1], [6.5, .1, 4.1], [10.9, .5, 4], [15.2, 1, 3.8]];
+    return `<path d="M-13.5 -1.5Q-15 -17 -2 -23.5Q10 -28.5 19.5 -19.5Q24.5 -14 23.8 -6L16.8 -6.6Q16.6 -12.6 12.2 -13.4Q14.8 -8 13.8 -1.5Z" ${WF} ${OUT(2.4)}/>
+      <path d="M-8.4 -12.6Q-6.4 -19.6 1 -21.6" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2" stroke-linecap="round"/>
+      ${puffs(band)}${puffs([[20.2, -4.6, 3.6], [23.2, -2.6, 3.2], [19.4, -1.2, 3], [22.2, .4, 2.6]])}
+      ${tw(-18, -16, 2.8, 0)}${tw(6, -31, 2.4, .9)}${tw(27, -14, 2.2, 1.6)}`; }});
   FACE.push(
     // Common
     {id: "ovalglasses", name: "Oval Glasses", rarity: "common", def: "#8B6A4F", art: g =>
