@@ -5865,7 +5865,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 :is(.scr-live,.scr-pill) > :is(.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
 /* the number and the coin a touch higher than the word, so the three look level */
 :is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
-:is(.scr-live,.scr-pill) > img{position:relative;top:-.06em}
+:is(.scr-live,.scr-pill) > img{position:relative;top:0}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
