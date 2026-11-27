@@ -17,7 +17,7 @@
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 1.9rem);display:flex;justify-content:center;pointer-events:none}
+.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 2.45rem);display:flex;justify-content:center;pointer-events:none}
 .pomo-read:has(.sp-dial) .pomo-cr{position:static;margin-bottom:2px}
 .pomo-cr .scr-live{font-size:.72rem;padding:2px 8px 2px 3px;gap:4px}
 .pomo-cr .scr-live img{width:14px;height:14px}
@@ -241,3 +241,8 @@
 .scr-rw:not(.scr-wh) .scr-acts{gap:10px}
 .scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
 .btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
+/* the credits pills' words and number sit a touch lower, so they look centred beside the coin (the display font's figures ride high) */
+:is(.scr-live,.scr-pill) > :is(.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+/* the number and the coin a touch higher than the word, so the three look level */
+:is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
+:is(.scr-live,.scr-pill) > img{position:relative;top:0}

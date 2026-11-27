@@ -4878,7 +4878,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 /* The timer button slims to its time (a pause mark when paused) only when the menu is too short for it to stay full */
 nav.tabs[data-pill="slim"] .in .nav-focus.active .nf-m{display:none}
 /* paused: a drawn pause sign before the time (two bars with a clear gap; the ❚❚ characters ran together into one block) */
-nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"";display:inline-block;width:.64em;height:.8em;margin-inline-end:.42em;vertical-align:-.06em;border-radius:1px;
+nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"";display:inline-block;width:.52em;height:.66em;margin-inline-end:.38em;vertical-align:.01em;border-radius:1px;
   background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66% 100%);opacity:.9}
 /* ===== module: 97-ui-shop.css ===== */
 /* ===== 97-ui: an easier Style Shop ===== */
@@ -5640,7 +5640,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 1.9rem);display:flex;justify-content:center;pointer-events:none}
+.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 2.45rem);display:flex;justify-content:center;pointer-events:none}
 .pomo-read:has(.sp-dial) .pomo-cr{position:static;margin-bottom:2px}
 .pomo-cr .scr-live{font-size:.72rem;padding:2px 8px 2px 3px;gap:4px}
 .pomo-cr .scr-live img{width:14px;height:14px}
@@ -5864,6 +5864,11 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-rw:not(.scr-wh) .scr-acts{gap:10px}
 .scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
 .btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
+/* the credits pills' words and number sit a touch lower, so they look centred beside the coin (the display font's figures ride high) */
+:is(.scr-live,.scr-pill) > :is(.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+/* the number and the coin a touch higher than the word, so the three look level */
+:is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
+:is(.scr-live,.scr-pill) > img{position:relative;top:0}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -11749,7 +11754,8 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .fc-buddy-face{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--leaf,#1E8A65) 10%,var(--surface));border:1px solid var(--line);overflow:hidden}
 .fc-buddy-face svg,.fc-buddy-face svg.cp-svg{position:static;inset:auto;transform:none;width:40px;height:40px;display:block;overflow:visible}
 .fc-hint-btn{min-height:40px;padding-inline:16px}
-.fc-bubble{position:relative;margin:0;flex:1;min-width:0;padding:10px 14px;border-radius:4px 16px 16px 16px;background:color-mix(in srgb,var(--leaf,#1E8A65) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E8A65) 28%,var(--line));color:var(--ink);font-size:.95rem;line-height:1.45;animation:fcChipIn .2s ease-out}
+.fc-bubble{position:relative;margin:0;flex:1;min-width:0;padding:10px 14px;border-radius:4px 16px 16px 16px;background:color-mix(in srgb,var(--leaf,#1E8A65) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E8A65) 28%,var(--line));color:var(--ink);font-size:.95rem;line-height:1.45}
+.fc-bubble.pop{animation:fcChipIn .2s ease-out}
 .fc-bubble p{margin:0}
 .fc-hint-step{display:block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:color-mix(in srgb,var(--leaf,#1E8A65) 75%,var(--ink));margin-bottom:2px}
 .fc-hint-more{display:inline-block;margin-top:6px;margin-right:12px;font-size:.85rem;font-weight:700}
@@ -12062,41 +12068,8 @@ button.wu-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .wu-mv{flex:1 1 0;padding:0 6px}
   .wu-day{padding-inline-start:0}
 }
-/* Cards rising under the pointer, with their text sharp the whole time (decks, quizzes, presentations, Writing, concept maps,
-   groups, courses). They used to slide on transforms: while one moved, the browser drew it as a picture and slid that, so the
-   text went soft until it stopped, and the parts drawn as separate pictures (a deck's front card, a quiz's clipboard) snapped to
-   the pixel grid at different moments, so some text moved more than the rest. Now each moves in the page's layout (margins and
-   offsets) by whole pixels, one pixel at a time: everything on a card moves together and the text is redrawn sharp at every step.
-   Loaded last, so it wins over each card's own hover rules. Blank decorations (the cards fanned behind a deck's front card)
-   still turn as before. */
-html body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card){will-change:auto;translate:none!important;margin-top:0;margin-bottom:0;
-  transition:margin-top .18s steps(2,end),margin-bottom .18s steps(2,end),box-shadow .18s ease,filter .18s ease}
-html body .cm-mapcard:hover{transform:none!important}
-html body .rv-card:hover,html body #view .course-card.c2-card:hover,html body :is(.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card):hover{translate:none!important}
-@media (hover:hover){
-  html:not([data-motion="static"]) body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card):hover{margin-top:-2px;margin-bottom:2px}
-}
-/* a deck's front card (with the deck's name): down a little, by whole pixels, without the slight turn */
-html body .rv-fan .face.rv-f{will-change:auto}
-html body .rv-fan .rv-f1{transform:none!important;margin-top:11px;transition:margin-top .24s steps(4,end),box-shadow .2s ease}
-html body .rv-deck:hover .rv-f1{transform:none!important;margin-top:7px}
-/* a quiz's clipboard (with its first question) lifts without turning; its score stamp stays its size */
-html body .rv-board{will-change:auto;margin-top:0;transition:margin-top .25s steps(5,end)}
-html body .rv-quiz:hover .rv-board{transform:none!important;rotate:-3deg;margin-top:-5px}
-html body .rv-stamp{will-change:auto}
-html body :is(.rv-quiz,.rv-pres):hover .rv-stamp{transform:none!important}
-/* a presentation's screen (with its title) rises by whole pixels */
-html body .rv-pres{will-change:auto}
-html body .rv-pres .pr-scr{will-change:auto;transform:none!important;transition:bottom .3s steps(6,end)}
-html body .rv-pres:hover .pr-scr{transform:none!important;bottom:27px}
-/* a concept map's picture and name stay their size */
-html body .cm-mapcard:hover :is(.cm-peek,.cm-pkname){transform:none!important}
-@media (prefers-reduced-motion:reduce){
-  html body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card):hover{margin-top:0;margin-bottom:0}
-  html body .rv-deck:hover .rv-f1{margin-top:11px}
-  html body .rv-quiz:hover .rv-board{margin-top:0}
-  html body .rv-pres:hover .pr-scr{bottom:21px}
-}
-html[data-motion="static"] body .rv-deck:hover .rv-f1{margin-top:11px}
-html[data-motion="static"] body .rv-quiz:hover .rv-board{margin-top:0}
-html[data-motion="static"] body .rv-pres:hover .pr-scr{bottom:21px}
+/* Cards rising under the pointer (study groups, courses, Writing, concept maps, decks and quizzes in their older list style):
+   the browser draws each card as one steady picture the whole time, as Review's deck, quiz and presentation cards already are.
+   Before, it only did that while a card was moving, so the text changed sharpness as a card started and stopped, and parts of
+   the card drawn apart from it moved a pixel out of step with the rest. The motion itself is unchanged. */
+html body :is(.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card){will-change:transform,translate;backface-visibility:hidden;-webkit-backface-visibility:hidden}
