@@ -2211,14 +2211,14 @@ function viewAiQuiz(){
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Read the rationales for the ones you missed." : pct >= 50 ? "Getting there. Review the rationales, then retry the missed questions." : "Keep going. Study the material and the rationales below, then try again.";
     const ansText = x => x.type === "short" ? x.answer : x.type === "order" ? x.correct.map((ix, k) => `${k + 1}. ${x.options[ix]}`).join("  ") : x.correct.map(i => x.options[i]).join("; ");
-    return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const letters = "ABCDEFGH";
@@ -2451,9 +2451,9 @@ function aiUseCard(){
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
 const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
-  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more.", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more.", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud.", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
@@ -2466,7 +2466,9 @@ function aiTiersCard(){
   const c = aiCfg(), now = c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard") ? "pro" : c.provider === "device" && typeof devTier === "function" ? devTier() : "";
   const fact = (h, t) => `<div class="ai-tier-fact"><b>${h}</b><span>${t}</span></div>`;
   const PRIVATE = fact("Private", "It runs entirely on your laptop. Your questions, notes and files stay on this device: nothing is sent to Studyboard or anyone else. If Look Things Up on the Web is on, only the search words go to Wikipedia, Wiktionary or OpenAlex.");
-  const hasPro = typeof aiProAvail === "function" && aiProAvail();
+  const hasPro = (typeof aiProAvail === "function" && aiProAvail()) || (typeof aiProUser === "function" && aiProUser());
+  // on Pro already (a code, a promotion or Plus, which don't include Studyboard AI Pro): no Get Pro, a way to add it instead
+  const onPro = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro(); } catch (e) { return false; } })();
   const more = t => {
     const cats = t.cats && t.cats.length === AI_CATS.length ? `<div class="ai-tier-cats">${AI_CATS.map((n, i) => `<div class="ai-tier-cat"><span>${n}</span><span class="ai-tier-bar sm" role="img" aria-label="${t.cats[i]}%"><i style="width:${t.cats[i]}%"></i></span><b>${t.cats[i]}%</b></div>`).join("")}</div>`
       : `<span class="ai-tier-soon">Results for each kind of question are coming soon.</span>`;
@@ -2479,7 +2481,7 @@ function aiTiersCard(){
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
       + fact("Not Used for Training", `Studyboard pays for Claude through Anthropic's API, and Anthropic doesn't use what's sent through its paid API to train its models. See <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.`)
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
-      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
+      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : onPro ? `<p class="ai-tier-incl">Your Pro plan doesn't include it. Subscribe to add it.</p><button type="button" class="btn ai-tier-get" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI Pro">Get Studyboard AI Pro</button>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
   // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
   // is never marked); the reason goes in its details
@@ -2518,6 +2520,12 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the first time, the check of which free AI this computer can run may still be going: wait for it (at most about a second) so
+  // the sheet opens once, final, rather than redrawing its list of AIs a moment after it opens
+  if (typeof DEVAI !== "undefined" && DEVAI.settled && !DEVAI.settledAt && !opts._waited) {
+    let go = false; const open = () => { if (go) return; go = true; aiSetupSheet(fromFeature, Object.assign({}, opts, {_waited: true})); };
+    DEVAI.settled.then(open, open); setTimeout(open, 1000); return;
+  }
   // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
   if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
     const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);

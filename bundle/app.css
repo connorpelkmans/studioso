@@ -2800,6 +2800,13 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-ready-line > span{flex:1;min-width:200px}
 .ai-device .mi-check .sub{display:block}
 .ai-tier>summary::after{content:none!important;display:none!important}
+/* quiz results: centred on the screen (and in the middle of it when there's nothing missed to list below) */
+.qz-res{display:flex;flex-direction:column;align-items:center;text-align:center}
+.qz-res .view-head{justify-content:center;width:100%}
+.qz-res .done-card{width:100%;max-width:640px;margin-inline:auto;box-sizing:border-box}
+.qz-res .row-actions{justify-content:center}
+.qz-res.solo{min-height:calc(100dvh - 200px);justify-content:center}
+@media (max-width:760px){.qz-res.solo{min-height:calc(100dvh - 260px)}}
 /* ===== module: 05-account.css ===== */
 /* Studyboard account sheets */
 .sb-acct .sb-code{letter-spacing:.35em;font-size:1.25rem;text-align:center;font-variant-numeric:tabular-nums}
@@ -5605,7 +5612,10 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{display:flex;justify-content:center;margin:4px 0 2px}
+.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 1.9rem);display:flex;justify-content:center;pointer-events:none}
+.pomo-read:has(.sp-dial) .pomo-cr{position:static;margin-bottom:2px}
+.pomo-cr .scr-live{font-size:.72rem;padding:2px 8px 2px 3px;gap:4px}
+.pomo-cr .scr-live img{width:14px;height:14px}
 .pomo-cr:empty{display:none}
 .pr-cr{display:inline-flex}
 .pr-cr:empty{display:none}
@@ -5649,15 +5659,6 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-lines em.neg{color:var(--muted)}
 .scr-stats{display:flex;justify-content:center;gap:18px;font-size:.88rem;color:var(--muted)}
 .scr-stats b{display:inline-flex;align-items:center;gap:4px;color:var(--ink);font:800 .95rem var(--display);font-variant-numeric:tabular-nums}
-.scr-goal{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:start}
-.scr-goal-ic{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:var(--soft);--cp-wear:var(--accent)}
-.scr-goal-ic svg{width:40px;height:40px;overflow:visible}
-.scr-goal-t{flex:1;display:grid;gap:4px;min-width:0}
-.scr-goal-bar{display:block;height:10px;border-radius:6px;background:color-mix(in srgb,var(--line) 80%,var(--surface));overflow:hidden}
-.scr-goal-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#F6C34A,#E59A12);transition:width 1.1s cubic-bezier(.3,.9,.3,1)}
-.scr-goal.ready{border-color:#E2A82A;box-shadow:0 0 0 3px color-mix(in srgb,#F6C34A 30%,transparent)}
-.scr-goal.ready.pop{animation:scr-bump .5s cubic-bezier(.2,1.8,.4,1)}
-.scr-goal-go{background:linear-gradient(180deg,#FFD978,#F5A623)!important;color:#3A2200!important;border:0!important;font-weight:800}
 .scr-acts{display:flex;justify-content:center}
 .scr-go{min-width:60%;min-height:48px;font-size:1.05rem;background:linear-gradient(180deg,#FFD978,#F5A623)!important;color:#3A2200!important;border:0!important;box-shadow:0 8px 22px rgba(245,166,35,.45)}
 .scr-out .scr-card{animation:scr-outk .24s ease-in both}.scr-out .scr-dim{animation:scr-fade .24s reverse both}
@@ -5681,10 +5682,10 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-mini-t > b{font:900 1.3rem/1.1 var(--display);color:#A86A00;font-variant-numeric:tabular-nums}
 .scr-mini-t > .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scr-mini-goal{display:grid;gap:2px;margin-top:3px;min-width:200px}
-.scr-mini-goal .scr-goal-bar{height:6px}
+
 :root[data-theme="dark"] .scr-mini-t > b,:root[data-theme="dark"] .scr-mini-k{color:#FFD36B}
 :root[data-theme="dark"] .scr-mini{background:linear-gradient(180deg,color-mix(in srgb,#8A5A00 40%,var(--surface)),var(--surface))}
-@media (prefers-reduced-motion:reduce){.scr-card,.scr-big-coin,.scr-lines li,.scr-mini-coin img,.scr-dim{animation:none!important}.scr-shine{display:none}.scr-goal-bar i{transition:none}}
+@media (prefers-reduced-motion:reduce){.scr-card,.scr-big-coin,.scr-lines li,.scr-mini-coin img,.scr-dim{animation:none!important}.scr-shine{display:none}}
 .scr-still .scr-card,.scr-still .scr-big-coin,.scr-still .scr-lines li,.scr-still .scr-mini-coin img{animation:none!important}
 /* dark mode from the system setting (no data-theme set) */
 @media (prefers-color-scheme:dark){
@@ -5813,6 +5814,28 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
 :root[data-theme="dark"] .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}}
+
+/* Pro: double accessory chances on every spin, marked (x2) PRO */
+.wh-x2{display:inline-flex;align-items:center;gap:4px;font:800 .78rem var(--display);color:#E8487A;white-space:nowrap}
+.wh-x2 .pro-badge{font-size:.6rem;padding:2px 5px}
+.wh-x2-line{margin:6px 0 2px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 .88rem var(--display);color:var(--ink)}
+:root[data-theme="dark"] .wh-x2{color:#FF8FB0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wh-x2{color:#FF8FB0}}
+/* the wheel's Spin: brighter than the other gold buttons, with a soft shine */
+.scr-wh .scr-go.wh-go{background:linear-gradient(180deg,#FFF27A 0%,#FFD21F 45%,#FFA800 100%)!important;color:#3A2200!important;font-weight:900;letter-spacing:.02em;
+  box-shadow:0 0 0 2px #FFE45C inset,0 0 18px rgba(255,214,31,.65),0 8px 24px rgba(255,168,0,.5);text-shadow:0 1px 0 rgba(255,255,255,.55)}
+.scr-wh .scr-go.wh-go:hover:not(:disabled){filter:brightness(1.06) saturate(1.1)}
+.scr-wh .scr-go.wh-go:disabled{filter:saturate(.85);opacity:.9}
+/* the turning wheel stays inside its circle (a turned square's corners would stick out, making the card scroll on and off),
+   and the wheel's card never shows a scroll bar (it still scrolls when the prize list is open on a small screen) */
+.wh-clip{position:absolute;inset:0;border-radius:50%;overflow:hidden;contain:paint}
+.wh-card{scrollbar-width:none;overflow-x:hidden}
+.wh-card::-webkit-scrollbar{display:none;width:0;height:0}
+.scr-wh{overflow:hidden}
+/* the credits screen: Wardrobe beside Collect */
+.scr-rw:not(.scr-wh) .scr-acts{gap:10px}
+.scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
+.btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */

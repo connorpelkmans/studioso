@@ -2800,3 +2800,10 @@ dialog .sheet-body > .menu-list:not(.fm-list) > button:disabled{opacity:.55;curs
 .ai-ready-line > span{flex:1;min-width:200px}
 .ai-device .mi-check .sub{display:block}
 .ai-tier>summary::after{content:none!important;display:none!important}
+/* quiz results: centred on the screen (and in the middle of it when there's nothing missed to list below) */
+.qz-res{display:flex;flex-direction:column;align-items:center;text-align:center}
+.qz-res .view-head{justify-content:center;width:100%}
+.qz-res .done-card{width:100%;max-width:640px;margin-inline:auto;box-sizing:border-box}
+.qz-res .row-actions{justify-content:center}
+.qz-res.solo{min-height:calc(100dvh - 200px);justify-content:center}
+@media (max-width:760px){.qz-res.solo{min-height:calc(100dvh - 260px)}}

@@ -108,7 +108,8 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(r2 === 12 + 20 + 30 && /Mastered/.test(ks), "all on time and on target the first time: 12 + 20 + 30: " + r2 + " " + ks);
     await closeReward();
     const r3 = await fireRun(run("r3", 100000, [25000, 25000, 25000, 25000]));
-    ok(r3 === 0 && /No credits this time/.test(await p.textContent(".scr-rw")), "a third run today earns nothing, and says why");
+    await p.waitForTimeout(400);
+    ok(r3 === 0 && !(await p.$(".scr-rw:not(.scr-out)")), "a third run today earns nothing, and shows no screen for 0 credits");
     await closeReward();
 
     // 8. a quiz: 1 per right answer, +5 passing, +5 perfect; 3 tries of the same quiz a day
@@ -124,7 +125,15 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
 
     // 9. a focus session: its own screen
     const f1 = await p.evaluate(() => { const e0 = SBSC.earned(true); window.__sbFire("focus", {type: "end", mode: "focus", minutes: 30}); return new Promise(r => setTimeout(() => r(SBSC.earned(true) - e0), 300)); });
-    ok(f1 === 15 && /Focus Session Done/i.test(await p.textContent(".scr-rw .scr-kick")) && /You focused for 30 minutes/.test(await p.textContent(".scr-rw .scr-lines")), "30 minutes of focus: 15 credits, and the screen says how long you focused on the Focus Session Done screen: " + f1);
+    ok(f1 === 15 && /Focus Session Done/i.test(await p.textContent(".scr-rw:not(.scr-out) .scr-kick")) && /You focused for 30 minutes/.test(await p.textContent(".scr-rw:not(.scr-out) .scr-lines")), "30 minutes of focus: 15 credits, and the screen says how long you focused on the Focus Session Done screen: " + f1 + " | " + await p.evaluate(() => [...document.querySelectorAll(".scr-rw")].map(x => x.className + ": " + x.innerText.replace(/\s+/g, " ").slice(0, 140)).join(" || ")));
+    await closeReward();
+
+    // 9a2. a focus session stopped part way (Reset or Skip): the minutes it logged earn credits, with a screen that says so
+    const f2 = await p.evaluate(() => { const e0 = SBSC.earned(true); window.__sbFire("focus", {type: "end", mode: "focus", minutes: 0}); const S = window.__sbSync; const fd = Object.assign({}, S.state.settings.focusDays); const d = Object.keys(fd).sort().pop() || ""; return e0; });
+    await p.evaluate(() => { const S = window.__sbSync, d = new Date(), k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; S.state.settings = Object.assign({}, S.state.settings, {focusDays: Object.assign({}, S.state.settings.focusDays, {[k]: (Number((S.state.settings.focusDays || {})[k]) || 0) + 8})}); window.__sbFire("focus", {type: "early", mode: "focus", minutes: 8, why: "reset"}); });
+    await p.waitForSelector(".scr-rw:not(.scr-out) .scr-kick", {timeout: 4000}).catch(() => {});
+    const fk = await p.evaluate(e0 => ({k: (document.querySelector(".scr-rw:not(.scr-out) .scr-kick") || {}).textContent || "", n: SBSC.earned(true) - e0}), f2);
+    ok(/Focus Time Counted/.test(fk.k) && fk.n === 4, "a focus session reset part way: its 8 minutes earn 4 credits, with a screen: " + JSON.stringify(fk));
     await closeReward();
 
     // 9b. a study session: each card once, whatever it was rated (Again brings a card back in the same session; that earns nothing more)
@@ -199,6 +208,15 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(await p.evaluate(() => SBSC.spinQueue().length) === 2, "and that spin is used");
     await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
     await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+    // 9g. credits already counted (here from another device, after the last count) are never shown again as earned now
+    await p.evaluate(() => { const sc = window.__sbSync.state.settings.sc; sc.ev = Object.assign({}, sc.ev, {"chest:2000-01-01:synced": 7}); sc.chq = [{id: "lo1", t: "common", c: 10}]; SBSC.openLeftovers(); });
+    await p.waitForSelector(".scr-ch .scr-go", {timeout: 6000});
+    await p.click(".scr-ch .scr-go"); await p.waitForTimeout(400); await p.click(".scr-ch .scr-go");
+    await p.waitForSelector(".scr-rw:not(.scr-ch) .scr-lines", {timeout: 6000}); await p.waitForTimeout(300);
+    const lo = await p.evaluate(() => document.querySelector(".scr-rw:not(.scr-ch):not(.scr-out)").innerText.replace(/\s+/g, " "));
+    ok(!/Other studying/.test(lo) && /\+10\b/.test(lo) && !/\+17\b/.test(lo), "credits already counted aren't shown again as earned: " + lo.slice(0, 160));
+    await closeReward();
+
     // 9f. Pro: a free spin every week, on top of the exam spins; the Wardrobe says so to free students, with Get Pro
     const pr = await p.evaluate(() => { const out = [];
       SBSC.planTest({paywall: true, pro: false});
@@ -211,6 +229,15 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
       SBSC.planTest(null); return out.join(); });
     ok(pr === "true,0,1,1,0,true", "Pro: one free spin a week, apart from the exam spins; free students see Get Pro: " + pr);
     await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+    // Pro: double the accessory chances on every spin, marked (x2) PRO; the coins share what's left
+    await p.evaluate(() => { SBSC.planTest({paywall: true, pro: true}); window.__sbSync.state.settings.sc.wsq = [{id: "px", title: "Final Exam", pct: 91}]; SBSC.spinSoon(); });
+    await p.waitForSelector(".scr-wh .wh-go", {timeout: 6000});
+    const px = await p.evaluate(() => { const li = [...document.querySelectorAll(".wh-odds li")], pc = l => parseFloat(l.querySelector("b").textContent);
+      const items = li.filter(l => l.querySelector(".cp-rar")); return {sum: Math.round(li.reduce((a, l) => a + pc(l), 0)), items: Math.round(items.reduce((a, l) => a + pc(l), 0)), x2: items.every(l => l.querySelector(".wh-x2")), line: !!document.querySelector(".wh-x2-line .pro-badge")}; });
+    ok(px.sum === 100 && px.items === 56 && px.x2 && px.line, "Pro: accessories 56% (double), marked (x2) PRO, odds add up to 100: " + JSON.stringify(px));
+    await p.click(".wh-go"); await p.waitForSelector(".scr-wh.wh-won", {timeout: 8000}); await p.waitForTimeout(300);
+    await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
+    await p.evaluate(() => { SBSC.planTest(null); window.__sbSync.state.settings.sc.wsq = []; });
 
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);

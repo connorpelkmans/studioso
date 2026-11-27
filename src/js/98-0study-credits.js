@@ -305,6 +305,8 @@ var SBSC = (() => {
      says so to free students, with Get Pro, and shows Pro students theirs. */
   const WHEEL_ITEMS = [["legendary", 1, 0.02], ["exotic", 2, 0.04], ["rare", 3, 0.06]];
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
+  // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
+  const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
   const weekKey = () => mondayOf(todayISO());
@@ -364,7 +366,8 @@ var SBSC = (() => {
   function wheelPrizes(){
     const list = (() => { try { return window.SBCOMP && SBCOMP.accList ? SBCOMP.accList() : []; } catch (e) { return []; } })();
     const out = [], used = new Set();
-    WHEEL_ITEMS.forEach(([r, count, p]) => {
+    const x2 = proNow();
+    WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
       const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
       for (let i = 0; i < count; i++) {
         const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
@@ -372,7 +375,7 @@ var SBSC = (() => {
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }
     });
-    WHEEL_COINS.forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
+    (x2 ? WHEEL_COINS_PRO : WHEEL_COINS).forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
     // items spread between the coins, so the small slices aren't all bunched together
     const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
     while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
@@ -429,12 +432,13 @@ var SBSC = (() => {
     const still = calm(), prizes = wheelPrizes(), o = document.createElement("div");
     o.className = "scr-rw scr-wh" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrWhT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    const list = prizes.slice().sort((a, b) => a.p - b.p);
+    const list = prizes.slice().sort((a, b) => a.p - b.p), x2 = proNow(), X2 = `<span class="wh-x2">(x2) <span class="pro-badge">PRO</span></span>`;
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
       <div class="scr-head">${sp.welcome ? `<span class="scr-kick">Welcome to Studyboard!</span><h2 id="scrWhT">A free spin to start you off</h2>` : sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
-      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
+      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-clip"><div class="wh-rot">${wheelSvg(prizes)}</div></div></div>
       <div class="wh-result" aria-live="polite"></div>
-      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
+      ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
+      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
     document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
@@ -500,19 +504,23 @@ var SBSC = (() => {
   function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
-    const gained = Math.max(0, now - before);
+    let gained = Math.max(0, now - before);
     seenTotal = now; lastBy = Object.assign({}, totals().by);
     keepHigh();
     const chestLines = (ch || []).map(c => ({t: `${CHEST[c.t].name} Chest`, n: c.c, s: "Found while you studied", chest: c.t}));
     const chestSum = chestLines.reduce((a, l) => a + l.n, 0);
     const lines = (spec.lines || []).filter(l => l && (l.n != null || l.s));
-    // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
-    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, gained - chestSum);
+    // A single line shows what really counted: daily limits can make it less; it's never more than the work itself can earn (a
+    // "fill" line, focus minutes or cards, takes what was added up to that most)
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, Math.min(lines[0].fill || lines[0].n, gained - chestSum));
     lines.push(...chestLines);
     const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
-    if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    // Credits that arrived some other way since the last count (another device, work counted after the app opened) were already
+    // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
+    if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    if (!gained && !spec.showZero) return;
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
+    if (!gained) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
@@ -540,15 +548,6 @@ var SBSC = (() => {
     quiz: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V15"/><circle cx="12" cy="18.5" r=".6"/><circle cx="12" cy="12" r="9.5"/>', task: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     pres: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>', hello: '<path d="M12 3l2.6 5.6L20 9.4l-4 4.1.9 5.8L12 16.6 7.1 19.3l.9-5.8-4-4.1 5.4-.8z"/>'};
   const icon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.hello}</svg>`;
-  const goalHtml = r => {
-    const g = r.tgt; if (!g) return "";
-    const p0 = Math.min(1, r.bal0 / g.price), p1 = Math.min(1, r.bal / g.price), ready = r.bal >= g.price;
-    return `<div class="scr-goal${ready ? " ready" : ""}" data-p0="${p0}" data-p1="${p1}">
-      <span class="scr-goal-ic cp-r-${esc(g.rarity || "common")}" aria-hidden="true">${g.icon || ""}</span>
-      <span class="scr-goal-t"><b>${esc(g.name)}</b><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span>
-        <span class="mini">${ready ? "You can buy it now!" : `${(g.price - r.bal).toLocaleString()} more credits`}</span></span>
-      ${ready ? `<button type="button" class="btn small scr-goal-go" data-scr="wardrobe">Get It</button>` : ""}</div>`;
-  };
   function showBig(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrRwT");
@@ -561,15 +560,14 @@ var SBSC = (() => {
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
-      ${goalHtml(r)}
-      <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
+      <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
     setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
-    setTimeout(() => { countUp(balEl, r.bal0, r.bal, 900); const gb = o.querySelector(".scr-goal-bar i"), g = o.querySelector(".scr-goal"); if (gb && g) gb.style.width = Math.round(Number(g.dataset.p1) * 100) + "%"; if (g && g.classList.contains("ready")) setTimeout(() => g.classList.add("pop"), 700); }, still ? 0 : tickAt * 1000 + 200);
+    setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let closed = false;
@@ -607,12 +605,14 @@ var SBSC = (() => {
   /* ---------- Each kind of work's ending ---------- */
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
-    if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
-    rollChest("focus");
+    // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
+      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
@@ -621,7 +621,7 @@ var SBSC = (() => {
     flushCards();
     const today = dayCards(todayISO());
     reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
-      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
+      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, fill: n + 1, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
