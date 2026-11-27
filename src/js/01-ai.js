@@ -2173,6 +2173,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -2196,6 +2198,7 @@ function aiFinish(){
   // passing a whole quiz (5+ questions, 80%+) is a good moment to ask for a review (99-review-ask.js decides whether)
   if (quizPasses(right, total)) fire("good-moment", "quiz");
   fire("ai-quiz-done", {deckId: f.deckId, quizId: f.quizId, right, total, partial: !qz || f.qs.length !== qz.questions.length});
+  setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.quizDone(right, total, "ai-" + (f.quizId || f.deckId)); } catch (e) {} }, 350);
   // what you missed becomes cards in this deck, so the quiz ends with a next step (Undo on the results)
   try { quizMissedToCards(f); } catch (e) { console.warn("missed to cards", e); }
 }
@@ -2248,7 +2251,9 @@ function viewAiQuiz(){
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
-  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end)
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${label}${q.topic ? ` · ${esc(q.topic)}` : ""}</span>
@@ -2444,11 +2449,11 @@ function aiUseCard(){
    opens to say which model runs it, where what you send goes, and how it does in each part of Studyboard's 1,100-conversation
    chat test (cats: one number per AI_CATS entry, filled in from the test's results; until then the line says they're coming).
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
-const AI_CATS = ["Planner actions", "Questions about their notes", "Knowledge and maths", "Planner questions and study help", "Study material and the app", "Chatting with the companion"];
+const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
-  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 65, cats: null},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 80, cats: null},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: null}];
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
@@ -2468,7 +2473,7 @@ function aiTiersCard(){
     const byCat = `<div class="ai-tier-fact"><b>By Kind of Question</b>${cats}</div>`;
     if (t.id === "8") return fact("Model", `${esc(aiLevel8Model())}. Chrome uses its built-in AI, Edge uses its own, and other browsers use Google's Gemma 4 E2B.`) + PRIVATE
       + fact("Setup", "Nothing to set up in Chrome or Edge, which download their own AI. Gemma 4 E2B is a one-time download of about 2.8 GB, then it also works offline.") + byCat;
-    if (t.id === "16") return fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
+    if (t.id === "16") return (na16 ? fact("On This Device", esc(DEVAI.e4bNoWhy || "This device can't run it.") + (DEVAI.e4bNoKind === "mobile" ? " Studyboard AI Pro works on any device." : " The 8GB AI may run here instead, and Studyboard AI Pro works on any device.")) : "") + fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
       + fact("Setup", "A one-time download of about 3.3 GB, then it also works offline. It needs 16 GB of memory and a graphics chip that supports WebGPU.") + byCat;
     return fact("Model", "Claude, by Anthropic. It reads long files, photos and PDFs, and can search the web.")
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
@@ -2476,8 +2481,11 @@ function aiTiersCard(){
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
       + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
-  return `<div class="ai-tiers" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
-    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+  // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
+  // is never marked); the reason goes in its details
+  const na16 = typeof DEVAI !== "undefined" && DEVAI.e4bNo === true && now !== "16";
+  return `<div class="ai-tiers" id="aiTiersLive" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
+    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === "16" && na16 ? `<span class="ai-tier-na">Unavailable on Your Device</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
       <div class="ai-tier-bar" role="img" aria-label="${t.pct}% of common student questions"><i style="width:${t.pct}%"></i></div><span class="mini ai-tier-where">${t.where}</span></summary>
       <div class="ai-tier-more">${more(t)}</div></details>`).join("")}
     <p class="mini ai-tiers-foot">Share of common student questions each one answers correctly. Tap one for more.</p></div>`;
@@ -2909,7 +2917,9 @@ function aiPlannerFacts(need){
     P.push(n ? `DO THIS NEXT (the task to work on right now): ${desc(n.x)}${slot(n.x) ? ", scheduled " + slot(n.x) : ""}${n.x.alloc > 0 ? ", " + fmtHM(n.x.alloc) + " planned today" : ""}` : "DO THIS NEXT: nothing right now.");
     P.push("ALSO PLANNED FOR TODAY: " + (today.length ? "\n" + today.map(x => `- ${desc(x)}: ${fmtHM(x.alloc)} today${slot(x) ? ", " + slot(x) : ""}`).join("\n") : "nothing else."));
     // the whole ranking after today, as Full Ranking shows it: open work in order, then work that starts later or waits on something
-    const rest = after.map(x => ({x, note: x.reasons && x.reasons[0] ? x.reasons[0] : ""}))
+    // ("About 1h15 short of time before this is due" was read by the small on-device models as the task being "1 hour 15 minutes short
+    // of the deadline", and repeated in unrelated replies: said plainly instead)
+    const rest = after.map(x => ({x, note: x.reasons && x.reasons[0] ? String(x.reasons[0]).replace(/^About .+? short of time before this is due.*$/, "tight on time, start it soon") : ""}))
       .concat((F.later || []).filter(x => x.t.status !== "done").map(x => ({x, note: x.t.start ? "starts " + x.t.start : "starts later"})))
       .concat((F.blocked || []).filter(x => x.t.status !== "done").map(x => ({x, note: "waiting on " + (blockers(x.t) || []).map(y => y.title).join(", ")})));
     P.push(`THEN, AFTER TODAY'S PLAN IS DONE (the full ranking in this exact order: item 1 is what to do once everything above is finished, item 2 comes after item 1, and so on):${rest.length ? "\n" + rest.slice(0, 40).map((r, i) => `${i + 1}. ${desc(r.x)}${r.note ? ": " + r.note : ""}`).join("\n") : " nothing else is open."}`);

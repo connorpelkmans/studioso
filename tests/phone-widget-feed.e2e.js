@@ -14,7 +14,7 @@ const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], set
     {id: "t3", title: "Care plan", courseId: "c1", type: "Assignment", due: iso(1), hours: 2.25, status: "todo", priority: "med", created: 3}]};
 // SBWData, as the Swift structs declare it: [type, required]
 const T = {
-  data: {v: ["int", 1], day: ["string", 1], at: ["number", 1], dateLabel: ["string"], next: ["next"], tasks: [["task"], 1], more: ["int"], cards: ["int"], dayOff: ["bool"], exam: ["exam"], focus: ["focus"], days: [["day"]], theme: ["theme"], plan: [["slot"]]},
+  data: {v: ["int", 1], day: ["string", 1], at: ["number", 1], dateLabel: ["string"], next: ["next"], tasks: [["task"], 1], more: ["int"], cards: ["int"], dayOff: ["bool"], exam: ["exam"], focus: ["focus"], days: [["day"]], theme: ["theme"], plan: [["slot"]], cushion: ["cushion"]},
   slot: {from: ["number", 1], to: ["number", 1], id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], mins: ["int"]},
   task: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], meta: ["string"], done: ["bool"], late: ["bool"], due: ["string"], time: ["string"], exam: ["bool"]},
   next: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], why: ["string"], mins: ["int"], due: ["string"], time: ["string"]},
@@ -22,7 +22,9 @@ const T = {
   focus: {mode: ["string", 1], running: ["bool", 1], endsAt: ["number", 1], left: ["int", 1], task: ["string"]},
   day: {date: ["string", 1], off: ["bool"], items: [["item"], 1], more: ["int"]},
   item: {id: ["string", 1], title: ["string", 1], course: ["string"], color: ["string"], time: ["string"], exam: ["bool"]},
-  theme: {accent: ["string"], accentInk: ["string"], late: ["string"]}};
+  theme: {accent: ["string"], accentInk: ["string"], late: ["string"]},
+  // Time Cushion: minutes spare (below 0: short) at the tightest deadline in the next 14 days
+  cushion: {mins: ["int", 1], by: ["string", 1], state: ["string", 1]}};
 function decodes(v, type, at, errs){
   if (Array.isArray(type)) { if (!Array.isArray(v)) return errs.push(at + " isn't a list"); v.forEach((x, i) => decodes(x, type[0], `${at}[${i}]`, errs)); return; }
   if (type === "int") { if (!Number.isInteger(v)) errs.push(`${at} = ${v} isn't a whole number`); return; }
@@ -56,6 +58,7 @@ function decodes(v, type, at, errs){
     ok(plan.length >= 1 && plan.every(x => x.to > now && x.to > x.from), `the rest of today's plan is sent as timed blocks (${plan.map(x => x.title + " " + new Date(x.from).toTimeString().slice(0, 5) + "-" + new Date(x.to).toTimeString().slice(0, 5)).join(", ")})`);
     ok(plan.every((x, i) => i === 0 || x.from >= plan[i - 1].to), "the blocks are in order and don't overlap");
     ok(plan.every(x => d.tasks.some(t => t.id === x.id) && Number.isInteger(x.mins)), "each block is one of today's tasks, with its minutes");
+    ok(d.cushion && Number.isInteger(d.cushion.mins) && ["spare", "tight", "short"].includes(d.cushion.state) && d.cushion.by, "the Time Cushion is in it: " + JSON.stringify(d.cushion));
     ok(d.days.length === 6 && d.days.some(x => x.items.some(i => i.title === "Final Clinical Evaluation" && i.exam)), "and the week ahead, with the exam marked");
     // a change is sent again
     await page.evaluate(() => { window.__saved.length = 0; const S = window.__sbSync, t = JSON.parse(JSON.stringify(S.state.tasks.t1)); t.status = "done"; t.doneAt = Date.now(); S.applyChanges([{kind: "task", id: "t1", after: t}], ""); });

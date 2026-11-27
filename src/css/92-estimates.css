@@ -31,3 +31,12 @@
 }
 
 
+
+/* Repeats in quick add and reading pace */
+.qa-meta{flex-wrap:wrap}
+.qa-meta .qa-rep{display:inline-flex;align-items:center;gap:4px;color:var(--ink)}
+.qa-meta .qa-rep svg{flex:none}
+.pages-hint{margin:-4px 0 4px}
+.c2-pace-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-weight:600}
+.c2-pace-row input{width:5.5em;flex:none;text-align:center;font-weight:700}
+.c2-pace .mini{margin:8px 0 0}

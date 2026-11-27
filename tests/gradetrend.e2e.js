@@ -60,6 +60,8 @@ const SEED = () => ({v: 2, updated: 1, settings: {}, courses: [
       ok(/Trend:\s*Up \d+ points? over your last 4 grades/.test(await page.locator('.course-card[data-id="c1"] .gt-spark .sr').textContent()), "sparkline has a text equivalent");
       await page.screenshot({path: path.join(SHOTS, "courses-390.png")});
       await goCourse(page, "c1");
+      // the trend is in the Outlook tab of a course's Grades tab
+      await page.evaluate(() => window.SBGTAB && SBGTAB("outlook")); await page.waitForTimeout(150);
       ok(await page.locator(".gt-sec .gt-svg").count() === 1, "trend chart is in the course Grades tab");
       const svg = page.locator(".gt-svg");
       ok(await svg.getAttribute("role") === "img", "chart has role=img");

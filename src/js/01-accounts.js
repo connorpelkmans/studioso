@@ -1154,7 +1154,8 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
+// The first thing a new student sees: Mochi says hi, then the setup (no account) or sign in. Making an account is offered
+// where it helps (backups, Pro in the setup; Settings any time; Create Account on the sign-in form), not on this first screen
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
   // "No account needed" gets its own button: it closes the welcome like ×, which works on this device and starts the setup
@@ -1162,7 +1163,7 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>What are you studying?</h3>
-    <p>Let's plan your semester, or give me your notes and get flashcards in about a minute. No account needed.</p>
+    <p>Let's plan your semester. No account needed.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next</li>
@@ -1170,7 +1171,7 @@ function sbWelcomeHtml(){
     </ul>
     <button type="button" class="btn primary sb-welc-go sb-welc-skip" data-act="close">Plan My Semester</button>
     <button type="button" class="btn sb-welc-cards" data-act="first-deck">Make Flashcards From My Notes</button>
-    <span class="sb-welc-acct"><button type="button" class="link-btn sb-welc-alt" id="sbSignUp" data-sbm="signup">Sign Up</button><span class="mini">or</span><button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button></span>
+    <span class="sb-welc-acct"><button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button></span>
   </div>`;
 }
 // "Not Now", or closing the first welcome or sign-in sheet

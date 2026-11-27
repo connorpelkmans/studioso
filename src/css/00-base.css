@@ -1127,6 +1127,13 @@ html[data-motion="static"] .rv-ghost{transform:none}
 .rate-btn span{font-size:.8rem;color:var(--muted)}
 .rate-btn.again b{color:var(--late)} .rate-btn.hard b{color:var(--warn)} .rate-btn.good b{color:var(--accent)} .rate-btn.easy b{color:var(--leaf)}
 .done-card,.q-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:22px;margin-top:14px;max-width:760px}
+/* a quiz question sits in the middle, like a flashcard, a little wider, with its text a size up */
+.q-card{max-width:880px;margin-inline:auto;padding:26px 28px}
+.q-card .face-label{font-size:.82rem}
+.q-card .opt,.q-card .order-list li{font-size:1.08rem}
+.q-card .order-list li{padding:11px 10px 11px 14px}
+.q-card .row-actions .btn{font-size:1rem}
+@media (max-width:520px){.q-card{padding:18px 16px}.ai-q .q-prompt{font-size:1.2rem}.q-card .opt,.q-card .order-list li{font-size:1rem}}
 .big-num{font:800 3rem/1 var(--display);margin:0 0 10px;letter-spacing:-.02em}
 .big-num span{font:500 1.05rem var(--body);color:var(--muted);letter-spacing:0}
 .score-bar{height:10px;border-radius:5px;background:var(--soft);overflow:hidden}
@@ -1555,7 +1562,7 @@ html .btn.primary:has(.ai-ic):disabled{opacity:.55}
 .ar-opts li.ok::after{content:"  ✓"}
 .ar-qs details{margin-top:6px;font-size:.9rem}
 .ar-qs details p{margin:4px 0 0}
-.ai-q .q-prompt{font-size:1.18rem;line-height:1.45;white-space:pre-line}
+.ai-q .q-prompt{font-size:1.38rem;line-height:1.42;white-space:pre-line}
 .opt-note{display:block;font-size:.84rem;color:var(--muted);margin-top:4px;font-weight:400}
 .opt.sa .sa-box{flex:none;width:22px;height:22px;border-radius:6px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center}
 .opt.sa.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface))}
@@ -1619,6 +1626,8 @@ html .btn.primary:has(.ai-ic):disabled{opacity:.55}
 .btn.ai-tier-get{justify-self:start;background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:700}
 .btn.ai-tier-get:hover{filter:brightness(1.06)}
 .ai-tier .pro-badge{font-size:.56rem}
+/* the 16GB AI on a device that can't run it: a tag shaped like PRO, in quiet greys so it reads as information, not an offer */
+.ai-tier-na{font:800 .56rem var(--display);letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 6px;background:color-mix(in srgb,var(--ink) 10%,var(--surface));color:var(--muted);border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);white-space:nowrap}
 .ai-tier.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .ai-tier-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ai-tier-chip{font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#fff)}

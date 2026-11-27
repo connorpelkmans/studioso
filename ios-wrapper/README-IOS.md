@@ -106,6 +106,15 @@ time, what you're working on, progress). Pause in the app and the island says Pa
 Lock Screen shows the same. If you switch Live Activities off for Studyboard in Settings, the page notices (`show()` resolves false) and keeps
 the time in its header. `tests/focus-island.e2e.js` checks the page side with a stand-in for the plugin.
 
+**Apple Watch (watchOS 11+, UNTESTED).** On iOS 18 and later the bundle uses `StudyboardFocusLiveActivityWatch` instead of
+`StudyboardFocusLiveActivity`: the same Live Activity plus `.supplementalActivityFamilies([.small])`, the size a paired Apple Watch
+shows in its Smart Stack (CarPlay and the Mac menu bar use it too). For `.small` the card is `WatchFocus`: a ring that empties on its
+own, the tomato inside it, the time left in big rounded digits and the task under it; the Lock Screen and Dynamic Island are unchanged.
+Nothing to set up beyond 3c (the watch shows the phone's Live Activity by itself; Settings > Watch app > Smart Stack > Live Activities
+must be on). Test with a paired watch on watchOS 11+: start a session, raise your wrist, scroll the Smart Stack. The two widgets are picked
+with `if #available(iOS 18.0, *)` / `if #unavailable(iOS 18.0)` in the bundle; if Xcode refuses that in a `WidgetBundle`, raise the
+extension's minimum to iOS 18 and keep only the watch version. This has not been compiled.
+
 ### 3d. Home Screen and Lock Screen widgets (iPhone and iPad, untested)
 
 Two widgets, in the same `StudyboardWidgets` extension as the Focus timer (do 3c first). Files: `native/HomeWidgets/`.
@@ -169,6 +178,40 @@ target). Add it in Xcode (File > Add Files to "App", untick "Copy items if neede
   compile fixes: this file hasn't been built yet. Apple's rules for the framework:
   https://developer.apple.com/apple-intelligence/acceptable-use-requirements-for-the-foundation-models-framework/
 
+### 3f. Block distracting apps during Focus: Screen Time (UNTESTED, needs Apple's approval)
+
+The Focus settings can offer "Block distracting apps" on iPhone: the student picks apps, categories and websites once with Apple's
+`FamilyActivityPicker`, and while a Focus session runs Screen Time shields them (ManagedSettings). The shields come off at the
+session's end even with Studyboard closed or killed (a `DeviceActivityMonitor` extension), on Stop, and when the app opens after the end.
+Studyboard never learns which apps were picked (they are opaque tokens, kept on the phone). Files: `native/FocusGuard/`.
+
+**Apple must approve it first.** The Family Controls capability (`com.apple.developer.family-controls`) works in development builds,
+but App Store and TestFlight builds need the **distribution** entitlement, which Apple grants on request: Apple Developer > Account >
+Request the Family Controls (Distribution) entitlement, describe the use (a student blocking their own distracting apps during a focus
+session, individual authorization, no data leaves the device). Ask for it for **both** bundle IDs (the app and the monitor extension).
+Until it is granted, ship without step 4 below: the page hides the setting because `available()` says `apps: false`.
+
+1. **Plugin (App target):** add `StudyboardFocusGuardPlugin.swift` and `StudyboardFocusGuardShared.swift` (File > Add Files to "App",
+   target App). `MainViewController` registers it and `npm run ios:stage` adds it to Capacitor's plugin list.
+2. **Monitor extension:** File > New > Target > **Device Activity Monitor Extension**, name it `StudyboardFocusGuardMonitor`, Don't
+   Activate. Replace its generated Swift file with `StudyboardFocusGuardMonitor.swift` and add `StudyboardFocusGuardShared.swift` to this
+   target too. Its Info.plist's `NSExtensionPrincipalClass` must be `$(PRODUCT_MODULE_NAME).StudyboardFocusGuardMonitor`
+   (`NSExtensionPointIdentifier` `com.apple.deviceactivity.monitor-extension`). Minimum Deployments: iOS 16.
+3. **Capabilities, on the App and the extension:** + Capability > **Family Controls**, and **App Groups** with
+   `group.com.studyboardapp.studyboard` (the picked apps and the end time are kept there).
+4. **Turn it on:** once the entitlement is in both targets' entitlements, add `StudyboardFamilyControls` = `YES` (Boolean) to the app's
+   Info.plist. Without it `available()` reports `apps: false` and `pickApps()`/`start()` do nothing, so a build without approval is safe.
+
+JS (`native-bridge.js` section 12, the same on Android, where it is Do Not Disturb):
+`window.StudyboardNative.focusGuard = {available(): Promise<{dnd, apps}>, pickApps(): Promise<boolean>, start({until, apps, dnd}): Promise<boolean>, stop(): Promise<boolean>}`;
+iPhone answers `dnd: false` (an app can't switch on a Focus mode). `pickApps()` asks for Screen Time access the first time ("individual"
+authorization, Face ID / passcode), then shows the picker. Device Activity schedules must be at least 15 minutes, so a shorter session's
+schedule starts earlier; only its end matters. If the monitor can't be scheduled, nothing is blocked (shields that outlive a session would
+be worse than none).
+
+Test on a device with a development build: turn the setting on, pick two apps, start a 1-minute session, open a picked app (a shield
+appears), let it end with Studyboard closed (the app opens normally again), and Stop mid-session.
+
 ## 4. Build, test and submit
 
 ```bash
@@ -208,6 +251,17 @@ Web Push does not exist inside WKWebView, so the app uses native push through `@
 3. Apple Developer > Keys: create an **APNs Auth Key** (.p8). Note the Key ID and your Team ID. Give the .p8, Key ID, Team ID and bundle id `com.studyboardapp.studyboard` to the server as secrets (never ship them in the app). Debug builds get sandbox tokens (`api.sandbox.push.apple.com`), TestFlight/App Store builds production tokens (`api.push.apple.com`).
 4. The page calls `window.StudyboardNative.enablePush()` from the reminders switch; it resolves `{platform: "ios", kind: "apns", token}` (hex device token) or `null`. `StudyboardNative.pushAvailable` tells the page whether to offer it. Call `enablePush({prompt: false})` on every start to pick up a changed token. The server sends through APNs directly (or through FCM only if you add the Firebase iOS SDK, which this setup does not).
 5. A tap on a notification whose data carries `taskId` / `rid` opens `?sbtask=&sbrid=` (the same parameters as the web push click).
+6. **Mark Done and Snooze 1 Hour (UNTESTED).** send-reminders puts `aps.category` in each push (`SB_REMINDER_TASK`: both buttons;
+   `SB_REMINDER`: Snooze only). `native/Notifications/StudyboardNotifActions.swift` (target App; add it like the other files,
+   `MainViewController` registers it and `npm run ios:stage` lists it) registers those categories and sits in front of Capacitor's
+   notification handling, passing on everything that isn't one of its buttons. A press (on the iPhone or on a paired **Apple Watch**,
+   which shows the phone's notification with the same buttons) doesn't open the app: it calls send-reminders' `done` / `snooze` with
+   the reminder's one-time token, and waits in a queue the page drains when it next opens (`StudyboardNative.notifActions`,
+   native-bridge.js section 13; `src/js/71-native-actions.js` ticks the task off with Undo). A Snooze the server couldn't take comes
+   back as a local notification an hour later. For a press that starts the app in the background, the handler is installed from
+   `StudyboardBackgroundRefresh.register()` in AppDelegate's didFinishLaunching (ios:stage adds that line) and again once Capacitor has
+   set its own. No extra capability is needed. Test: send a test reminder for a task, press Mark Done from the Lock Screen and from the
+   watch with the app closed, then open the app.
 
 ## 7. Purchases (guideline 3.1.1, 3.1.3)
 

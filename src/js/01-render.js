@@ -522,7 +522,9 @@ function taskView(t0){
     if (st) rows.push([I.start, esc(fmtDate(st)), esc(cfg.start || "Start Date")]);
     // once work has started, what's left (a range, from your pace, check-ins and how tasks like this usually go)
     const leftTxt = !done && !ms && (Number(t.focusMin) > 0 || progress(t).frac > 0) && remainingOf(t) > 0 ? ` · ${esc(leftRange(t))} left` : "";
-    if (cfg.hours && isNum(t.hours) && !ms) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
+    // a reading with pages: "30 pages · about 1h 30m", at the course's reading pace
+    if (Number(t.pages) >= 1 && !ms) rows.push([I.book, esc(pagesText(t)), isNum(t.hours) && Number(t.hours) > 0 ? "Pages · the time you set" : `Pages · at ${esc(fmtPace(readPace(t.courseId)))} min a page`]);
+    if (cfg.hours && isNum(t.hours) && !ms && !(Number(t.pages) >= 1)) rows.push([I.clock, esc(fmtHM(Number(t.hours))), esc(cfg.hours) + (t.focusMin ? ` · ${esc(fmtMins(t.focusMin))} focused so far` : "") + leftTxt]);
     else if (t.focusMin) rows.push([I.clock, esc(fmtMins(t.focusMin)) + " focused", `${t.pomos || 0} focus session${t.pomos === 1 ? "" : "s"}` + leftTxt]);
     if (cfg.reading && t.reading) rows.push([I.book, esc(t.reading), esc(cfg.reading)]);
     if (cfg.location && t.location) rows.push([I.pin, esc(t.location), esc(cfg.location)]);
@@ -652,7 +654,9 @@ function taskForm(t, preset = {}){
         <div class="adv-body">
           <div class="two">
             <label class="f" data-fld="hours"><span class="lbl">Hours Needed</span><span class="tf-hours-row"><input type="number" name="hours" min="0" step="0.25" inputmode="decimal" value="${isNum(t.hours) ? esc(t.hours) : ""}" placeholder="e.g. 3">${inPreview() ? "" : `<button type="button" class="btn small ai-btn est-btn" id="tfEst" data-act="tf-est">${aiReady() ? AI_ICON + " " : ""}Estimate</button>`}</span></label>
+            <label class="f" data-fld="pages"${t.type === "Reading" || Number(t.pages) >= 1 ? "" : " hidden"}><span class="lbl">Pages</span><input type="number" name="pages" min="1" max="5000" step="1" inputmode="numeric" value="${Number(t.pages) >= 1 ? esc(t.pages) : ""}" placeholder="e.g. 30"></label>
           </div>
+          <p class="mini pages-hint" id="pagesHint" hidden aria-live="polite"></p>
           <p class="mini est-hint" id="estHint" hidden aria-live="polite"></p>
           <p class="mini acc-hint" id="accHint" hidden aria-live="polite"></p>
           <label class="f" data-fld="location"><span class="lbl">Location</span><input type="text" name="location" maxlength="120" value="${esc(t.location)}" placeholder="e.g. Loew Hall 101"></label>
@@ -708,6 +712,8 @@ function taskForm(t, preset = {}){
       difficulty: fd.get("difficulty") || "med", late: fd.get("late") || "unknown",
       latePen: fd.get("late") === "penalty" && isNum(fd.get("latePen")) && Number(fd.get("latePen")) > 0 ? Math.min(100, Number(fd.get("latePen"))) : null,
       location: cfg.location ? txt("location") : "", team: cfg.team ? txt("team") : "", reading: cfg.reading ? txt("reading") : "", link,
+      // a reading's pages: with no hours set, its time comes from the pages at the course's reading pace
+      pages: !MILESTONE(type) && Number(fd.get("pages")) >= 1 ? Math.min(5000, Math.round(Number(fd.get("pages")))) : undefined,
       docs: docsF ? docsF.value() : DOCLINK.norm(t.docs)
     };
     if (MILESTONE(type)) {
@@ -758,6 +764,7 @@ function taskForm(t, preset = {}){
     const v = n => (f.elements[n] && !f.elements[n].closest("[hidden]")) ? String(f.elements[n].value || "").trim() : "";
     const bits = [];
     if (v("hours")) bits.push(v("hours") + "h");
+    if (v("pages")) bits.push(v("pages") + " pages");
     if (v("location")) bits.push(v("location"));
     if (v("team")) bits.push("team");
     if (v("link")) bits.push("link");
@@ -799,6 +806,12 @@ function taskForm(t, preset = {}){
     else if (v === "doing" && cur >= 100) pctIn.value = 90;
     $("#pctOut").textContent = pctIn.value + "%";
   });
+  // "30 pages · about 1h 30m at 3 min a page" under Hours Needed while no hours are set
+  function drawPages(){
+    const h = $("#pagesHint"), pi = dlg.querySelector("input[name=pages]"), hi = dlg.querySelector("input[name=hours]"), cs = dlg.querySelector("select[name=courseId]"); if (!h || !pi || !hi) return;
+    const n = Number(pi.value), on = n >= 1 && !pi.closest("[hidden]") && !String(hi.value).trim();
+    h.hidden = !on; h.textContent = on ? `${pagesText({pages: Math.round(n), courseId: cs ? cs.value : ""})} at ${fmtPace(readPace(cs ? cs.value : ""))} min a page. Set hours to use your own time instead.` : "";
+  }
   const applyType = () => {
     const type = curType(), cfg = cfgOf(type);
     const show = (fld, on, label) => { const el = dlg.querySelector(`[data-fld="${fld}"]`); if (!el) return; el.hidden = !on; if (label) el.querySelector(".lbl").textContent = label; };
@@ -809,6 +822,8 @@ function taskForm(t, preset = {}){
     show("team", !!cfg.team, cfg.team);
     show("link", !!cfg.link, cfg.link);
     show("reading", !!cfg.reading, cfg.reading);
+    { const pf = dlg.querySelector('[data-fld="pages"]'); if (pf) pf.hidden = MILESTONE(type) || !(type === "Reading" || pf.querySelector("input").value); }
+    drawPages();
     show("remote", MILESTONE(type));
     $("#dueLbl").textContent = cfg.due;
     $("#pctLbl").textContent = cfg.prog;
@@ -827,6 +842,8 @@ function taskForm(t, preset = {}){
     pctHint(); drawCl(); if (typeof planHint === "function") planHint(); advSummary();
   };
   $("#tfType").addEventListener("change", applyType);
+  ["input[name=pages]", "input[name=hours]", "select[name=courseId]"].forEach(q => { const x = dlg.querySelector(q); if (x) { x.addEventListener("input", drawPages); x.addEventListener("change", drawPages); } });
+  drawPages();
   {
     const rs = dlg.querySelector("select[name=repeat]"), un = dlg.querySelector("input[name=until]"), dueIn = dlg.querySelector("input[name=due]"), cSel = dlg.querySelector("select[name=courseId]");
     if (rs) {
@@ -996,10 +1013,19 @@ function repeatDates(due, every, until){
   for (let n = 1; n <= 120; n++) { const d = repeatDue(due, every, n); if (d > until) break; out.push(d); }
   return out;
 }
-function repeatCopies(base, every, until){
+function repeatCopies(base, every, until){ return repeatCopiesAt(base, repeatDates(base.due, every, until)); }
+// A repeat typed in a sentence ("every monday", "MWF until dec 12", 75-capture.js): the same series as the Repeat field makes,
+// on the rule's own days. rule.every and rule.until mean what Repeat and Repeat Until mean; base.due is the first day.
+// -> {copies, until}
+function ruleCopies(base, rule){
+  const until = rule.until && rule.until >= base.due ? rule.until : repeatEnd(base.due, base.courseId);
+  const dates = rule.days && rule.days.length ? SBCAPTURE.core.ruleDates(rule, base.due, until).filter(d => d > base.due) : repeatDates(base.due, rule.every, until);
+  return {copies: repeatCopiesAt(base, dates.slice(0, 120)), until};
+}
+function repeatCopiesAt(base, dates){
   const off = dayDiff(base.start || base.due, base.due);
-  return repeatDates(base.due, every, until).map((d, i) => {
-    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
+  return dates.map((d, i) => {
+    const keep = {}; ["title", "courseId", "type", "time", "priority", "notes", "hours", "weight", "difficulty", "late", "latePen", "location", "team", "reading", "link", "seriesId", "pages"].forEach(k => { if (base[k] !== undefined) keep[k] = clone(base[k]); });
     const x = newTask(Object.assign(keep, {due: d, start: addDays(d, -off), status: "todo", checklist: (base.checklist || []).map(i => ({id: uid(), text: i.text, done: false}))}));
     x.order += i + 1;
     return {kind: "task", id: x.id, after: x};

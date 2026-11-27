@@ -1,8 +1,8 @@
 /* ===== module: 98-companion.css ===== */
 /* Study Companions */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .3s cubic-bezier(.2,.8,.3,1)}
-/* Stepping aside for a toast: it hops up above the message (it used to fade out, so it vanished whenever one showed) */
+.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .45s cubic-bezier(.45,0,.25,1)}
+/* Stepping aside for a toast: a short step or a hop up, and back again, eased in and out (98-companion.js duck) */
 .cp-front .cp.cp-duck{translate:var(--cp-dx,0px) var(--cp-lift,0px)}
 .cp-front .cp-hit.cp-hit-off{pointer-events:none}
 @media (prefers-reduced-motion:reduce){.cp-front .cp{transition:opacity .2s ease}}
@@ -129,7 +129,6 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-.cp-acc-tile.off{opacity:.55;cursor:default}
 /* Rarity: grey Common, green Uncommon, blue Rare, purple Exotic, yellow Legendary */
 .cp-rar{display:inline-block;font:700 .58rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:999px;color:#fff;background:#6B7280;vertical-align:middle;white-space:nowrap}
 .cp-rar-uncommon{background:#15803D}
@@ -143,7 +142,6 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-acc-tile.cp-r-legendary{border-color:color-mix(in srgb,#E6A800 60%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#FACC15 14%,var(--surface)),var(--surface))}
 .cp-acc-tile.on.cp-r-legendary,.cp-acc-tile.on.cp-r-exotic,.cp-acc-tile.on.cp-r-rare,.cp-acc-tile.on.cp-r-uncommon{border-color:var(--accent)}
 .cp-acc-grp{margin:6px 0 0;font:700 .85rem/1.2 var(--display);display:flex;align-items:baseline;gap:6px}
-.cp-how li b .cp-rar{margin-left:4px}
 .cpu .cp-rar{font-size:.72rem;padding:4px 10px;animation:cpu-up .5s ease-out .6s both}
 /* Legendary twinkles and the propeller's spin: still under reduced motion */
 .cp-tw{transform-box:fill-box;transform-origin:center}
@@ -155,13 +153,33 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-still .cp-tw,.cp-still .cp-spin{animation:none!important}
 @keyframes cp-tw{0%,100%{transform:scale(.55);opacity:.55}50%{transform:scale(1.1);opacity:1}}
 @keyframes cp-spin{0%,100%{transform:scaleX(1)}50%{transform:scaleX(-1)}}
-.cp-how{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.cp-how li{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.cp-how-ways{display:grid;gap:6px}
-.cp-how-way{display:grid;gap:1px;font-size:.78rem}
-.cp-how-bar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
-.cp-how-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
-.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1)}
+.cp-acc-tile.off{cursor:pointer}
+.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1);opacity:.55}
+.cp-acc-tile.off .cp-acc-n{opacity:.7}
+/* Props are bought with Studyboard Credits (98-0study-credits.js): the price under each one not owned yet, gold when it's affordable (the tile keeps its rarity's colours) */
+.cp-acc-p{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.cp-acc-p b{font-weight:800}
+.cp-acc-tile.can-buy .cp-acc-ic{filter:none;opacity:.85}
+.cp-acc-tile.can-buy .cp-acc-p{color:#8A5A00}
+:root[data-theme="dark"] .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+.cp-acc-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cp-acc-h .scr-pill{margin-left:auto;font-size:.85rem}
+/* The buy sheet */
+.cp-buy .sheet-body{display:grid;gap:14px}
+.cp-buy-stage{display:grid;place-items:center;min-height:170px;border-radius:16px;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,#F6C34A 22%,var(--surface)),var(--soft) 70%)}
+.cp-buy-stage .cp-acc-ic{width:96px;height:96px}
+.cp-buy-price{display:flex;align-items:center;gap:12px}
+.cp-buy-price > span{display:grid;gap:2px}
+.cp-buy-price b{font:800 1.25rem var(--display)}
+.cp-buy-price > span > span{font-size:.86rem;color:var(--muted)}
+.cp-buy-wallet{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);border-radius:14px}
+.cp-buy-wallet > span:first-child{color:var(--muted);font-size:.9rem}
+.cp-buy-wallet b{display:inline-flex;align-items:center;gap:5px;font:800 1.05rem var(--display)}
+.cp-buy-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#F6C34A 24%,var(--surface))}
+.cp-buy-chip.ok{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.cp-buy-how > summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+.cp-buy-how[open]{display:grid;gap:8px}
+.cp-buy-go{display:inline-flex;align-items:center;gap:6px}
 .cp-acc-ic{width:44px;height:44px;display:block;--cp-wear:var(--accent)}
 .cp-acc-ic svg{width:100%;height:100%;overflow:visible}
 .cp-tints{display:grid;gap:8px}
@@ -326,3 +344,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .cpu.cpu-still *,.cpu.cpu-still{animation:none!important}
 .cpu.cpu-still .cpu-spark{opacity:.8;transform:none}
 @media (prefers-reduced-motion:reduce){.cpu *,.cpu{animation:none!important}.cpu .cpu-spark{opacity:.8}}
+/* dark mode from the system setting (no data-theme set) */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+}

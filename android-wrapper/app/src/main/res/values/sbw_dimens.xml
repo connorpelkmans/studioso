@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ gives widgets the system's corner radius (values-v31); before that, this one -->
+    <dimen name="sbw_radius">18dp</dimen>
+    <dimen name="sbw_inner_radius">12dp</dimen>
+</resources>

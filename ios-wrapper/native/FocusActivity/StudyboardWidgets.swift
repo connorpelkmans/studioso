@@ -11,7 +11,15 @@ import WidgetKit
 @main
 struct StudyboardWidgets: WidgetBundle {
     var body: some Widget {
-        StudyboardFocusLiveActivity()
+        // iOS 18+ (and so watchOS 11+ on a paired Apple Watch): the same Live Activity with a layout made for the watch's Smart Stack.
+        // One or the other, never both (two configurations for the same attributes would clash). Two plain ifs rather than if/else,
+        // which keeps to the result-builder parts WidgetBundleBuilder is known to have (the same pattern as adding an iOS 18 control).
+        if #available(iOS 18.0, *) {
+            StudyboardFocusLiveActivityWatch()
+        }
+        if #unavailable(iOS 18.0) {
+            StudyboardFocusLiveActivity()
+        }
         #if STUDYBOARD_HOME_WIDGETS
         StudyboardTodayWidget()
         StudyboardLockWidget()
@@ -304,22 +312,94 @@ struct StudyboardFocusLiveActivity: Widget {
         ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
             LockCard(s: context.state, accent: context.attributes.accent, done: context.isStale)
         } dynamicIsland: { context in
-            let s = context.state
-            return DynamicIsland {
-                // all in one region, so the time can change together with the Play/Pause switch (see Clock)
-                DynamicIslandExpandedRegion(.bottom) {
-                    Panel(s: s, look: Look(ink: .white, muted: .white.opacity(0.7), time: modeColor(s), second: Color.white.opacity(0.2), island: true),
-                          done: context.isStale)
-                        .padding(.horizontal, 8).padding(.bottom, 4)
-                }
-            } compactLeading: {
-                Tomato(s: s)
-            } compactTrailing: {
-                TimeLeft(s: s).multilineTextAlignment(.trailing).frame(maxWidth: 52, alignment: .trailing).foregroundStyle(modeColor(s))
-            } minimal: {
-                Tomato(s: s)
-            }
-            .keylineTint(modeColor(s))
+            focusIsland(context)
         }
     }
+}
+
+// iOS 18+: the same, plus the .small family, which is what an Apple Watch (watchOS 11+) shows in the Smart Stack and what CarPlay
+// and the Mac menu bar use. The watch gets WatchFocus (the time left, the task, and a ring); everything else is unchanged.
+@available(iOS 18.0, *)
+struct StudyboardFocusLiveActivityWatch: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: StudyboardFocusAttributes.self) { context in
+            FocusActivityContent(context: context)
+        } dynamicIsland: { context in
+            focusIsland(context)
+        }
+        .supplementalActivityFamilies([.small])
+    }
+}
+
+@available(iOS 18.0, *)
+private struct FocusActivityContent: View {
+    @Environment(\.activityFamily) private var family
+    let context: ActivityViewContext<StudyboardFocusAttributes>
+    var body: some View {
+        switch family {
+        case .small:
+            WatchFocus(s: context.state, done: context.isStale)
+                .activityBackgroundTint(Color(hex: "#071433"))
+                .activitySystemActionForegroundColor(Color(hex: "#E7EEFA"))
+        default:
+            LockCard(s: context.state, accent: context.attributes.accent, done: context.isStale)
+        }
+    }
+}
+
+// The watch's layout: a ring that empties as the session runs (it moves on its own, with no updates from the phone), the tomato in
+// it, the time left in big rounded digits, and the task under it. No buttons: on the watch a tap opens the session on the phone.
+@available(iOS 18.0, *)
+private struct WatchFocus: View {
+    let s: StudyboardFocusAttributes.ContentState
+    let done: Bool
+    var body: some View {
+        let c = Clock(s, running: s.pausedLeft == 0)
+        let color = s.mode == "focus" ? Color(hex: "#FF6B55") : Color(hex: "#3CC794")
+        HStack(spacing: 10) {
+            ZStack {
+                if c.running && !done {
+                    ProgressView(timerInterval: c.start...c.end, countsDown: true) { EmptyView() } currentValueLabel: { EmptyView() }
+                        .progressViewStyle(.circular).tint(color)
+                } else {
+                    ProgressView(value: done ? 0 : Double(c.left), total: Double(c.total)).progressViewStyle(.circular).tint(color)
+                }
+                Tomato(s: s, size: 18)
+            }
+            .frame(width: 42, height: 42)
+            VStack(alignment: .leading, spacing: 1) {
+                if done {
+                    Text("\(s.label) Complete").font(.headline).foregroundStyle(Color(hex: "#E7EEFA")).lineLimit(1)
+                } else {
+                    ClockTime(c: c).font(.system(.title3, design: .rounded).weight(.bold)).foregroundStyle(color)
+                        .contentTransition(.numericText(countsDown: true))
+                }
+                Text(s.task.isEmpty ? (c.running ? s.label : "Paused") : s.task)
+                    .font(.caption).foregroundStyle(Color(hex: "#A9BADC")).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// The Dynamic Island, the same for both configurations
+private func focusIsland(_ context: ActivityViewContext<StudyboardFocusAttributes>) -> DynamicIsland {
+    let s = context.state
+    return DynamicIsland {
+        // all in one region, so the time can change together with the Play/Pause switch (see Clock)
+        DynamicIslandExpandedRegion(.bottom) {
+            Panel(s: s, look: Look(ink: .white, muted: .white.opacity(0.7), time: modeColor(s), second: Color.white.opacity(0.2), island: true),
+                  done: context.isStale)
+                .padding(.horizontal, 8).padding(.bottom, 4)
+        }
+    } compactLeading: {
+        Tomato(s: s)
+    } compactTrailing: {
+        TimeLeft(s: s).multilineTextAlignment(.trailing).frame(maxWidth: 52, alignment: .trailing).foregroundStyle(modeColor(s))
+    } minimal: {
+        Tomato(s: s)
+    }
+    .keylineTint(modeColor(s))
 }

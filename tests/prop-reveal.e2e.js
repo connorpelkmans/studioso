@@ -1,11 +1,12 @@
 // node tests/prop-reveal.e2e.js [screenshot folder]
-// A new companion prop is shown in the middle of the screen in a burst of light: its name, what earned it, Put It On and Later.
+// A new companion prop (bought with Studyboard Credits) is shown in the middle of the screen in a burst of
+// light: its name, Put It On and Later.
 // Put It On dresses the companion; Later or Escape closes it; it waits while a sheet is open; one shows at a time.
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html"), SHOTS = process.argv[2] || "";
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tasks: [], courses: [], settings: {capacity: 15, comp: {earned: {medal: 1, scarf: 1}}}};
+const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tasks: [], courses: [], settings: {capacity: 15, sc: {intro: 1, own: {medal: 100, scarf: 100}}}};
 (async () => {
   const browser = await chromium.launch({executablePath}), errs = [];
   try {
@@ -20,7 +21,7 @@ const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tas
     const r = await page.evaluate(() => { const o = document.querySelector(".cpu"); if (!o) return null; const b = o.querySelector(".cpu-prop").getBoundingClientRect();
       return {name: o.querySelector(".cpu-name").textContent, kick: o.querySelector(".cpu-kick").textContent, btns: [...o.querySelectorAll("[data-cpu]")].map(x => x.textContent), focus: document.activeElement && document.activeElement.textContent,
         cx: Math.round(b.left + b.width / 2), art: !!o.querySelector(".cpu-prop svg g, .cpu-prop svg path"), role: o.getAttribute("role"), label: o.getAttribute("aria-labelledby"), top: o.matches(":popover-open") || getComputedStyle(o).position === "fixed"}; });
-    ok(r && r.name === "Champion Medal" && /New Prop Unlocked/i.test(r.kick) && r.art, "the new prop shows with its name and picture: " + JSON.stringify(r));
+    ok(r && r.name === "Champion Medal" && /New Accessory/i.test(r.kick) && r.art, "the new prop shows with its name and picture: " + JSON.stringify(r));
     ok(r && Math.abs(r.cx - 201) <= 2 && r.top, "in the middle of the screen, over everything");
     ok(r && r.btns.join("|") === "Later|Put It On" && r.focus === "Put It On" && r.role === "dialog" && r.label === "cpuName", "with Later and Put It On (focused), as a named dialog");
     if (SHOTS) await page.screenshot({path: path.join(SHOTS, "reveal.png")});
@@ -38,7 +39,7 @@ const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tas
     // 4. Escape: closed, not worn
     await page.keyboard.press("Escape"); await page.waitForTimeout(500);
     ok(!(await page.$(".cpu")) && !(await page.evaluate(() => SBCOMP.wornNames())).includes("Cozy Scarf"), "Escape closes it without putting it on");
-    // 5. a prop not earned yet (Pro or not reached): one Got It button
+    // 5. a prop not bought yet: one Got It button
     await page.evaluate(() => SBCOMP.reveal("cape")); await page.waitForTimeout(1300);
     const g = await page.evaluate(() => [...document.querySelectorAll(".cpu [data-cpu]")].map(x => x.textContent));
     ok(g.join("|") === "Got It", "a prop the companion can't wear yet has one Got It button: " + g.join("|"));

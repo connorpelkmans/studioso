@@ -26,5 +26,11 @@
     <string>Default</string>
   </array>
   <!-- In-app purchase needs the capability switched on in Xcode but no entitlement key -->
+  <!-- Block distracting apps during Focus (README-IOS.md 3f): add only once Apple has granted Family Controls (Distribution) for this
+       app AND the StudyboardFocusGuardMonitor extension (same key in the extension's entitlements), then set StudyboardFamilyControls
+       to YES in Info.plist:
+  <key>com.apple.developer.family-controls</key>
+  <true/>
+  -->
 </dict>
 </plist>
