@@ -1175,8 +1175,10 @@
     // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
     clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
-  // A toast that overlaps it: it steps sideways, left or right (whichever is the shorter step that stays on screen and clear of
-  // the Add Task button), and only hops up over it where neither side has room
+  // A toast that overlaps it: it takes the smallest way out of the toast's way: a short step left or right (on screen, and clear
+  // of the Add Task button and the tab bar or sidebar), or a hop straight up over it. A sideways step is never longer than about
+  // one and a half of its own widths, so it never crosses the screen (it used to slide right across a wide toast to the far side).
+  // When the toast goes it glides back to its own spot.
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
@@ -1192,22 +1194,18 @@
         const W = document.documentElement.clientWidth || innerWidth, rect = el => el && el.getClientRects().length ? el.getBoundingClientRect() : null;
         const walls = [rect(document.getElementById("fab")), rect(document.querySelector("nav.tabs"))].filter(r => r && r.width && r.height);
         const clear = d => b.left + d >= 6 && b.right + d <= W - 6 && !walls.some(r => b.left + d < r.right && b.right + d > r.left && b.top < r.bottom && b.bottom > r.top);
-        const opts = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(clear).sort((x, y) => Math.abs(x) - Math.abs(y));
-        if (opts.length) dx = opts[0]; else lift = Math.ceil(b.bottom - a.top + 8);
+        const cap = Math.max(120, (b.right - b.left) * 1.5);
+        const side = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(d => Math.abs(d) <= cap && clear(d));
+        const up = Math.ceil(b.bottom - a.top + 8), upOk = b.top - up >= 6;
+        const best = side.sort((x, y) => Math.abs(x) - Math.abs(y))[0];
+        if (best != null && (!upOk || Math.abs(best) <= up)) dx = best; else lift = up;
       }
     }
     // (the companion's layer can be zoomed, so the step is set in its own pixels)
     const z = zf();
     if (hit) { box.style.setProperty("--cp-dx", (dx / z).toFixed(1) + "px"); box.style.setProperty("--cp-lift", (-lift / z).toFixed(1) + "px"); box.dataset.dx = String(dx); box.dataset.lift = String(lift); }
-    // when the toast goes, it stays where it stepped to (its step becomes its place) and carries on as usual from there
-    if (!hit && box.classList.contains("cp-duck")) {
-      const z = zf(), dx0 = Number(box.dataset.dx || 0) / z, dy0 = -Number(box.dataset.lift || 0) / z;
-      const l = parseFloat(box.style.left) + dx0, tp = parseFloat(box.style.top) + dy0;
-      box.style.transition = "none"; box.classList.remove("cp-duck", "cp-h-fab");
-      if (Number.isFinite(l) && Number.isFinite(tp)) { box.style.left = l.toFixed(1) + "px"; box.style.top = tp.toFixed(1) + "px"; box.dataset.x = String(Math.round(l)); box.dataset.y = String(Math.round(tp)); }
-      void box.offsetWidth; box.style.transition = "";
-      return;
-    }
+    // when the toast goes it glides back to its own spot (the step is undone; its place never changed)
+    if (!hit && box.classList.contains("cp-duck")) { box.classList.remove("cp-duck"); box.dataset.dx = "0"; box.dataset.lift = "0"; return; }
     box.classList.toggle("cp-duck", hit);
     // when it's moved to a new place (it finds its own spot clear of a toast too), the step is worked out again from there
     if (box !== duckSeen) { duckSeen = box; let at = ""; new MutationObserver(() => { const k = box && box.style.left + "," + box.style.top; if (k !== at) { at = k; requestAnimationFrame(duck); } }).observe(box, {attributes: true, attributeFilter: ["style"]}); }
@@ -1340,6 +1338,7 @@
   function dailyHello(){
     try {
       if (!talkOn() || !act || !cur || !box || box.hidden || document.hidden || mood !== "idle") return;
+      if (window.SBESS && !SBESS.shows("companion-lines")) return;
       const t = todayISO(), n = userName(); if (!n || localStorage.getItem(HELLO_KEY) === t) return;
       localStorage.setItem(HELLO_KEY, t);
       const h = new Date().getHours();
@@ -2384,7 +2383,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const CHAT_KEY = "studyboard:comp:chat";
   const chatRead = () => { try { return Number(localStorage.getItem(CHAT_KEY)) || 0; } catch (e) { return 0; } };
   const chatMark = () => { try { localStorage.setItem(CHAT_KEY, String(Date.now())); } catch (e) {} };
-  const quietNow = () => !isOn() || !talkOn() || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
+  const quietNow = () => !isOn() || !talkOn() || (window.SBESS && !SBESS.shows("companion-lines")) || !cur || !box || box.hidden || document.hidden || (dlg && dlg.open)
     || (front && front.querySelector(".cp-bubble.on")) || (typeof pomo !== "undefined" && pomo && pomo.running && pomo.mode === "focus")
     || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) || document.activeElement?.isContentEditable;
   let taskTalkT = 0;

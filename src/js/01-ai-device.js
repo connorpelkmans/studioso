@@ -419,6 +419,30 @@ async function e4bFits(){
     return !!(ad.features && ad.features.has && ad.features.has("shader-f16")) && (ad.limits.maxBufferSize || 0) >= 268435456 && (ad.limits.maxStorageBufferBindingSize || 0) >= 134217728;
   } catch (e) { return false; }
 }
+/* Is this device certainly unable to run the 16GB AI? Only for the "Unavailable on Your Device" tag in AI Features, so it says yes
+   only when it's sure, and never for a computer that could run it:
+   - phones and tablets: yes (the 16GB AI is for laptops and desktops);
+   - the desktop app knows the exact memory: yes under 15 GB (16 GB machines report a little under 16);
+   - a browser that reports memory: yes under 8 GB, or exactly 8 on Chrome or Edge 147+ (those report 16 or 32 when there is more;
+     older ones stop at 8, so 8 there could be a 16 GB computer);
+   - everything else is "can't tell" (Safari and Firefox don't report memory; a browser without WebGPU is the browser, not the
+     computer): no tag. Sets DEVAI.e4bNo (true only when sure) and DEVAI.e4bNoWhy (a short reason). */
+const chromiumMajor = () => { try { const b = navigator.userAgentData && navigator.userAgentData.brands; const x = b && b.find(v => /Chromium|Google Chrome|Microsoft Edge/i.test(v.brand)); if (x) return parseInt(x.version, 10) || 0; } catch (e) {} const m = /\b(?:Chrome|Edg)\/(\d+)/.exec(navigator.userAgent || ""); return m ? +m[1] : 0; };
+async function e4bCantHere(){
+  const no = (why, kind) => { DEVAI.e4bNo = true; DEVAI.e4bNoWhy = why; DEVAI.e4bNoKind = kind || "memory"; return true; }, unsure = () => { DEVAI.e4bNo = false; DEVAI.e4bNoWhy = ""; DEVAI.e4bNoKind = ""; return false; };
+  try {
+    if (window.__SB_TEST && window.__SB_E4B_NO) return window.__SB_E4B_NO.no ? no(window.__SB_E4B_NO.why || "test") : unsure();
+    if (devPhone()) return no("It runs on laptops and desktop computers, not phones.", "mobile");
+    if (devTablet()) return no("It runs on laptops and desktop computers, not tablets.", "mobile");
+    const D = e4bDesk();
+    if (D) { try { const i = await D.info(); if (i && i.ram) { const gb = i.ram / 1073741824; return gb < 15 ? no(`This computer has ${Math.round(gb)} GB of memory, and it needs 16 GB.`) : unsure(); } } catch (e) {} return unsure(); }
+    const m = Number(navigator.deviceMemory) || 0;
+    if (!m || m >= 15) return unsure();
+    if (m < 8 || chromiumMajor() >= 147) return no(`This computer has ${m < 8 ? "less than 8" : "8"} GB of memory, and it needs 16 GB.`);
+    return unsure();
+  } catch (e) { return unsure(); }
+}
+devProbe().then(() => e4bCantHere()).then(() => { try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
 // How much is downloaded (0 to 1), and whether all of it is
 async function e4bHave(){
   const D = e4bDesk();

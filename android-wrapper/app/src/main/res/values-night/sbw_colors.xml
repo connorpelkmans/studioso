@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widgets (dark mode) -->
+<resources>
+    <color name="sbw_bg">#FF151B27</color>
+    <color name="sbw_soft">#FF222B3B</color>
+    <color name="sbw_ink">#FFE7EEFA</color>
+    <color name="sbw_muted">#FFA9B4C8</color>
+    <color name="sbw_accent">#FF7FA2FF</color>
+    <color name="sbw_spare">#FF4CC38A</color>
+    <color name="sbw_tight">#FFF0B44C</color>
+    <color name="sbw_short">#FFFF7A6E</color>
+    <color name="sbw_done">#FF6E7A90</color>
+</resources>

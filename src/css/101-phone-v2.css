@@ -43,7 +43,7 @@
   /* the tomato fills its round button like the other top-bar icons (it was 20px in a 40px circle) */
   .head-actions > .pomo-btn:not(.active):not(.run) .tomato-ic{width:26px;height:26px}
   .sync-guest{align-self:center;padding:7px 11px;font-size:.74rem}
-  /* Bottom tabs: five, with the companion's seat in the middle */
+  /* Bottom tabs: the companion's seat always in the exact middle; 101-phone-v2.js (arrangeBar) places the other tabs either side */
   :root{--ph-bar-b:max(6px,calc(var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) - 8px))}
   nav.tabs{left:10px;right:10px;padding:6px 4px;bottom:var(--ph-bar-b)}
   nav.tabs .in > :is(.nav-focus,.nav-more){display:none!important}
@@ -67,12 +67,12 @@
   nav.tabs .in [data-tab="companion"] svg{position:absolute;left:50%;top:-3px;margin-left:-14px;width:28px;height:28px;color:var(--accent)}
   nav.tabs .in [data-tab="companion"][aria-current="page"]{background:transparent}
   nav.tabs,nav.tabs *{-webkit-tap-highlight-color:transparent}
-  /* the tabs either side of the seat */
+  /* the tabs either side of the seat (.ph-nl / .ph-nr, set by 101-phone-v2.js arrangeBar, whichever tabs those are) */
   /* the cut-out is on a backing layer so the count badge on the button is never masked */
-  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]{position:relative;background:transparent}
-  nav.tabs.ph-seatcut .in :is([data-tab="flashcards"],[data-tab="notes"])[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
-  nav.tabs.ph-seatcut .in [data-tab="flashcards"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
-  nav.tabs.ph-seatcut .in [data-tab="notes"][aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in :is(.ph-nl,.ph-nr)[aria-current="page"]{position:relative;background:transparent}
+  nav.tabs.ph-seatcut .in :is(.ph-nl,.ph-nr)[aria-current="page"]::before{content:"";position:absolute;inset:0;z-index:-1;border-radius:0;background:var(--spine-hi);pointer-events:none}
+  nav.tabs.ph-seatcut .in .ph-nl[aria-current="page"]::before{-webkit-mask:var(--ph-selm-l) 0 0/100% 100% no-repeat;mask:var(--ph-selm-l) 0 0/100% 100% no-repeat}
+  nav.tabs.ph-seatcut .in .ph-nr[aria-current="page"]::before{-webkit-mask:var(--ph-selm-r) 0 0/100% 100% no-repeat;mask:var(--ph-selm-r) 0 0/100% 100% no-repeat}
   nav.tabs .in [data-tab="companion"][aria-current="page"]::after{box-shadow:0 0 0 4px var(--accent-band,var(--accent)),0 0 0 7px color-mix(in srgb,var(--spine-bg,var(--spine)) 94%,transparent),0 8px 18px rgba(8,20,50,.28)}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
   /* The Add button */

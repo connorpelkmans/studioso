@@ -182,10 +182,12 @@ function pomoAlarm(done, next, auto, missed){
   const t = done === "focus" && pomo.taskId && state.tasks[pomo.taskId], task = t && t.status !== "done" ? t : null;
   const short = task ? (task.title.length > 30 ? task.title.slice(0, 29) + "…" : task.title) : "";
   const ad = $("#alarmDlg");
+  // Focus Sprout: the plant this session grew (01-focus-sprout.js)
+  const grown = done === "focus" && typeof SBSPROUT !== "undefined" ? SBSPROUT.alarmArt() : "", grownLine = grown ? SBSPROUT.alarmLine() : "";
   ad.innerHTML = `<div class="alarm-card ${done === "focus" ? "is-focus" : "is-break"}">
-    <div class="alarm-ring" aria-hidden="true">${TOMATO}</div>
+    <div class="alarm-ring${grown ? " sp-ring" : ""}" aria-hidden="true">${grown || TOMATO}</div>
     <h2>${missed ? "Your timer finished while Studyboard was closed" : esc(title)}</h2>
-    <p>${esc(body)}</p>
+    <p>${esc(body)}</p>${grownLine ? `<p class="sp-alarm-line">${esc(grownLine)}</p>` : ""}
     <div class="row-actions">${!auto ? `<button class="btn primary" id="alStart">Start ${esc(MODE_LABEL[next])}</button>` : ""}<button class="btn ${auto ? "primary" : ""}" id="alOk">${auto ? "Got It" : "Not Yet"}</button></div>
     ${task || (auto && next !== "focus") ? `<div class="row-actions alarm-more">${task ? `<button class="btn" id="alDone" data-act="toggle" data-id="${esc(task.id)}">Mark “${esc(short)}” Done</button><button class="btn" id="alAgain">Another Session on It</button>` : ""}${auto && next !== "focus" ? `<button class="btn" id="alSkip">Skip Break</button>` : ""}</div>` : ""}
   </div>`;
@@ -372,9 +374,9 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read"><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
+        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
+      ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
         <button class="btn primary big pomo-go" data-act="${pomo.running ? "pomo-pause" : "pomo-start"}">${pomo.running ? POMO_IC.pause : POMO_IC.play}<span class="sr">${pomo.running ? "Pause" : pomo.left > 0 ? "Resume" : pomo.mode === "focus" ? `Start ${esc(MODE_LABEL[pomo.mode])}` : esc(MODE_LABEL[pomo.mode])}</span></button>
@@ -382,7 +384,7 @@ function renderPomo(){
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
       <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
-      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>
+      <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>${typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml() : ""}
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
           <div class="three">
@@ -400,6 +402,7 @@ function renderPomo(){
           <button type="button" class="btn small" data-act="pomo-test">Play Test Sound</button>
           <label class="mi-check"><input type="checkbox" id="psNotify" ${cfg.notify ? "checked" : ""} ${notifySupported() ? "" : "disabled"}> Show a notification</label>
           <p class="mini" style="margin:0">${notifyNote} ${phoneNow ? "Keep Studyboard open so the alarm can ring; the phone pauses it when the screen turns off." : "Keep Studyboard open in a tab so the alarm can ring. On phones, the browser pauses pages when the screen turns off."}</p>
+          ${typeof SBSPROUT !== "undefined" ? SBSPROUT.settingsHtml() : ""}
         </div>
       </details>
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
