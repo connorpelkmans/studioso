@@ -23,8 +23,10 @@ function schOccurrences(from, to){
 function schOccurrencesNow(from, to, sc){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
   const SS = window.SBSCHOOL;
-  coursesArr().forEach(c => courseMeetings(c).forEach(m => {
+  coursesArr().forEach(c => { const cd = c.classDates || {}, cFrom = isDate(cd.from) ? cd.from : "", cUntil = isDate(cd.until) ? cd.until : ""; courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
+      // no class before the First Class or after the Last Class you set in Term Dates (finals week and the break stay clear)
+      if ((cFrom && d < cFrom) || (cUntil && d > cUntil)) continue;
       // no class on a day off; a rotating class time meets on its cycle days
       if (SS ? !SS.meets(sc, m, d) : !(m.days || []).includes(parse(d).getDay())) continue;
       const key = `${d}|${m.start}|${m.kind}`, mv = (c.meetMoves || {})[key];
@@ -32,7 +34,7 @@ function schOccurrencesNow(from, to, sc){
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || m.start, end: mv.end || m.end, moved: true}); }
       if (inRange(o.date)) out.push(o);
     }
-  }));
+  }); });
   eventsArr().forEach(ev => {
     const c = ev.courseId ? courseOf(ev.courseId) : null;
     const base = {type: "event", id: ev.id, ev, color: c ? c.color : "var(--accent)", title: ev.title, label: ev.label || "", course: c, where: ev.where || "", allDay: ev.allDay, cls: EV_LABEL_CLASS[ev.label] || "k-event"};
@@ -156,31 +158,35 @@ function occSheet(type, id, key){
   if (type === "event" && state.events[id] && !state.events[id].repeat && !evInSeries(state.events[id])) { eventForm(state.events[id]); return; }
   const o = findOcc(type, id, key); if (!o) return;
   const usual = type === "meet" ? {date: o.orig, start: o.m.start, end: o.m.end} : {date: o.orig, start: o.ev.start, end: o.ev.end};
+  // an overnight event (10 PM to 2 AM) is edited as one piece, whichever half was tapped
+  const oS = o.ds || o.start, oE = o.de || o.end, oD = o.ovn === "tail" ? addDays(o.date, -1) : o.date;
   const name = `${o.title}${o.label && o.label !== o.title ? " " + o.label : ""}`;
   openSheet(`<form class="sheet">${head(name)}
     <div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">Usually ${esc(parse(usual.date).toLocaleDateString(undefined, {weekday: "long"}))}s, ${esc(fmtTime(usual.start))}–${esc(fmtTime(usual.end))}${o.where ? `, ${esc(o.where)}` : ""}. Changes here only affect the week of ${esc(fmtShort(o.orig))}; every other week stays the same.${o.skipped ? " <b>Skipped this week.</b>" : o.moved ? " <b>Moved this week.</b>" : ""}</p>
       <div class="two">
-        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : o.date)}" required></label>
+        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : oD)}" required></label>
         <span></span>
       </div>
       <div class="two">
-        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : o.start)}" required></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(o.skipped ? usual.end : o.end)}" required></label>
+        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : oS)}" required></label>
+        <label class="f"><span class="lh">Ends${type === "event" ? ` <span class="hint" id="occNext"${(o.skipped ? usual.end < usual.start : oE < oS) ? "" : " hidden"}>the next day</span>` : ""}</span><input type="time" name="end" value="${esc(o.skipped ? usual.end : oE)}" required></label>
       </div>
       <p class="mini" style="margin:6px 0 0">Tip: on the schedule you can also drag a class to a new time or day.</p>
     </div>
     <div class="sheet-foot occ-foot">
       <button type="button" class="btn" id="occSkip">${o.skipped ? "Don't Skip" : "Skip This Week"}</button>
       ${o.moved ? `<button type="button" class="btn" id="occReset">Reset to Usual Time</button>` : ""}
-      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Event"}</button>
+      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Every Week"}</button>
       <button type="button" class="btn primary" data-submit>Save This Week</button></div>
   </form>`, fd => {
     const date = String(fd.get("date") || ""), start = String(fd.get("start") || ""), end = String(fd.get("end") || "");
-    if (!isDate(date) || !start || !end || end <= start) { toast("Pick a date, and an end time after the start"); return false; }
+    // an event may run past midnight (an end before the start is the next day); a class can't
+    if (!isDate(date) || !start || !end || end === start || (end < start && type !== "event")) { toast("Pick a date, and an end time after the start"); return false; }
     const same = date === usual.date && start === usual.start && end === usual.end;
     setOccurrence(type, id, key, same ? null : {date, start, end}, same ? `${name} is back to its usual time` : `Moved ${name} to ${fmtShort(date)}, ${fmtTime(start)} (this week only)`);
   });
+  { const f = dlg.querySelector("form"), nx = f && f.querySelector("#occNext"); if (nx) { const upd = () => { nx.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }; f.elements.start.addEventListener("input", upd); f.elements.end.addEventListener("input", upd); } }
   $("#occSkip").addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, o.skipped ? null : {skip: true}, o.skipped ? `${name} is back on` : `Skipped ${name} on ${fmtShort(o.orig)}`); });
   const r = $("#occReset"); if (r) r.addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, null, `${name} is back to its usual time`); });
   $("#occAll").addEventListener("click", () => { dlg.close(); setTimeout(() => type === "meet" ? courseForm(state.courses[id]) : eventForm(state.events[id]), 30); });
@@ -413,7 +419,8 @@ function icsPlan(text){
     let e = icsWhen(g("DTEND")); const dur = icsDur(txt("DURATION"));
     let end = "", endDate = "";
     if (s.allDay) { if (e && e.date > addDays(s.date, 1)) endDate = addDays(e.date, -1); }
-    else if (e && e.ms) end = e.date === s.date ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
+    // an end the next morning (a 10 PM to 2 AM shift) stays overnight; one at midnight or days later ends the day
+    else if (e && e.ms) end = e.date === s.date ? e.time : e.date === addDays(s.date, 1) && e.time !== "00:00" && e.time < s.time ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
     let repeat = null, until = "", note = "";
     const rr = txt("RRULE");
     if (rr) {
@@ -441,8 +448,11 @@ function icsPlan(text){
     const exd = []; (it.props.EXDATE || []).forEach(x => String(x.v).split(",").forEach(v => { const w = icsWhen({v, p: x.p}); if (w) exd.push(w.date); }));
     const lastDate = repeat ? (repeat.until || "9999-12-31") : (endDate || s.date);
     const past = lastDate < addDays(today, -30);
-    const isTask = !repeat && TASK_RX.test(title);
-    out.push({kind: isTask ? "task" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
+    // a span of days ("Final Exams Period", Dec 7 to 18) or an exam week is a stretch of the term, not one exam to sit or hand in
+    const isTask = !repeat && !(s.allDay && endDate) && !/\b(exams?|finals?|midterms?|tests?)\s+(period|weeks?|season|schedule|timetable)\b/i.test(title) && TASK_RX.test(title);
+    // a school break or holiday can be a day off (no classes, a free day for Today's Plan) instead of an event
+    const off = s.allDay && !repeat && !isTask && /\b(break|holidays?|recess|vacation|no (classes|class|school|lectures?)|classes? (cancell?ed|suspended)|(campus|university|college|school) (is )?closed|closure|reading (day|days|week|period)|study (day|days|week|period)|day off|days off|snow day)\b/i.test(title);
+    out.push({kind: isTask ? "task" : off ? "off" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
   });
   overrides.forEach(ov => {
     const it = out.find(x => x.uid === ov.uid && x.repeat); if (!it || !ov.rid) return;
@@ -478,12 +488,12 @@ function icsImportSheet(text, fileName){
   const pick = (L, it) => L ? (L.find(x => x.icsSrc === src) || L.find(x => !x.icsSrc && x.title === it.title)) : undefined;
   const existingEv = {}, existingT = {};
   its.forEach(it => { const e = pick(evByUid[it.uid], it), t = pick(tByUid[it.uid], it); if (e) existingEv[it.uid] = e; if (t) existingT[it.uid] = t; });
-  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
+  const whenOf = it => it.kind === "task" && (!it.date || (!it.repeat && !it.endDate)) ? `Due ${fmtShort(it.due || it.date)}${(it.time || it.start) ? " " + fmtTime(it.time || it.start) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}${it.end < it.start ? " (next day)" : ""}`}`;
   const courseName = it => it.courseId ? courseLabel(courseOf(it.courseId)) : it.newCourse ? `${it.newCourse} (new)` : "";
   const ncs = Object.entries(plan.newCourses);
   openSheet(`<form class="sheet ics-sheet">${head("Import Calendar")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
+      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks; breaks and holidays can be days off. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
       ${ncs.length ? `<fieldset><legend>New Courses</legend><div class="check-list">${ncs.map(([code, n]) => `<label class="mi-check"><input type="checkbox" name="nc" value="${esc(code)}" checked> Add ${esc(code)} as a course <span class="mini">${n} item${n === 1 ? "" : "s"}</span></label>`).join("")}</div></fieldset>` : ""}
       <label class="mi-check"><input type="checkbox" id="icsPast"> Include things that already happened <span class="mini">(older than a month)</span></label>
       <div class="ics-list" id="icsList"></div>
@@ -501,10 +511,14 @@ function icsImportSheet(text, fileName){
       ch.push({kind: "course", id: nc.id, after: nc}); made[it.newCourse] = nc.id; return nc.id;
     };
     let nE = 0, nT = 0, nU = 0;
+    // breaks and holidays picked as Day Off go to School Days: no classes, and Today's Plan treats them as free days
+    const sc0 = (state.settings && state.settings.school) || {}, offs = (Array.isArray(sc0.off) ? sc0.off : []).slice(); let nO = 0;
     rows.forEach(r => {
       const it = its[Number(r.dataset.i)];
       if (!r.querySelector("input[type=checkbox]").checked || (it.past && !past)) return;
-      const as = r.querySelector("select").value, courseId = courseFor(it);
+      const as = r.querySelector("select").value;
+      if (as === "off") { const from = it.date, to = it.endDate && it.endDate > from ? it.endDate : from; if (!offs.some(o => o.from === from && (o.to || o.from) === to)) { offs.push({id: uid(), name: it.title.slice(0, 60), from, to}); nO++; } return; }
+      const courseId = courseFor(it);
       if (as === "task") {
         const prev = existingT[it.uid], due = it.due || it.date, time = it.time != null ? it.time : it.start;
         const t = prev ? Object.assign(clone(prev), {title: it.title, due, time: time || "", icsSrc: src}) : normTask({id: uid(), created: Date.now(), title: it.title, courseId, type: guessTaskType(it.title), due, time: time || "", location: it.where || "", notes: it.notes || "", status: it.done ? "done" : "todo", doneAt: it.done ? Date.now() : null, order: nextOrder(it.done ? "done" : "todo"), icsUid: it.uid, icsSrc: src});
@@ -518,9 +532,10 @@ function icsImportSheet(text, fileName){
         ch.push({kind: "event", id: ev.id, after: ev}); prev ? nU++ : nE++;
       }
     });
-    if (!ch.length) { toast("Everything in that file is already here"); return; }
+    if (nO) { offs.sort((a, b) => a.from < b.from ? -1 : 1); state.settings = Object.assign({}, state.settings, {school: Object.assign({}, sc0, {off: offs})}); saveSettings(); scheduleRender(); }
+    if (!ch.length) { toast(nO ? `Added ${nO} day${nO === 1 ? "" : "s"} off. Change them in School Days.` : "Everything in that file is already here"); return; }
     const nC = Object.keys(made).length;
-    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nU && `${nU} updated`].filter(Boolean);
+    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nO && `${nO} day${nO === 1 ? "" : "s"} off`, nU && `${nU} updated`].filter(Boolean);
     applyChanges(ch, `Imported ${parts.join(", ")}`);
     const first = its.filter(it => it.kind === "event" && !it.past).map(it => it.date).sort().find(d => d >= mondayOf(todayISO()));
     ui.tab = "schedule"; ui.schWeek = mondayOf(first && first < addDays(todayISO(), 21) ? first : todayISO());
@@ -531,7 +546,7 @@ function icsImportSheet(text, fileName){
     const vis = its.map((it, i) => ({it, i})).filter(({it}) => past || !it.past).sort((a, b) => ((a.it.date || a.it.due) < (b.it.date || b.it.due) ? -1 : 1));
     list.innerHTML = vis.length ? vis.map(({it, i}) => `<div class="ics-row" data-i="${i}"><input type="checkbox" checked aria-label="Import ${esc(it.title)}">
       <div class="ics-main"><b>${esc(it.title)}</b><span class="mini">${esc(whenOf(it))}${courseName(it) ? ` · ${esc(courseName(it))}` : ""}${(it.kind === "task" ? existingT : existingEv)[it.uid] ? " · already imported" : ""}</span></div>
-      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option></select></div>`).join("")
+      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option>${it.allDay && !it.repeat ? `<option value="off" ${it.kind === "off" ? "selected" : ""}>Day Off</option>` : ""}</select></div>`).join("")
       : `<p class="mini">Everything in this file happened more than a month ago. Tick the box above to include it.</p>`;
     const nPast = its.filter(it => it.past).length;
     count.textContent = `${vis.length} item${vis.length === 1 ? "" : "s"}${!past && nPast ? `, ${nPast} older hidden` : ""}`;
@@ -1125,6 +1140,10 @@ function viewScheduleMonth(){
   const evBy = {};
   try {
     schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
+    // exams and quizzes are on the month too (finals week reads at a glance); a tap opens the exam
+    tasksArr().forEach(t => { if (!MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < lo || t.due > hi) return;
+      const tm = /^\d\d:\d\d$/.test(t.time || "") ? t.time : "";
+      (evBy[t.due] = evBy[t.due] || []).push({type: "task", id: t.id, key: t.id, kind: "exam", title: t.title, color: colorOf(t.courseId), allDay: !tm, start: tm, end: tm ? minToT(Math.min(1439, tToMin(tm) + (t.type === "Exam" ? 120 : 60))) : "", where: t.location || "", course: courseOf(t.courseId), ttype: t.type, date: t.due}); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
   } catch (e) { console.warn("schedule month: events", e); }
   const hol = {};
@@ -1143,11 +1162,11 @@ function viewScheduleMonth(){
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     // (office hours are listed under the day, not in the cell, so the month isn't full of them)
-    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office").sort((a, b) => (b.kind === "exam") - (a.kind === "exam")), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
-    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}${hl.length ? (hl.some(h => h.off) ? " hol hol-off" : " hol") : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
   }
-  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const dayEvs = evBy[pick] || [], dayHol = hol[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const isNow = monthKey === today.slice(0, 7);
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
@@ -1164,7 +1183,8 @@ function viewScheduleMonth(){
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
     ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
-    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+    ${dayHol.length ? `<p class="mini smc-hol${dayHol.some(h => h.off) ? " off" : ""}">${esc(dayHol.map(h => h.name).join(", "))}${dayHol.some(h => h.off) ? " · no classes" : ""}</p>` : ""}
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row${o.kind === "exam" ? " smc-exam" : ""}" style="--c:${esc(o.color)}" ${o.type === "task" ? `data-act="edit-task" data-id="${esc(o.id)}"` : `data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"`}><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.type === "task" ? (o.start ? esc(fmtTime(o.start)) : esc(o.ttype)) : o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
       : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
 }
 function viewSchedule(){
@@ -1215,14 +1235,16 @@ function viewSchedule(){
   // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
   const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  // the morning end of an overnight event (a night shift to 2 AM) doesn't stretch the grid back to midnight: it sits at the top
+  const nightTail = o => o.ovn === "tail" && tToMin(o.end) <= 7 * 60;
+  let lo = Math.min(...timed.filter(o => !nightTail(o)).map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
   let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
-    const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
+    const items = timed.filter(o => o.date === d.iso).map(o => o.ovn === "tail" ? (s => ({s, e: Math.max(tToMin(o.end), s + 45), o}))(Math.max(tToMin(o.start), h0 * 60)) : {s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o})
       .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
       .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
@@ -1245,7 +1267,7 @@ function viewSchedule(){
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
     const nowLine = d.iso === today && nowM >= h0 * 60 && nowM <= h1 * 60 ? `<i class="sch-now" style="top:${top(nowM)}px"></i>` : "";
-    const offD = window.SBSCHOOL && schoolCfg() ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
+    const offD = window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
     return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}${offD ? " is-off" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
@@ -1256,7 +1278,8 @@ function viewSchedule(){
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
   }).join("");
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }
-  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
+  const offOf = iso => { try { return window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), iso) : null; } catch (e) { return null; } };
+  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}${offOf(d.iso) ? " is-off" : ""}"${offOf(d.iso) ? ` title="${esc(schoolDayText(d.iso) || "Day off")}"` : ""}><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
   const nEv = occ.filter(o => o.type === "event" && !o.skipped).length;
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;

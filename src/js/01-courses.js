@@ -1079,6 +1079,13 @@ const AVAIL = (() => {
       }
       if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      // a run of days written with numbers: 11/12-11/14, 11/12-14, 11/30 to 12/2
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\s*(?:-|–|to)\s*(?:(\d{1,2})\/)?(\d{1,2})$/))) {
+        const a = mk(Number(m[1]) - 1, Number(m[2])), z = mk((m[3] ? Number(m[3]) : Number(m[1])) - 1, Number(m[4]));
+        if (!a || !z || z < a || dnum(z) - dnum(a) > 31) return bad.push(tok.trim());
+        for (let d = a; d <= z; d = addD(d, 1)) out.add(d);
+        return null;
+      }
       if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       bad.push(tok.trim());
     });
