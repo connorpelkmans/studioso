@@ -4875,7 +4875,9 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 @media (prefers-reduced-motion:reduce){nav.tabs .in button,nav.tabs .nav-tool{transition:none}}
 /* The timer button slims to its time (a pause mark when paused) only when the menu is too short for it to stay full */
 nav.tabs[data-pill="slim"] .in .nav-focus.active .nf-m{display:none}
-nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"\275A\275A";font-size:.55em;letter-spacing:-.1em;margin-inline-end:.45em;vertical-align:.12em;opacity:.8}
+/* paused: a drawn pause sign before the time (two bars with a clear gap; the ❚❚ characters ran together into one block) */
+nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"";display:inline-block;width:.64em;height:.8em;margin-inline-end:.42em;vertical-align:-.06em;border-radius:1px;
+  background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66% 100%);opacity:.9}
 /* ===== module: 97-ui-shop.css ===== */
 /* ===== 97-ui: an easier Style Shop ===== */
 .ui-shop .sheet-body{gap:12px;align-content:start}
