@@ -4006,7 +4006,8 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .grp-inv-from b{font-weight:800}
 
 /* Profile, beside Friends at the top of Groups */
-.grp-prof-btn{display:inline-flex;align-items:center;gap:6px;margin-inline-start:8px}
+/* beside Friends, the row's own gap spaces it, like every other row of header buttons */
+.grp-prof-btn{display:inline-flex;align-items:center;gap:6px}
 .view-head > h2 + .grp-prof-btn,.pg-right > .grp-prof-btn:first-child{margin-inline-start:auto}
 /* ===== module: 81-friends.css ===== */
 /* Friends (81-friends.js) */
