@@ -13787,6 +13787,134 @@ function section(title, ts, cls = "", opts){
   if (!ts.length) return "";
   return `<h2 class="sec ${cls}"><span class="t">${esc(title)}</span><span class="n">${ts.length}</span></h2>${taskList(ts, opts)}`;
 }
+/* ===== module: 01-sfx.js ===== */
+/* Sound effects for rewarding moments: coins counting up, chests opening, the prize wheel, buying and unlocking accessories, holiday
+   presents, a passed or perfect quiz, a good flashcard session, a presentation on time or mastered, a streak milestone and a task
+   checked off. Each is made in the browser with Web Audio (no files, works offline), short and soft, through one gentle compressor
+   and a little room reverb so they sit together.
+   SFX.play(name, opts) plays one now; SFX.render(name, opts) makes it as a WAV (for previews). Off in Settings (Sound Effects), and
+   never while the app is in the background. Places that call it: 98-0study-credits.js (rewards, chests, the wheel), 98-companion.js
+   (buying, reveals, presents), 99-review-streaks.js (milestones), 01-flashcards.js (a good session), 01-style-shop.js (a task) */
+const SFX = (() => {
+  const KEY = "studyboard:sfx";
+  const on = () => { try { return localStorage.getItem(KEY) !== "off"; } catch (e) { return true; } };
+  let AC = null, bus = null, lastAt = {};
+  const VOL = 1.7;
+
+  // ---- building blocks: each draws into (ctx, out) starting at time t ----
+  const env = (ctx, g, t, a, peak, dur) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); };
+  function tone(ctx, out, t, f, dur, o){
+    o = o || {}; const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || dur));
+    if (o.detune) osc.detune.setValueAtTime(o.detune, t);
+    env(ctx, g, t, o.a || 0.005, (o.gain || 0.2), dur);
+    let node = osc; if (o.lp) { const fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = o.lp; osc.connect(fl); node = fl; }
+    node.connect(g); g.connect(out); osc.start(t); osc.stop(t + dur + 0.05);
+  }
+  // a bell or coin: a few inharmonic partials that fade at different rates
+  function bell(ctx, out, t, f, dur, gain){ [[1, 1], [2.76, .45], [5.4, .22], [8.9, .1]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.7), {gain: gain * a, a: 0.002})); }
+  let NOISE = null;
+  function noiseBuf(ctx){ if (NOISE && NOISE.sampleRate === ctx.sampleRate) return NOISE; const n = ctx.sampleRate * 1.5, b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0); let s = 12345; for (let i = 0; i < n; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; d[i] = (s / 0x3fffffff) - 1; } return (NOISE = b); }
+  function noise(ctx, out, t, dur, o){
+    o = o || {}; const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noiseBuf(ctx); f.type = o.type || "bandpass"; f.frequency.setValueAtTime(o.f || 2000, t); if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur); f.Q.value = o.q || 1;
+    env(ctx, g, t, o.a || 0.01, o.gain || 0.15, dur);
+    src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+  }
+  const N = n => 440 * Math.pow(2, (n - 69) / 12);  // a MIDI note
+  const arp = (ctx, out, t, notes, step, o) => notes.forEach((n, i) => { tone(ctx, out, t + i * step, N(n), (o && o.dur) || 0.5, Object.assign({type: "triangle", gain: 0.16}, o)); tone(ctx, out, t + i * step, N(n + 12), ((o && o.dur) || 0.5) * 0.6, {gain: 0.05}); });
+  const chord = (ctx, out, t, notes, dur, gain) => notes.forEach((n, i) => { tone(ctx, out, t, N(n), dur, {type: "triangle", gain: gain || 0.09, a: 0.02, detune: (i % 2 ? 4 : -4)}); tone(ctx, out, t, N(n), dur, {type: "sawtooth", gain: (gain || 0.09) * 0.25, a: 0.03, lp: 1800}); });
+  const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
+  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
+
+  // ---- the sounds: each returns how long it lasts ----
+  const S = {
+    // one coin landing in the pile (played many times while credits count up; o.i varies the pitch a little)
+    coin: (c, o, t, x) => { const k = [0, 2, 4, 7, 9][(x.i || 0) % 5]; bell(c, o, t, N(93 + k), 0.18, 0.09); return 0.2; },
+    // the total lands: a bright two-note ding
+    coinLand: (c, o, t) => { bell(c, o, t, N(95), 0.5, 0.08); bell(c, o, t + 0.09, N(100), 0.8, 0.1); return 0.9; },
+    // a reward screen opens: a short stinger, 1 (nice), 2 (passed, on time, a good session), 3 (perfect, mastered)
+    reward: (c, o, t, x) => { const lv = x.level || 1;
+      if (lv >= 3) { arp(c, o, t, [60, 64, 67, 72, 76], 0.07, {dur: 0.4}); chord(c, o, t + 0.36, [60, 64, 67, 72], 1.2, 0.08); sparkle(c, o, t + 0.4, 8, 0.05); return 1.6; }
+      if (lv === 2) { arp(c, o, t, [67, 71, 74, 79], 0.075, {dur: 0.45}); chord(c, o, t + 0.3, [67, 71, 74], 0.8, 0.06); return 1.1; }
+      arp(c, o, t, [72, 76, 79], 0.07, {dur: 0.35, gain: 0.12}); return 0.6; },
+    // a small reward (a task done): a soft pop and one coin
+    pop: (c, o, t) => { tone(c, o, t, 660, 0.09, {to: 1180, glide: 0.06, gain: 0.16}); bell(c, o, t + 0.05, N(96), 0.25, 0.07); return 0.3; },
+    // a chest opening: a wooden thunk, the lid's whoosh, then a sparkle that grows with its rarity
+    chest: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
+      tone(c, o, t, 140, 0.18, {to: 70, gain: 0.3}); noise(c, o, t, 0.12, {type: "lowpass", f: 500, gain: 0.18});
+      noise(c, o, t + 0.06, 0.35, {f: 700, to: 4200, q: 0.8, gain: 0.07});
+      arp(c, o, t + 0.2, [72, 76, 79, 84, 88, 91].slice(0, 3 + r), 0.06, {dur: 0.4, gain: 0.11});
+      if (r >= 2) sparkle(c, o, t + 0.35, 4 + r * 2, 0.05); if (r >= 4) chord(c, o, t + 0.55, [60, 67, 72, 76], 1.4, 0.06);
+      return 0.9 + r * 0.25; },
+    // the wheel starts: a rising whoosh
+    whoosh: (c, o, t) => { noise(c, o, t, 0.5, {f: 400, to: 2600, q: 0.7, gain: 0.2, a: 0.12}); return 0.6; },
+    // the pointer passing a slice
+    tick: (c, o, t) => { noise(c, o, t, 0.025, {type: "highpass", f: 2500, gain: 0.16, a: 0.001}); tone(c, o, t, 1900, 0.03, {gain: 0.05, a: 0.001}); return 0.05; },
+    // the wheel stops: coins (x.coins) or an accessory (x.rarity)
+    win: (c, o, t, x) => { if (x.coins) { S.coinLand(c, o, t); for (let i = 0; i < 6; i++) S.coin(c, o, t + 0.15 + i * 0.06, {i}); return 1; }
+      const r = RANK[x.rarity] || 0; S.reward(c, o, t, {level: r >= 3 ? 3 : 2}); if (r >= 2) sparkle(c, o, t + 0.5, 3 + r * 2, 0.05); return 1.7; },
+    // buying an accessory: a cash register's ka-ching
+    buy: (c, o, t) => { noise(c, o, t, 0.06, {type: "lowpass", f: 900, gain: 0.2, a: 0.002}); tone(c, o, t, 200, 0.07, {to: 120, gain: 0.15});
+      bell(c, o, t + 0.07, N(98), 0.7, 0.1); bell(c, o, t + 0.14, N(103), 1.0, 0.1); for (let i = 0; i < 5; i++) S.coin(c, o, t + 0.22 + i * 0.05, {i: i + 2}); return 1.1; },
+    // a new accessory: a magical rise, more sparkle the rarer it is
+    reveal: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
+      tone(c, o, t, 500, 0.6, {to: 1600, glide: 0.5, type: "sine", gain: 0.06, a: 0.1}); arp(c, o, t + 0.15, [72, 79, 84, 88, 91].slice(0, 3 + Math.min(2, r)), 0.08, {dur: 0.5, gain: 0.1});
+      sparkle(c, o, t + 0.45, 3 + r * 2, 0.05); if (r >= 3) chord(c, o, t + 0.6, [65, 69, 72, 77], 1.3, 0.055); return 1.4 + r * 0.15; },
+    // a holiday present appears: a few soft sleigh bells
+    present: (c, o, t) => { for (let i = 0; i < 8; i++) bell(c, o, t + i * 0.07 + (i % 2) * 0.02, N(98 + (i % 3) * 2), 0.18, 0.07); return 0.8; },
+    // a present opened: paper tearing, then ta-da
+    unwrap: (c, o, t) => { for (let i = 0; i < 7; i++) noise(c, o, t + i * 0.035, 0.06, {f: 1800 + i * 400, q: 1.5, gain: 0.1, a: 0.003}); arp(c, o, t + 0.3, [67, 72, 76], 0.06, {dur: 0.3}); chord(c, o, t + 0.5, [67, 72, 76, 79], 1.1, 0.075); return 1.6; },
+    // a study-streak milestone: a warm rising chord
+    streak: (c, o, t) => { arp(c, o, t, [65, 69, 72, 76], 0.09, {dur: 0.7, gain: 0.11}); chord(c, o, t + 0.36, [65, 69, 72, 76], 1.4, 0.06); return 1.8; }
+  };
+
+  function ctx(){
+    try {
+      if (AC && AC.state === "closed") AC = null;
+      if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); bus = null; }
+      if (AC.state !== "running") AC.resume().catch(() => {});
+      return AC;
+    } catch (e) { return null; }
+  }
+  // one gentle compressor and a short room reverb shared by every sound
+  function chain(c){
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+    const master = c.createGain(); master.gain.value = VOL;
+    const wet = c.createGain(); wet.gain.value = 0.16; const conv = c.createConvolver(); const n = Math.round(c.sampleRate * 0.9), ir = c.createBuffer(2, n, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let s = 777 + ch; for (let i = 0; i < n; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; d[i] = ((s / 0x3fffffff) - 1) * Math.pow(1 - i / n, 3); } }
+    conv.buffer = ir; const inp = c.createGain();
+    inp.connect(comp); inp.connect(conv); conv.connect(wet); wet.connect(comp); comp.connect(master); master.connect(c.destination);
+    return inp;
+  }
+  // (repeats of one sound are spaced: a burst of coins can't pile up into noise)
+  const GAP = {coin: 0.045, tick: 0.03, pop: 0.25};
+  function play(name, opts){
+    try {
+      if (!S[name] || !on() || document.hidden) return false;
+      const now = performance.now() / 1000, gap = GAP[name] == null ? 0.12 : GAP[name];
+      if (lastAt[name] && now - lastAt[name] < gap) return false; lastAt[name] = now;
+      if (window.__SB_TEST) { (window.__sfxLog = window.__sfxLog || []).push(name + (opts && (opts.rarity || opts.level || opts.coins) ? ":" + (opts.rarity || opts.level || "coins") : "")); }
+      const c = ctx(); if (!c) return false;
+      if (!bus || bus.context !== c) bus = chain(c);
+      S[name](c, bus, c.currentTime + 0.02, opts || {});
+      return true;
+    } catch (e) { return false; }
+  }
+  // a sound as a 16-bit WAV (Blob), for previews and the settings row's sample
+  async function render(name, opts){
+    const C = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!C || !S[name]) return null;
+    const sr = 44100, len = Math.ceil(sr * 3), c = new C(2, len, sr), inp = chain(c);
+    S[name](c, inp, 0.05, opts || {}); const buf = await c.startRendering();
+    const L = buf.getChannelData(0), R = buf.getChannelData(1); let end = len; while (end > sr * 0.3 && Math.abs(L[end - 1]) < 1e-4) end--; end = Math.min(len, end + sr * 0.15);
+    const dv = new DataView(new ArrayBuffer(44 + end * 4)), w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); dv.setUint32(4, 36 + end * 4, true); w(8, "WAVE"); w(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, end * 4, true);
+    for (let i = 0; i < end; i++) { dv.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 32767, true); dv.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
+    return new Blob([dv.buffer], {type: "audio/wav"});
+  }
+  return {play, render, on, KEY, names: () => Object.keys(S), set: v => { try { if (v) localStorage.removeItem(KEY); else localStorage.setItem(KEY, "off"); } catch (e) {} }};
+})();
+window.SBSFX = SFX;
 // A day-plan card's time: it only breaks after its dash (never between a time and its AM or PM), and only when it doesn't fit
 const dtlWhen = w => esc(w).replace(/ (AM|PM)\b/g, "\u00A0$1").replace(/([–-])/g, "$1<wbr>");
 /* ===== module: 01-board.js: the app's core, the Board, the focus engine and what the planner knows ===== */
@@ -23214,7 +23342,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
-    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards, cards >= 5 && total > 0 && (f.good + f.easy) / total >= 0.7); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
@@ -61754,6 +61882,7 @@ var SBSC = (() => {
       opened = true; const c = list[i];
       o.classList.add("is-open");
       try { if (typeof sbHaptic === "function") sbHaptic(c.t === "common" ? "tap" : "success", {force: true}); } catch (e) {}
+      sfx("chest", {rarity: c.t}); setTimeout(() => coinRun(c.c, Math.min(1200, 400 + c.c * 6)), still ? 300 : 700);
       const coins = o.querySelector(".scr-ch-coins");
       if (coins && !still) coins.innerHTML = Array.from({length: c.t === "legendary" ? 14 : c.t === "exotic" ? 11 : c.t === "rare" ? 8 : 6}, (_, k) => `<img src="${COIN_SRC}" alt="" style="--x:${Math.round((k % 2 ? 1 : -1) * (14 + (k * 37) % 90))}px;--y:${-70 - (k * 53) % 80}px;--d:${(k * 0.045).toFixed(2)}s">`).join("");
       const amt = o.querySelector(".scr-ch-amt");
@@ -61936,10 +62065,17 @@ var SBSC = (() => {
       if (won.k === "item") grant(won.id); else { setSc({ev: {[`spin:${todayISO()}:${sp.id}`]: won.n}}); invalidate(); }
       setSc({wsq: spinQueue().filter(x => x.id !== sp.id)});
       try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+      // a click each time the pointer passes a slice, read from the wheel's real turn, so the clicks slow down with it
+      if (!still) { sfx("whoosh"); const per = 360 / prizes.length; let last = null, until = performance.now() + 4600;
+        const watch = () => { if (!o.isConnected || performance.now() > until) return; const m = getComputedStyle(rot).transform; let a = 0;
+          if (m && m !== "none") { const v = m.match(/matrix\(([^)]+)\)/); if (v) { const p = v[1].split(",").map(Number); a = Math.atan2(p[1], p[0]) * 180 / Math.PI; } }
+          const slice = Math.floor(((a % 360) + 360) % 360 / per); if (last != null && slice !== last) sfx("tick"); last = slice; requestAnimationFrame(watch); };
+        requestAnimationFrame(watch); }
       setTimeout(landed, still ? 50 : 4500);
     };
     const landed = () => {
       state0 = "done"; o.classList.remove("spinning"); o.classList.add("wh-won", won.k === "item" ? "r-" + won.r : "r-coins");
+      sfx("win", won.k === "item" ? {rarity: won.r} : {coins: true});
       try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
       const res = o.querySelector(".wh-result");
       res.innerHTML = won.k === "item"
@@ -61981,6 +62117,10 @@ var SBSC = (() => {
     rOpen = true;
     openChests(ch, () => { rOpen = false; credit(); rewardNow(spec, ch); });
   }
+  // sound effects (01-sfx.js): quiet when the effects are off or the app is in the background
+  const sfx = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
+  // coins tinkling while a number counts up: a few for a small amount, more for a big one, over the count's time
+  const coinRun = (n, ms) => { const k = Math.max(2, Math.min(14, Math.round(n / 3))); for (let i = 0; i < k; i++) setTimeout(() => sfx("coin", {i}), Math.round(i * ms / k)); };
   function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
@@ -61999,8 +62139,9 @@ var SBSC = (() => {
     // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
-    if (!gained) return;
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers); a pass, a good session or a mastered talk
+    // still gets its sound
+    if (!gained) { if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
@@ -62044,9 +62185,15 @@ var SBSC = (() => {
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    // the screen's sound: a stinger for how it went (r.sfx: 1 nice, 2 passed or on time, 3 perfect or mastered; 0 for a focus session,
+    // whose timer has just chimed), then coins while the credits count up and a ding when they land
+    const lvl = r.sfx != null ? r.sfx : r.kind === "focus" ? 0 : 1;
+    if (lvl) sfx("reward", {level: lvl});
+    const cMs = Math.min(1600, 500 + r.gained * 25);
+    setTimeout(() => coinRun(r.gained, cMs), (still ? 0 : 350) + (lvl >= 2 ? 450 : 150));
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
-    setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
+    setTimeout(() => countUp(big, 0, r.gained, cMs, () => { o.classList.add("scr-landed"); sfx("coinLand"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
@@ -62072,6 +62219,7 @@ var SBSC = (() => {
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
+    sfx("pop");
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
@@ -62096,11 +62244,12 @@ var SBSC = (() => {
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
-  function cardsDone(n){
+  // good: most of the session's cards were known (01-flashcards.js), which gets a happier sound
+  function cardsDone(n, good){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
     flushCards();
     const today = dayCards(todayISO());
-    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
+    reward({kind: "cards", sfx: good ? 2 : 1, kick: good ? "Great Session!" : "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
       lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, fill: n + 1, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
@@ -62114,7 +62263,7 @@ var SBSC = (() => {
     // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
     if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
     if (pts) { setSc({ev: {[`quiz:${day}:${id}:${uid()}`]: pts}}); invalidate(); }
-    reward({kind: "quiz", kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
+    reward({kind: "quiz", sfx: perfect ? 3 : pass ? 2 : 1, kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
       lines: tries >= QUIZ_TRIES_A_DAY ? [{t: "No credits this time", n: 0, s: `This quiz has earned credits ${QUIZ_TRIES_A_DAY} times today. Try another, or come back tomorrow.`}] : lines, showZero: true});
   }
   // Presentations: each slide inside its time, and the whole talk on target (99-present.js, on a finished run)
@@ -62134,7 +62283,7 @@ var SBSC = (() => {
       if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
       if (first) add[`pres:master:${pid}`] = PRES_MASTER;
       if (Object.keys(add).length) { setSc({ev: add}); invalidate(); }
-      reward({kind: "pres", kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
+      reward({kind: "pres", sfx: first ? 3 : whole ? 2 : 1, kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
         lines: runsToday >= PRES_RUNS_A_DAY ? [{t: "No credits this time", n: 0, s: `This presentation has earned credits ${PRES_RUNS_A_DAY} times today. Come back tomorrow!`}] : lines, showZero: true});
     } catch (e) { console.warn("study credits: presentation", e); }
   });
@@ -76733,6 +76882,8 @@ var COMP_ACC_MORE = K => {
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
      (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  // sound effects (01-sfx.js)
+  const sfxPlay = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
   const revealQ = [];
   let revealOn = false, revealT = 0, pressing = false;
   document.addEventListener("pointerdown", () => { pressing = true; }, true);
@@ -76844,7 +76995,7 @@ var COMP_ACC_MORE = K => {
       <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    try { sbHaptic("success", {force: true}); } catch (e) {}
+    try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("present");
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('.cpu-acts [data-cpg="open"]'); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let done = false;
@@ -76861,7 +77012,7 @@ var COMP_ACC_MORE = K => {
       // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
       try { SC().grant(hat.id); } catch (e) {}
       setCfg({gift: {[gf.key]: 1}});
-      try { sbHaptic("success", {force: true}); } catch (e) {}
+      try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("unwrap");
       o.classList.add("cpg-opening");
       setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
@@ -76894,7 +77045,7 @@ var COMP_ACC_MORE = K => {
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); if (!a.paid && !a.gift) sfxPlay("reveal", {rarity: rarityOf(a)});
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let closed = false;
@@ -77816,7 +77967,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // it goes straight on
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); sfxPlay("buy");
     if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
     if (back) {
@@ -97355,7 +97506,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     const S = R.S, sm = LEARN.summary(S), byId = byIdOf(d), m = Math.round(sm.ms / 60000);
     drop(R.deckId);
     const miss = sm.missed.filter(id => byId[id]).slice(0, 3);
-    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); if (sm.total >= 10) fire("good-moment", "learn"); }
+    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); try { if (window.SBSFX) SBSFX.play("reward", {level: 2}); } catch (e) {} if (sm.total >= 10) fire("good-moment", "learn"); }
     openSheet(sheet("done", `<div class="lr-done" role="status"><span class="lr-done-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
         <b class="lr-done-t">You know all ${pl(sm.total, "card")}</b><span class="mini">${esc(d.name || "Deck")}</span></div>
       <div class="lr-tiles"><div class="lr-tile"><b>${sm.first}/${sm.total}</b><span>right first time</span></div><div class="lr-tile"><b>${sm.answers}</b><span>answers</span></div><div class="lr-tile"><b>${m < 1 ? "&lt;1" : m}</b><span>${m > 1 ? "minutes" : "minute"}</span></div></div>
@@ -98593,7 +98744,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
-    if (c.kind !== "welcome") sbHaptic("success", {force: true});
+    if (c.kind !== "welcome") { sbHaptic("success", {force: true}); try { if (window.SBSFX) SBSFX.play("streak"); } catch (e) {} }
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};
@@ -133024,6 +133175,7 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Sound Effects<span class="sub">Short, happy sounds when you earn credits, open a chest, spin the prize wheel, unlock an accessory, pass a quiz and a few other big moments. Never while you type or scroll. <button type="button" class="link-btn" data-act="sfx-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="sfx" ${window.SBSFX && SBSFX.on() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
@@ -133031,6 +133183,8 @@ const AUTOPILOT = (() => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "sfx-try") { if (window.SBSFX) { if (!SBSFX.on()) toast("Turn Sound Effects on to hear them."); else { SBSFX.play("chest", {rarity: "rare"}); setTimeout(() => SBSFX.play("coinLand"), 1300); } } return true; }
+    if (act === "sfx") { if (window.SBSFX) { SBSFX.set(el.checked); if (el.checked) SBSFX.play("coinLand"); } return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }

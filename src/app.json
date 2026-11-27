@@ -92,6 +92,7 @@
   "01-remotex.js",
   "01-style-shop.js",
   "01-helpers.js",
+  "01-sfx.js",
   "01-board.js",
   "01-courses.js",
   "01-plan-move.js",
