@@ -64,7 +64,8 @@
   "99-essentials.css",
   "01-plan-move.css",
   "99-heatmap.css",
-  "01-wrap-up.css"
+  "01-wrap-up.css",
+  "99-card-lift.css"
  ],
  "js": [
   "00-core.js",
