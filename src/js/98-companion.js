@@ -1098,6 +1098,9 @@
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
+    // a sheet open over the page (the Style Shop, Settings): it stays where it stood, behind the sheet's dimmed backdrop like the
+    // page, rather than finding its spot "covered" by the sheet and walking to one beside it (half behind the sheet's edge)
+    if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
@@ -1513,12 +1516,13 @@
     else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
-  /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
+  /* Moods: idle, study (looking down at the work), doze (sleepy characters during focus), nap. No prop in the hands: a companion
+     shows only what it's wearing, now that accessories are bought, so a book it doesn't own never appears */
   function setMood(m){
     mood = m;
     if (!act) return;
     const zzz = m === "doze" || m === "nap";
-    act.prop(m === "study" ? "book" : "");
+    act.prop("");
     act.eyes(zzz ? "sleepy" : "open");
     act.mouth(zzz ? "sleepy" : "neutral");
     act.look(0, m === "study" ? 0.8 : 0);
@@ -2788,7 +2792,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
   let buyBack = "", buyKeep = null;
+  // The browser gives focus back (scrolling to it) as the sheet closes, before the close event: a scroll listener puts the page back
+  // before that frame is drawn (scroll events come just before painting), so the page never visibly jumps
+  let keepHold = null;
+  const holdScroll = () => { const k = keepHold; if (k && k.se && !dlg.open && k.se.scrollTop !== k.top) k.se.scrollTop = k.top; };
+  window.addEventListener("scroll", holdScroll, {passive: true, capture: true});
   dlg.addEventListener("close", () => { const k = buyKeep; buyKeep = null; if (!k || !k.se) return;
+    setTimeout(() => { if (keepHold === k) keepHold = null; }, 400);
     // focus goes back to the tapped tile without scrolling (with it focused, the app's own refocus after a sheet leaves it be)
     const put = () => { k.se.scrollTop = k.top; };
     try { if (k.el && k.el.isConnected && k.el.focus) k.el.focus({preventScroll: true}); } catch (e) {}
@@ -2797,7 +2807,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (!a) return;
     // opened from the page (the Companion tab's Wardrobe): closing the sheet puts the page back exactly where it was (the browser
     // would otherwise scroll the tapped tile into view as it gets focus back)
-    if (!dlg.open) { const se = document.scrollingElement; buyKeep = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
+    if (!dlg.open) { const se = document.scrollingElement; buyKeep = keepHold = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
     if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
     stopPreviews();
     const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
