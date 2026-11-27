@@ -126,8 +126,8 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       {
         const {ctx, p} = await open(browser, {dark, fresh: true});
         await p.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
-        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector(".sb-welc-skip").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
-        ok(/Hi! I'm Mochi\.\s*Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Plan My Semester and I Already Have an Account: ` + JSON.stringify(w));
+        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent + " " + (d.querySelector("h3 + p") || {}).textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector(".sb-welc-skip").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
+        ok(/Hi! I'm Mochi\.\s*What are you studying\? Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Plan My Semester and I Already Have an Account: ` + JSON.stringify(w));
         await noOverflow(p, `15 (${tag})`);
         // (no Sign Up on the welcome any more: an account is made from I Already Have an Account > Create Account)
         ok(!(await p.locator("dialog[open] .sb-welc [data-sbm=signup]").count()), `15 (${tag}): the welcome has no Sign Up link`);

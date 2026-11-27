@@ -717,6 +717,7 @@ function planGapWhy(F){
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
   if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
+  if (rest >= 0.25) why.push(tr("plan.gap.free", "That's all the work there is to do today, so {time} of the {set} you set is free.", {time: fmtHM(q(rest)), set: fmtHM(F.thSet)}));
   return why;
 }
 // For tests: the plan as the app sees it right now

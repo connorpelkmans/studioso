@@ -269,7 +269,7 @@
   #view .nu-acts,#dlg .cls-acts,#view .gn-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   :is(#view .nu-acts,#dlg .cls-acts,#view .gn-acts) > .btn{width:100%;min-width:0;margin:0;justify-content:center;white-space:nowrap}
   :is(#view .nu-acts,#dlg .cls-acts) > .btn:first-child:nth-last-child(odd){grid-column:1/-1}
-  #view .gn-acts > :nth-child(3){grid-column:1/-1;justify-self:center;min-height:36px}
+  #view .gn-acts > :nth-child(3){grid-column:1/-1;justify-self:center;min-height:44px}
   #view .gr-headrow{flex-wrap:wrap;row-gap:10px}
   #view .gr-headrow > h3{flex:1 0 100%}
   #view .gr-headrow > .spacer{display:none}

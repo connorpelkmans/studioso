@@ -143,6 +143,8 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       const need = await txt(page, ".gr-need");
       ok(/To keep your A- \(90%\)/.test(need) && !/To pass/.test(need), "for an A- student, What You Need is about keeping the A-, not passing: " + need.replace(/\s+/g, " ").slice(0, 200));
       ok(await page.evaluate(() => { const p = document.querySelector(".gr-pass"), s = document.querySelector(".gr-stat:not(.gr-pass)"); return getComputedStyle(p).backgroundColor === getComputedStyle(s).backgroundColor; }), "the Pass Mark card has the same neutral look as the others");
+      // (the grade trend chart sits in the course's Outlook tab now)
+      if (await page.locator('[data-act="gi-gtab"][data-id="outlook"]').count()) { await page.click('[data-act="gi-gtab"][data-id="outlook"]'); await page.waitForTimeout(150); }
       const gt = await page.locator(".gt-svg").boundingBox();
       ok(gt && gt.height <= 210 && gt.width >= 400, "the grade trend chart is wide and short (" + Math.round(gt.width) + "x" + Math.round(gt.height) + ")");
       ok(await page.locator(".gr-goal-ask .chip[data-act=g-goal]").count() >= 2, "with marks in and no goal, it asks what grade you're aiming for");
