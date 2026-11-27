@@ -121,6 +121,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await conv([["how many seconds in a day", /86,400/], ["in a week?", /604,800/]]);
   await conv([["98.6 F in celsius", /37°C/], ["show the formula", /\(°F − 32\) × 5\/9/]]);
   await conv([["if a shirt is $40 and 25% off whats the price", /\$30/], ["then 8% tax on that?", /32\.4/]]);
+  await conv([["if a price goes from $2 to $2.50 what's the % increase", /25%/]]);
   await conv([["solve 2x+3=11", /x = 4/], ["show the steps", /Subtract 3/], ["now what if it's 3x instead?", /8\/3/]]);
   await conv([["solve x^2 - 5x + 6 = 0", /x = 2 or x = 3/], ["how do i check that?", /works/]]);
   await conv([["1/3 + 1/4", /7\/12/], ["now multiply that by 6", /= 3\.5/]]);
@@ -506,6 +507,17 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
   a = await chat("too dark, go back");
   ok(/light mode/i.test(a) && !/nothing recent to undo/i.test(a), "\"too dark, go back\" after dark mode switches back: " + a);
+  // what the companion wears can be undone ("take everything off" then "undo that")
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("take everything off");
+  a = await chat("undo that");
+  ok(!/nothing recent to undo/i.test(a) && /Undone/i.test(a), "\"undo that\" after taking accessories off puts them back: " + a);
+  // "quick deck on X" makes cards (it went to the notes lookup)
+  await p.evaluate(() => { window.__stubIntent = null; });
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.decks || {}).length);
+    a = await chat("quick deck on defense mechanisms");
+    const more = await p.evaluate(n => Object.keys(window.__sbSync.state.decks || {}).length > n, n0);
+    ok(!/^From your notes/i.test(a) && (more || /\bcards?\b/i.test(a)), "\"quick deck on ...\" makes cards: " + a); }
   await p.evaluate(() => { window.__stubIntent = null; });
   // an event's time range ("wednesday 1-2"): from 1 to 2 in the afternoon
   await fresh();
@@ -529,6 +541,13 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await p.evaluate(() => { window.__stubIntent = {intent: "move_task", task: "Study group"}; });
   a = await chat("move the study group 2 hours earlier");
   ok(await p.evaluate(() => window.__sbSync.state.events.evx.start === "16:00"), "\"2 hours earlier\" moves 6 pm to 4 pm, not 2 o'clock: " + a);
+  // a follow-up right after a move: "actually one more day" is a day after the new date (E2B: chat, nothing moved)
+  { const x5 = new Date(Date.now() + 5 * 864e5), txt = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][x5.getMonth()] + " " + x5.getDate();
+    a = await chat("move the study group to " + txt);
+    const d1 = await p.evaluate(() => window.__sbSync.state.events.evx.date);
+    a = await chat("actually one more day");
+    const d2 = await p.evaluate(() => window.__sbSync.state.events.evx.date), want = new Date(x5.getTime() + 864e5);
+    ok(new Date(d1 + "T12:00:00").getDate() === x5.getDate() && new Date(d2 + "T12:00:00").toDateString() === new Date(want.toDateString()).toDateString(), "\"actually one more day\" after a move pushes it one more day: " + d1 + " " + d2 + " " + a); }
   // a task named by when it's due, and the day it moves to (not the day that names it)
   await fresh(); await resetT();
   // (only Care Plan 2 due tomorrow, whatever day the test runs: tasks added earlier, "a bio worksheet due friday", move out of the way)

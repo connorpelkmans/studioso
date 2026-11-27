@@ -236,6 +236,16 @@
     ["pick", "names", "wear", "earned", "tint", "pat"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
+    // what's worn, recoloured, picked or renamed can be undone ("make it blue" then "undo that"); changes a moment apart are one step
+    if (typeof undoStack !== "undefined" && (patch.wear || patch.tint || patch.pick || patch.pat || patch.names)) {
+      const top = undoStack[undoStack.length - 1];
+      if (!(top && top.comp && !top.done && Date.now() - top.at < 1500)) {
+        const prev = JSON.parse(JSON.stringify(cur));
+        const label = patch.tint ? "Changed the colour back" : patch.wear ? "Put back what I was wearing" : patch.names ? "Changed the name back" : "Changed the companion back";
+        const step = {label, comp: true, at: Date.now(), done: false, quiet: true, undo: () => { if (step.done) return 0; step.done = true; state.settings = Object.assign({}, state.settings, {comp: prev}); saveSettings(); setTimeout(() => { try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {} try { scheduleRender(); } catch (e) {} }, 0); return 0; }};
+        undoStack.push(step); if (undoStack.length > 20) undoStack.shift();
+      }
+    }
     if (patch.pick || patch.names || patch.wear || patch.tint || patch.pat || "on" in patch) setTimeout(() => {
       try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {}
       try { scheduleRender(); } catch (e) {}

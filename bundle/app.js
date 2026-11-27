@@ -71243,6 +71243,16 @@ var COMP_EXTRA = [];
     ["pick", "names", "wear", "earned", "tint", "pat"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     state.settings = Object.assign({}, state.settings, {comp: next});
     saveSettings();
+    // what's worn, recoloured, picked or renamed can be undone ("make it blue" then "undo that"); changes a moment apart are one step
+    if (typeof undoStack !== "undefined" && (patch.wear || patch.tint || patch.pick || patch.pat || patch.names)) {
+      const top = undoStack[undoStack.length - 1];
+      if (!(top && top.comp && !top.done && Date.now() - top.at < 1500)) {
+        const prev = JSON.parse(JSON.stringify(cur));
+        const label = patch.tint ? "Changed the colour back" : patch.wear ? "Put back what I was wearing" : patch.names ? "Changed the name back" : "Changed the companion back";
+        const step = {label, comp: true, at: Date.now(), done: false, quiet: true, undo: () => { if (step.done) return 0; step.done = true; state.settings = Object.assign({}, state.settings, {comp: prev}); saveSettings(); setTimeout(() => { try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {} try { scheduleRender(); } catch (e) {} }, 0); return 0; }};
+        undoStack.push(step); if (undoStack.length > 20) undoStack.shift();
+      }
+    }
     if (patch.pick || patch.names || patch.wear || patch.tint || patch.pat || "on" in patch) setTimeout(() => {
       try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {}
       try { scheduleRender(); } catch (e) {}
@@ -76116,7 +76126,9 @@ window.SBAPPHELP = (() => {
       const v = Number(m[1]) / Number(m[2]) * 100; return out(`${F(Number(m[1]))} is ${F(v, 2)}% of ${F(Number(m[2]))}`, {kind: "num", value: v, steps: `Divide the part by the whole and multiply by 100: ${m[1]} ÷ ${m[2]} × 100 = ${F(v, 2)}%.`});
     }
     // percent change / increase / decrease from 50 to 65
-    if ((m = new RegExp(`^(?:the )?(?:percent(?:age)?|%) (change|increase|decrease|difference) (?:from|between) ${N} (?:to|and) ${N}$`).exec(s)) || (m = new RegExp(`^(?:by )?(?:what|how much) (?:percent|%) (?:is |did it |does it )?(?:go|change|increase|decrease)?\\s*(?:from )?${N} to ${N}$`).exec(s)) && (m = [m[0], "change", m[1], m[2]])) {
+    if ((m = new RegExp(`^(?:the )?(?:percent(?:age)?|%) (change|increase|decrease|difference) (?:from|between) ${N} (?:to|and) ${N}$`).exec(s)) || (m = new RegExp(`^(?:by )?(?:what|how much) (?:percent|%) (?:is |did it |does it )?(?:go|change|increase|decrease)?\\s*(?:from )?${N} to ${N}$`).exec(s)) && (m = [m[0], "change", m[1], m[2]])
+      // "if a price goes from $2 to $2.50 what's the % increase", "rent went up from 800 to 900, what percent is that"
+      || (m = new RegExp(`\\bfrom ${N} to ${N}(?![\\d.])`).exec(s)) && /(?:%|\bpercent(?:age)?\b)\s*(?:increase|decrease|change|difference|rise|drop|up|down|is that|was that|\?|$)|\bby what (?:%|percent)/.test(s) && !/(?:%|percent) of\b/.test(s) && (m = [m[0], "change", m[1], m[2]])) {
       const a = Number(m[2]), b = Number(m[3]); if (!a) return null; const v = (b - a) / a * 100;
       return out(`From ${F(a)} to ${F(b)} is ${v >= 0 ? "an increase" : "a decrease"} of ${F(Math.abs(v), 2)}%.`, {kind: "pctchg", a, b, value: v, steps: `Change ÷ starting value × 100: (${F(b)} − ${F(a)}) ÷ ${F(a)} × 100 = ${F(v, 2)}%.`});
     }
@@ -78718,6 +78730,8 @@ Examples:
     if (!best || bs < 2) return say(`I couldn't find a theme called "${clip(v, 40)}". The Style Shop has them all.`);
     const W = {skin: "theme", card: "flashcard style", note: "note shape", pin: "pin"}[bk];
     if (typeof owns === "function" && !owns(bk, best.id)) return say(`${best.name} is a ${W} you haven't unlocked yet. Open the Style Shop to unlock it.`);
+    { const prevStyle = JSON.parse(JSON.stringify((state.settings && state.settings.style) || {}));
+      if (typeof undoStack !== "undefined") undoStack.push({label: `Switched back from the ${best.name} ${W}`, at: Date.now(), done: false, quiet: true, undo: () => { state.settings = Object.assign({}, state.settings, {style: prevStyle}); saveSettings(); try { applySkin(); } catch (e) {} render(); return 0; }}); }
     if (bk === "skin") { saveStyle({skin: best.id}); applySkin(); }
     else if (bk === "card") saveStyle({card: best.id, cardAuto: best.id === "theme"});
     else if (bk === "note") saveStyle({note: best.id, noteAuto: false, notePicked: true});
@@ -78999,7 +79013,7 @@ Examples:
       }
     }
     // ---- making cards ----
-    const MAKE = /\b(make|create|generate|build|write|turn|convert|give me|do|need|want)\b[^?]{0,50}\b(flash ?cards?|cards)\b|^\s*(flash ?cards?|cards)\s+(on|about|from|for|of)\b|\b(make|create|start|build)\b[^?]{0,20}\b(deck|set)\b\s+(on|about|for|from|of)\b|\bflash ?cards? (on|about|from|for)\b/;
+    const MAKE = /\b(make|create|generate|build|write|turn|convert|give me|do|need|want)\b[^?]{0,50}\b(flash ?cards?|cards)\b|^\s*(flash ?cards?|cards)\s+(on|about|from|for|of)\b|\b(make|create|start|build)\b[^?]{0,20}\b(deck|set)\b\s+(on|about|for|from|of)\b|\bflash ?cards? (on|about|from|for)\b|^\s*(?:(?:a|an|one)\s+)?(?:(?:quick|small|short|mini|little|fast|new)\s+)*(?:flash ?card\s+)?deck\s+(on|about|for|of)\b|\b(quick|small|short|mini|little)\s+(?:flash ?card\s+)?deck\s+(on|about|for|of)\b/;
     // (not: an empty deck, cards from one of their quizzes, or "this file" with nothing attached; each has its own step)
     if (!MAKE.test(w) || /^\s*how\b/.test(w) || /\b(quiz me|test me|study|review|a task|add a card|add one|front|back)\b/.test(w)
       || /\b(empty|blank)\b/.test(w) || /\b(quiz|quizzes|test|case study|practice questions)\b/.test(w) || /\b(got wrong|i missed|wrong ones|ones i (?:got|missed)|i (?:got|keep getting) wrong|mistakes)\b/.test(w)
@@ -79154,6 +79168,26 @@ Examples:
     }
     if (/^Switched to (dark|light) mode/i.test(la) && /\b(too|back|revert|undo|off|nvm|never ?mind)\b/.test(lw) && /^(?:(?:ok(?:ay)?|no|nah|ugh|hmm|actually|eh)[\s,]+)*(?:too (?:dark|bright|light)[\s,]*)?(?:(?:go|switch(?: it)?|change it|put it|set it) back|revert(?: it)?|undo(?: that| it)?|turn it off|never ?mind|nvm)?\s*[.!]*$/.test(lw))
       return /^Switched to dark/i.test(la) ? "switch to light mode" : "switch to dark mode";
+    // right after a task or event was moved, added or renamed: "actually one more day", "oh lol nov 30", "make it 'Cardiac Cycle Lab'
+    // actually" are about that item (E2B round 4: all three got chat and nothing changed)
+    if (/\b(due date is now|moved to|title is now|Renamed the event|is now on|date is now)\b|^(Added|Moved|Renamed)\b/i.test(la)) {
+      const R = last.a.ref, T = Object.values(state.tasks || {}).filter(t => t && !t.archived), E = Object.values(state.events || {}).filter(e => e && !e.archived);
+      let it = R && R.id ? (R.kind === "task" ? state.tasks[R.id] : R.kind === "event" ? (state.events || {})[R.id] : null) : null;
+      if (!it) { const L = la.toLowerCase(); it = T.concat(E).filter(x => x.title && L.includes(String(x.title).toLowerCase())).sort((a, b) => b.title.length - a.title.length)[0] || null; }
+      if (!it || !it.title) return "";
+      const F = "(?:(?:actually|oh|ok(?:ay)?|wait|hmm+|no|nah|lol|lmao|um+|and|sorry|oops|ugh|so)[\\s,!]+)*";
+      const MON = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], NW = {a: 1, an: 1, one: 1, another: 1, two: 2, three: 3, four: 4, five: 5};
+      const cur = it.due || it.date || "";
+      let m;
+      if (cur && (m = new RegExp("^" + F + "(?:make it |push it(?: back)? |move it |give (?:it|me) )?(?:(a|an|one|another|two|three|four|five|\\d)\\s+)?(?:more\\s+)?days?\\s*(more|later|after|extra|earlier|before|sooner)?\\s*(?:then|instead|pls|please)?\\s*[.!]*$").exec(lw)) && (m[2] || /\b(more|another|push|move|give)\b/.test(lw))) {
+        const n = (NW[m[1]] || Number(m[1]) || 1) * (/earlier|before|sooner/.test(m[2] || "") ? -1 : 1), d = new Date(cur + "T12:00:00"); d.setDate(d.getDate() + n);
+        return `move ${it.title} to ${MON[d.getMonth()]} ${d.getDate()}`;
+      }
+      if ((m = new RegExp("^" + F + "(?:i meant |make it |no |sorry |on |to )*(?:the )?((?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}(?:st|nd|rd|th)|(?:next\\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day)\\s*(?:instead|then|actually|pls|please)?\\s*[.!]*$").exec(lw)))
+        return `move ${it.title} to ${m[1]}`;
+      if ((m = new RegExp("^" + F + "(?:make it|call it|name it|change it to|rename it(?: to)?|no,?)\\s*[\"“'‘](.{2,60}?)[\"”'’]\\s*(?:actually|instead|then|pls|please)?\\s*[.!]*$", "i").exec(w)))
+        return `rename ${it.title} to ${m[1]}`;
+    }
     return "";
   }
   function deckFollow(q, last){
@@ -80206,7 +80240,10 @@ ANSWERING
       if (!fix && !more && !slot && !mapMore && !att.length && last && !(last.a.actions || []).length && !last.a.mapOpen && !(last.a.changes || []).length && !(window.SBTRUTH && SBTRUTH.facts && (() => { try { return SBTRUTH.facts(last.ask || last.q); } catch (e) { return null; } })())) {
         const lq = String(last.ask || last.q), tp = topicOf(lq), short = q.split(/\s+/).length <= 12;
         const wa = /^\s*(?:and|ok|okay|so|but)?,?\s*(?:what|how) about\s+(?:the\s+)?(.{2,80}?)\s*\??\s*$/i.exec(q);
-        if (wa && tp && tp.length < 80 && lq.toLowerCase().includes(tp.toLowerCase())) qRef = lq.replace(new RegExp(tp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), wa[1]);
+        // ("capital of brazil" then "what about turkey?": the capital of Turkey, not Turkey; "causes of WWI" then "what about WWII")
+        const ofP = wa && tp && !/\b(of|in|for|on)\b/i.test(wa[1]) ? /^(.{3,50}?\b(?:of|in|for|on)\s+(?:the\s+)?)(.{2,50})$/i.exec(tp) : null;
+        if (ofP && lq.toLowerCase().includes(tp.toLowerCase())) qRef = lq.replace(new RegExp(tp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), ofP[1] + wa[1]);
+        else if (wa && tp && tp.length < 80 && lq.toLowerCase().includes(tp.toLowerCase())) qRef = lq.replace(new RegExp(tp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), wa[1]);
         else if (tp && tp.length < 60 && /^\s*(?:why|how|how so|why is that|why's that|how come|really)\s*\??\s*$/i.test(q)) qRef = `Why: ${lq.replace(/[?!.]+\s*$/, "")}?`;
         else if (tp && tp.length < 60 && short && /\b(it|its|that|this|they|them|their|those|these)\b/i.test(q) && !ACTY.test(q) && ISQ(q)) qRef = q.replace(/\b(it|that|this|they|them|those|these)\b/i, tp).replace(/\b(its|their)\b/i, `${tp}'s`);
       }
@@ -80611,7 +80648,15 @@ ANSWERING
       const ctxFollow = !!last && !lastSubj && !last.a.math && !att.length && q2.trim().split(/\s+/).length <= 8
         && (/\b(it|its|it's|that|this|they|them|those|these|one|ones|instead|too|also|again|then|same|rest|more|both|either|neither)\b/i.test(q2) || q2.trim().split(/\s+/).length <= 4)
         && !/^\s*(?:explain|define|describe|tell me about|what(?:'s| is| are| was| were)|whats|who(?:'s| is| was| were)|whos|how (?:does|do|did|is|are)|why (?:does|do|did|is|are))\s+(?:a |an |the )?(?!it\b|its\b|that\b|this\b|they\b|them\b|those\b|these\b|one\b|i\b|you\b|u\b|my\b|your\b|the rest\b|address\b|source\b|goal\b)[a-z]{3,}(?:\s+[a-z]{3,})?\s*(?:again|tho|though)?\s*\??\s*$/i.test(q2);
-      const noKnow = chatty || aboutLast || convoBit || !!window.__sbGameTurn; // (a turn in a game they started is talk too)
+      // a worry or a question about themselves or the companion ("am i gonna be a good nurse", "what if i do something wrong",
+      // "can i meet them", "should i keep going"): talk, never a Wikipedia page that shares a word (Alice Cooper, a song list)
+      const selfTalk = !made && !att.length && !ACTX(q2) && /^\s*(?:(?:but|so|and|ok|okay|like|hm+|ugh)\s*,?\s+)*(?:am i|will i|would i|could i|do you think (?:i|i'?m|ill|i'?ll)|what if (?:i|i'?m|my)|what happens if i|is it (?:bad|ok|okay|normal|weird|dumb|stupid) (?:that|if|to)|why (?:am|do|can'?t|cant|did) i|can i (?:meet|see|hug|pet|talk to) (?:them|him|her|you|it)|should i (?:keep going|stop|give up|quit|take a break|rest|sleep|be worried|worry)|are you (?:proud|mad|sad|happy|real|ok|okay)|do you (?:like|love|hate|miss|think about) (?:me|it|that|this))\b/i.test(q2)
+        && !/\b(due|tasks?|exams?|quiz(zes)?|midterm|final|grades?|marks?|notes?|cards?|decks?|define|definition|meaning|mean|explain)\b/i.test(q2);
+      // something that happened, said in passing ("anatomy lecture was 3 hours", "it was on the cardiac cycle"): talk about it, not
+      // the note that shares a word ("From your notes: The anatomy lecture was 3 hours long")
+      const toldMe = !made && !att.length && !!last && !/\?/.test(q2) && !ISQ(q2) && !ACTX(q2) && q2.trim().split(/\s+/).length <= 9
+        && /\b(was|were|went|had|took|lasted|got|did|felt)\b/i.test(q2) && !/^\s*(explain|define|describe|tell|give|list|show|make|add|quiz|test|what|who|why|how|when|where|which|is|are|was|were|did|does|do)\b/i.test(q2);
+      const noKnow = chatty || selfTalk || toldMe || aboutLast || convoBit || !!window.__sbGameTurn; // (a turn in a game they started is talk too)
       let chatMiss = false;
       // told to do something ("change ...", "add ...", "turn on ...") and nothing above could: said plainly, never an unrelated reply
       if (!made && !quick && !att.length && /^\s*(?:please\s+|(?:can|could|would|will) (?:you|u)\s+)?(?:change|switch|set|make|turn|add|create|delete|remove|move|rename|start|stop|put|mark|update|edit|enable|disable|reset|clear|hide|open)\b/i.test(q2) /* ("show me everything due before the midterm" is a question, round 7) */ && !/\?\s*$/.test(q2) && !TR.general(q2)
