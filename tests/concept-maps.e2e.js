@@ -264,6 +264,14 @@ function SEED(){
   await act(page, "cm-ren", "m1", {course: "c2"}); await page.waitForSelector("#cmName");
   await page.fill("#cmName", "Respiration"); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
   ok((await course(page, "c2")).maps[0].name === "Respiration" && /Respiration/.test(await page.textContent(".cm-grid")), "Rename");
+  // the same sheet changes the course a map belongs to (and back again)
+  await act(page, "cm-ren", "m1", {course: "c2"}); await page.waitForSelector("#cmCourse");
+  await page.selectOption("#cmCourse", "c1"); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
+  const mv = {c1: ((await course(page, "c1")).maps || []).map(m => m.id + ":" + m.name), c2: (await course(page, "c2")).maps.map(m => m.id)};
+  ok(mv.c1.includes("m1:Respiration") && !mv.c2.includes("m1"), "Edit Map moves a map to another course: " + JSON.stringify(mv));
+  await act(page, "cm-ren", "m1", {course: "c1"}); await page.waitForSelector("#cmCourse");
+  await page.selectOption("#cmCourse", "c2"); await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
+  ok((await course(page, "c2")).maps.some(m => m.id === "m1") && !((await course(page, "c1")).maps || []).some(m => m.id === "m1"), "and back");
   await page.click('.cm-mapcard:has(.cm-ctitle:text-is("Respiration")) [data-act="cm-del"]'); await page.waitForSelector("#dlg[open] [data-submit]");
   ok(/Delete Respiration\?/.test(await page.textContent("#dlg[open]")) && (await course(page, "c2")).maps.length === 2, "Delete asks first");
   await page.click("#dlg[open] [data-submit]"); await page.waitForTimeout(250);
