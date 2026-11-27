@@ -49,6 +49,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); };
   ok(m.chrome.background.service_worker === "background.js" && !m.chrome.host_permissions, "the Chrome manifest has a service worker and no install-time site access");
   ok(m.safari.background.scripts[0] === "background.js" && m.safari.background.persistent === false && !m.safari.background.service_worker && !m.safari.externally_connectable && !m.safari.minimum_chrome_version && m.safari.browser_specific_settings.safari.strict_min_version, "the Safari manifest has a non-persistent background script (required on iPhone and iPad), no Chrome-only keys and a minimum Safari");
   ok(m.safari.version === m.chrome.version && JSON.stringify(m.safari.permissions) === JSON.stringify(m.chrome.permissions) && JSON.stringify(m.safari.optional_host_permissions) === JSON.stringify(m.chrome.optional_host_permissions), "Safari asks for the same permissions as Chrome");
+  ok(JSON.stringify(m["safari-inapp"].permissions) === JSON.stringify(m.chrome.permissions.concat(["nativeMessaging", "cookies"])) && JSON.stringify(m["safari-inapp"].optional_host_permissions) === JSON.stringify(m.chrome.optional_host_permissions) && !m["safari-inapp"].host_permissions,
+    "only the copy in the iPhone app adds native messaging and cookies (for handing a school sign-in to the app), with no install-time site access");
+  ok(!["chrome", "firefox", "safari"].some(t => /nativeMessaging|"cookies"/.test(JSON.stringify(m[t].permissions))), "the store builds don't ask for native messaging or cookies");
   ok(files("safari")["background.js"] === files("firefox")["background.js"], "Safari runs the same background as Firefox");
   ok(m.chrome.description.length <= 132, "the description fits the Chrome Web Store's 132 characters");
 

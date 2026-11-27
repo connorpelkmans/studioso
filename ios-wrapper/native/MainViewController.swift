@@ -283,6 +283,10 @@ enum StudyboardBackgroundRefresh {
     private static var registered = false
 
     static func register() {
+        // School sites in the background (SchoolSafari/StudyboardSchoolBackground.swift), by name so the app builds without it
+        if let school = NSClassFromString("StudyboardSchoolBackground") as? NSObject.Type, school.responds(to: NSSelectorFromString("register")) {
+            _ = school.perform(NSSelectorFromString("register"))
+        }
         guard !registered else { return }
         registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
             guard let task = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
