@@ -2662,9 +2662,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${smartRow()}`;
   }
   /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
-  let buyBack = "";
+  let buyBack = "", buyKeep = null;
+  dlg.addEventListener("close", () => { const k = buyKeep; buyKeep = null; if (!k || !k.se) return;
+    // focus goes back to the tapped tile without scrolling (with it focused, the app's own refocus after a sheet leaves it be)
+    const put = () => { k.se.scrollTop = k.top; };
+    try { if (k.el && k.el.isConnected && k.el.focus) k.el.focus({preventScroll: true}); } catch (e) {}
+    put(); requestAnimationFrame(put); setTimeout(put, 60); setTimeout(put, 160); });
   function buyProp(a){
     if (!a) return;
+    // opened from the page (the Companion tab's Wardrobe): closing the sheet puts the page back exactly where it was (the browser
+    // would otherwise scroll the tapped tile into view as it gets focus back)
+    if (!dlg.open) { const se = document.scrollingElement; buyKeep = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
     if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
     stopPreviews();
     const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
