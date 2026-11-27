@@ -117,3 +117,38 @@ fan.alpha_composite(back, (40, 40))
 fan.alpha_composite(big, (420, 520))
 fan = fan.crop(fan.getbbox())
 fan.resize((256, int(256 * fan.height / fan.width)), Image.LANCZOS).save(f"{DEST}/bucks-stack.webp", quality=86, method=6)
+
+# The Stripe product image (1024 x 1024, the same navy as the Studyboard Credits coin's, concept-1-classic-gold-navy.png):
+# two bills fanned, a soft shadow under them and a sparkle on the corner
+S = 2048
+yy2, xx2 = np.mgrid[0:S, 0:S].astype(np.float32)
+t = np.clip((yy2 * 0.75 + xx2 * 0.25) / S, 0, 1)
+top, mid, bot = np.array([23, 58, 112], np.float32), np.array([18, 49, 98], np.float32), np.array([14, 42, 86], np.float32)
+bg = np.where((t < .5)[..., None], top + (mid - top) * (t * 2)[..., None], mid + (bot - mid) * ((t - .5) * 2)[..., None])
+d = np.sqrt((xx2 - S / 2) ** 2 + (yy2 - S / 2) ** 2) / (S * 0.72)
+bg *= (1 - 0.06 * np.clip(d, 0, 1) ** 2)[..., None]
+canvas = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+bw = int(S * 0.74); bh = int(bw * H / W)
+bill = big.resize((bw, bh), Image.LANCZOS)
+back = bill.rotate(12, resample=Image.BICUBIC, expand=True)
+bk = np.asarray(back).astype(np.float32); bk[..., :3] *= 0.78; back = Image.fromarray(bk.astype(np.uint8), "RGBA")
+front = bill.rotate(-4, resample=Image.BICUBIC, expand=True)
+def shadow(im, dx, dy, r, k):
+    a = np.asarray(im)[..., 3].astype(np.float32) / 255
+    sh = Image.fromarray((a * 255 * k).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r))
+    layer = Image.new("RGBA", im.size, (3, 10, 26, 0)); layer.putalpha(sh); return layer, dx, dy
+bx, by = int(S * 0.5 - back.width / 2 - S * 0.04), int(S * 0.5 - back.height / 2 - S * 0.07)
+fx, fy = int(S * 0.5 - front.width / 2 + S * 0.03), int(S * 0.5 - front.height / 2 + S * 0.06)
+for im, x, y in ((back, bx, by), (front, fx, fy)):
+    sh, dx, dy = shadow(im, 0, 0, 40, 0.7)
+    canvas.alpha_composite(sh, (x + 18, y + 40))
+    canvas.alpha_composite(im, (x, y))
+# a sparkle on the front bill's top right corner, as on the coin
+cv = np.asarray(canvas).astype(np.float32)
+sx, sy, sz = fx + front.width * 0.93, fy + front.height * 0.1, S * 0.05
+dx_, dy_ = np.abs(xx2 - sx), np.abs(yy2 - sy)
+star = np.clip(1 - (np.sqrt(dx_) * np.sqrt(dy_)) / (sz * 0.18), 0, 1) * np.exp(-(dx_ + dy_) / sz)
+core = np.exp(-((dx_ ** 2 + dy_ ** 2) / (2 * (sz * 0.08) ** 2)))
+a = np.clip(star * 1.4 + core, 0, 1) * 0.9
+cv[..., :3] = cv[..., :3] * (1 - a[..., None]) + np.array([235, 255, 225], np.float32) * a[..., None]
+Image.fromarray(np.clip(cv, 0, 255).astype(np.uint8), "RGBA").convert("RGB").resize((1024, 1024), Image.LANCZOS).save(f"{DEST}/bucks-product-1024.png", optimize=True)
