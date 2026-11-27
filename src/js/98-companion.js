@@ -23,7 +23,8 @@
   // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
   // quizzes, tasks and presentations, each by how hard it is. The price is set by the prop's rarity (PRICE). Once bought, a prop is kept for
   // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
-  // Props earned the old way (cfg().earned, before credits) stay yours.
+  // Credits are the only way to get one: props once unlocked by study milestones (cfg().earned, which older versions of the app
+  // still write) don't count, so an out-of-date device can't hand out free props. Past studying earned credits to buy them back.
   const ACC = [
     {id: "scarf", rarity: "common", name: "Cozy Scarf"},
     {id: "hat", rarity: "common", name: "Tiny Hat"},
@@ -360,8 +361,7 @@
   /* Getting props: bought with Studyboard Credits */
   const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
   const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
-  const wasEarned = a => !!(cfg().earned || {})[a.id];
-  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
   const forSale = a => !!a && (!a.festive || inSeason());
@@ -2333,6 +2333,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
+  // Props unlocked by study milestones (cfg().earned) before credits stay yours: they become owned for good (sc.own, at no cost).
+  // Unlocks after credits went in (the wardrobe expansion and credits reached main on Nov 27, 06:47 UTC, but some devices and
+  // sites kept running the old milestone code) were a mistake and are taken back, as is any of the newer props it unlocked
+  // (none of those existed before). Whatever a taken-back prop was worn on comes off. Runs a little after start-up and after
+  // each sync, since an out-of-date device can still write new unlocks.
+  const CREDITS_FROM = Date.UTC(2026, 10, 27, 6, 47, 0);
+  const ORIGINAL = ["scarf", "hat", "bowtie", "glasses", "medal", "cape", "star", "beanie", "cap", "crown"];
+  function revokeUnbought(){
+    try {
+      const c = cfg(), earned = c.earned; if (!earned || typeof earned !== "object" || !SC()) return;
+      const keep = Object.keys(earned).filter(id => { const v = Number(earned[id]) || 0; return ORIGINAL.includes(id) && ACC.some(a => a.id === id) && (v === 1 || (v > 1 && v < CREDITS_FROM)); });
+      keep.forEach(id => SC().grant(id));
+      const wear = {};
+      Object.entries(c.wear || {}).forEach(([cid, list]) => { wear[cid] = wornList(list).filter(id => canWear(ACC.find(x => x.id === id))); });
+      const next = Object.assign({}, c, {wear}); delete next.earned;
+      state.settings = Object.assign({}, state.settings, {comp: next}); saveSettings();
+      curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+    } catch (e) { console.warn("companion: revoke", e); }
+  }
+  hook("boot", () => setTimeout(revokeUnbought, 4000));
+  hook("render", () => { if (cfg().earned) setTimeout(revokeUnbought, 2000); });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
   hook("plan-changed", () => { curSig = ""; refresh(0); });
   hook("stats-focus", () => later(checkUnlocks, 2500));

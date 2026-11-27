@@ -148,7 +148,9 @@ var SBSC = (() => {
   }
 
   /* ---------- Spending ---------- */
-  const owns = id => !!(sc().own || {})[id];
+  // An accessory owned from before credits (98-companion.js, props earned by milestones then): kept for good, at no cost
+  function grant(id){ if (!id || owns(id)) return; setSc({own: {[id]: 0}}); invalidate(); }
+  const owns = id => !!id && Object.prototype.hasOwnProperty.call(sc().own || {}, id);
   // Pays for an accessory: true when bought (or already owned), false when there aren't enough credits
   function buy(id, price){
     price = Math.max(0, Math.round(Number(price) || 0));
@@ -375,7 +377,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};

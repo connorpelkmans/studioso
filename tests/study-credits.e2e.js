@@ -1,6 +1,6 @@
 // node tests/study-credits.e2e.js: Studyboard Credits (98-0study-credits.js), the gold coins earned by studying and spent on companion
 // accessories in the Wardrobe (98-companion.js). Each kind of work earns by how hard it is, deleting old work never takes credits
-// back, presentations count once per run, accessories earned before credits stay yours, and buying puts the accessory on.
+// back, presentations count once per run, accessories unlocked by milestones are taken back, and buying puts the accessory on.
 const {chromium, executablePath} = require("./pw");
 const path = require("path"), fs = require("fs"), http = require("http");
 const ROOT = path.join(__dirname, "..");
@@ -25,7 +25,7 @@ const tasks = [
   {id: "t5", title: "Outline", type: "Other", status: "done", doneAt: at(5), breakdownOf: "t4", due: iso(today)}
 ].concat(Array.from({length: 12}, (_, i) => ({id: "o" + i, title: "Little thing " + i, type: "Other", status: "done", doneAt: at(1), due: iso(today)})));
 const SEED = {v: 2, updated: 1, tasks, files: [], notes: [], events: [], courses: [],
-  settings: {capacity: 15, focusDays: {[iso(new Date(at(2)))]: 50, [iso(new Date(at(1)))]: 30, [iso(new Date(at(6)))]: 300}, comp: {earned: {scarf: 1}}},
+  settings: {capacity: 15, focusDays: {[iso(new Date(at(2)))]: 50, [iso(new Date(at(1)))]: 30, [iso(new Date(at(6)))]: 300}, comp: {earned: {scarf: Date.UTC(2026, 9, 1), glasses: 1, crown: Date.UTC(2026, 10, 27, 8), phoenix: Date.UTC(2026, 9, 1)}, wear: {"plain-mochi": ["scarf", "crown"]}}},
   decks: [{id: "d1", name: "Cells", created: 1, cards, quizzes: [{score: 8, total: 10, at: 1}, {score: 5, total: 5, at: 2}, {score: 1, total: 5, at: 3}], aiQuizzes: []}]};
 // focus 80 min = 80, plus a 300-minute day counted as 180; cards 100; quizzes 29; tasks 40 + 12 + 6 + 3 + 32 = 93. Total 482.
 const WANT = {focus: 260, cards: 100, quiz: 29, task: 93};
@@ -66,7 +66,9 @@ const WANT = {focus: 260, cards: 100, quiz: 29, task: 93};
       return {pill: (b.querySelector(".scr-pill [data-scr-bal]") || {}).textContent, scarf: tile("scarf").textContent.replace(/\s+/g, " ").trim(), hat: tile("hat").textContent.replace(/\s+/g, " ").trim(),
         hatBuy: tile("hat").classList.contains("can-buy"), crownBuy: tile("crown").classList.contains("can-buy"), how: !!b.querySelector(".scr-how"), owned: SBCOMP.ownedNames()}; });
     ok(w.pill === "482", "the Wardrobe shows the balance: " + w.pill);
-    ok(/Wear/.test(w.scarf) && w.owned.includes("Cozy Scarf"), "the scarf earned before credits is still yours: " + w.scarf);
+    ok(/Wear/.test(w.scarf) && w.owned.includes("Cozy Scarf") && w.owned.includes("Round Glasses"), "props earned before credits are still yours: " + w.scarf);
+    ok(!w.owned.includes("Little Crown") && !w.owned.some(n => /Phoenix/.test(n)), "a prop unlocked by milestones after credits went in (the crown), or a newer prop (Phoenix Crest), is taken back: " + w.owned.join(", "));
+    ok(await p.evaluate(() => { const S = window.__sbSync.state.settings, c = S.comp || {}, w = (c.wear || {})["plain-mochi"] || []; return !c.earned && w.join() === "scarf" && S.sc.own.scarf === 0 && S.sc.own.glasses === 0; }), "the kept ones are owned for good at no cost, the old record is cleared, and only the taken-back crown comes off");
     ok(/100/.test(w.hat) && /Common/.test(w.hat) && w.hatBuy && !w.crownBuy, "the hat is Common at 100 and affordable; the Legendary crown isn't: " + w.hat);
     ok(w.how, "How to Earn Credits lists each kind of work");
 
