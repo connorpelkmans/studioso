@@ -7798,7 +7798,10 @@ function e4bDownload(){
   DEVAI.e4bFull = false; DEVAI.e4bErr = "";
   e4bRunning = (async () => {
     const D = e4bDesk(); let top = 0; const say = p => { top = Math.max(top, p); DEVAI.e4bPct = top;  // (never backwards: a part that's retried keeps the progress shown)
- DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
+
+      // the progress itself is painted in place (e4bPaint); the page redraws only when the state changes, so a download in the
+      // background never keeps redrawing what's on screen (which restarted the hover animations on deck tiles, every few moments)
+      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b) try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along

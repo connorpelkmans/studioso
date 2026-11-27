@@ -17,8 +17,10 @@
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{display:flex;justify-content:center;margin-bottom:4px}
-.pomo-cr .scr-live{font-size:.85em}
+.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 1.9rem);display:flex;justify-content:center;pointer-events:none}
+.pomo-read:has(.sp-dial) .pomo-cr{position:static;margin-bottom:2px}
+.pomo-cr .scr-live{font-size:.72rem;padding:2px 8px 2px 3px;gap:4px}
+.pomo-cr .scr-live img{width:14px;height:14px}
 .pomo-cr:empty{display:none}
 .pr-cr{display:inline-flex}
 .pr-cr:empty{display:none}
