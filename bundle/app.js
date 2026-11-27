@@ -75272,7 +75272,28 @@ var COMP_ACC_MORE = K => {
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
   // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  /* Every accessory's icon is fitted to its circle or tile: what it draws is measured once (twinkles left out), then centred and
+     scaled to fill about the same space, so a tall hat, a wide scarf and a small pin all sit in the middle at a matching size */
+  const ICON_FIT = {}, ICON_W = 40, ICON_H = 36;
+  function iconFit(id, inner){
+    if (ICON_FIT[id]) return ICON_FIT[id];
+    try {
+      const NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
+      sv.setAttribute("viewBox", "-26 -26 52 52"); sv.setAttribute("width", "52"); sv.setAttribute("height", "52");
+      sv.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none";
+      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw").forEach(t => t.remove());
+      document.body.appendChild(sv); const bb = sv.firstChild.getBBox(); sv.remove();
+      if (!(bb.width > 0 && bb.height > 0)) return null;
+      const k = Math.min(1.6, ICON_W / bb.width, ICON_H / bb.height);
+      return (ICON_FIT[id] = {k: f1(k), x: f1(-(bb.x + bb.width / 2) * k), y: f1(-(bb.y + bb.height / 2) * k)});
+    } catch (e) { return null; }
+  }
   function propIcon(a, tints){
+    const svg = propIconRaw(a, tints), m = /^(<svg[^>]*>)([\s\S]*)<\/svg>$/.exec(svg); if (!m) return svg;
+    const fit = iconFit(a.id, m[2]);
+    return fit ? `${m[1]}<g transform="translate(${fit.x} ${fit.y}) scale(${fit.k})">${m[2]}</g></svg>` : svg;
+  }
+  function propIconRaw(a, tints){
     tints = tints || tintsNow();
     const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
     // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
