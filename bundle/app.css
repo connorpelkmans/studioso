@@ -5790,6 +5790,24 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 /* the plain gold label (Great Grade!, Credits Earned) in dark mode: light gold on a dark gold */
 :root[data-theme="dark"] .scr-kick{color:#FFE29A;background:rgba(246,195,74,.2)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-kick{color:#FFE29A;background:rgba(246,195,74,.2)}}
+/* the Wardrobe's weekly Pro spin: a quiet card in Pro's colours, Get Pro in the Pro gradient */
+.wh-pro{display:flex;align-items:center;gap:12px;margin:10px 0 2px;padding:10px 12px;border-radius:14px;
+  border:1px solid color-mix(in srgb,#FF5C8A 26%,var(--line));
+  background:linear-gradient(120deg,color-mix(in srgb,#FFB443 9%,var(--surface)),color-mix(in srgb,#FF5C8A 7%,var(--surface)))}
+.wh-pro-ic{flex:none;width:40px;height:40px;display:grid;place-items:center}
+.wh-pro-ic svg{width:40px;height:40px;display:block}
+@media (prefers-reduced-motion:no-preference){.wh-pro:hover .wh-pro-ic svg{transition:transform .6s cubic-bezier(.2,.8,.2,1);transform:rotate(45deg)}}
+.wh-pro-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;line-height:1.3}
+.wh-pro-t b{font:700 .92rem var(--display);color:var(--ink)}
+.wh-pro-t .mini{margin:0;color:var(--muted)}
+.btn.wh-pro-btn{flex:none;background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:700;
+  box-shadow:0 3px 10px color-mix(in srgb,#FF5C8A 28%,transparent);white-space:nowrap}
+.btn.wh-pro-btn:hover{filter:brightness(1.05);box-shadow:0 5px 14px color-mix(in srgb,#FF5C8A 36%,transparent)}
+.btn.wh-pro-btn:focus-visible{outline:2px solid #FF5C8A;outline-offset:2px}
+@media (max-width:420px){.wh-pro{gap:10px;padding:10px}.wh-pro-ic,.wh-pro-ic svg{width:34px;height:34px}}
+.scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
+:root[data-theme="dark"] .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-kick.scr-kick-pro{color:#fff;background:linear-gradient(135deg,#FFB443,#FF5C8A)}}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */

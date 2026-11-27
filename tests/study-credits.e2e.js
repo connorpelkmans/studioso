@@ -199,6 +199,18 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(await p.evaluate(() => SBSC.spinQueue().length) === 2, "and that spin is used");
     await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
     await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+    // 9f. Pro: a free spin every week, on top of the exam spins; the Wardrobe says so to free students, with Get Pro
+    const pr = await p.evaluate(() => { const out = [];
+      SBSC.planTest({paywall: true, pro: false});
+      const free = SBSC.proSpinHtml(); out.push(/Get Pro/.test(free) && /data-act="plan-open"/.test(free));
+      SBSC.checkPro(); out.push(SBSC.spinQueue().length);                       // free: no spin
+      SBSC.planTest({paywall: true, pro: true}); SBSC.checkPro(); out.push(SBSC.spinQueue().filter(x => x.pro).length);
+      SBSC.checkPro(); out.push(SBSC.spinQueue().filter(x => x.pro).length);  // once a week
+      out.push(SBSC.spinsLeftThisWeek());                                       // not counted against the exam limit (used up above)
+      out.push(/Your free Pro spin/.test(SBSC.proSpinHtml()) && /wh-pro-spin/.test(SBSC.proSpinHtml()));
+      SBSC.planTest(null); return out.join(); });
+    ok(pr === "true,0,1,1,0,true", "Pro: one free spin a week, apart from the exam spins; free students see Get Pro: " + pr);
+    await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
 
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);

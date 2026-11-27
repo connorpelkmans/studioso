@@ -2649,6 +2649,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
@@ -2771,6 +2772,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 
   hook("act", (a, el) => {
     if (a === "comp-open") { openPicker(); return true; }
+    if (a === "wh-pro-spin") { if (SC() && SC().spinPro) SC().spinPro(() => { try { refreshPicker(); } catch (e) {} try { render(); } catch (e) {} }); return true; }
     if (a === "comp-change") { openChange(); return true; }
     if (a === "comp-theme") {
       const k = el.dataset.skin, slot = Number(el.dataset.slot) || 0, pickC = REG[k] && REG[k].list[slot];
