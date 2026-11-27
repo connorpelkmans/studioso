@@ -126287,13 +126287,28 @@ async function scanDrawing(file, name, onStatus){
   const center = String(d.center || "").trim().slice(0, 80), mid = name || center;
   return {title: center, ov: CMAP.fromSpec(Object.assign({}, d, {scan: true}), mid)};
 }
+// The map's edit sheet: its name, and the course it belongs to (moving it takes it to that course's maps, where that course's
+// material draws itself in; its own ideas, links and layout go with it)
 function renameSheet(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
-  openSheet(`<form class="sheet">${bandHead("Rename Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(rootName(m, m.name))}" autocomplete="off"></label></div>
+  const cs = coursesLive().concat([state.courses[GEN_ID] || genRec()]);
+  openSheet(`<form class="sheet">${bandHead("Edit Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(rootName(m, m.name))}" autocomplete="off"></label>
+    <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(x => `<option value="${esc(x.id)}" ${x.id === c.id ? "selected" : ""}>${esc(isGen(x) ? "General (No Course)" : courseLabel(x))}</option>`).join("")}</select></label>
+    <p class="mini" id="cmEditErr" role="alert" style="margin:0;color:var(--danger,#C2412D)"></p></div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit>Save</button></div></form>`, () => {
     const name = String(dlg.querySelector("#cmName").value || "").trim().slice(0, 80); if (!name) return false;
-    const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => { if (x.id !== mid) return x; const y = Object.assign({}, x, {name, at: Date.now()}); if (y.names && y.names.root != null) { y.names = Object.assign({}, y.names); delete y.names.root; } return y; })}); delete after.cmap;
-    applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
+    const to = dlg.querySelector("#cmCourse").value || c.id;
+    const renamed = x => { const y = Object.assign({}, x, {name, at: Date.now()}); if (y.names && y.names.root != null) { y.names = Object.assign({}, y.names); delete y.names.root; } return y; };
+    if (to === c.id) {
+      const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => x.id !== mid ? x : renamed(x))}); delete after.cmap;
+      applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
+      return;
+    }
+    const dest = state.courses[to] || (to === GEN_ID ? genRec() : null); if (!dest) return false;
+    if (mapsOf(dest).length >= MAX_MAPS) { const e = dlg.querySelector("#cmEditErr"); if (e) e.textContent = `${isGen(dest) ? "General" : courseLabel(dest)} already has ${MAX_MAPS} maps.`; return false; }
+    const from = Object.assign(clone(c), {maps: mapsOf(c).filter(x => x.id !== mid)}); delete from.cmap;
+    const into = Object.assign(clone(dest), {maps: mapsOf(dest).concat([renamed(m)])}); delete into.cmap;
+    applyChanges([{kind: "course", id: c.id, after: from}, {kind: "course", id: dest.id, after: into}], `Moved the map ${name} to ${isGen(dest) ? "General" : courseLabel(dest)}`, null, {quiet: true});
   });
   const nm = dlg.querySelector("#cmName"); if (nm) { nm.focus(); nm.select(); }
 }
@@ -126391,7 +126406,7 @@ function listHtml(){
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid), {label: x.name})}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot cm-cfoot-bar">
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
-      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
+      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}" title="Edit">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
