@@ -6107,7 +6107,12 @@ function aiStudySheet(deckId, mode){
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
-  if (!aiCfg().key) { aiSetupSheet(true); return; }
+  if (!aiCfg().key) {
+    const d0 = deckId ? state.decks[deckId] : null;
+    aiSetupSheet(true, mode === "quiz" ? {feature: "Quiz From Slides or Notes", alt: {text: "make a practice quiz from one of your decks.", label: "Quiz From a Deck", act: "qz-from-deck"}}
+      : {feature: "Create with AI", alt: d0 ? {text: "add cards to this deck yourself, or paste a list.", label: "Edit Deck", act: "fc-edit", id: d0.id} : {text: "make a deck and add cards yourself, or paste a list.", label: "New Deck", act: "fc-new"}});
+    return;
+  }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
@@ -6803,6 +6808,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // without a key box on this sheet, the lines about this device's free AI don't point at "a free key below"
+  const keyTxt = s => gemOk ? s : String(s || "").replace(/\s*(You can still use AI with a free key|A free key below works(?: instead| everywhere)?|Or add a free key below)\./g, "");
   // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
   const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
@@ -6821,8 +6828,10 @@ function aiSetupSheet(fromFeature, opts){
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  // and opts.alt ({text, label, act, id}) is the way to do it without AI, so the sheet isn't a dead end
+  const alt = opts.alt && !aiReady() ? `<p class="ai-alt mini" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:12rem"><b>Without AI:</b> ${esc(opts.alt.text)}</span><button type="button" class="btn small" data-act="${esc(opts.alt.act)}"${opts.alt.id ? ` data-id="${esc(opts.alt.id)}"` : ""}>${esc(opts.alt.label)}</button></p>` : "";
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
-    <div class="sheet-body">
+    <div class="sheet-body">${alt}
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
@@ -6835,10 +6844,11 @@ function aiSetupSheet(fromFeature, opts){
       ${inPreview() ? "" : aiTiersCard()}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
-      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devWhyText()))}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devNoneText()))}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${!pro && !gemOk && !inPreview() && !(typeof sbUser !== "undefined" && sbUser) ? `<div class="ai-disclaimer ai-signin" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Want AI with a free key?</b> Sign in to your free Studyboard account first. Free keys are for students 18 and older, and your account is how Studyboard checks.</p><button type="button" class="btn small primary" data-act="${SB_HOSTED ? "sb-signin" : "sb-connect"}">${SB_HOSTED ? "Sign In" : "Set Up Sync"}</button></div>` : ""}
       ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
       <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">
@@ -29187,7 +29197,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days (Studyboard AI Pro comes with a paid plan). No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI Pro. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
@@ -33974,11 +33984,13 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   /* The exact answer for a question, or null when it needs reading */
-  function exactAnswer(D, q){
+  // scope: the course picked under Ask About, used when the question doesn't name a course itself
+  function exactAnswer(D, q, scope){
     const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     if (!ql) return null;
     if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
-    const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
+    const named = coursesInQ(D, q), cs = named.length || !scope ? named : D.courses.filter(c => c.id === scope);   // named: only the courses the question itself names (rooms, instructors, a day's classes)
+    const only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
     const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
     if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
       const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
@@ -33995,6 +34007,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       let hinted = false;
       if (hint) { const h = up.filter(x => hint.test(x.t.title)); if (h.length) { up = h; hinted = true; } }
       const listAll = /\b(all|list|exams|tests|quizzes|quizes|how many|which|what exams|any|remaining|upcoming exams)\b/.test(ql) && !/\bnext\b|\bfirst\b|\bsoonest\b/.test(ql);
+      // "when is the final?" in a course whose final is a paper or project, not an exam: say that, with its due date
+      const finals = !up.length && hint && cs.length && /final/.test(String(hint)) ? D.tasks.filter(t => isDate(t.due) && t.due >= D.today && t.status !== "done" && only(t) && /\bfinal\b/i.test(t.title)).sort((a, b) => a.due < b.due ? -1 : 1) : [];
+      if (finals.length) return {kind: "exam", items: askItems(finals), text: `There's no final exam${forC} in your planner. ${finals.length === 1 ? "The final work is" : "The final work:"} ${finals.slice(0, 3).map(t => `${t.title}, due ${longDate(t.due)}`).join("; ")}.`};
       if (!up.length) {
         const past = examsOf(D, kinds).filter(x => only(x.t) && (x.passed || x.done)).pop();
         return {kind: "exam", items: past ? askItems([past.t]) : [], text: `You have no upcoming ${noun}${forC} in your planner.${past ? ` The most recent was ${past.t.title}${courseTag(D, past.t) ? " (" + courseTag(D, past.t) + ")" : ""} on ${longDate(past.t.due)}${past.done ? ", marked as taken" : ""}.` : ""}`};
@@ -34035,16 +34050,16 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       return {kind: "due", items: askItems(real.concat(od)), text};
     }
     if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
-      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
+      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !named.length || (o.c && named.some(c => c.id === o.c.id)) || (o.course && named.some(c => c.id === o.course.id)))
         .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
-      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
-      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
+      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}.`};
+      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
-    if (cs.length && cs.length <= 3) {
+    if (named.length && named.length <= 3) {
       const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
       if (ask) {
         const lbl = {instructor: "instructor", office: "office hours", room: "room"}[ask];
-        const lines = cs.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
+        const lines = named.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
         return {kind: "course", items: [], text: (ask === "instructor" ? "Instructor, " : ask === "office" ? "Office hours, " : "Room, ") + lines.join("; ") + "."};
       }
     }
@@ -34148,7 +34163,7 @@ Return JSON only.`;
     else if (S.thread.length && S.thread[S.thread.length - 1].q === q) S.thread.pop();
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
-    let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    let det = null; try { det = exactAnswer(askData(), q, S.course); } catch(e) { console.warn(e); }
     // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
     if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
@@ -34956,7 +34971,7 @@ Return JSON only.`;
     runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
   };
   setTimeout(warmFiles, 15000);
-  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
+  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun, exact: (q, scope) => exactAnswer(askData(), q, scope)}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
   window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();
@@ -42569,7 +42584,7 @@ hook("boot", boot);
       case "grp-pt-view": if (x) { x.view = el.dataset.v === "board" ? "board" : "list"; ptRefresh(g.id); } return true;
       case "grp-pt-status": { const t = x && x.tasks.find(k => k.id === id); if (t && !t._tmp && PT_STATUS.some(k => k[0] === el.dataset.s)) ptMutate(g.id, id, {status: el.dataset.s}); return true; }
       case "grp-pt-plan": if (g && isProj(g)) planSheet(g); return true;
-      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true), 40); return true;
+      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true, {feature: "Start From a Plan", alt: {text: "add the project's tasks one at a time.", label: "Add a Task", act: "grp-pt-new"}}), 40); return true;
       case "grp-pt-new": if (g && isProj(g)) ptAddSheet(g); return true;
       case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
       case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
@@ -42938,10 +42953,11 @@ hook("boot", boot);
 
   /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
-  function needOnline(){
+  // title: what needs the account ("Study Groups Need a Free Account"); sharing by default
+  function needOnline(title){
     if (online()) return true;
     const local = !sbConfig();
-    openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
+    openSheet(`<div class="sheet">${head(title || "Sharing Needs a Studyboard Account")}<div class="sheet-body">
       <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
@@ -43395,7 +43411,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
   // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
   window.SBGRPNEW = (name, project) => {
-    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+    try { if (typeof needOnline === "function" && !needOnline("Study Groups Need a Free Account")) return false; newGroupSheet(null);
       setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
         if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
@@ -43470,9 +43486,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
         S.groups = null; loadGroups(); })(); return true;
       case "grp-import": importDeckFile(); return true;
-      case "grp-name": if (needOnline()) nameSheet(false, null); return true;
+      case "grp-name": if (needOnline("Your Name Needs a Free Account")) nameSheet(false, null); return true;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
-      case "grp-new": if (needOnline()) newGroupSheet(null); return true;
+      case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
@@ -44516,7 +44532,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
-    profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
+    profile: () => { if (needOnline("Your Name Needs a Free Account")) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
     hue: (gid, id, name) => memberHue(gid, id, name),
     // open a group on its Whiteboards tab
@@ -100892,7 +100908,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (62 to 76%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI: 62 to 76% Right", pro: "99% Right, on Any Device", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -100921,7 +100937,8 @@ var SBPRO = null;
     smartremind: "Nudges at the start of your free time when a big task needs it.",
     "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
     examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
-    email: "Forward school emails and Studyboard finds the deadlines in them."
+    email: "Forward school emails and Studyboard finds the deadlines in them.",
+    present: "Record your practice talks, see your stats, get coaching, and use your phone as a remote. Timing, plans and group practice stay free."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
   const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
@@ -115321,7 +115338,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const KK = "wb-ai:" + id;
     if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Notes and Cards From a Board"}); return; }
     W.flush();
     openSheet(`<form class="sheet ai-sheet wb-ai-sheet">${head("Notes and Cards From This Board")}
       <div class="sheet-body" id="wbaBody">
@@ -115423,7 +115440,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     if (a !== "ink-text" || reading) return;
     if (inkLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(INK_WHY); return; }
     const info = W.selInk(); if (!info) return;
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Turn Writing Into Text"}); return; }
     reading = true; const btn = document.querySelector('.wb-selbar [data-wb="ink-text"]'); if (btn) { btn.classList.add("busy"); btn.innerHTML = '<span class="spinner"></span>'; }
     try {
       const data = bytesToB64(new Uint8Array(await (await new Promise(r => info.canvas.toBlob(r, "image/png"))).arrayBuffer()));
@@ -129100,7 +129117,8 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); X.refreshReady(); fillSecs(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); }
+    fillSecs();   // always: the group's Shared tab says "Loading…" until the first load ends, even when it found nothing
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)

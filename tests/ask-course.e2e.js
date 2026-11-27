@@ -234,5 +234,12 @@ function reply(ctx, t){
   ok(/used this week's 3 free Quiz Me sessions/.test(await fp.evaluate(() => (document.querySelector("dialog[open]") || {}).textContent || "")), "free: Quiz Me opens the Pro sheet with the reason");
   ok(fctx.quizzes.length === 0, "free: no quiz is written");
   ok(fp.errs.length === 0, "no page errors: " + fp.errs.join("; "));
+  // planner answers follow the course picked under Ask About when the question names none
+  const ex = await fp.evaluate(([d1, d2]) => { const st = window.__sbProStudy.state();
+    st.tasks.tx1 = {id: "tx1", title: "Chem Final Exam", courseId: "c2", type: "Exam", due: d1, status: "todo", priority: "high", created: 5};
+    st.tasks.tx2 = {id: "tx2", title: "Final project: plant growth poster", courseId: "c1", type: "Project", due: d2, status: "todo", priority: "high", created: 5};
+    const X = window.__sxDebug.exact; return {bio: X("When is the final?", "c1").text, chem: X("When is the final?", "c2").text, all: X("When is the final?", "").text}; }, [day(9), day(12)]);
+  ok(!/Chem Final/.test(ex.bio) && /no final exam for BIO101/.test(ex.bio) && /plant growth poster/.test(ex.bio), "scoped to BIO101, \"when is the final?\" gives its final project, not CHEM200's exam: " + ex.bio);
+  ok(/Chem Final Exam/.test(ex.chem) && /Chem Final Exam/.test(ex.all), "scoped to CHEM200 or to all courses, it's the Chem final");
   await browser.close(); server.close(); console.log(n + " checks passed");
 })().catch(e => { console.error(e); process.exit(1); });

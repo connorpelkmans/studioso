@@ -1839,7 +1839,12 @@ function aiStudySheet(deckId, mode){
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
-  if (!aiCfg().key) { aiSetupSheet(true); return; }
+  if (!aiCfg().key) {
+    const d0 = deckId ? state.decks[deckId] : null;
+    aiSetupSheet(true, mode === "quiz" ? {feature: "Quiz From Slides or Notes", alt: {text: "make a practice quiz from one of your decks.", label: "Quiz From a Deck", act: "qz-from-deck"}}
+      : {feature: "Create with AI", alt: d0 ? {text: "add cards to this deck yourself, or paste a list.", label: "Edit Deck", act: "fc-edit", id: d0.id} : {text: "make a deck and add cards yourself, or paste a list.", label: "New Deck", act: "fc-new"}});
+    return;
+  }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
@@ -2535,6 +2540,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // without a key box on this sheet, the lines about this device's free AI don't point at "a free key below"
+  const keyTxt = s => gemOk ? s : String(s || "").replace(/\s*(You can still use AI with a free key|A free key below works(?: instead| everywhere)?|Or add a free key below)\./g, "");
   // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
   const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
@@ -2553,8 +2560,10 @@ function aiSetupSheet(fromFeature, opts){
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  // and opts.alt ({text, label, act, id}) is the way to do it without AI, so the sheet isn't a dead end
+  const alt = opts.alt && !aiReady() ? `<p class="ai-alt mini" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:12rem"><b>Without AI:</b> ${esc(opts.alt.text)}</span><button type="button" class="btn small" data-act="${esc(opts.alt.act)}"${opts.alt.id ? ` data-id="${esc(opts.alt.id)}"` : ""}>${esc(opts.alt.label)}</button></p>` : "";
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
-    <div class="sheet-body">
+    <div class="sheet-body">${alt}
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
@@ -2567,10 +2576,11 @@ function aiSetupSheet(fromFeature, opts){
       ${inPreview() ? "" : aiTiersCard()}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
-      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devWhyText()))}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devNoneText()))}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${!pro && !gemOk && !inPreview() && !(typeof sbUser !== "undefined" && sbUser) ? `<div class="ai-disclaimer ai-signin" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Want AI with a free key?</b> Sign in to your free Studyboard account first. Free keys are for students 18 and older, and your account is how Studyboard checks.</p><button type="button" class="btn small primary" data-act="${SB_HOSTED ? "sb-signin" : "sb-connect"}">${SB_HOSTED ? "Sign In" : "Set Up Sync"}</button></div>` : ""}
       ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
       <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">
