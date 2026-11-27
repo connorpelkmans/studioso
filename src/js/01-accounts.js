@@ -1154,7 +1154,8 @@ function sbSignInSheet(mode, email, note){
   }
   const sv = $("#sbServer"); if (sv) sv.addEventListener("click", sbSetupSheet);
 }
-// The first thing a new student sees: Mochi says hi, then Sign Up or sign in. Closing it uses Studyboard on this device
+// The first thing a new student sees: Mochi says hi, then the setup (no account) or sign in. Making an account is offered
+// where it helps (backups, Pro in the setup; Settings any time; Create Account on the sign-in form), not on this first screen
 function sbWelcomeHtml(){
   let mochi = ""; try { mochi = window.SBCOMP ? SBCOMP.rigSvg("plain-mochi", {eyes: "happy", mouth: "smile"}) : ""; } catch(e) {}
   // "No account needed" gets its own button: it closes the welcome like ×, which works on this device and starts the setup
@@ -1170,7 +1171,7 @@ function sbWelcomeHtml(){
     </ul>
     <button type="button" class="btn primary sb-welc-go sb-welc-skip" data-act="close">Plan My Semester</button>
     <button type="button" class="btn sb-welc-cards" data-act="first-deck">Make Flashcards From My Notes</button>
-    <span class="sb-welc-acct"><button type="button" class="link-btn sb-welc-alt" id="sbSignUp" data-sbm="signup">Sign Up</button><span class="mini">or</span><button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button></span>
+    <span class="sb-welc-acct"><button type="button" class="link-btn sb-welc-alt" data-sbm="signin">I Already Have an Account</button></span>
   </div>`;
 }
 // "Not Now", or closing the first welcome or sign-in sheet
