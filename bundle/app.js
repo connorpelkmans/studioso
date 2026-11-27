@@ -76729,7 +76729,7 @@ var COMP_ACC_MORE = K => {
      grant; not the free weeks of a trial, and none while the paywall is off). The wrapping paper fits the holiday */
   const GIFTS = [
     {key: "2026", item: "santahat", from: "2026-12-25", to: "2027-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas", all: true, join: 14},
-    {key: "ny2027", item: "newyearhat", from: "2027-01-01", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14},
+    {key: "ny2027", item: "newyearhat", from: "2027-01-01", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14, proNext: true},
     {key: "val2027", item: "heartboppers", from: "2027-02-14", to: "2027-02-21", wrap: "valentine", hi: "Happy Valentine's Day!", what: "Valentine's Day"},
     {key: "stp2027", item: "leprechaun", from: "2027-03-17", to: "2027-03-24", wrap: "stpat", hi: "Happy St. Patrick's Day!", what: "St. Patrick's Day"},
     {key: "eas2027", item: "chickpin", from: "2027-03-28", to: "2027-04-04", wrap: "easter", hi: "Happy Easter!", what: "Easter"},
@@ -76834,7 +76834,7 @@ var COMP_ACC_MORE = K => {
       setCfg({gift: {[gf.key]: 1}});
       try { sbHaptic("success", {force: true}); } catch (e) {}
       o.classList.add("cpg-opening");
-      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
+      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpg]"); if (b) close(b.dataset.cpg === "open"); });
     o.addEventListener("keydown", e => {
@@ -76861,6 +76861,7 @@ var COMP_ACC_MORE = K => {
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
       <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
       <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
+      ${a.proNext ? `<p class="cpu-next">${PRO_BADGE}<span>${giftProNow() ? "You'll get a gift every holiday this year." : "This year's other holiday gifts are for Pro."}</span></p>` : ""}
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
