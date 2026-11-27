@@ -572,6 +572,11 @@ html.env-morph .nb-scroll{overflow-x:hidden}
 .note.editing{cursor:default;touch-action:auto;user-select:text;-webkit-user-select:text;box-shadow:0 18px 40px rgba(40,25,5,.4)}
 .pin{position:absolute;top:6px;left:50%;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF8A80,#C62828 60%,#7F0000);box-shadow:0 2px 3px rgba(0,0,0,.35)}
 .note-body{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:hidden}
+.note-body .nh{font-weight:800;font-size:1.04em;line-height:1.3}
+.note-body .nh1{font-size:1.14em}
+/* a highlight keeps showing on a note's own paper (yellow on a yellow note vanished; the dark-mode marker was dark on light paper) */
+.note .note-body .rt-mark{background:rgba(255,150,0,.38)}
+.note.note-dark .note-body .rt-mark{background:rgba(255,214,90,.34)}
 .note-empty{color:rgba(42,36,24,.55);font-style:italic}
 .note-tag{display:inline-block;font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%,rgba(255,255,255,.6));color:var(--ci,color-mix(in srgb,var(--c) 70%,#1a1a1a));margin-bottom:6px;border-left:3px solid var(--c)}
 .note-text{width:100%;min-height:120px;border:0;background:rgba(255,255,255,.45);border-radius:6px;padding:8px;font:inherit;color:#2A2418;resize:vertical}

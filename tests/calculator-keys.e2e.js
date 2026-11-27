@@ -37,6 +37,18 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   ok(await res() === "8", "after clicking the display, keys still type (got " + await res() + ")");
   ok(await tab() === tab0, "still on the same page");
 
+  // a key clicked with the mouse keeps the focus, but Enter after typing is still =, not that key again
+  await page.keyboard.press("Escape");
+  await page.click('#calc [data-cx="sin"]'); await page.keyboard.type("30"); await page.keyboard.press("Enter"); await page.waitForTimeout(60);
+  ok(await res() === "0.5", "click sin, type 30, Enter gives 0.5 (got " + await res() + ")");
+  // a key reached with Tab is pressed by Enter
+  await page.keyboard.press("Escape"); await page.click('#calc [data-cx="7"]');
+  await page.keyboard.press("Tab"); const tabbed = await page.evaluate(() => document.activeElement.dataset.cx);
+  await page.keyboard.press("Enter"); await page.waitForTimeout(60);
+  ok(await page.$eval("#calc .cx-expr", e => e.textContent) === "7" + (await page.$eval(`#calc [data-cx="${tabbed}"]`, e => e.textContent)), "Enter on a key reached with Tab presses that key (" + tabbed + ")");
+  await page.click("#calc .cx-lcd .cx-expr"); await page.keyboard.press("Escape");
+  await page.keyboard.type("2*4"); await page.keyboard.press("Enter"); await page.waitForTimeout(60);
+
   // a text box elsewhere still gets its own typing
   await page.evaluate(() => { const i = document.createElement("input"); i.id = "tmpIn"; i.style.cssText = "position:fixed;left:4px;top:4px;z-index:1"; document.body.appendChild(i); });
   await page.focus("#tmpIn"); await page.keyboard.type("345");

@@ -36,7 +36,7 @@
     assignment: ["homework"], paper: ["essay"], essay: ["paper"], due: ["deadline"], deadline: ["due"], cough: ["coughing"], pain: ["analgesic"],
     analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical", "internship"], internship: ["placement"],
     calc: ["calculus"], calculus: ["calc", "derivative", "integral"], bio: ["biology"], biology: ["bio"], chem: ["chemistry"], chemistry: ["chem"], psych: ["psychology"], psychology: ["psych"],
-    econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
+    orgo: ["organic"], ochem: ["organic"], econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
   };
   function hash(s){
     let a = 0x811c9dc5, b = 0x9747b28c ^ s.length;
@@ -304,7 +304,8 @@
     });
     notesArr().forEach(n => {
       const txt = String(n.text || "").trim(); if (!txt) return;
-      const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
+      // a "# Heading" first line is the note's title without its #
+      const skip = (/^#{1,6}[ \t]+(?=\S)/.exec(txt) || [""])[0].length, first = txt.slice(skip).split("\n")[0].slice(0, 90), rest = txt.slice(skip + first.length).trim();
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
     });
@@ -949,7 +950,7 @@
   function examLine(D, x, extra, pre){
     const t = x.t, bits = [(pre ? (x.k === "quiz" ? "Quiz: " : "Exam: ") : "") + t.title, courseTag(D, t), `${longDate(t.due)} (${rel(x.days)})`, clock(t.time) ? "at " + clock(t.time) : "", t.location ? "in " + t.location : "", hasWeight(t) ? `worth ${t.weight}% of the grade` : ""];
     let s = bits.filter(Boolean).join(", ");
-    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
+    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200).trim().replace(/[.!?;:,]+$/, "")}`;
     return s;
   }
   // Tasks still to do between two dates (inclusive)
@@ -964,6 +965,10 @@
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
+  // What students call a course ("my orgo final"): the start of the words in its name
+  const NICK = {orgo: "organic chem", ochem: "organic chem", gchem: "general chem", genchem: "general chem", biochem: "biochem", calc: "calculus", precalc: "precalculus",
+    stats: "statistic", stat: "statistic", psych: "psycholog", bio: "biolog", micro: "microecon", macro: "macroecon", econ: "economic", physio: "physiolog",
+    anat: "anatom", soc: "sociolog", polisci: "political science", compsci: "computer science", philo: "philosoph", hist: "history", lit: "literature"};
   // Which courses the question names (by code like "bio 101" or by a word from the name)
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
@@ -979,6 +984,8 @@
         else if (letters.some(x => x.length >= 3 && pre(x))) s += 1.6;
       }
       toks(c.name || "").filter(x => x.length >= 4 && !GENERIC_NAME.has(x)).forEach(x => { if (qs.has(x)) s += 1; else if (pre(x)) s += 0.8; });
+      const nm = " " + toks(c.name || "").join(" ");
+      if (qt.some(x => NICK[x] && nm.includes(" " + NICK[x]))) s = Math.max(s, 2);
       if (s > top + 1e-9) { top = s; best = [c]; } else if (s > 0 && Math.abs(s - top) < 1e-9) best.push(c);
     });
     return top >= 1.5 ? best : [];
@@ -1647,6 +1654,8 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      // search by meaning runs on the device without AI, but nothing writes an answer: say so, or a question just lists matches
+      else if (!aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Without AI, Ask answers dates and grades from your planner and finds the closest matches. Set up AI (free with a Gemini key) to get answers from your notes too.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
