@@ -2,15 +2,15 @@
 
 Goal: the iOS and Android apps get the same school information as the desktop app (courses, due dates, submissions, grades, announcements, calendar, file downloads, Canvas inbox) for Brightspace, Canvas and Blackboard, not only the calendar link.
 
-Status: **built, but untested on any device.** The shared layer is done and tested here; the Swift and Kotlin plugins are written but were never compiled or run (no Xcode, Android Studio, emulator or school account was available).
+Status: **built; Android compiles, nothing has run on a device yet.** The shared layer is done and tested here. The Kotlin plugin compiles: `npm run android:debug` built `app-debug.apk` on 26 November 2026 with `StudyboardLms` registered in `MainActivity` and `lms-mobile.js` in the bundle. It has not run on an emulator or phone (no KVM here). The Swift plugin has never been compiled (no Xcode here). Neither has signed in to a real school.
 
 | Piece | State |
 | --- | --- |
 | `lms-mobile.src.js` + `scripts/build-lms-mobile.js` -> `lms-mobile.js` (same harvest scripts and result cleaning as desktop, copied from `lms.js` at build time) | Done. `tests/lms-mobile.test.js` (11 checks) and `tests/lms-mobile.e2e.js` (7 checks, real page, stand-in plugin running the real Brightspace harvest against a fake school) pass. |
 | `index.html`: `lmsBridge()` so the desktop bridge or the phone bridge feeds the same sync, grades, announcements, files and Canvas inbox code; 10 minute checks; Sync Now; copy for phones | Done and tested. |
-| `prepare.js`: builds `lms-mobile.js` into staged iOS/Android folders and loads it | Written; not run (needs `npm ci`). |
+| `prepare.js`: builds `lms-mobile.js` into staged iOS/Android folders and loads it | Done. Run by `npm run android:debug`; `lms-mobile.js` is in the APK's `assets/public/` and loaded by `index.html`. |
 | `ios-wrapper/native/StudyboardLms.swift` | Written, UNTESTED, never compiled. |
-| `android-wrapper/.../StudyboardLms.kt` | Written, UNTESTED, never compiled. |
+| `android-wrapper/.../StudyboardLms.kt` | Compiles (26 Nov 2026 debug build); not yet run on an emulator or device. |
 | READMEs: plugin registration and store notes | Done. |
 
 Original plan follows.
@@ -52,7 +52,7 @@ Add a native "school session" layer per platform and present it to the web layer
 
 ## 3. Risks and open questions (ranked)
 
-1. **School single sign-in inside an embedded web view.** Many schools use Microsoft or Google sign-in. Google blocks OAuth sign-in in embedded web views (the "disallowed_useragent" error), and spoofing a user agent is unreliable and against Google's rules. Microsoft generally works in web views. This is the biggest unknown and can only be settled by testing with real school accounts. Fallbacks, in order of effort:
+1. **School single sign-in inside an embedded web view.** *Update (iPhone): built. Google's sign-in is never loaded in the app's web views; Google schools sign in in Safari, and Studyboard's Safari extension, built into the app, hands that school site's own sign-in to the app, which then syncs by itself as for any other school. See `ios-wrapper/README-IOS.md`, "Schools that sign in with Google". Android still has the original problem below (and its user agent change in `StudyboardLms.kt`); Chrome on Android has no extensions, so the Android route would be the computer (desktop app or extension) syncing to the account.* Many schools use Microsoft or Google sign-in. Google blocks OAuth sign-in in embedded web views (the "disallowed_useragent" error), and spoofing a user agent is unreliable and against Google's rules. Microsoft generally works in web views. This is the biggest unknown and can only be settled by testing with real school accounts. Fallbacks, in order of effort:
    - Canvas only: let the person paste a **personal access token** (Canvas Settings, New Access Token) when their school allows it. Studyboard would call the Canvas API directly with it. Store it in the Keychain/Keystore.
    - Use `ASWebAuthenticationSession` (iOS) or Custom Tabs (Android) for sign-in. These pass Google's check, but the app cannot read their cookies, so they only help where the platform offers OAuth with a token (Brightspace and Blackboard need an app registered by the school's admin, which most students cannot get).
    - Keep the calendar link as the universal fallback.

@@ -1,4 +1,4 @@
-// node tests/credits.e2e.js (Playwright + Chromium): Studyboard Credits in the Style Shop, and Studyboard Plus in the Pro sheet
+// node tests/credits.e2e.js (Playwright + Chromium): Studyboard Bucks (the server's credits) in the Style Shop, and Studyboard Plus in the Pro sheet
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -68,16 +68,16 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     const pillFixed = await page.evaluate(() => { const b = document.querySelector(".shop-wrap > .sheet-body, .sheet.shop .sheet-body"); const p = document.querySelector(".sbc-pill"); const y0 = p.getBoundingClientRect().top; b.scrollTop = 2000; return Math.abs(p.getBoundingClientRect().top - y0) < 1 && b.scrollTop > 0; });
     ok(pillFixed, "the balance stays in view while the shop's list scrolls");
     // the Shop home lists prices on its tiles; a See All page has the Unlock buttons
-    await page.waitForFunction(() => [...document.querySelectorAll(".sbh-tag.cost")].some(t => /credits/.test(t.textContent)), null, {timeout: 10000});
+    await page.waitForFunction(() => [...document.querySelectorAll(".sbh-tag.cost")].some(t => /Bucks/.test(t.textContent)), null, {timeout: 10000});
     await page.click('.sbh-types [data-act="sbh-go"][data-id="themes"]');
-    await page.waitForFunction(() => [...document.querySelectorAll('[data-act="shop-unlock"]')].some(b => /Credits/.test(b.textContent)), null, {timeout: 10000});
-    ok(true, "locked items show their price in credits");
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-act="shop-unlock"]')].some(b => /Bucks/.test(b.textContent)), null, {timeout: 10000});
+    ok(true, "locked items show their price in Bucks");
 
     // Tapping a locked collection opens the buy sheet with what's included
     await page.evaluate(th => window.SBCREDITS.unlock("skin", th), pick.th);
     await page.waitForSelector('.sbc-sheet [data-act="sbc-buy"]', {timeout: 10000});
     const sheet = await page.textContent(".sbc-sheet");
-    ok(/300 credits/i.test(sheet) && /companions/i.test(sheet) && /stickers/i.test(sheet) && /pins/i.test(sheet) && /flashcard/i.test(sheet), "the buy sheet shows the theme, companions, stickers, pins and flashcard style");
+    ok(/300 Bucks/.test(sheet) && /companions/i.test(sheet) && /stickers/i.test(sheet) && /pins/i.test(sheet) && /flashcard/i.test(sheet), "the buy sheet shows the theme, companions, stickers, pins and flashcard style");
     await page.click('.sbc-sheet [data-act="sbc-buy"]');
     await page.waitForFunction(th => window.__sbCollPreview.owns("skin", th), pick.th, {timeout: 10000});
     const after = await page.evaluate(p => {
@@ -104,9 +104,9 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.click('.sbc-sheet [data-act="sbc-packs"]');
     await page.waitForSelector(".sbc-pack", {timeout: 5000});
     const packs = await page.$$eval(".sbc-pack", els => els.map(e => e.textContent.replace(/\s+/g, " ").trim()));
-    ok(packs.length === 4 && /1,300 credits/.test(packs[3]) && /\$9\.99/.test(packs[3]) && /\$0\.99/.test(packs[0]), "the four credit packs show with their prices");
+    ok(packs.length === 4 && /1,300 Bucks/.test(packs[3]) && /\$9\.99/.test(packs[3]) && /\$0\.99/.test(packs[0]), "the four credit packs show with their prices");
     // bonus credits against the 100 pack's rate ($0.99 here): $4.99 there buys 504, so 600 is 96 extra; $9.99 buys 1,009, so 1,300 is 291 extra; 300 for $2.99 is 2 under. The server's "20% Bonus" badge is worked out again
-    ok(/\+96 Bonus Credits/.test(packs[2]) && !/compared with/.test(packs[2]) && /Best Value/.test(packs[3]) && /291 bonus credits compared with the 100 pack/.test(packs[3]) && !/Bonus/i.test(packs[0]) && !/%/.test(packs.join()), "each pack's bonus is in credits, against the 100-credit pack, as a tag (or a line under Best Value): " + packs.join(" | "));
+    ok(/\+96 Bonus Bucks/.test(packs[2]) && !/compared with/.test(packs[2]) && /Best Value/.test(packs[3]) && /291 bonus Bucks compared with the 100 pack/.test(packs[3]) && !/Bonus/i.test(packs[0]) && !/%/.test(packs.join()), "each pack's bonus is in credits, against the 100-credit pack, as a tag (or a line under Best Value): " + packs.join(" | "));
     const sent = await page.evaluate(async () => { let body = null; const P = window.__sbPlanObj(); P.checkoutCall = async b => { body = b; return {message: "test"}; }; document.querySelector('.sbc-pack[data-id="credits_600"]').click(); await new Promise(r => setTimeout(r, 200)); return body; });
     ok(sent && sent.pack === "credits_600" && !("price" in sent) && !("credits" in sent), "buying a pack sends only the pack id (the server sets the price)");
 
@@ -166,12 +166,12 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.click('.sbc-pack[data-id="credits_100"]');
     await page.waitForSelector(".sbc-wait", {timeout: 5000});
     const waitTxt = await page.textContent(".sbc-wait");
-    ok(/checkout tab/i.test(waitTxt) && /100 credits/.test(waitTxt) && !!(await page.$('[data-act="sbc-reopen"]')), "after opening checkout the sheet says to finish in the checkout tab, with Open Checkout Again");
+    ok(/checkout tab/i.test(waitTxt) && /100 Bucks/.test(waitTxt) && !!(await page.$('[data-act="sbc-reopen"]')), "after opening checkout the sheet says to finish in the checkout tab, with Open Checkout Again");
     await page.evaluate(async () => { window.__crSrv.balance += 100; await window.SBCREDITS.load(); });
     await page.waitForSelector(".sbc-done", {timeout: 5000});
-    ok(/100 credits added/.test(await page.textContent(".sbc-done")), "when the payment lands the sheet shows the credits added");
+    ok(/100 Bucks added/.test(await page.textContent(".sbc-done")), "when the payment lands the sheet shows the credits added");
     await page.waitForSelector(".cpu.sbc-burst", {timeout: 3000}); await page.waitForTimeout(1800);
-    ok(await page.textContent(".sbc-burst [data-sbc-count]") === "100" && /\+100 Credits/.test(await page.textContent(".sbc-burst .cpu-name")) && /Credits Added/i.test(await page.textContent(".sbc-burst .cpu-kick")), "bought credits arrive in a burst of light, the number counting up to 100 in the middle");
+    ok(await page.textContent(".sbc-burst [data-sbc-count]") === "100" && /\+100 Bucks/.test(await page.textContent(".sbc-burst .cpu-name")) && /Bucks Added/i.test(await page.textContent(".sbc-burst .cpu-kick")), "bought credits arrive in a burst of light, the number counting up to 100 in the middle");
     if (process.env.SHOTS) await page.screenshot({path: require("path").join(process.env.SHOTS, "credits-burst.png")});
     await page.click('.sbc-burst [data-sbc-burst="ok"]'); await page.waitForTimeout(400);
     ok(await page.locator(".sbc-burst").count() === 0 && await page.locator(".sbc-done").count() === 1, "Got It closes it, back to the Credits sheet");

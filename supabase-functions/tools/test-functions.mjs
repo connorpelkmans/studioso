@@ -1034,8 +1034,8 @@ await test("send-reminders: FCM mints an OAuth token (RS256 JWT grant), caches i
   assert.equal(send.init.headers.Authorization, "Bearer ya29.tok");
   const body = JSON.parse(send.init.body);
   assert.equal(body.message.token, FCM_TOKEN.slice(4));
-  assert.deepEqual(body.message.notification, { title: "Due soon", body: "Essay at 5 pm" });
-  assert.deepEqual(body.message.data, { taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
+  assert.equal(body.message.notification, undefined, "a data message, so the app draws it with Mark Done and Snooze 1 Hour");
+  assert.deepEqual(body.message.data, { sbRem: "1", title: "Due soon", body: "Essay at 5 pm", taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
   assert.ok(Object.values(body.message.data).every(v => typeof v === "string"), "FCM data values are all strings");
   assert.deepEqual(body.message.android, { priority: "HIGH", ttl: "21600s" });
   const n2 = nativeDeps({ env: { FIREBASE_PROJECT_ID: "other-proj" } });
@@ -1070,7 +1070,9 @@ await test("send-reminders: APNs uses an ES256 JWT (kid, iss, iat; cached), the 
   assert.deepEqual(j.h, { alg: "ES256", kid: "KEY1234567" }); assert.deepEqual(j.c, { iss: "TEAM123456", iat: S });
   assert.equal(j.sig.length, 64, "JOSE r||s signature");
   assert.equal(nodeVerify("SHA256", Buffer.from(j.input), { key: createPublicKey(ec.privateKey), dsaEncoding: "ieee-p1363" }, j.sig), true);
-  assert.deepEqual(JSON.parse(c[0].init.body), { aps: { alert: { title: "Due soon", body: "Essay at 5 pm" }, sound: "default" }, taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
+  assert.deepEqual(JSON.parse(c[0].init.body), { aps: { alert: { title: "Due soon", body: "Essay at 5 pm" }, sound: "default", category: "SB_REMINDER_TASK" }, taskId: "t1", rid: "r:1", url: MSG.url, tok: "tok1", api: MSG.api, k: "anon" });
+  const nc = nativeDeps(); await sr.nativeSender(nc.deps).apns(sub, { ...MSG, taskId: "" });
+  assert.equal(JSON.parse(nc.calls.find(x => x.u.includes("/3/device/")).init.body).aps.category, "SB_REMINDER", "no task: Snooze only");
   const n2 = nativeDeps({ env: { APNS_TOPIC: "com.example.other" } });
   await sr.nativeSender(n2.deps).apns({ ...sub, apns_env: "sandbox" }, MSG);
   assert.ok(n2.calls[0].u.startsWith("https://api.sandbox.push.apple.com/3/device/")); assert.equal(n2.calls[0].init.headers["apns-topic"], "com.example.other");

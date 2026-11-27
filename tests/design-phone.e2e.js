@@ -125,13 +125,16 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 15 first-run welcome */
       {
         const {ctx, p} = await open(browser, {dark, fresh: true});
-        await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
-        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"), su = d.querySelector("#sbSignUp"), pl = d.querySelector(".sb-welc-go"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), plan: pl && pl.textContent.trim(), planH: pl && pl.getBoundingClientRect().height, su: su.textContent.trim(), go: su.getBoundingClientRect().height, alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, email: !!document.querySelector("dialog[open] input[name=email]")}; });
-        ok(/Hi! I'm Mochi\.\s*What are you studying\?/.test(w.h) && w.li === 3 && w.mochi && w.plan === "Plan My Semester" && w.planH >= 48 && w.su === "Sign Up" && w.go >= 44 && w.alt === "I Already Have an Account" && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Plan My Semester, Sign Up and I Already Have an Account: ` + JSON.stringify(w));
+        await p.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
+        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector(".sb-welc-skip").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
+        ok(/Hi! I'm Mochi\.\s*Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Plan My Semester and I Already Have an Account: ` + JSON.stringify(w));
         await noOverflow(p, `15 (${tag})`);
-        await p.click("dialog[open] #sbSignUp");
+        // (no Sign Up on the welcome any more: an account is made from I Already Have an Account > Create Account)
+        ok(!(await p.locator("dialog[open] .sb-welc [data-sbm=signup]").count()), `15 (${tag}): the welcome has no Sign Up link`);
+        await p.click('dialog[open] .sb-welc [data-sbm="signin"]'); await p.waitForTimeout(400);
+        await p.click('dialog[open] [data-sbm="signup"]');
         await p.waitForSelector("dialog[open] form.sb-acct[data-mode=signup] input[name=email]", {timeout: 8000});
-        ok(!(await p.locator("dialog[open] #sbLater").count()), `15 (${tag}): Sign Up opens the sign-up form, with no Use Without an Account link`);
+        ok(!(await p.locator("dialog[open] #sbLater").count()), `15 (${tag}): Create Account opens the sign-up form, with no Use Without an Account link`);
         await p.click('dialog[open] .sheet-head [data-act="close"]');
         await p.waitForSelector(".sheet.ob", {timeout: 8000});
         ok(await p.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), `15 (${tag}): closing it works on this device and starts the welcome setup`);
@@ -149,7 +152,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
     /* 15 on a computer, and I Already Have an Account */
     {
       const {ctx, p} = await open(browser, {w: 1280, fresh: true});
-      await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+      await p.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
       const d = await box(p, "dialog[open] .sb-acct");
       const mid = await p.evaluate(() => document.documentElement.clientWidth / 2);
       ok(d && Math.abs(d.x + d.w / 2 - mid) <= 10 && d.w < 700, "15 (1280): the welcome is a centred card: " + JSON.stringify(d));

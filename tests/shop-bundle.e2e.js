@@ -1,4 +1,4 @@
-// node tests/shop-bundle.e2e.js (Playwright + Chromium): Build Your Look in the Style Shop, bought as one bundle with credits
+// node tests/shop-bundle.e2e.js (Playwright + Chromium): Build Your Look in the Style Shop, bought as one bundle with Studyboard Bucks
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
@@ -55,7 +55,7 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     ok(/Concept Map Styles/.test(await page.textContent(".sbh-back")) && await page.locator(".sbh-k-cm .sbh-tag.cost").count() > 0, "Map Styles has its own page with prices");
     await page.evaluate(id => window.SBCREDITS.unlock("cm", id), map);
     await page.waitForSelector('.sbc-sheet [data-act="sbc-buy"]', {timeout: 10000});
-    ok(/100 credits/i.test(await page.textContent(".sbc-sheet")) && /Concept Map Style/.test(await page.textContent(".sbc-sheet")), "the buy sheet shows the map style at 100 credits");
+    ok(/100 Bucks/.test(await page.textContent(".sbc-sheet")) && /Concept Map Style/.test(await page.textContent(".sbc-sheet")), "the buy sheet shows the map style at 100 Bucks");
     await page.click('.sbc-sheet [data-act="sbc-buy"]');
     await page.waitForFunction(id => window.SBCMSTYLE.owned(id), map, {timeout: 10000});
     ok(await page.evaluate(() => window.SBCREDITS.balance()) === 300, "buying it takes 100 credits and the style is unlocked for maps");
@@ -75,8 +75,8 @@ const CFG = {rows: {paywall: true, item_purchases: true, plus_plan: true, prices
     await page.click(`[data-act="sbh-pick"][data-slot="cm"][data-id="${pick.cm}"]`);
     await page.waitForSelector('[data-act="sbh-bundle"]', {timeout: 5000});
     const sum = await page.textContent(".sbh-sum");
-    ok(/This look, together\s*300 credits/.test(sum) && /Bought one by one/.test(sum), "the summary shows the look's one price against buying it piece by piece: " + sum.replace(/\s+/g, " ").trim());
-    ok(/Get This Look · 300 credits/.test(await page.textContent('[data-act="sbh-bundle"]')), "one button gets the whole look");
+    ok(/This look, together\s*300 Bucks/.test(sum) && /Bought one by one/.test(sum), "the summary shows the look's one price against buying it piece by piece: " + sum.replace(/\s+/g, " ").trim());
+    ok(/Get This Look · 300 Bucks/.test(await page.textContent('[data-act="sbh-bundle"]')), "one button gets the whole look");
     // Leaving Build Your Look and coming back keeps the picked pieces and the comparison
     await page.click('.sbh-seg [data-id="yours"]'); await page.waitForTimeout(300);
     await page.click('.sbh-seg [data-id="home"]'); await page.waitForTimeout(300);

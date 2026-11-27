@@ -68,7 +68,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
     /* First run on the hosted app: closing the welcome is how to use Studyboard without an account */
     {
       const {ctx, page} = await mk({first: true, local: false});
-      await page.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+      await page.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
       ok(await page.locator(".sem-card-b").count() === 0, "the semester card doesn't show behind the first sign-in");
       await page.click('dialog[open] .sheet-head [data-act="close"]');
       await page.waitForSelector(".sheet.ob", {timeout: 8000});

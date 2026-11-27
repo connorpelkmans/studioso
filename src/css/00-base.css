@@ -1614,6 +1614,8 @@ html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4
 .btn.ai-tier-get{justify-self:start;background:linear-gradient(135deg,#FFB443,#FF5C8A) border-box;border-color:transparent;color:#fff;font-weight:700}
 .btn.ai-tier-get:hover{filter:brightness(1.06)}
 .ai-tier .pro-badge{font-size:.56rem}
+/* the 16GB AI on a device that can't run it: a tag shaped like PRO, in quiet greys so it reads as information, not an offer */
+.ai-tier-na{font:800 .56rem var(--display);letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 6px;background:color-mix(in srgb,var(--ink) 10%,var(--surface));color:var(--muted);border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);white-space:nowrap}
 .ai-tier.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
 .ai-tier-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ai-tier-chip{font-size:.72rem;font-weight:700;padding:1px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink,#fff)}

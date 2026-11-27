@@ -15,7 +15,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
   try {
     let ctx = await browser.newContext({locale: "en-US"}), page = await ctx.newPage(); const errs = [];
     page.on("pageerror", e => errs.push(e.message));
-    await page.goto(base); await page.waitForSelector('nav.tabs [data-tab="notes"]');
+    await page.goto(base); await page.waitForSelector('nav.tabs [data-tab="notes"]', {state: "attached"});   // a new install is in Essentials, where Notes waits under More (still in the menu, translated)
     ok(/Notes/.test(await page.textContent('nav.tabs [data-tab="notes"]')), "English nav label");
     ok(await page.evaluate(() => document.documentElement.lang) === "en", "html lang is en");
     const r = await page.evaluate(() => { const I = window.SBI18N; return null; }).catch(() => null);
@@ -87,7 +87,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     await ctx.close();
     // A German browser on an English page: dates in English ("Monday", not "Montag"), in the region's own order and clock
     ctx = await browser.newContext({locale: "de-DE"}); page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
-    await page.goto(base); await page.waitForSelector('nav.tabs [data-tab="notes"]'); await page.waitForTimeout(600);
+    await page.goto(base); await page.waitForSelector('nav.tabs [data-tab="notes"]', {state: "attached"}); await page.waitForTimeout(600);
     const dd = await page.evaluate(() => { const d = new Date(2026, 10, 2, 15, 5); return [document.documentElement.lang, d.toLocaleDateString(undefined, {weekday: "long"}), d.toLocaleDateString(undefined, {month: "short", day: "numeric"}), d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"}), new Intl.DateTimeFormat(undefined, {weekday: "long"}).format(d), d.toLocaleDateString("de-DE", {weekday: "long"})]; });
     ok(JSON.stringify(dd) === JSON.stringify(["en", "Monday", "2 Nov", "15:05", "Monday", "Montag"]), "German browser: dates in English with the German order and 24-hour clock; an explicit language is still honoured: " + dd);
     ok(errs.length === 0, "no page errors: " + errs.join("; "));
