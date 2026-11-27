@@ -156,7 +156,7 @@ const SY = (() => {
       .replace(/\s*[|•·;]\s*/g, " ")
       .replace(/\(\s*\d{1,3}(?:\.\d+)?\s*%[^)]*\)/g, " ")
       .replace(/\(\s*\)/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/\s+/g, " ").replace(/ ([:,;])/g, "$1")
       .replace(/^[\s,:;.\-–—@#*]+|[\s,:;\-–—@#*]+$/g, "")
       .trim();
   }
@@ -224,8 +224,9 @@ const SY = (() => {
     if (!info.instructor) { for (const l of top) { const x = l.match(/\b((?:Dr|Prof|Professor)\.?\s+[A-Z][a-zA-Z'’\-]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-zA-Z'’\-]+)?)/); if (x) { info.instructor = x[1]; break; } } }
     info.office = clean(field(/(?:^|[;,.]\s*)(?:instructor\s+|student\s+)?(?:office|drop-?in|student|help)\s+hours?\s*[:\-–]?\s*(.+)/i)).split(";")[0].trim();
     info.room = clean(field(/^\s*(?:class\s*room|room|location|lecture location|classroom|where|place)\s*[:\-–]\s*(.+)/i));
-    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
-    const dayTime = /\b((?:M|T|W|Th|R|F|Tu|MWF|MW|TTh|TR|TuTh|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri)(?:[\/,&\s-]+(?:M|T|W|Th|R|F|Tu|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|and))*(?:days?)?)\s*,?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/i;
+    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meetings?|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
+    const DT = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|MWF|MW|TTh|TR|TuTh|Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Th|Tu|M|T|W|R|F)";
+    const dayTime = new RegExp("\\b(" + DT + "(?:[\\/,&\\s-]+(?:" + DT + "|and))*(?:days?)?)\\s*,?\\s*" + /(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/.source, "i");
     const hasDays = x => /\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b(MWF|MW|TTh|TR|TuTh|WF|MTWRF)\b/i.test(x || "");
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
@@ -295,8 +296,8 @@ const SY = (() => {
     let total = 0;
     for (const l of lines) { const m = l.match(/^(?:grand\s+)?total(?:\s+points)?\b[^\d%]*(\d{2,4})(?:\s*(?:pts|points))?\s*$/i); if (m) { total = Number(m[1]); break; } }
     const CATS = [[/^(?:the\s+)?final(?:\s+exam(?:ination)?)?\b/i, "Final"], [/^(?:mid-?terms?|exams?|examinations?|tests?)(?:\s+(?:exams?|tests?))?\b/i, "Exam"],
-      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?)\b/i, "Assignment"],
-      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^(?:readings?|reading\s+responses?)\b/i, "Reading"]];
+      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?|reading\s+responses?|response\s+papers?|reflections?|discussion\s+posts?|journals?)\b/i, "Assignment"],
+      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^readings?\b/i, "Reading"]];
     const WORDN = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, twelve:12};
     // "Quizzes 20%, Homework 20%, Midterm 30%" on one line: each part is its own entry
     const isCat = p => CATS.some(([re]) => re.test(p.replace(/^[\s•\-*·]+/, "").trim()));
@@ -505,6 +506,8 @@ const SY = (() => {
     // Numbered lines in the breakdown go to the item with that number
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
+    // A breakdown line naming one item ("Research Paper 15%") is that item's weight, when exactly one item has that name
+    breakdown(text).forEach(b => { const k = normTitle(b.t); if (k.length < 4 || /^(home ?work|hw|quiz|exam|midterm|test|lab|assignment|project|reading|essay|paper|report|presentation|discussion|problem set|worksheet)$/i.test(b.t.trim())) return; const hit = final.filter(x => x.weight == null && normTitle(x.title).includes(k)); if (hit.length === 1) { hit[0].weight = b.w; hit[0].ownW = true; } });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
     const splits = {};
@@ -766,7 +769,11 @@ function importSheet(courseId, file){
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
     // a breakdown line with no date is the course's item of that name, whatever its date
-    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // A task you named your own way is the same one too: "Quiz 5" is your "Psych Quiz 5 (Ch. 12-13)" (same kind and number), and an
+    // exam or quiz is the one of that type already on that day ("Final Exam" and "Psych Final (online)" on Dec 16)
+    const kindNo = s => { const m = String(s || "").toLowerCase().match(/\b(quiz|exam|midterm|test|lab|homework|hw|problem set|assignment|essay|paper|project|reading response|response)\s*#?\s*(\d+)\b/); return m ? m[1].replace(/^hw$/, "homework") + " " + Number(m[2]) : ""; };
+    const sameOne = (i, cid) => allTasks().some(t => t.courseId === cid && !t.prepFor && t.type === i.type && ((kindNo(i.title) && kindNo(t.title) === kindNo(i.title)) || (!!i.due && t.due === i.due && /^(Exam|Quiz)$/.test(i.type))));
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)) || sameOne(i, cid));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
