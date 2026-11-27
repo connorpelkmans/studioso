@@ -22,15 +22,15 @@ Students earn credits for real work, scaled to how hard it is (about one credit 
 
 | Work | Credits | Why |
 |---|---|---|
-| Focus time | 1 per 2 minutes, at most 3 hours a day | The easiest: just keeping the timer going. The cap stops a timer left running from farming credits |
-| Flashcards | 1 per 5 cards reviewed | Active recall, about 10 seconds a card |
-| Practice quizzes | 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score; up to 3 tries of the same quiz a day | Longer quizzes earn more; a failed try still counts its right answers |
-| Tasks | Exam 30, Project 20, Quiz 12, Assignment or Lab 10, Reading or Study 5, Other 3; a step of a broken-down task 2 | By size. At most 8 tasks a day count, so splitting work into tiny tasks doesn't pay |
-| Presentations | 2 per slide finished inside its time, +15 when the whole talk is on target, +25 more the first time; 2 runs a day per presentation | A slide is on time within 17% or 3 seconds of its share; the whole talk within 10 seconds over its goal and at least 75% of it |
+| Focus time | 1 per minute, at most 3 hours a day | The easiest: just keeping the timer going. The cap stops a timer left running from farming credits |
+| Flashcards | 1 per card reviewed | Active recall |
+| Practice quizzes | 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; up to 3 tries of the same quiz a day | Longer quizzes earn more; a failed try still counts its right answers |
+| Tasks | Exam 40, Project 30, Quiz 20, Assignment or Lab 12, Reading or Study 6, Other 4; a step of a broken-down task 3 | By size. At most 8 tasks a day count, so splitting work into tiny tasks doesn't pay |
+| Presentations | 3 per slide finished inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day per presentation | A slide is on time within 17% or 3 seconds of its share; the whole talk within 10 seconds over its goal and at least 75% of it |
 
 **Prices by rarity** (`PRICE` in `98-companion.js`): Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000. The Festive Beanie (Rare) is only sold Dec 1 to Jan 6.
 
-**How long things take:** a steady study day (a 25-minute focus session, 20 flashcards, one passed 10-question quiz, an assignment and a reading) earns about 40 credits. That's a Common in about 3 study days, an Uncommon in 5, a Rare in about a week, an Exotic in about two weeks and a Legendary in about a month. A hard exam-week day (2 hours of focus, 100 cards, 3 quizzes, a few tasks) earns about 130. The Wardrobe has around 120 accessories, about 18 of them Legendary, so collecting every Legendary takes most of a school year.
+**How long things take:** a steady study day (a 25-minute focus session, 20 flashcards, one passed 10-question quiz, an assignment and a reading) earns about 75 credits. That's a Common in about a day, an Uncommon in about 3 days, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.
 
 **Reward screens:** each piece of work ends on a screen that awards its credits (`reward()` in `98-0study-credits.js`, styles in `98-study-credits.css`): a focus session, a flashcard session (over Session Done), a quiz (deck or AI practice quiz), and a presentation run each get a full screen. It counts the coins up in a shower of falling coins, lists what earned what line by line, raises the balance, and fills a bar toward the cheapest accessory not owned yet, with Get It once it's affordable. A finished task gets a smaller card that goes away by itself. The first screen a student ever sees also says what their earlier studying earned. Browser tests see these screens only with `localStorage["studyboard:rewards-test"] = "1"`.
 

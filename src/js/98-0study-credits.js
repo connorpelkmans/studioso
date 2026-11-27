@@ -3,18 +3,17 @@
    They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
-     - Focus time       1 per 2 minutes          just keeping the timer going is the easiest (at most 3 hours a day count)
-     - Flashcards       1 per 5 cards reviewed   active recall, about 10 seconds a card
-     - Practice quizzes 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score
-     - Tasks            by type: Exam 30, Project 20, Quiz 12, Assignment and Lab 10, Reading and Study 5, Other 3;
-                        a step of a broken-down task 2 (at most 8 tasks a day count, so splitting work up doesn't pay)
-     - Presentations    10 for each full practice run (2 a day per presentation), +40 the first time a run lands on target
+     - Focus time       1 per minute             (at most 3 hours a day count)
+     - Flashcards       1 per card reviewed      active recall
+     - Practice quizzes 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; 3 tries a quiz a day
+     - Tasks            by type: Exam 40, Project 30, Quiz 20, Assignment and Lab 12, Reading and Study 6, Other 4;
+                        a step of a broken-down task 3 (at most 8 tasks a day count, so splitting work up doesn't pay)
+     - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
    How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
-   study day (a 25-minute focus session 12, 20 cards 4, a passed 10-question quiz 11, an assignment and a reading 15) is about
-   40 credits. So a Common takes about 3 study days, a Rare about a week, an Exotic about two weeks and a Legendary about a month;
-   a hard exam-week day (2 hours of focus, 100 cards, 3 quizzes, a few tasks) is about 130. With around 18 Legendaries, collecting
-   them all takes most of a school year. The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
+   study day (a 25-minute focus session 25, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
+   75 credits. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
    minutes), so credits sync with the rest of a student's work and include what they did before this existed. Each kind keeps
@@ -28,18 +27,18 @@ var SBSC = (() => {
   const coin = (px = 18) => `<img class="scr-coin" src="${COIN_SRC}" width="${px}" height="${px}" alt="" aria-hidden="true">`;
 
   /* ---------- What each kind of work earns ---------- */
-  const TASK_PTS = {Exam: 30, Project: 20, Quiz: 12, Assignment: 10, Lab: 10, Reading: 5, Study: 5, Other: 3};
-  const TASK_STEP = 2, TASKS_A_DAY = 8, FOCUS_MIN_A_DAY = 180;
-  // Quizzes: 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score; up to 3 tries of a quiz a day
-  const QUIZ_PASS = 3, QUIZ_PERFECT = 3, QUIZ_TRIES_A_DAY = 3;
-  // Presentations: 2 for each slide inside its time, +15 when the whole run lands on target, +25 more the first time it does; 2 runs a day each
-  const PRES_SLIDE = 2, PRES_WHOLE = 15, PRES_MASTER = 25, PRES_RUNS_A_DAY = 2;
+  const TASK_PTS = {Exam: 40, Project: 30, Quiz: 20, Assignment: 12, Lab: 12, Reading: 6, Study: 6, Other: 4};
+  const TASK_STEP = 3, TASKS_A_DAY = 8, FOCUS_MIN_A_DAY = 180;
+  // Quizzes: 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; up to 3 tries of a quiz a day
+  const QUIZ_PASS = 5, QUIZ_PERFECT = 5, QUIZ_TRIES_A_DAY = 3;
+  // Presentations: 3 for each slide inside its time, +20 when the whole run lands on target, +30 more the first time it does; 2 runs a day each
+  const PRES_SLIDE = 3, PRES_WHOLE = 20, PRES_MASTER = 30, PRES_RUNS_A_DAY = 2;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
-    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
-    ["cards", "Flashcards", "1 credit for every 5 cards you review"],
-    ["quiz", "Practice Quizzes", "1 credit for each right answer, +3 for passing (70% or more), +3 more for a perfect score"],
-    ["task", "Tasks", "By how big the task is: an exam 30, a project 20, a quiz 12, an assignment or lab 10, a reading 5 (up to 8 tasks a day)"],
+    ["focus", "Focus Time", "1 credit for every minute on the focus timer (up to 3 hours a day)"],
+    ["cards", "Flashcards", "1 credit for every card you review"],
+    ["quiz", "Practice Quizzes", "1 credit for each right answer, +5 for passing (70% or more), +5 more for a perfect score"],
+    ["task", "Tasks", "By how big the task is: an exam 40, a project 30, a quiz 20, an assignment or lab 12, a reading 6 (up to 8 tasks a day)"],
     ["pres", "Presentations", `${PRES_SLIDE} for each slide inside its time, +${PRES_WHOLE} when the whole talk is on target, +${PRES_MASTER} more the first time`]
   ];
   // Worked out from saved work (focus minutes, cards reviewed, finished tasks); quizzes and presentation runs are written down as they end
@@ -71,9 +70,9 @@ var SBSC = (() => {
       if (typeof SBSTATS === "undefined") return 0;
       const days = Object.values(SBSTATS.focusDays()).map(m => Number(m) || 0), logged = days.reduce((n, m) => n + m, 0);
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
-      return (capped + extra) / 2;
+      return capped + extra;
     });
-    tr(() => Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { out.cards += (Number(c && c.seen) || 0) / 5; })));
+    tr(() => Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { out.cards += Number(c && c.seen) || 0; })));
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
       const per = {};
@@ -247,13 +246,13 @@ var SBSC = (() => {
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
       reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every 2 minutes"}]});
+        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every minute"}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
   function cardsDone(n){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
-    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: "1 credit for every 5 cards"}]});
+    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: "1 credit for every card"}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
@@ -333,7 +332,7 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 40 credits: a Common in about 3 days, a Legendary in about a month.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
   return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
