@@ -25,6 +25,12 @@
       }
     } catch (e) {}
   };
+  // As it opens and again a frame later; a button the opener focused on purpose once it was open (the timer's Start) keeps the focus
+  // (a typing box still doesn't on a phone)
+  const quietOpen = d => {
+    quiet(d); const was = document.activeElement;
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a !== was && a.tagName === "BUTTON" && d.contains(a)) return; quiet(d); });
+  };
   // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
   // Close (X) first, as it's seen, rather than last after the whole sheet
   document.addEventListener("keydown", e => {
@@ -48,7 +54,7 @@
     noAuto(this);
     const r = showModal0.apply(this, arguments);
     hold(this);
-    quiet(this); requestAnimationFrame(() => quiet(this));
+    quietOpen(this);
     return r;
   };
   // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
@@ -106,7 +112,7 @@
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quietOpen(this); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped

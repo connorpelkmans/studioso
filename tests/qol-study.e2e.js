@@ -44,7 +44,9 @@ function SEED(){
   const browser = await chromium.launch({executablePath});
   const open = async (opts, seed) => {
     const ctx = await browser.newContext(Object.assign({serviceWorkers: "block"}, opts));
-    await ctx.addInitScript(s => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "1"); } } catch (e) {} }, seed || SEED());
+    await ctx.addInitScript(s => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(s)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "1"); } } catch (e) {}
+      // a New Prop Unlocked! reveal (studying can earn one) would cover what this test taps
+      new MutationObserver(() => document.querySelectorAll(".cpu").forEach(x => { try { x.hidePopover(); } catch (e) {} x.remove(); })).observe(document, {childList: true, subtree: true}); }, seed || SEED());
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
     await page.goto(base); await page.waitForSelector("#view", {state: "attached"}); await page.waitForFunction(() => window.__sbProStudy);
     await page.evaluate(() => { const T = window.__sbProStudy; Object.defineProperty(window, "state", {get: () => T.state(), configurable: true}); window.ui = T.ui; window.render = T.render; document.querySelectorAll("dialog[open]").forEach(d => d.close()); });
@@ -216,10 +218,15 @@ function SEED(){
     const ph = await open({viewport: {width: 390, height: 844}, isMobile: true, hasTouch: true, colorScheme: "dark"});
     const p2 = ph.page;
     await tab(p2, "notes"); await p2.waitForSelector('#nbBoard .note[data-note="n1"]');
-    for (const sel of [".nb-zoom button"]) { const r = await rect(p2, sel); ok(r.w >= 40 && r.h >= 40, `${sel} is at least 40px: ${r.w}x${r.h}`); }
+    // the zoom pill keeps its slim look (as thick as the circles beside it); its buttons answer a touch beyond their edges (102-qol.css ::after)
+    for (const sel of [".nb-zoom button"]) { const r = await p2.evaluate(s => { const e = document.querySelector(s), b = e.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+      const reach = (dx, dy) => { let d = 0; while (d < 60) { const t = document.elementFromPoint(cx + dx * (d + 1), cy + dy * (d + 1)); if (!t || !(t === e || e.contains(t))) break; d++; } return d; };
+      return {w: reach(-1, 0) + reach(1, 0) + 1, h: reach(0, -1) + reach(0, 1) + 1}; }, sel); ok(r.w >= 40 && r.h >= 40, `${sel} is at least 40px to the touch: ${r.w}x${r.h}`); }
     const rot = await rect(p2, '.note[data-note="n1"] .note-rot');
     ok(await p2.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return !!(e && e.closest(".note-rot")); }, [rot.x + rot.w / 2 + 18, rot.y + rot.h / 2]), "the rotate handle answers a touch 18px from its middle");
     await p2.tap('.note[data-note="n1"] .note-body'); await p2.waitForSelector(".note.editing #noteText"); await p2.waitForTimeout(300);
+    // the sheet slides up from the bottom edge (99-smooth.css, .42s): measure it once it has arrived
+    await p2.waitForFunction(() => { const e = document.querySelector(".note.editing"); return e && !e.getAnimations().some(a => a.playState === "running"); });
     const sh = await rect(p2, ".note.editing");
     ok(await p2.evaluate(() => document.querySelector(".note.editing").matches(":popover-open")) && sh.w >= 388 && Math.abs(sh.b - 844) < 2, "on a phone the editor is a full-width sheet at the bottom: " + JSON.stringify(sh));
     for (const sel of ['.note.editing [data-act="note-done"]', '.note.editing [data-act="note-undo"]', '.note.editing [data-act="np-link"]']) {
@@ -229,7 +236,7 @@ function SEED(){
     const dot = await rect(p2, '.note.editing .nc');
     ok(dot.w >= 40 && dot.h >= 40, "color dots are easy to tap: " + dot.w);
     await p2.fill("#noteText", "First, edited on a phone");
-    await p2.touchscreen.tap(195, 30); await p2.waitForTimeout(400);
+    await p2.touchscreen.tap(195, 30); await p2.waitForFunction(() => !document.querySelector(".note.editing"), null, {timeout: 3000}).catch(() => {});
     ok(await p2.evaluate(() => !document.querySelector(".note.editing") && state.notes.n1.text === "First, edited on a phone" && ui.tab === "notes"), "tapping above the sheet saves and closes it, without tapping what's behind");
     await p2.evaluate(() => { const T = window.__sbProStudy; T.applyChanges([{kind: "note", id: "w1", after: {id: "w1", text: "", wb: {v: 1, tpl: "grid"}, color: "yellow", x: 0, y: 0, z: 1, created: 1}}], null); });
     await act(p2, "nv-view", "wb"); await p2.waitForSelector(".wb-tool"); await p2.waitForTimeout(600);
