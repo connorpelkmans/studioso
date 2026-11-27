@@ -71247,9 +71247,10 @@ var COMP_EXTRA = [];
     if (typeof undoStack !== "undefined" && (patch.wear || patch.tint || patch.pick || patch.pat || patch.names)) {
       const top = undoStack[undoStack.length - 1];
       if (!(top && top.comp && !top.done && Date.now() - top.at < 1500)) {
-        const prev = JSON.parse(JSON.stringify(cur));
+        // (only what this kind of change touches: putting back "earned" too made props unlock again, with the New Prop popup)
+        const KEYS = ["wear", "tint", "pick", "pat", "names"], prev0 = JSON.parse(JSON.stringify(cur)), had = KEYS.filter(k => k in prev0);
         const label = patch.tint ? "Changed the colour back" : patch.wear ? "Put back what I was wearing" : patch.names ? "Changed the name back" : "Changed the companion back";
-        const step = {label, comp: true, at: Date.now(), done: false, quiet: true, undo: () => { if (step.done) return 0; step.done = true; state.settings = Object.assign({}, state.settings, {comp: prev}); saveSettings(); setTimeout(() => { try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {} try { scheduleRender(); } catch (e) {} }, 0); return 0; }};
+        const step = {label, comp: true, at: Date.now(), done: false, quiet: true, undo: () => { if (step.done) return 0; step.done = true; const now = Object.assign({}, cfg()); KEYS.forEach(k => { if (had.includes(k)) now[k] = prev0[k]; else delete now[k]; }); state.settings = Object.assign({}, state.settings, {comp: now}); saveSettings(); setTimeout(() => { try { if (typeof faceSoon === "function") faceSoon(); } catch (e) {} try { scheduleRender(); } catch (e) {} }, 0); return 0; }};
         undoStack.push(step); if (undoStack.length > 20) undoStack.shift();
       }
     }
