@@ -362,6 +362,27 @@ var SBSC = (() => {
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
   hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
+  /* ---------- "+7 credits so far": a little chip while studying ----------
+     Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
+     up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
+  function liveHtml(n, note, id){
+    n = Math.max(0, Math.round(Number(n) || 0));
+    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"} so far</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}</span>`;
+  }
+  // focus: the minutes of this session so far, as far as today's 3 hours allow
+  function focusLive(){
+    const el = typeof pomoElapsedMin === "function" ? Math.floor(pomoElapsedMin()) : 0;
+    const today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
+    return {n: Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)), full: today >= FOCUS_MIN_A_DAY};
+  }
+  // flashcards: how many more cards count today
+  const cardsLeftToday = () => Math.max(0, CARDS_A_DAY - dayCards(todayISO()));
+  // a quiz: does it still earn today (QUIZ_TRIES_A_DAY tries each)
+  const quizTriesLeft = key => { const id = String(key || "quiz").replace(/:/g, "_"), day = todayISO(); return Math.max(0, QUIZ_TRIES_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length); };
+  // a presentation: runs left today, and what a run's slides so far have earned (each slide inside its time)
+  const presRunsLeft = pid => { const id = String(pid || "").replace(/:/g, "_"), day = todayISO(); return Math.max(0, PRES_RUNS_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`pres:${day}:${id}:`) === 0).length); };
+  const presSlideOk = (t, b) => b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000);
+
   // A little "+12 Credits" pop (kept for other parts of the app)
   function pop(n, why){ n = Math.round(n); if (n < 1) return; rq.push({kind: "hello", compact: true, kick: "Credits Earned", title: why || "", lines: [], gained: n, bal: balance(), bal0: balance() - n, day: todayN(), tgt: target()}); showNext(); }
 
@@ -378,7 +399,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};

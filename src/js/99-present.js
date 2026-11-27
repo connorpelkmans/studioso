@@ -785,6 +785,7 @@
         <span class="pr-clock"><b id="prClock">0:00</b><span>of ${fmt(S.tgt)}</span></span>
         <span class="pr-pace" id="prPace" hidden></span>
         <span class="pr-livechip" id="prLiveChip" hidden></span>
+        <span class="pr-cr" id="prCredits"></span>
         <button type="button" class="pr-ib" data-act="pr-remote" aria-label="Use your phone as a remote" title="Phone Remote">${IC.phone}</button>
         <button type="button" class="pr-end" data-act="pr-end">${S.follow ? "Leave" : "End"}</button>
       </div>
@@ -919,6 +920,13 @@
       lbl.textContent = k === S.i && S.started && !S.qa ? `${fmt(t[k])} · target ${fmt(S.b[k])}` : done ? fmt(t[k]) : fmt(S.b[k]);
       b.classList.toggle("done", done && k !== S.i);
     });
+    // Studyboard Credits this run has earned so far (98-0study-credits.js): each finished slide that stayed inside its time
+    const crb = S.el.querySelector("#prCredits");
+    if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
+      const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
+      const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n, left ? (S.sec ? `${SBSC.PRES_SLIDE()} a slide on time` : `+${SBSC.PRES_WHOLE()} if the whole talk is on target`) : "2 runs counted today"); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+    }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
       const before = S.b.slice(0, S.i).reduce((a, x) => a + x, 0), d = el - (before + Math.min(t[S.i], S.b[S.i]));

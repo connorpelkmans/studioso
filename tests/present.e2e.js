@@ -44,6 +44,8 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(1200);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(2200);
   await p.screenshot({path: OUT + "-4-stage.png"});
+  { const cr = await p.evaluate(() => { const c = document.querySelector("#prCredits .scr-live"); return c ? c.textContent : ""; });
+    ok(/credits? so far/.test(cr), "the stage shows the Studyboard Credits this run has earned so far: " + cr); }
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(700);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(400);
   await p.keyboard.press("p"); await p.waitForTimeout(1500); await p.keyboard.press("p");

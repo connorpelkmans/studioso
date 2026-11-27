@@ -9,6 +9,20 @@
 .scr-how-n{flex:1;display:grid;gap:2px;min-width:0}
 .scr-how-v{display:inline-flex;align-items:center;gap:5px;font:800 .95rem var(--display);font-variant-numeric:tabular-nums}
 
+/* ---------- "+7 credits so far" while studying ---------- */
+.scr-live{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 4px;border-radius:999px;border:1px solid color-mix(in srgb,#E2A82A 50%,var(--line));background:color-mix(in srgb,#F6C34A 16%,var(--surface));color:var(--ink);font:600 .82rem/1.2 var(--body,inherit);white-space:nowrap}
+.scr-live b{font:800 .95rem var(--display);color:#8A5A00;font-variant-numeric:tabular-nums}
+.scr-live-t{opacity:.85}
+.scr-live-n{color:var(--muted);font-size:.76rem;padding-left:6px;border-left:1px solid color-mix(in srgb,#E2A82A 40%,transparent)}
+.scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
+:root[data-theme="dark"] .scr-live b{color:#FFD36B}
+@media (max-width:520px){.scr-live-n{display:none}}
+.pomo-cr{display:flex;justify-content:center;margin:4px 0 2px}
+.pomo-cr:empty{display:none}
+.pr-cr{display:inline-flex}
+.pr-cr:empty{display:none}
+.view-head > .scr-live{margin-inline-start:4px}
+
 /* ---------- The big reward screen ---------- */
 .scr-rw{position:fixed;inset:0;margin:0;padding:16px;border:0;width:auto;height:auto;max-width:none;max-height:none;background:transparent;display:grid;place-items:center;z-index:2147483000;overflow:hidden;box-sizing:border-box}
 .scr-dim{position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(40,24,0,.55),rgba(8,10,24,.78));backdrop-filter:blur(3px);animation:scr-fade .3s ease-out both}
@@ -84,6 +98,7 @@
 .scr-still .scr-card,.scr-still .scr-big-coin,.scr-still .scr-lines li,.scr-still .scr-mini-coin img{animation:none!important}
 /* dark mode from the system setting (no data-theme set) */
 @media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .scr-live b{color:#FFD36B}
 :root:not([data-theme="light"]) .scr-big-n{color:#FFD36B;text-shadow:none}:root:not([data-theme="light"]) .scr-big-l,:root:not([data-theme="light"]) .scr-lines em{color:#FFD36B}
 :root:not([data-theme="light"]) .scr-card{background:radial-gradient(120% 60% at 50% 0%,#5A3A08,transparent 70%),var(--surface)}
 :root:not([data-theme="light"]) .scr-lines li{background:color-mix(in srgb,#F6C34A 9%,var(--surface));border-color:color-mix(in srgb,#E2A82A 22%,transparent)}

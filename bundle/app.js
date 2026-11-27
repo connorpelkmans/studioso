@@ -6517,7 +6517,9 @@ function viewAiQuiz(){
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
-  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end)
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; if (!SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId))) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${label}${q.topic ? ` · ${esc(q.topic)}` : ""}</span>
@@ -23205,7 +23207,9 @@ function viewStudy(){
   const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
   // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
   const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
-  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
+  // Studyboard Credits this session has earned so far (98-0study-credits.js): one a card, each card once
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; const left = SBSC.cardsLeftToday(); return SBSC.liveHtml(SBSC.earned(true) - f.cr0, left ? (left <= 30 ? `${left} more count today` : "1 a card") : "150 a day reached"); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${crLive}${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
     ${fcChipsHtml(c, f)}
@@ -23415,7 +23419,9 @@ function viewQuiz(){
   const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I Was Right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
-  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end); the same quiz key finishQuiz uses
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); if (!SBSC.quizTriesLeft(key)) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${q.type === "mc" ? `Pick the ${kind[1]}` : q.type === "tf" ? "True or false" : `Type the ${kind[1]}`}</span>
@@ -24412,11 +24418,20 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), under the dial while a focus session is going
+let pomoCrN = -1;
+function pomoCreditsHtml(){
+  if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
+  const l = SBSC.focusLive(); pomoCrN = l.n;
+  return SBSC.liveHtml(l.n, l.full ? "3 hours counted today" : "1 a minute");
+}
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
+  // the credits chip changes once a minute (a little bump when it does)
+  try { const box = document.querySelector("[data-pomo-cr]"); if (box && typeof SBSC !== "undefined" && SBSC) { const was = pomoCrN, html = pomoCreditsHtml(); if (pomoCrN !== was || !box.innerHTML !== !html) { box.innerHTML = html; const c = box.firstElementChild; if (c && was >= 0 && pomoCrN > was) c.classList.add("bump"); } } } catch (e) {}
   const ring = $("#pomoRing"); if (ring) ring.style.strokeDashoffset = String(ring.dataset.c * (1 - frac));
   setTitle();
 }
@@ -24581,6 +24596,7 @@ function renderPomo(){
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
         <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
+      <div class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
@@ -61798,6 +61814,27 @@ var SBSC = (() => {
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
   hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
+  /* ---------- "+7 credits so far": a little chip while studying ----------
+     Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
+     up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
+  function liveHtml(n, note, id){
+    n = Math.max(0, Math.round(Number(n) || 0));
+    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"} so far</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}</span>`;
+  }
+  // focus: the minutes of this session so far, as far as today's 3 hours allow
+  function focusLive(){
+    const el = typeof pomoElapsedMin === "function" ? Math.floor(pomoElapsedMin()) : 0;
+    const today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
+    return {n: Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)), full: today >= FOCUS_MIN_A_DAY};
+  }
+  // flashcards: how many more cards count today
+  const cardsLeftToday = () => Math.max(0, CARDS_A_DAY - dayCards(todayISO()));
+  // a quiz: does it still earn today (QUIZ_TRIES_A_DAY tries each)
+  const quizTriesLeft = key => { const id = String(key || "quiz").replace(/:/g, "_"), day = todayISO(); return Math.max(0, QUIZ_TRIES_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length); };
+  // a presentation: runs left today, and what a run's slides so far have earned (each slide inside its time)
+  const presRunsLeft = pid => { const id = String(pid || "").replace(/:/g, "_"), day = todayISO(); return Math.max(0, PRES_RUNS_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`pres:${day}:${id}:`) === 0).length); };
+  const presSlideOk = (t, b) => b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000);
+
   // A little "+12 Credits" pop (kept for other parts of the app)
   function pop(n, why){ n = Math.round(n); if (n < 1) return; rq.push({kind: "hello", compact: true, kick: "Credits Earned", title: why || "", lines: [], gained: n, bal: balance(), bal0: balance() - n, day: todayN(), tgt: target()}); showNext(); }
 
@@ -61814,7 +61851,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -127212,6 +127249,7 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
         <span class="pr-clock"><b id="prClock">0:00</b><span>of ${fmt(S.tgt)}</span></span>
         <span class="pr-pace" id="prPace" hidden></span>
         <span class="pr-livechip" id="prLiveChip" hidden></span>
+        <span class="pr-cr" id="prCredits"></span>
         <button type="button" class="pr-ib" data-act="pr-remote" aria-label="Use your phone as a remote" title="Phone Remote">${IC.phone}</button>
         <button type="button" class="pr-end" data-act="pr-end">${S.follow ? "Leave" : "End"}</button>
       </div>
@@ -127346,6 +127384,13 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
       lbl.textContent = k === S.i && S.started && !S.qa ? `${fmt(t[k])} · target ${fmt(S.b[k])}` : done ? fmt(t[k]) : fmt(S.b[k]);
       b.classList.toggle("done", done && k !== S.i);
     });
+    // Studyboard Credits this run has earned so far (98-0study-credits.js): each finished slide that stayed inside its time
+    const crb = S.el.querySelector("#prCredits");
+    if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
+      const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
+      const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n, left ? (S.sec ? `${SBSC.PRES_SLIDE()} a slide on time` : `+${SBSC.PRES_WHOLE()} if the whole talk is on target`) : "2 runs counted today"); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+    }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
       const before = S.b.slice(0, S.i).reduce((a, x) => a + x, 0), d = el - (before + Math.min(t[S.i], S.b[S.i]));
