@@ -745,7 +745,8 @@ function dayTimelineHtml(F, todayList, heroId){
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
-      if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
+      // work, shifts and other availability blocks show too, so the strip never calls a shift Free (protected time stays as Free)
+      if ((o.type !== "meet" && o.type !== "event" && !(o.type === "avail" && o.avail && o.avail.kind !== "protected")) || o.skipped || o.allDay || !o.start || !o.end) return;
       const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
     // A timed exam or quiz sat in person today is on the strip too (the plan keeps that time clear)
