@@ -24,16 +24,16 @@
   // tasks were ticked off: counting tasks rewards splitting work into trivial pieces
   const ACC = [
     // Every prop can be earned by focus time, flashcards or practice quizzes, plus a few other ways (study days, notes, exam prep...)
-    {id: "scarf", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
-    {id: "hat", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
-    {id: "bowtie", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
-    {id: "glasses", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
-    {id: "medal", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
-    {id: "cape", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
-    {id: "star", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
-    {id: "beanie", name: "Festive Beanie", paths: [["festive", 1]]},
-    {id: "cap", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
-    {id: "crown", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
+    {id: "scarf", rarity: "common", name: "Cozy Scarf", hours: 2, free: true, paths: [["cards", 30], ["quizzes", 5], ["studydays", 3], ["checkins", 3]]},
+    {id: "hat", rarity: "common", name: "Tiny Hat", hours: 5, free: true, paths: [["streak", 3], ["cards", 75], ["quizzes", 7], ["notes", 3], ["groups", 1]]},
+    {id: "bowtie", rarity: "common", name: "Party Bow Tie", hours: 10, free: true, paths: [["cards", 100], ["quizzes", 9], ["studydays", 10], ["prep", 5], ["spread", 1]]},
+    {id: "glasses", rarity: "common", name: "Round Glasses", hours: 15, free: true, paths: [["cards", 150], ["quizzes", 12], ["notes", 10]]},
+    {id: "medal", rarity: "rare", name: "Champion Medal", hours: 25, free: true, paths: [["cards", 400], ["quizzes", 15], ["prep", 15], ["spread", 3]]},
+    {id: "cape", rarity: "rare", name: "Hero Cape", hours: 40, paths: [["streak", 7], ["cards", 600], ["quizzes", 25], ["studydays", 40], ["checkins", 21]]},
+    {id: "star", rarity: "rare", name: "Star Badge", hours: 60, paths: [["streak", 14], ["cards", 900], ["quizzes", 35], ["stickers", 15], ["focusWeeks", 4]]},
+    {id: "beanie", rarity: "rare", name: "Festive Beanie", paths: [["festive", 1]]},
+    {id: "cap", rarity: "exotic", name: "Graduation Cap", hours: 100, paths: [["cards", 1500], ["quizzes", 45], ["spread", 8], ["studydays", 80]]},
+    {id: "crown", rarity: "legendary", name: "Little Crown", hours: 150, paths: [["streak", 30], ["cards", 2500], ["quizzes", 60], ["stickers", 30]]}
   ];
   // streaks are hidden for now: their goals step aside and the other paths still unlock each prop
   if (STREAK_HIDDEN) ACC.forEach(a => { a.paths = a.paths.filter(p => p[0] !== "streak"); });
@@ -144,10 +144,52 @@
     cap: `<path d="M-12 -7V1.5Q0 7.5 12 1.5V-7Z" fill="#3A3450" ${OUT(2.4)}/><path d="M-23 -9.5L0 -18L23 -9.5L0 -1Z" ${WEAR} ${OUT(2.4)}/><path d="M-14 -11L0 -16" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/><path d="M0 -9.5L15 -7V3" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/><path d="M13 2.5h4l1 6h-6Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-9.5" r="2" fill="#F2C14E" ${OUT(1.2)}/>`
   };
   /* Body regions: an item declares the one it covers */
-  const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "back"};
-  const slotOf = id => ACC_SLOT[id] || id;
+  const ACC_SLOT = {hat: "head", cap: "head", crown: "head", beanie: "head", glasses: "face", scarf: "neck", bowtie: "neck", star: "chest", medal: "chest", cape: "neck"};
   // The colour these were drawn in (the others follow the theme colour)
   const ACC_DEF = {star: "#FFD35A", medal: "#FFD35A", crown: "#FFD35A", beanie: "#E5484D", cap: "#4A4366", glasses: "#2B2233"};
+  // Clothing patterns (Pro) go on these (the list grows with the fabric ones below)
+  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
+  // Where lenses sit on a face: the eyes' centres and a lens radius R, kept a little apart where the eyes are close together,
+  // and ext, how far past the lenses a strap, wing or visor may reach: on a face whose eyes sit at its edge (a frog's) only a little,
+  // so nothing sticks out into the air (the body's width at the neck stands in for the head's)
+  function faceFit(e, c){
+    const gap = e.rx - e.lx, R = Math.min(Math.max(6.5, e.r * 1.8), Math.max(5.2, gap / 2 - .9));
+    const na = c && c.anchors && c.anchors.neck, half = Array.isArray(na) && num(na[4]) ? na[4] / 2 : 0;
+    const ext = half ? Math.max(2, Math.min(R * 1.2, half + 4 - (gap / 2 + R))) : R * 1.2;
+    return {lx: e.lx, rx: e.rx, y: e.y, R: f1(R), mx: f1((e.lx + e.rx) / 2), gap, ext: f1(ext)};
+  }
+  /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
+     how much studying earns it (any one way unlocks it, as for every prop), spread evenly from the easiest to the hardest of its
+     rarity; commons, uncommons and rares are free, exotics and legendaries are Pro */
+  const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  // [easiest, hardest] for each way, and a fourth way that depends on where it's worn
+  const MORE_WAYS = {
+    common: {hours: [3, 9], cards: [40, 130], quizzes: [3, 8], head: ["checkins", 3, 7], face: ["notes", 3, 8], neck: ["studydays", 3, 8], chest: ["checkins", 3, 9]},
+    uncommon: {hours: [10, 14], cards: [150, 190], quizzes: [9, 11], head: ["studydays", 8, 11], face: ["notes", 9, 12], neck: ["checkins", 9, 12], chest: ["notes", 9, 12]},
+    rare: {hours: [16, 30], cards: [200, 450], quizzes: [12, 18], head: ["studydays", 12, 25], face: ["prep", 6, 12], neck: ["checkins", 14, 28], chest: ["prep", 7, 13]},
+    exotic: {hours: [45, 90], cards: [700, 1300], quizzes: [28, 45], head: ["stickers", 12, 20], face: ["focusWeeks", 4, 6], neck: ["spread", 4, 6], chest: ["spread", 4, 7]},
+    legendary: {hours: [120, 250], cards: [2000, 4000], quizzes: [55, 90], head: ["stickers", 25, 40], face: ["focusWeeks", 8, 12], neck: ["studydays", 90, 150], chest: ["focusWeeks", 9, 12]}
+  };
+  const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
+  const MORE_BY = {}, MORE_N = {}, MORE_OF = {};
+  MORE.forEach(a => { MORE_OF[a.slot + a.rarity] = (MORE_OF[a.slot + a.rarity] || 0) + 1; });
+  MORE.forEach(a => {
+    const key = a.slot + a.rarity, i = MORE_N[key] = (MORE_N[key] || 0) + 1, t = MORE_OF[key] > 1 ? (i - 1) / (MORE_OF[key] - 1) : 0;
+    const w = MORE_WAYS[a.rarity], at = ([lo, hi]) => Math.round(lo + (hi - lo) * t), x = w[a.slot];
+    MORE_BY[a.id] = a; ACC_SLOT[a.id] = a.slot;
+    if (a.def) ACC_DEF[a.id] = a.def;
+    if (a.pat) PAT_PROPS.push(a.id);
+    // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
+    ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, free: RARITY.indexOf(a.rarity) <= 2, hours: at(w.hours), paths: [["cards", at(w.cards)], ["quizzes", at(w.quizzes)], [x[0], at([x[1], x[2]])]]});
+  });
+  ACC.forEach(a => { if (!STYLE_LISTS.prop.some(x => x.id === a.id)) STYLE_LISTS.prop.push({id: a.id, name: a.name, get tier(){ return a.free ? "free" : "pro"; }}); });
+  const rarityOf = a => a && RARITY.includes(a.rarity) ? a.rarity : "common";
+  const rarityTag = a => `<span class="cp-rar cp-rar-${rarityOf(a)}">${RARITY_NAME[rarityOf(a)]}</span>`;
+  // the wardrobe's sections, by where a thing is worn
+  const ACC_GROUPS = [["Hats", ["head"]], ["Eyewear", ["face"]], ["Neckwear", ["neck"]], ["Chest", ["chest", "back"]]];
+  const slotOf = id => ACC_SLOT[id] || id;
   const TINTS = ["#E5484D", "#F2994A", "#FFD35A", "#4CB782", "#2FB5C9", "#5A95FF", "#8E6BE0", "#FF7A9C", "#8B6A4F", "#3A3450", "#FFFFFF"];
   const hexOk = v => typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
   // "hat_scarf" (presence), an array or a single id, to a clean list with one item per region
@@ -199,12 +241,16 @@
     const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
+    // anchors.cape (optional): where the cape itself hangs when it can't start at the neck (a cat in a cup: from the cup's back rim,
+    // wider than the cup so it shows on both sides) as [x, y, scale, top width, widest width]; the collar stays at the neck
+    const cA = A.cape, capeBack = Array.isArray(cA) && pt(cA) && num(cA[3]) && num(cA[4]) ? (worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at([cA[0], cA[1], cA[2]], patd("cape", capeArt(f1(cA[3] / 2 / cA[2]), f1(cA[4] / 2 / cA[2]))))}</g>` : "")
+      : capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape);
     const headWorn = worn.some(id => slotOf(id) === "head");
     const headRot = rot.head ? `;transform:rotate(${rot.head}deg)` : "";
     const hands = pt(A.hands) ? A.hands : [60, 92];
     // the blush stays inside the face's outline (never over wings, arms, ears or the outline itself)
     // and goes under anything worn on the body (its shape is cut out of the blush), while a beak or snout stays in front of a scarf
-    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${acc("star", chestA)}${acc("medal", medalA)}${acc("bowtie", bowA)}`;
+    const bodyWear = `${capePart(wrapW ? collarArt(collarAt(capeA[2])) : ACC_ART.capeCollar)}${acc("scarf", A.neck, wrapW ? scarfArt(hwAt(ns)) : "")}${MORE.filter(a => a.slot === "neck" && worn.includes(a.id)).map(a => acc(a.id, A.neck, a.art(wrapW ? hwAt(ns) : 21))).join("")}${acc("star", chestA)}${acc("medal", medalA)}${MORE.filter(a => a.slot === "chest" && worn.includes(a.id)).map(a => acc(a.id, a.at === "mid" ? medalA : chestA)).join("")}${acc("bowtie", bowA)}`;
     // the blush's mask only needs the face's shape (its filter paints it white), so the copy drops the colour gradients:
     // otherwise every gradient id appeared twice in the drawing, once in the mask
     // (clip paths stay, so the shape is exact, under ids of their own)
@@ -216,11 +262,11 @@
     const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
-    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}`;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
-      <g class="cp-rig">${capePart(wrapW ? capeArt(collarAt(capeA[2]), drapeW ? f1((drapeW / 2 + 5) / capeA[2]) : 0) : ACC_ART.cape)}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
+      <g class="cp-rig">${capeBack}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
-        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}
+        <g class="cp-headg"${hasHead ? ` style="transform-origin:${c.neck[0]}px ${c.neck[1]}px${headRot}"` : ""}>${hasHead ? g("earL") + g("earR") : ""}${g("head")}${face}${c.wearOnHead ? bodyWear : ""}${headWorn && c.hatTop ? "" : g("top")}${headWorn ? "" : g("hat")}${acc("hat", A.top)}${acc("cap", A.top)}${acc("crown", A.top)}${acc("beanie", A.top)}${MORE.filter(a => a.slot === "head" && worn.includes(a.id)).map(a => acc(a.id, A.top)).join("")}
           <g class="cp-zs"><text x="${f1((c.eyes.rx || 72) + 14)}" y="${f1((c.eyes.y || 60) - 12)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="11" fill="#8C87A8" stroke="#fff" stroke-width="3" paint-order="stroke">z</text><text x="${f1((c.eyes.rx || 72) + 22)}" y="${f1((c.eyes.y || 60) - 22)}" font-family="Lexend,Arial Rounded MT Bold,Arial,sans-serif" font-weight="800" font-size="8" fill="#8C87A8" stroke="#fff" stroke-width="2.5" paint-order="stroke">z</text></g>
         </g>
       </g></svg>`;
@@ -258,9 +304,8 @@
   // Clothing colours: the palette is free; any other colour (picked with the colour box) is Pro. Without Pro a picked colour
   // stays saved but isn't used, so the prop shows its usual colour until Pro comes back
   const inPalette = h => TINTS.some(x => x.toLowerCase() === String(h || "").toLowerCase());
-  // Clothing patterns (Pro): on the hat, beanie, scarf, bow tie and cape, drawn in the prop's own colour and a lighter tone
+  // Clothing patterns (Pro): on the fabric props (the hat, beanie, scarf, bow tie, cape and the fabric ones of the 60 more), drawn in the prop's own colour and a lighter tone
   // of it, tiled across the fabric. Without Pro a chosen pattern stays saved but isn't drawn
-  const PAT_PROPS = ["hat", "beanie", "scarf", "bowtie", "cape"];
   const PATS = [["stripes", "Stripes"], ["dots", "Polka Dots"], ["plaid", "Plaid"], ["stars", "Stars"], ["checks", "Checks"], ["zigzag", "Zigzag"]];
   const shade = (h, to, t) => { const n = parseInt(String(h).slice(1), 16); if (!(n >= 0)) return h; const a = [n >> 16, (n >> 8) & 255, n & 255], b = to === "w" ? [255, 255, 255] : [20, 16, 40]; return "#" + a.map((x, i) => Math.round(x + (b[i] - x) * t).toString(16).padStart(2, "0")).join(""); };
   const starPath = (x, y, r) => { let p = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; p += (i ? "L" : "M") + (x + rr * Math.cos(a)).toFixed(2) + " " + (y + rr * Math.sin(a)).toFixed(2); } return p + "Z"; };
@@ -283,7 +328,10 @@
   // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
   function propIcon(a, tints){
     tints = tints || tintsNow();
-    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id];
+    const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
+    // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
+    if (m) { const [y, k] = m.icon || (m.slot === "head" ? [10, 1] : m.slot === "neck" ? [-6, 1] : m.slot === "chest" ? [0, 2] : [0, 1]);
+      return `<svg viewBox="-26 -26 52 52" aria-hidden="true"><g transform="translate(0 ${y})${k !== 1 ? ` scale(${k})` : ""}">${ACC_ART[a.id]}</g></svg>`; }
     return `<svg viewBox="-26 -26 52 52" aria-hidden="true">${a.id === "glasses" ? glassesSvg({lx: -11, rx: 11, y: 0, r: 5}, hexOk(tints[a.id]) ? tints[a.id] : "") : lift ? `<g transform="translate(0 ${lift})">${ACC_ART[a.id]}</g>` : a.id === "cape" ? `<g transform="translate(0 -8) scale(.85)">${ACC_ART.cape}${ACC_ART.capeCollar}</g>` : ACC_ART[a.id]}</svg>`;
   }
   const tintsNow = () => { const t = cfg().tint || {}; if (pro()) return t; const o = {}; Object.keys(t).forEach(k => { if (inPalette(t[k])) o[k] = t[k]; }); return o; };
@@ -1757,7 +1805,8 @@
     setCfg({earned: Object.fromEntries(fresh.map(a => [a.id, Date.now()]))});
     try { refreshPicker(); } catch (e) {}
     // each new prop is shown big in the middle of the screen (revealProp), one after another; the companion celebrates as each closes
-    fresh.forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
+    // (many at once, say after the wardrobe grew: the three rarest are shown, the rest wait quietly in the Wardrobe)
+    fresh.slice().sort((x, y) => RARITY.indexOf(rarityOf(y)) - RARITY.indexOf(rarityOf(x))).slice(0, 3).forEach(a => { if (!revealQ.some(x => x.id === a.id)) revealQ.push(a); });
     revealSoon();
   }
 
@@ -1782,7 +1831,7 @@
     const c = current(), wearNow = !!c && canWear(a), done = propProg(a).find(x => x.p >= 1);
     const tints = tintsNow(), col = hexOk(tints[a.id]) ? tints[a.id] : ACC_DEF[a.id] || (c ? wearColor(c) : "");
     const o = document.createElement("div");
-    o.className = "cpu" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
+    o.className = "cpu cpu-" + rarityOf(a) + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpuName"); o.setAttribute("aria-describedby", "cpuHow");
     if (o.showPopover) o.setAttribute("popover", "manual");
     const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
     const how = !c ? "Pick a companion to wear it." : wearNow ? "Your companion can wear it now." : owns("prop", a.id) ? "It's in your companion's wardrobe." : "It comes with Studyboard Pro.";
@@ -1790,7 +1839,7 @@
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>
+      <span class="cpu-kick">New Prop Unlocked!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
       <p class="cpu-how" id="cpuHow">${done ? `<span class="cpu-did">${esc(done.ask)}</span> ` : ""}${esc(how)}</p>
       <div class="cpu-acts">${wearNow ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">Got It</button>`}</div></div>`;
     document.body.appendChild(o);
@@ -2624,12 +2673,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const hLabel = h < 1 ? `${Math.round(h * 60)} min` : `${h < 10 ? h.toFixed(1).replace(/\.0$/, "") : Math.round(h)} h`;
     const wear = c ? wearOf(c) : [], tints = tintsNow();
     const colOf = id => hexOk(tints[id]) ? tints[id] : ACC_DEF[id] || wearColor(c || {});
-    const howRow = a => `<li><b>${esc(a.name)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
+    const howRow = a => `<li><b>${esc(a.name)} ${rarityTag(a)}</b><span class="cp-how-ways">${propProg(a).map(x => `<span class="cp-how-way"><span class="cp-how-t">${esc(x.ask)}</span><span class="cp-how-bar" aria-hidden="true"><i style="width:${Math.round(x.p * 100)}%"></i></span><span class="mini">${esc(pathShort(x))}</span></span>`).join("")}</span></li>`;
     const accTile = a => {
       const got = isEarned(a), can = canWear(a), on = wear.includes(a.id);
       const icon = propIcon(a, tints);
-      return `<button type="button" class="cp-acc-tile${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
-        <span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
+      return `<button type="button" class="cp-acc-tile cp-r-${rarityOf(a)}${on ? " on" : ""}${got ? "" : " off"}" data-act="comp-wear" data-acc="${a.id}" aria-pressed="${on}" ${got ? "" : `aria-disabled="true"`}>
+        ${rarityTag(a)}<span class="cp-acc-ic"${hexOk(tints[a.id]) || ACC_DEF[a.id] ? ` style="--cp-wear:${colOf(a.id)}"` : ""}>${icon}</span><span class="cp-acc-n">${esc(a.name)}${a.free || (pro() && !tagPro()) ? "" : PRO_BADGE}</span><span class="mini">${got ? (can ? (on ? "Wearing" : "Wear") : "🔒 Pro") : esc(pathShort(closestPath(a)))}</span></button>`;
     };
     const patRow = (id, a, col) => { const curP = (cfg().pat || {})[id] || "", on = pro();
       const sw = (k, label) => { const pid = `cpq-${id}-${k}`, sel = on ? curP === k : !k;
@@ -2642,11 +2691,13 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <h3 class="fsec">Accessories</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Earn little things to wear by studying your way: focus time, flashcards, practice quizzes, study days, study-plan sessions, notes and more. Effort counts, not how many tasks you tick off. ${nGot} of ${ACC.length} earned so far (${hLabel} of focus). Props you earn are yours to keep.</p>
-      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button>${ACC.map(accTile).join("")}</div>
-      <p class="mini" style="margin:0">Wear one prop each on the head, face, neck, chest and back. A new one in the same spot swaps it.</p>
+      <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
+      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
+        return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
+      <p class="mini" style="margin:0">Wear one prop each on the head, face, neck and chest. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop.</p><ul class="cp-how">${locked.map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
+      ${locked.length ? `<h3 class="fsec">How to Earn More</h3><p class="mini" style="margin:0">Any one way unlocks a prop. The rarer it is, the more studying it takes.</p><ul class="cp-how">${locked.sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y))).map(howRow).join("")}</ul>` : `<p class="mini" style="margin:0">You've earned every prop. Wow!</p>`}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
@@ -2895,7 +2946,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
         if (c.cheeks && !(num(c.cheeks.lx) && num(c.cheeks.rx) && num(c.cheeks.y))) E(who, "cheeks needs lx, rx, y");
         const A = c.anchors || {};
         ANCHORS.forEach(k => { if (!pt(A[k])) E(who, `anchors.${k} [x, y, scale] is required`); else if (A[k][0] < 0 || A[k][0] > 120 || A[k][1] < 0 || A[k][1] > 120) E(who, `anchors.${k} is outside the box`); else if (A[k][2] != null && !(num(A[k][2]) && A[k][2] >= 0.5 && A[k][2] <= 1.6)) E(who, `anchors.${k} scale should be 0.5 to 1.6`); });
-        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow") E(who, `unknown anchor "${k}"`); });
+        Object.keys(A).forEach(k => { if (!ANCHORS.includes(k) && k !== "bow" && k !== "cape") E(who, `unknown anchor "${k}"`); });
         const L = c.lines || {};
         Object.entries(LINE_KINDS).forEach(([k, min]) => {
           const arr = L[k];
@@ -3106,8 +3157,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const n = String(name || "").toLowerCase().replace(/\b(your|the|my|a|an)\b/g, " ").replace(/\s+/g, " ").trim(), now = wearOf(c);
       if (!on && /^(all|everything|it all|them all|accessories|all accessories)$/.test(n)) { setCfg({wear: {[c.id]: []}}); curSig = ""; build(); return "I took everything off."; }
       // a kind of thing ("a hat", "something for your neck"): the first of that kind it has earned (one it isn't wearing first)
-      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"]], [/\b(cap)\b/, ["cap"]], [/\b(glasses|specs|spectacles|sunglasses)\b/, ["glasses"]],
-        [/\b(scarf|something (for|on) (your|my) neck)\b/, ["scarf"]], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(medal|necklace)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
+      const KIND = [[/\b(hat|hats|headwear|something on (your|my) head)\b/, ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id))], [/\b(cap)\b/, ["cap"]], [/\b(sunglasses|shades)\b/, ["sunglasses", "heartshades", "starshades", "diamondshades", "sunburst", "pixelshades"]], [/\b(glasses|specs|spectacles|eyewear)\b/, ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id))],
+        [/\b(goggles)\b/, ["goggles", "steampunk", "galaxygoggles"]], [/\b(mask)\b/, ["masquerade", "phoenixmask"]],
+        [/\b(scarf|scarves)\b/, ["scarf", "galaxyscarf", "boa", "bandana"]], [/\b(something (for|on) (your|my) neck|neckwear)\b/, ["scarf", "cape"].concat(MORE.filter(a => a.slot === "neck").map(a => a.id))], [/\b(tie|bow ?tie)\b/, ["bowtie"]], [/\b(necklace)\b/, ["pearls", "beads", "crystal", "amulet", "lei", "medal"]], [/\b(medal)\b/, ["medal"]], [/\b(cape|cloak)\b/, ["cape"]], [/\b(pin|brooch)\b/, MORE.filter(a => a.slot === "chest" && a.at === "pin").map(a => a.id)], [/\b(badge|star)\b/, ["star"]], [/\b(crown|tiara)\b/, ["crown"]], [/\b(beanie|toque|tuque)\b/, ["beanie"]]];
       const kind = on ? KIND.find(([re]) => re.test(n)) : null;
       if (kind && !ACC.some(x => x.name.toLowerCase() === n)) {
         const opts = kind[1].map(id => ACC.find(x => x.id === id)).filter(Boolean), have = opts.filter(x => canWear(x));
@@ -3129,7 +3181,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     tintByName: (item, color) => { try {
       const c = current(); if (!c) return "There's no companion to dress right now.";
       const n = String(item || "").toLowerCase(), now = wearOf(c);
-      const KIND = {hat: ["hat", "beanie", "cap", "crown"], cap: ["cap"], glasses: ["glasses"], scarf: ["scarf"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
+      const KIND = {hat: ["hat", "beanie", "cap", "crown"].concat(MORE.filter(a => a.slot === "head").map(a => a.id)), cap: ["cap"], glasses: ["glasses"].concat(MORE.filter(a => a.slot === "face").map(a => a.id)), scarf: ["scarf", "galaxyscarf", "boa", "bandana"], tie: ["bowtie"], bowtie: ["bowtie"], medal: ["medal"], cape: ["cape"], badge: ["star"], star: ["star"], crown: ["crown"], beanie: ["beanie"]};
       const k = Object.keys(KIND).find(x => new RegExp("\\b" + x + "s?\\b").test(n.replace(/bow ?tie/, "bowtie")));
       const ids = k ? KIND[k] : ACC.filter(a => n.includes(a.name.toLowerCase())).map(a => a.id);
       const a = ACC.find(x => ids.includes(x.id) && now.includes(x.id)) || ACC.find(x => ids.includes(x.id));

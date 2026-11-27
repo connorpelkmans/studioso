@@ -1318,7 +1318,7 @@ Examples:
     if (wm && window.SBCOMP && SBCOMP.wearByName) {
       const on = !(wm[4] || wm[5] || wm[6]), item = (wm[1] || wm[2] || wm[3] || wm[4] || wm[5] || wm[6] || "").trim();
       // (only when it's something to wear: "put my essay on Monday" isn't)
-      if (/\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|everything|accessor(y|ies)|outfit)\b/i.test(item) && !/\b(on|to|for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|the board|my board)\b/i.test(w)) return say(SBCOMP.wearByName(item, on));
+      if (/\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|everything|accessor(y|ies)|outfit|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant|backpack|wings|guitar|umbrella|balloon|jetpack|quiver|sword|kite|skateboard|staff|brooch|patch|rosette|pennant)\b/i.test(item) && !/\b(on|to|for)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tomorrow|today|the board|my board)\b/i.test(w)) return say(SBCOMP.wearByName(item, on));
     }
     return null;
   }
@@ -1802,7 +1802,7 @@ Careful, these are easy to mix up:
   }
   // The companion's look, read in code: "what accessories do I have", "wear the second one", "take them both off", "make it red" (the
   // accessory just talked about), "make packy purple" (it has no colour of its own: said, with what can change), "dress up for the holidays"
-  const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge)\b/i;
+  const ACCW = /\b(cozy scarf|scarf|tiny hat|festive beanie|graduation cap|beanie|hat|cap|little crown|crown|round glasses|sunglasses|glasses|party bow ?tie|bow ?tie|tie|champion medal|medal|hero cape|cape|star badge|badge|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant|backpack|wings|guitar|umbrella|balloon|jetpack|quiver|sword|kite|skateboard|staff|brooch|patch|rosette|pennant)\b/i;
   const COLW = /\b(red|crimson|maroon|pink|rose|magenta|purple|violet|lavender|indigo|navy|dark blue|ocean blue|blue|light blue|sky blue|cyan|turquoise|teal|green|dark green|forest green|evergreen|mint|lime|olive|yellow|gold|orange|coral|peach|brown|tan|beige|gray|grey|silver|black|white)\b/i;
   function companionLook(q, chat){
     const w = String(q || "").toLowerCase().trim(), me = info() || {}, nm = String(me.name || "").toLowerCase(), say = a => ({answer: a, sources: [], followUps: [], actions: []});
@@ -2120,7 +2120,7 @@ ANSWERING
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
     // (and the one the student named, in this message or the one before: "put it on then" after asking about the crown is the crown,
     // and "darker" after "make packy purple" is about the companion itself, never the Tiny Hat it reached for instead)
-    const ACCW = /\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|accessor(?:y|ies)|outfit|everything)\b/i;
+    const ACCW = /\b(hat|hats|cap|beanie|toque|crown|tiara|glasses|specs|sunglasses|scarf|tie|bow ?tie|medal|necklace|cape|cloak|badge|star|accessor(?:y|ies)|outfit|everything|shades|goggles|monocle|visor|mask|pearls|lei|boa|collar|bandana|lanyard|headphones|helmet|halo|horns?|beret|ruff|stole|amulet|pendant|backpack|wings|guitar|umbrella|balloon|jetpack|quiver|sword|kite|skateboard|staff|brooch|patch|rosette|pennant)\b/i;
     const named = [q].concat((past || []).slice(-1).map(x => x.q || "")).map(s => (ACCW.exec(String(s)) || [])[0]).find(Boolean) || "";
     arr("wear").forEach(x => { let it = String(x.item || "").trim(); if (!it || !window.SBCOMP) return;
       if (!named) { extra.push(x.color ? "My own colour can't change, only my accessories' colours. Which one should I change?" : "Which accessory should I put on?"); return; }
