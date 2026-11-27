@@ -159,6 +159,12 @@ ok(dates(mk(14))[0] === T0 && dates(mk(14)).length >= 6, "14 days starts today")
   const sug = E.suggestTopics({decks: [{name: "Cardiac Drugs Deck", cards: []}], notes: [{text: "Renal physiology\nlots of text"}], files: [{name: "Lecture 5 - Acid base.pdf"}, {name: "Syllabus Fall.docx"}], examNotes: "Chapters 2-3\nBring a calculator", reading: "", checklist: ["Heart failure"], prior: ["Old topic"]});
   const names = sug.map(x => x.name); ["Old topic", "Heart failure", "Chapter 2", "Chapter 3", "Cardiac Drugs", "Renal physiology", "Acid base"].forEach(x => ok(names.includes(x), "suggested " + x + " in " + names));
   ok(new Set(names.map(E.keyOf)).size === names.length, "no duplicates");
+  ok(!names.some(x => /calculator/i.test(x)), "a reminder in the exam notes is not a topic: " + names);
+  // the exam's notes as one line of sentences: reminders, words about the exam and chapter lists are not topics
+  const n2 = E.suggestTopics({examNotes: "Cumulative. Ch. 1-11. Bring model kit. Stereochemistry and chirality. Closed book. See Dr. Lindqvist's review sheet"}).map(x => x.name);
+  eq(n2.filter(x => !/^Chapter \d+$/.test(x)), ["Stereochemistry and chirality", "See Dr. Lindqvist's review sheet"], "sentences split, non-topics dropped: " + n2);
+  eq(n2.filter(x => /^Chapter \d+$/.test(x)).length, 11, "chapters 1 to 11 listed once");
+  eq(E.suggestTopics({examNotes: "Enzyme kinetics\nCovers Ch. 4 and 5\n90 minutes"}).map(x => x.name), ["Chapter 4", "Chapter 5", "Enzyme kinetics"], "one topic per line, chapter lines and lengths dropped");
 }
 
 // session types from material, sizing from due-card counts

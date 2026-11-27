@@ -7187,7 +7187,8 @@ details.pp-group[open]>summary::before{content:"▾"}
   .exm-kick,.exm-title .tag,.exm-prep,.exm-others,.exm-sl,.exm-offt,.exm-acts .btn:not(.primary){display:none}
   .exm-title{display:block;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .exm-name{display:inline;min-height:0;line-height:32px}
-  .exm-when{font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* up to two lines, so the day and time ("Tomorrow 10:00 AM") aren't cut off on a narrow phone */
+  .exm-when{font-size:.82rem;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .exm-wk{display:inline;font-weight:800;color:var(--c-text)}
   .exm-when b{font-weight:600;color:var(--muted)}
   .exm-acts{margin:0}
@@ -10831,6 +10832,16 @@ dialog:has(.sheet.ofv-sheet){width:min(1240px,calc(100% - 24px))}
 .rv-ib:disabled{opacity:.4}
 .rv-go{margin-left:4px}
 @media (max-width:480px){.rv-grid{grid-template-columns:1fr}}
+/* The review card on a wide screen: the count and its line get the width beside the buttons, with the week and the daily goal
+   underneath, instead of one row where the words were squeezed into a narrow column */
+@media (min-width:761px){
+  .rv-hero{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-areas:"s t t a" "s w g a";align-items:center;gap:12px 22px}
+  .rv-hero>.rv-stack{grid-area:s}
+  .rv-hero>.rv-t{grid-area:t}
+  .rv-hero>.rv-week{grid-area:w}
+  .rv-hero>.goal-btn{grid-area:g;justify-self:start}
+  .rv-hero>.rv-cacts{grid-area:a;justify-self:end;gap:8px}
+}
 @media (prefers-reduced-motion:reduce){.rv-card,.rv-fan .face.rv-f,.rv-board,.rv-stamp{transition:none}.rv-card:hover{translate:none}.rv-deck:hover .rv-f1{transform:translateY(11px)}.rv-deck:hover .rv-f2{transform:translate(12px,15px) rotate(4deg)}.rv-deck:hover .rv-f3{transform:translate(-14px,17px) rotate(-6deg)}.rv-quiz:hover .rv-board{transform:none;rotate:-3deg}.rv-quiz:hover .rv-stamp{transform:none}}
 html[data-motion="static"] .rv-card,html[data-motion="static"] .rv-fan .face.rv-f,html[data-motion="static"] .rv-board,html[data-motion="static"] .rv-stamp{transition:none}
 html[data-motion="static"] .rv-card:hover{translate:none}

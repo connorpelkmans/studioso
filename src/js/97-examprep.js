@@ -99,9 +99,15 @@ const EXAMPREP = (() => {
     (m.objectives || []).forEach(n => put(n, "learning objective"));
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
-    String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
     // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
     const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    // Nor is a word about the exam itself ("Cumulative.", "Closed book"), or a sentence naming chapters (already listed above)
+    const ABOUT = /^(non-?)?(cumulative|comprehensive|open[- ]?book|closed[- ]?book|open[- ]?notes?|closed[- ]?notes?|in[- ]?class|in[- ]?person|online|take[- ]?home|multiple[- ]choice|no calculators?|calculators? allowed|(\d+\s*)?(min(ute)?s?|hours?|hrs?|questions?|pages?)( long)?)$/i;
+    // the exam's notes, one sentence or line at a time ("Cumulative. Ch. 1-11. Bring model kit." is three)
+    // (a full stop after a short form such as "Ch." or "Dr." doesn't end a sentence)
+    String(m.examNotes || "").replace(/\b(ch|chs|chap|pp|pg|vs|dr|prof|fig|eq|sec|no|approx|e\.g|i\.e)\.(?=\s)/gi, "$1\u0001").split(/\n|;|•|\.\s+(?=[A-Z])/)
+      .map(s => s.replace(/\u0001/g, ".").replace(/^[\s\-*\d.)]+/, "").replace(/[.!]+$/, "").trim())
+      .filter(s => s.length > 2 && s.length < 70 && !chaptersIn(s).length && !REMIND.test(s) && !ABOUT.test(s)).forEach(n => put(n, "exam notes"));
     const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
     const notes = (m.notes || []).filter(studyNote);
     // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
