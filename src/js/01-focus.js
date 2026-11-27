@@ -207,7 +207,7 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
-// Studyboard Credits this focus session has earned so far (98-0study-credits.js), under the dial while a focus session is going
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), inside the dial just above the time while a focus session is going
 let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
@@ -383,9 +383,8 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
+        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</span><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <div class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>

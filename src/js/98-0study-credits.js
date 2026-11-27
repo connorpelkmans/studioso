@@ -509,7 +509,8 @@ var SBSC = (() => {
     // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    if (!gained && !spec.showZero) return;
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
+    if (!gained) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
@@ -537,15 +538,6 @@ var SBSC = (() => {
     quiz: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V15"/><circle cx="12" cy="18.5" r=".6"/><circle cx="12" cy="12" r="9.5"/>', task: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     pres: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>', hello: '<path d="M12 3l2.6 5.6L20 9.4l-4 4.1.9 5.8L12 16.6 7.1 19.3l.9-5.8-4-4.1 5.4-.8z"/>'};
   const icon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.hello}</svg>`;
-  const goalHtml = r => {
-    const g = r.tgt; if (!g) return "";
-    const p0 = Math.min(1, r.bal0 / g.price), p1 = Math.min(1, r.bal / g.price), ready = r.bal >= g.price;
-    return `<div class="scr-goal${ready ? " ready" : ""}" data-p0="${p0}" data-p1="${p1}">
-      <span class="scr-goal-ic cp-r-${esc(g.rarity || "common")}" aria-hidden="true">${g.icon || ""}</span>
-      <span class="scr-goal-t"><b>${esc(g.name)}</b><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span>
-        <span class="mini">${ready ? "You can buy it now!" : `${(g.price - r.bal).toLocaleString()} more credits`}</span></span>
-      ${ready ? `<button type="button" class="btn small scr-goal-go" data-scr="wardrobe">Get It</button>` : ""}</div>`;
-  };
   function showBig(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrRwT");
@@ -558,15 +550,14 @@ var SBSC = (() => {
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
-      ${goalHtml(r)}
-      <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
+      <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
     setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
-    setTimeout(() => { countUp(balEl, r.bal0, r.bal, 900); const gb = o.querySelector(".scr-goal-bar i"), g = o.querySelector(".scr-goal"); if (gb && g) gb.style.width = Math.round(Number(g.dataset.p1) * 100) + "%"; if (g && g.classList.contains("ready")) setTimeout(() => g.classList.add("pop"), 700); }, still ? 0 : tickAt * 1000 + 200);
+    setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let closed = false;

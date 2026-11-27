@@ -17,7 +17,8 @@
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{display:flex;justify-content:center;margin:4px 0 2px}
+.pomo-cr{display:flex;justify-content:center;margin-bottom:4px}
+.pomo-cr .scr-live{font-size:.85em}
 .pomo-cr:empty{display:none}
 .pr-cr{display:inline-flex}
 .pr-cr:empty{display:none}
@@ -61,15 +62,6 @@
 .scr-lines em.neg{color:var(--muted)}
 .scr-stats{display:flex;justify-content:center;gap:18px;font-size:.88rem;color:var(--muted)}
 .scr-stats b{display:inline-flex;align-items:center;gap:4px;color:var(--ink);font:800 .95rem var(--display);font-variant-numeric:tabular-nums}
-.scr-goal{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:var(--surface);text-align:start}
-.scr-goal-ic{flex:none;width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:var(--soft);--cp-wear:var(--accent)}
-.scr-goal-ic svg{width:40px;height:40px;overflow:visible}
-.scr-goal-t{flex:1;display:grid;gap:4px;min-width:0}
-.scr-goal-bar{display:block;height:10px;border-radius:6px;background:color-mix(in srgb,var(--line) 80%,var(--surface));overflow:hidden}
-.scr-goal-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#F6C34A,#E59A12);transition:width 1.1s cubic-bezier(.3,.9,.3,1)}
-.scr-goal.ready{border-color:#E2A82A;box-shadow:0 0 0 3px color-mix(in srgb,#F6C34A 30%,transparent)}
-.scr-goal.ready.pop{animation:scr-bump .5s cubic-bezier(.2,1.8,.4,1)}
-.scr-goal-go{background:linear-gradient(180deg,#FFD978,#F5A623)!important;color:#3A2200!important;border:0!important;font-weight:800}
 .scr-acts{display:flex;justify-content:center}
 .scr-go{min-width:60%;min-height:48px;font-size:1.05rem;background:linear-gradient(180deg,#FFD978,#F5A623)!important;color:#3A2200!important;border:0!important;box-shadow:0 8px 22px rgba(245,166,35,.45)}
 .scr-out .scr-card{animation:scr-outk .24s ease-in both}.scr-out .scr-dim{animation:scr-fade .24s reverse both}
@@ -93,10 +85,10 @@
 .scr-mini-t > b{font:900 1.3rem/1.1 var(--display);color:#A86A00;font-variant-numeric:tabular-nums}
 .scr-mini-t > .mini{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scr-mini-goal{display:grid;gap:2px;margin-top:3px;min-width:200px}
-.scr-mini-goal .scr-goal-bar{height:6px}
+
 :root[data-theme="dark"] .scr-mini-t > b,:root[data-theme="dark"] .scr-mini-k{color:#FFD36B}
 :root[data-theme="dark"] .scr-mini{background:linear-gradient(180deg,color-mix(in srgb,#8A5A00 40%,var(--surface)),var(--surface))}
-@media (prefers-reduced-motion:reduce){.scr-card,.scr-big-coin,.scr-lines li,.scr-mini-coin img,.scr-dim{animation:none!important}.scr-shine{display:none}.scr-goal-bar i{transition:none}}
+@media (prefers-reduced-motion:reduce){.scr-card,.scr-big-coin,.scr-lines li,.scr-mini-coin img,.scr-dim{animation:none!important}.scr-shine{display:none}}
 .scr-still .scr-card,.scr-still .scr-big-coin,.scr-still .scr-lines li,.scr-still .scr-mini-coin img{animation:none!important}
 /* dark mode from the system setting (no data-theme set) */
 @media (prefers-color-scheme:dark){
@@ -243,3 +235,7 @@
 .wh-card{scrollbar-width:none;overflow-x:hidden}
 .wh-card::-webkit-scrollbar{display:none;width:0;height:0}
 .scr-wh{overflow:hidden}
+/* the credits screen: Wardrobe beside Collect */
+.scr-rw:not(.scr-wh) .scr-acts{gap:10px}
+.scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
+.btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}

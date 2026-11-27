@@ -108,7 +108,8 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(r2 === 12 + 20 + 30 && /Mastered/.test(ks), "all on time and on target the first time: 12 + 20 + 30: " + r2 + " " + ks);
     await closeReward();
     const r3 = await fireRun(run("r3", 100000, [25000, 25000, 25000, 25000]));
-    ok(r3 === 0 && /No credits this time/.test(await p.textContent(".scr-rw")), "a third run today earns nothing, and says why");
+    await p.waitForTimeout(400);
+    ok(r3 === 0 && !(await p.$(".scr-rw:not(.scr-out)")), "a third run today earns nothing, and shows no screen for 0 credits");
     await closeReward();
 
     // 8. a quiz: 1 per right answer, +5 passing, +5 perfect; 3 tries of the same quiz a day

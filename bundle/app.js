@@ -6479,14 +6479,14 @@ function viewAiQuiz(){
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Read the rationales for the ones you missed." : pct >= 50 ? "Getting there. Review the rationales, then retry the missed questions." : "Keep going. Study the material and the rationales below, then try again.";
     const ansText = x => x.type === "short" ? x.answer : x.type === "order" ? x.correct.map((ix, k) => `${k + 1}. ${x.options[ix]}`).join("  ") : x.correct.map(i => x.options[i]).join("; ");
-    return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const letters = "ABCDEFGH";
@@ -6719,9 +6719,9 @@ function aiUseCard(){
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
 const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
-  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more.", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more.", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud.", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
@@ -6734,7 +6734,9 @@ function aiTiersCard(){
   const c = aiCfg(), now = c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard") ? "pro" : c.provider === "device" && typeof devTier === "function" ? devTier() : "";
   const fact = (h, t) => `<div class="ai-tier-fact"><b>${h}</b><span>${t}</span></div>`;
   const PRIVATE = fact("Private", "It runs entirely on your laptop. Your questions, notes and files stay on this device: nothing is sent to Studyboard or anyone else. If Look Things Up on the Web is on, only the search words go to Wikipedia, Wiktionary or OpenAlex.");
-  const hasPro = typeof aiProAvail === "function" && aiProAvail();
+  const hasPro = (typeof aiProAvail === "function" && aiProAvail()) || (typeof aiProUser === "function" && aiProUser());
+  // on Pro already (a code, a promotion or Plus, which don't include Studyboard AI Pro): no Get Pro, a way to add it instead
+  const onPro = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro(); } catch (e) { return false; } })();
   const more = t => {
     const cats = t.cats && t.cats.length === AI_CATS.length ? `<div class="ai-tier-cats">${AI_CATS.map((n, i) => `<div class="ai-tier-cat"><span>${n}</span><span class="ai-tier-bar sm" role="img" aria-label="${t.cats[i]}%"><i style="width:${t.cats[i]}%"></i></span><b>${t.cats[i]}%</b></div>`).join("")}</div>`
       : `<span class="ai-tier-soon">Results for each kind of question are coming soon.</span>`;
@@ -6747,7 +6749,7 @@ function aiTiersCard(){
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
       + fact("Not Used for Training", `Studyboard pays for Claude through Anthropic's API, and Anthropic doesn't use what's sent through its paid API to train its models. See <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.`)
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
-      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
+      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : onPro ? `<p class="ai-tier-incl">Your Pro plan doesn't include it. Subscribe to add it.</p><button type="button" class="btn ai-tier-get" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI Pro">Get Studyboard AI Pro</button>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
   // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
   // is never marked); the reason goes in its details
@@ -23402,13 +23404,13 @@ function viewQuiz(){
     const right = f.ans.filter(x => x && x.correct).length, total = f.qs.length, pct = total ? Math.round(right / total * 100) : 0;
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Review the few you missed." : pct >= 50 ? "Getting there. Study the missed cards, then try again." : "Keep going. Study these cards, then retake the quiz.";
-    return `<div class="view-head"><h2>Quiz Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>Quiz Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="fc-retry-missed">Retry the ${missed.length} Missed</button><button class="btn" data-act="fc-study-missed">Study Missed Cards</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="fc-new-quiz">New Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Missed Questions</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.prompt)}</span><span class="a">Answer: <b>${esc(y.x.answer)}</b></span>${y.a && y.a.given && y.x.type !== "tf" ? `<span class="mini">You answered: ${esc(y.a.given)}</span>` : y.x.type === "tf" ? `<span class="mini">Shown: ${esc(y.x.shown)} (${y.x.truth ? "true" : "false"})</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const d = state.decks[q.deckId];
@@ -24422,7 +24424,7 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
-// Studyboard Credits this focus session has earned so far (98-0study-credits.js), under the dial while a focus session is going
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), inside the dial just above the time while a focus session is going
 let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
@@ -24598,9 +24600,8 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
+        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</span><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
-      <div class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
@@ -61965,7 +61966,8 @@ var SBSC = (() => {
     // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    if (!gained && !spec.showZero) return;
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
+    if (!gained) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
@@ -61993,15 +61995,6 @@ var SBSC = (() => {
     quiz: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V15"/><circle cx="12" cy="18.5" r=".6"/><circle cx="12" cy="12" r="9.5"/>', task: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     pres: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>', hello: '<path d="M12 3l2.6 5.6L20 9.4l-4 4.1.9 5.8L12 16.6 7.1 19.3l.9-5.8-4-4.1 5.4-.8z"/>'};
   const icon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.hello}</svg>`;
-  const goalHtml = r => {
-    const g = r.tgt; if (!g) return "";
-    const p0 = Math.min(1, r.bal0 / g.price), p1 = Math.min(1, r.bal / g.price), ready = r.bal >= g.price;
-    return `<div class="scr-goal${ready ? " ready" : ""}" data-p0="${p0}" data-p1="${p1}">
-      <span class="scr-goal-ic cp-r-${esc(g.rarity || "common")}" aria-hidden="true">${g.icon || ""}</span>
-      <span class="scr-goal-t"><b>${esc(g.name)}</b><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span>
-        <span class="mini">${ready ? "You can buy it now!" : `${(g.price - r.bal).toLocaleString()} more credits`}</span></span>
-      ${ready ? `<button type="button" class="btn small scr-goal-go" data-scr="wardrobe">Get It</button>` : ""}</div>`;
-  };
   function showBig(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrRwT");
@@ -62014,15 +62007,14 @@ var SBSC = (() => {
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
-      ${goalHtml(r)}
-      <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
+      <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
     setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
-    setTimeout(() => { countUp(balEl, r.bal0, r.bal, 900); const gb = o.querySelector(".scr-goal-bar i"), g = o.querySelector(".scr-goal"); if (gb && g) gb.style.width = Math.round(Number(g.dataset.p1) * 100) + "%"; if (g && g.classList.contains("ready")) setTimeout(() => g.classList.add("pop"), 700); }, still ? 0 : tickAt * 1000 + 200);
+    setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let closed = false;
