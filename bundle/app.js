@@ -23853,11 +23853,14 @@ async function fcHint(){
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
   if (k) { k.hints = list; k.hintV = HINT_V; delete k.hint; saveDeck(nd, null); } else render();
 }
+// The bubble pops in once for each new thing it says (thinking, then each hint), never again when the screen redraws with the same
+// hint (saving the hints to the card, a sync): a fresh element each time replayed the pop, so it flashed out and back in
+const bubblePop = h => { const k = h.busy ? "busy" : "at" + h.at; if (h.popped === k) return ""; h.popped = k; return " pop"; };
 function hintBubbleHtml(h, act){
   const name = buddyName();
-  if (h.busy) return `<p class="fc-bubble" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
+  if (h.busy) return `<p class="fc-bubble${bubblePop(h)}" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
   const more = h.at + 1 < h.list.length;
-  return `<div class="fc-bubble" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
+  return `<div class="fc-bubble${bubblePop(h)}" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
 }
 function fcBuddyHtml(d, c, f, key){
   const name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;

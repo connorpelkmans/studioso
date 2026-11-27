@@ -5838,6 +5838,8 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-rw:not(.scr-wh) .scr-acts{gap:10px}
 .scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
 .btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
+/* the credits pills' words and number sit a touch lower, so they look centred beside the coin (the display font's figures ride high) */
+:is(.scr-live,.scr-pill) > :is(b,.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -11723,7 +11725,8 @@ button.sbh-now-i:focus-visible{outline:2px solid var(--accent);outline-offset:2p
 .fc-buddy-face{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--leaf,#1E8A65) 10%,var(--surface));border:1px solid var(--line);overflow:hidden}
 .fc-buddy-face svg,.fc-buddy-face svg.cp-svg{position:static;inset:auto;transform:none;width:40px;height:40px;display:block;overflow:visible}
 .fc-hint-btn{min-height:40px;padding-inline:16px}
-.fc-bubble{position:relative;margin:0;flex:1;min-width:0;padding:10px 14px;border-radius:4px 16px 16px 16px;background:color-mix(in srgb,var(--leaf,#1E8A65) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E8A65) 28%,var(--line));color:var(--ink);font-size:.95rem;line-height:1.45;animation:fcChipIn .2s ease-out}
+.fc-bubble{position:relative;margin:0;flex:1;min-width:0;padding:10px 14px;border-radius:4px 16px 16px 16px;background:color-mix(in srgb,var(--leaf,#1E8A65) 9%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E8A65) 28%,var(--line));color:var(--ink);font-size:.95rem;line-height:1.45}
+.fc-bubble.pop{animation:fcChipIn .2s ease-out}
 .fc-bubble p{margin:0}
 .fc-hint-step{display:block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:color-mix(in srgb,var(--leaf,#1E8A65) 75%,var(--ink));margin-bottom:2px}
 .fc-hint-more{display:inline-block;margin-top:6px;margin-right:12px;font-size:.85rem;font-weight:700}
