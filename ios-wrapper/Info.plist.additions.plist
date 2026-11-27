@@ -22,11 +22,15 @@
   <array>
     <string>remote-notification</string>
     <string>fetch</string>
+    <string>processing</string>
   </array>
   <!-- The Background App Refresh task (StudyboardBackgroundRefresh.id) -->
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>
     <string>com.studyboardapp.studyboard.refresh</string>
+    <!-- School sites in the background (native/SchoolSafari/StudyboardSchoolBackground.swift): the quick check, the full sync -->
+    <string>com.studyboardapp.studyboard.schoolcheck</string>
+    <string>com.studyboardapp.studyboard.schoolsync</string>
   </array>
 
   <!-- The microphone, for Record a Lecture (Pro) -->

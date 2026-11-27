@@ -50,6 +50,10 @@ What's different in the Safari build (`manifests()` in `scripts/build-extension.
 
 To check on the Mac (not covered by the automated tests, which run in Chromium): connecting a site, a background read (Safari's tracking protection may keep the school's sign-in from the background; the read then runs in an open tab of the school site, which works), the hourly timer, and that studyboardapp.com shows the data.
 
+### In the Studyboard iPhone app
+
+`node scripts/build-extension.js` also writes `extension/build/safari-inapp/`: the Safari build plus `nativeMessaging` and `cookies`. That copy is built into the Studyboard iPhone app (`npm run ios:stage`, then `ios-wrapper/README-IOS.md`, "Schools that sign in with Google"), not uploaded anywhere on its own. It works like the Safari extension, and also hands a school site's sign-in to the app on the same iPhone, so students whose school signs in with Google (which Google refuses inside an app) can connect, and leaves each read for the app too (used while the app's own sign-in has run out): only for sites the app asks for, only once Safari allows the extension on that site, only while the student is signed in there, and only that site's own cookies. That code (the end of `background.js`, "The Studyboard iPhone app") does nothing in the other builds, which don't have `nativeMessaging`. Tests: `tests/extension-app-handoff.test.js`.
+
 ## How it works
 
 ```

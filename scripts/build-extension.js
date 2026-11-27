@@ -45,7 +45,11 @@ function manifests() {
   safari.browser_specific_settings = { safari: { strict_min_version: "17.0" } };
   // The App Store rejects a Safari extension whose manifest description is longer than 112 characters (Chrome allows 132)
   safari.description = "Keeps Studyboard up to date with your Canvas, Brightspace, Blackboard or Moodle: due dates and grades.";
-  return { chrome, firefox, safari };
+  // The copy built into the Studyboard iPhone app (ios-wrapper/native/SchoolSafari/): the same, plus handing a school site's
+  // sign-in to the app (native messaging to the app that carries it, and reading that site's cookies, on sites Safari allows)
+  const safariInApp = JSON.parse(JSON.stringify(safari));
+  safariInApp.permissions = safari.permissions.concat(["nativeMessaging", "cookies"]);
+  return { chrome, firefox, safari, "safari-inapp": safariInApp };
 }
 
 const FILES = ["popup.html", "popup.css", "popup.js", "relay.js", "icons/icon-16.png", "icons/icon-32.png", "icons/icon-48.png", "icons/icon-128.png"];
@@ -92,12 +96,14 @@ function build() {
   const version = manifests().chrome.version;
   fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(DIST, { recursive: true });
   const made = {};
-  for (const target of ["chrome", "firefox", "safari"]) {
+  for (const target of ["chrome", "firefox", "safari", "safari-inapp"]) {
     const fl = files(target);
     // No secret key may ship in the extension
     const leaks = Object.entries(fl).filter(([, data]) => typeof data === "string" || Buffer.isBuffer(data)).flatMap(([name, data]) => require("./check-secrets").scanText(String(data)).map(h => `  ${target}/${name}: ${h.what} (${h.sample})`));
     if (leaks.length) throw new Error("build-extension: a secret is in the extension. Nothing was packaged.\n" + leaks.join("\n"));
     for (const [name, data] of Object.entries(fl)) { const f = path.join(OUT, target, name); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, data); }
+    // (the iPhone app's copy isn't uploaded anywhere on its own: npm run ios:stage copies it into the app)
+    if (target === "safari-inapp") continue;
     const z = path.join(DIST, `studyboard-school-sync-${version}-${target}.zip`); fs.writeFileSync(z, zip(fl)); made[target] = z;
   }
   const s = path.join(DIST, `studyboard-school-sync-${version}-source.zip`); fs.writeFileSync(s, zip(sourceEntries())); made.source = s;
