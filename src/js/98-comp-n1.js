@@ -232,7 +232,7 @@
         eyes: {lx: 42, rx: 78, y: 53, r: 7.4, style: "round", color: "#141826"},
         mouth: {x: 60, y: 70, w: 4.8, color: "#14284E"},
         cheeks: {lx: 37, rx: 83, y: 67, w: 4.4, h: 2.6, color: "#FF8FB8"},
-        anchors: {top: [60, 33.5, 0.85, 0], neck: [60, 80, 1.15, 0, 73, 80], chest: [72, 85.5, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
+        anchors: {top: [60, 42, 0.78, 0], neck: [60, 80, 1.15, 0, 73, 80], chest: [72, 85.5, 0.6], back: [88, 74, 0.8], hands: [60, 98, 0.85]},
         lines: {
           tap: ["Ribbit! Hi! Look at my sticky toes!", "You're sticking with it! Nice!", "Hop to it, you're doing great!", "Small frog, big cheers!", "You're the brightest thing in this jungle!", "Leap to the next one!", "Every hop counts!"],
           pet: ["Hehe, I'm a little bit sticky, sorry!", "Ribbit! Again again!"],
