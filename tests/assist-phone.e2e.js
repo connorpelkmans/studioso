@@ -17,6 +17,8 @@ const iso = d => d.toISOString().slice(0, 10);
 const day = k => { const d = new Date(); d.setHours(12); d.setDate(d.getDate() + k); return iso(d); };
 // the next Tuesday at least 2 days away (a Biology lecture day)
 const nextTue = (() => { for (let k = 2; k < 10; k++) { const d = new Date(); d.setHours(12); d.setDate(d.getDate() + k); if (d.getDay() === 2) return iso(d); } })();
+// the next March 14 (or April 2...) from today: a date said without a year
+const nextMD = (m, dd) => { const t = new Date(); t.setHours(12); const d = new Date(t.getFullYear(), m - 1, dd, 12); if (iso(d) < iso(t)) d.setFullYear(d.getFullYear() + 1); return iso(d); };
 const SEED = {v: 2, updated: 1, settings: {},
   courses: [{id: "c1", name: "Biology", code: "BIO101", color: "#2f9e6a", meetings: [{id: "m1", kind: "Lecture", days: [2, 4], start: "10:00", end: "11:20", where: "Hall A"}]}, {id: "c2", name: "History", code: "HIS200", color: "#c0563b"}],
   tasks: [{id: "t1", title: "Essay draft", courseId: "c2", type: "Assignment", due: day(5), status: "todo", priority: "med"}, {id: "t2", title: "Lab report", courseId: "c1", type: "Lab", due: day(3), status: "todo", priority: "high"}],
@@ -32,6 +34,12 @@ function reply(body){
   const text = (body.contents || []).flatMap(c => c.parts || []).map(p => p.text || "").join("\n");
   const refOf = re => { const line = text.split("\n").find(l => re.test(l)); const m = line && /^([A-Z]\d+) \|/.exec(line); return m ? m[1] : ""; };
   if (/You pick the control in a settings screen/.test(sys)) { const line = text.split("\n").find(l => /Daily Quote/.test(l)); return {i: line ? Number(line.split(" | ")[0]) : -1, value: "off"}; }
+  // the Companion tab's first step: which one action the message asks for (anything else is a question, answered as before)
+  if (/decide what it wants/.test(sys)) { const m = (/^The message: "(.*)"$/m.exec(text) || [])[1] || "";
+    if (/move my essay to march 14/.test(m)) return {intent: "move_task", task: "essay", date: nextMD(3, 14)};
+    if (/high priority/.test(m)) return {intent: "set_priority", task: (/essay( draft)?/i.exec(m) || ["it"])[0], priority: "high"};
+    if (/add a bio quiz/.test(m)) return {intent: "add_task", title: "Cell quiz", course: "bio", date: nextMD(4, 2), time: "09:30"};
+    return {intent: "question"}; }
   if (/Describe a student's whiteboard/.test(sys)) return {about: "A labelled diagram of an animal cell", words: "Cell parts, nucleus, membrane", spots: [{what: "labelled cell diagram", x0: 0.1, y0: 0.1, x1: 0.6, y1: 0.7}]};
   const q = (/THE STUDENT ASKS: (.*)$/m.exec(text) || /STUDENT'S QUESTION: (.*)$/m.exec(text) || [])[1] || "";
   if (/always broken/.test(q)) return {answer: "string", followUps: [], show: [], changes: []};
@@ -103,17 +111,13 @@ function reply(body){
   ok(await S(() => ui.tab) === "board" || await page.evaluate(() => !!document.querySelector("#dlg[open]")), "a found task opens on a phone");
   await S(() => { if (dlg.open) dlg.close(); });
 
-  // 3. Change a task, confirmed first
+  // 3. Change a task: a change asked for in so many words is made at once (Undo takes it back), each part to the task it names
   await openTab(); await askTab("move my essay to march 14 and make it high priority");
-  const ch = page.locator('[data-act="cpt-change"]').last(); await ch.waitFor({timeout: 8000}); await ch.tap();
-  await confirmShown(); await page.tap("#asYes"); await page.waitForTimeout(500);
-  ok(await S(() => state.tasks.t1.due) === "2031-03-14" && await S(() => state.tasks.t1.priority) === "high", "changing a task from the Companion tab works on a phone, after confirming");
+  ok(await S(() => state.tasks.t1.due) === nextMD(3, 14) && await S(() => state.tasks.t1.priority) === "high" && await S(() => state.tasks.t2.due) === day(3), "changing a task from the Companion tab works on a phone, and \"it\" is the task the message named");
 
   // 4. Add a task
   await openTab(); await askTab("add a bio quiz on april 2 at 9:30");
-  const add = page.locator(".cpt-action", {hasText: "Cell quiz"}).locator('[data-act="cpt-change"]'); await add.waitFor({timeout: 8000}); await add.tap();
-  await confirmShown(); await page.tap("#asYes"); await page.waitForTimeout(500);
-  ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1" && t.due === "2031-04-02")), "adding a task from the Companion tab works on a phone");
+  ok((await S(() => Object.values(state.tasks).filter(t => t.title === "Cell quiz" && t.courseId === "c1" && t.time === "09:30").map(t => t.due))).includes(nextMD(4, 2)), "adding a task from the Companion tab works on a phone");
 
   // 5. Change a setting: Settings opens with the control, confirmed there
   const quoteOn = () => S(() => { const el = [...dlg.querySelectorAll('input[type="checkbox"]')].find(i => { let p = i; for (let k = 0; k < 5; k++) { p = p.parentElement; if (p && /Daily Quote/.test(p.innerText) && p.innerText.length < 300) return true; } return false; }); return el ? el.checked : null; });

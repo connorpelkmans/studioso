@@ -2378,7 +2378,9 @@ ANSWERING
       // a day or time on its own, said right after something was added or named ("thursday" after "Added History quiz ... no due
       // date", "dec 10"): that item's day
       const bareWhen = q.split(/\s+/).length <= 6 && !ISQ(q) && !String(q).toLowerCase().replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|next|this|week|the|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}(:\d\d)?\s*(am|pm)?|\d{1,2}\/\d{1,2}|at|on|by|due|it'?s|its|it|is|make|then|instead|actually|no|nah|ok|okay|please|pls|maybe|morning|afternoon|evening|night|noon)\b/g, " ").replace(/[^a-z]+/g, "").length && (() => { const x = whenOf("move it to " + q, {}); return !!(x.date || x.time); })();
-      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
+      // (not in a message of several steps, "move my essay to march 14 and make it high priority": there "it" is what the step
+      // before it named, and each step is done in turn below)
+      if (!made && !fix && !multi && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
         const a0 = last.a || {}, pick = r => { const nm = refName(r); return nm && /^(task|event)$/.test(r.kind) ? {kind: r.kind, name: nm} : null; };
         let LI = a0.ref ? pick(a0.ref) : null;
         if (!LI && a0.did && a0.did.task) { const t = taskOf0(a0.did.task, null, true); if (t) LI = {kind: "task", name: t.title}; }

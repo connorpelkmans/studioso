@@ -80358,6 +80358,8 @@ window.SBTRUTH = (() => {
     if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
+    // (a hello or a question about the app isn't a planner question to follow on from: "hi!" then "what's left in BSNC 1055?")
+    { const H = window.SBAPPHELP; try { if (H && H.answer(L)) return ""; } catch (e) {} }
     if (AFTER.test(s)) return "__AFTER__";
     // "who teaches that class", "what's my grade in that course": the course the last answer was about
     if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
@@ -83852,7 +83854,9 @@ ANSWERING
       // a day or time on its own, said right after something was added or named ("thursday" after "Added History quiz ... no due
       // date", "dec 10"): that item's day
       const bareWhen = q.split(/\s+/).length <= 6 && !ISQ(q) && !String(q).toLowerCase().replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|next|this|week|the|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}(:\d\d)?\s*(am|pm)?|\d{1,2}\/\d{1,2}|at|on|by|due|it'?s|its|it|is|make|then|instead|actually|no|nah|ok|okay|please|pls|maybe|morning|afternoon|evening|night|noon)\b/g, " ").replace(/[^a-z]+/g, "").length && (() => { const x = whenOf("move it to " + q, {}); return !!(x.date || x.time); })();
-      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
+      // (not in a message of several steps, "move my essay to march 14 and make it high priority": there "it" is what the step
+      // before it named, and each step is done in turn below)
+      if (!made && !fix && !multi && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
         const a0 = last.a || {}, pick = r => { const nm = refName(r); return nm && /^(task|event)$/.test(r.kind) ? {kind: r.kind, name: nm} : null; };
         let LI = a0.ref ? pick(a0.ref) : null;
         if (!LI && a0.did && a0.did.task) { const t = taskOf0(a0.did.task, null, true); if (t) LI = {kind: "task", name: t.title}; }
@@ -132875,6 +132879,12 @@ ui._day = todayISO();
       }
     } catch (e) {}
   };
+  // As it opens and again a frame later; a button the opener focused on purpose once it was open (the timer's Start) keeps the focus
+  // (a typing box still doesn't on a phone)
+  const quietOpen = d => {
+    quiet(d); const was = document.activeElement;
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a !== was && a.tagName === "BUTTON" && d.contains(a)) return; quiet(d); });
+  };
   // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
   // Close (X) first, as it's seen, rather than last after the whole sheet
   document.addEventListener("keydown", e => {
@@ -132898,7 +132908,7 @@ ui._day = todayISO();
     noAuto(this);
     const r = showModal0.apply(this, arguments);
     hold(this);
-    quiet(this); requestAnimationFrame(() => quiet(this));
+    quietOpen(this);
     return r;
   };
   // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
@@ -132956,7 +132966,7 @@ ui._day = todayISO();
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quietOpen(this); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
