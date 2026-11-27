@@ -13223,9 +13223,16 @@ function examEvidence(ex){
   const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
-  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
+  // Most decks are made without a course: one counts for a course's exams when its name says the course, by its code
+  // ("ECON 102 Exam Review", "econ102") or its full name ("Psychology Final Review")
+  const cOf = ex.courseId && state.courses ? state.courses[ex.courseId] : null, low = x => String(x || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const code = low(cOf && cOf.code), cname = low(cOf && cOf.name);
+  const namesCourse = d => { if (!cOf || d.courseId) return false; const n = " " + low(d.name) + " ";
+    return (code.length >= 3 && (n.includes(" " + code + " ") || (/\d/.test(code) && n.replace(/ /g, "").includes(code.replace(/ /g, ""))))) || (cname.length >= 5 && n.includes(" " + cname + " ")); };
+  const ofCourse = d => !!ex.courseId && (d.courseId === ex.courseId || namesCourse(d));
+  const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(ofCourse);
   // Quizzes not made from flashcards (from slides, notes, a file or your own questions) live on their own, by course
-  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(d => ex.courseId && d.courseId === ex.courseId).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
+  const holders = alive.filter(d => isQuizHolder(d)), courseQz = holders.filter(ofCourse).flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz)));
   // a flashcard deck's quiz history covers its own quizzes (made from its cards or saved in it)
   const deckRes = ds => ds.flatMap(d => (d.quizzes || []).filter(r => r && Number(r.total) > 0 && Number(r.at) > 0));
   let out = null;

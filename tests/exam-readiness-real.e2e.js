@@ -14,7 +14,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return iso(
 const card = (id, front, back, o) => Object.assign({id, front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0}, o || {});
 const sess = (id, ex, topicId, k, o) => Object.assign({id, title: "Study " + id, type: "Study", courseId: "", start: day(k), due: day(k), hours: 0.5, status: "todo", prepFor: ex, kind: "learn", topicId}, o || {});
 const SEED = () => ({v: 2, updated: 1, files: [], notes: [], events: [],
-  courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}, {id: "c2", name: "History", code: "HIS 7", color: "#C2412D"}],
+  courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}, {id: "c2", name: "History", code: "HIS 7", color: "#C2412D"}, {id: "c3", name: "Microeconomics", code: "ECON 102", color: "#2F9E5F"}],
   tasks: [
     // 1 and 2: a plan made without named topics, as the planner makes one for an exam with no topics
     {id: "exA", title: "Phylogeny Exam", type: "Exam", courseId: "c1", due: day(8), start: day(8), status: "todo", pct: 0,
@@ -26,13 +26,17 @@ const SEED = () => ({v: 2, updated: 1, files: [], notes: [], events: [],
     {id: "exC", title: "Cells Midterm", type: "Exam", courseId: "c1", due: day(6), start: day(6), status: "todo", pct: 0,
       prep: {v: 1, topics: [{id: "tc", name: "Cell parts", conf: "ok", weight: null, done: false, edited: true, links: [{k: "deck", id: "dC", title: "Cell parts", deckId: "", cardIds: null, total: 8}]}],
         intensity: 90, style: [], styleText: "", rest: false, light: true, start: "", ai: false, examDue: day(6), createdAt: 1, updatedAt: 1}, planTopics: [{name: "Cell parts", conf: "ok"}]},
-    sess("c1s", "exC", "tc", 1, {courseId: "c1", kind: "cards"})],
+    sess("c1s", "exC", "tc", 1, {courseId: "c1", kind: "cards"}),
+    // 6: a course exam with no plan, and decks made without a course (as most real decks are)
+    {id: "exD", title: "Midterm", type: "Exam", courseId: "c3", due: day(9), start: day(9), status: "todo", pct: 0}],
   decks: [
     {id: "dQ", name: "Social studies review: Renaissance and Reformation", courseId: "c2", created: 1, quizOnly: true, cards: [],
       aiQuizzes: [{id: "q1", title: "Renaissance and Reformation review", created: 1, questions: [{stem: "Who painted the Mona Lisa?"}], results: [{at: Date.now() - 3600e3, score: 8, total: 10}]}], quizzes: []},
     {id: "dC", name: "Cell parts", courseId: "c1", created: 1, cards: Array.from({length: 8}, (_, i) => card("k" + i, "Organelle " + i, "Does job " + i,
       // high boxes, but last reviewed two months ago: known then, mostly forgotten now
-      {box: 4, seen: 3, right: 3, last: day(-60), due: day(-46)}))}],
+      {box: 4, seen: 3, right: 3, last: day(-60), due: day(-46)}))},
+    {id: "dE", name: "ECON 102 Exam Review: Supply and Demand", courseId: "", created: 1, cards: Array.from({length: 10}, (_, i) => card("e" + i, "Econ term " + i, "Meaning " + i, {box: 3, seen: 2, right: 2, last: day(0), due: day(7)}))},
+    {id: "dS", name: "Spanish verbs", courseId: "", created: 1, cards: Array.from({length: 12}, (_, i) => card("s" + i, "Verb " + i, "Verbo " + i, {box: 1, seen: 1, right: 0, last: day(0), due: day(1)}))}],
   settings: {capacity: 15, sc: {intro: 1}}});
 
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".png": "image/png", ".webp": "image/webp"};
@@ -68,6 +72,10 @@ const server = http.createServer((req, res) => { const f = path.join(root, decod
     // 3. an exam with no course: the Renaissance quiz in the History quizzes counts
     const b = await S(() => SBSC.xr("exB"));
     ok(b && b.measured === 80 && b.parts.quiz === 80 && b.parts.how === "topics", "an exam with no course finds the practice quiz on its topics: " + JSON.stringify(b && {m: b.measured, how: b.parts.how}));
+
+    // 6. a course exam with no plan: a deck made without a course counts when its name says the course; an unrelated one doesn't
+    const dd = await S(() => SBSC.xr("exD"));
+    ok(dd && dd.measured != null && dd.parts.cardsAll === 10, "a deck with no course counts for the course's exam when its name says the course (and an unrelated one doesn't): " + JSON.stringify(dd && {m: dd.measured, cards: dd.parts.cardsAll, how: dd.parts.how}));
 
     // 4. the linked deck: boxes say 80%, but those cards were last seen two months ago
     const c = await S(() => { const t = window.__sbSync.state.tasks.exC; return SBPREP.pct(t); });
