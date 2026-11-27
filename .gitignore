@@ -45,3 +45,4 @@ android-wrapper/google-services.json
 build-resources/ios-listing/screenshots/raw/
 build-resources/ios-listing/ipad/raw/
 build-resources/ios-listing/art/check-*.png
+/ios-wrapper/ios-safari-extension/
