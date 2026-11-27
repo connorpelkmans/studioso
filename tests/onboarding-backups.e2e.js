@@ -9,6 +9,8 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
+// a new student's welcome spin: spin it and collect the prize, so the rest of the app can be clicked
+const spinAway = async pg => { await pg.waitForSelector(".scr-wh .wh-go", {timeout: 8000}); await pg.click(".scr-wh .wh-go"); await pg.waitForSelector('.scr-wh [data-wh="done"]', {timeout: 15000}); await pg.click('.scr-wh [data-wh="done"]'); await pg.waitForTimeout(600); };
 (async () => {
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
@@ -35,6 +37,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(first.join() === "area,courses,hours,done", "the first-run setup asks only the essentials: " + first.join(", "));
     ok(await page.evaluate(() => Object.values(SBLMS.st().courses).some(c => c.code === "BIOL 101")), "a course typed but not added yet comes along on Next");
     await page.click('.sheet.ob .ob-go'); await page.waitForTimeout(300);
+    // a new student's welcome spin on the prize wheel comes once the setup is done: spin it and collect the prize
+    await page.waitForSelector(".scr-wh .wh-go", {timeout: 8000}); ok(/Welcome to Studyboard/.test(await page.textContent(".scr-wh .scr-head")), "the welcome setup ends with a free welcome spin on the prize wheel");
+    await spinAway(page);
     ok(await page.locator(".ob-more-b").count() === 0 && await page.locator(".sem-card-b").count() === 0 && await page.locator(".ob-bk-b").count() === 0, "nothing more is pushed on the same day: no A Few More Things card, no backups card and no second setup card");
     ok(await page.locator(".gs-card").count() === 1 && /1 of [56] done/.test(await page.textContent(".gs-card")) && (await page.evaluate(() => SBGS.items().find(i => i.id === "courses").done)), "the Getting Started checklist is on the Board, with the course already ticked");
     const setAt = (pg, days) => pg.evaluate(d => { const k = "sb:onboarded:more", m = JSON.parse(localStorage.getItem(k) || "{}"); m.at = Date.now() - d * 864e5; localStorage.setItem(k, JSON.stringify(m)); }, days);
@@ -76,7 +81,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(/Welcome to Studyboard!/.test(last) && await b.page.locator(".ob-gift").count() === 1 && /until Oct 27, 2026/.test(last), "the last page welcomes them and mentions the free week: " + last.replace(/\s+/g, " ").slice(0, 300));
     ok(await b.page.evaluate(() => window.__said > 0), "and marks the welcome as said, so it doesn't also pop up");
     ok(await b.page.locator("#toast.show, .toast.show").count() === 0, "no bottom pop-up about it");
-    await b.page.click('.sheet.ob .ob-go'); await b.page.waitForTimeout(300);
+    await b.page.click('.sheet.ob .ob-go'); await b.page.waitForTimeout(300); await spinAway(b.page);
     await b.page.evaluate(() => { SBOB.T.plan = null; });
     await later(b.page);
     await b.page.click('.ob-more-b [data-act="ob-more"]'); await b.page.waitForSelector(".sheet.ob");

@@ -35449,7 +35449,7 @@ document.head.appendChild(AREA_CSS);
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
+      case "apptour": tourNext = !!window.SBTOUR; finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
       case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
@@ -35578,6 +35578,7 @@ document.head.appendChild(AREA_CSS);
     }
   });
 
+  const WSPIN = "sb:welcomeSpin"; let tourNext = false;
   function finish(completed, firstTask){
     if (completed) flushCourse();
     if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
@@ -35590,6 +35591,10 @@ document.head.appendChild(AREA_CSS);
     if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // a new student's welcome spin on the prize wheel: now, or once the App Tour they chose is finished or skipped
+    // (only the first time through: a replay from Settings isn't a new student)
+    if (mode === "first") try { if (tourNext) localStorage.setItem(WSPIN, "tour"); else if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } catch (e) {}
+    tourNext = false;
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
       const bar = i.closest(".qa-bar");
@@ -36415,6 +36420,8 @@ const ERRCORE = (() => {
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
+    // the welcome spin waits for the tour a new student chose at the end of the welcome setup (40-onboarding.js)
+    try { if (localStorage.getItem("sb:welcomeSpin") === "tour") { localStorage.removeItem("sb:welcomeSpin"); if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } } catch (e) {}
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -61797,6 +61804,14 @@ var SBSC = (() => {
     setSc({wpro: {[wk]: 1}, wsq: spinQueue().concat([{id: uid(), pro: true}])});
     setTimeout(spinSoon, 600);
   }
+  // A new student's welcome spin: once, when they first get into the app (the welcome setup done, and the App Tour finished or
+  // skipped if they took it). 40-onboarding.js and 49-apptour.js call it; sc.wwel marks it given, so it never comes twice
+  function welcomeSpin(){
+    if (sc().wwel || spinQueue().some(x => x.welcome)) return false;
+    setSc({wwel: 1, wsq: spinQueue().concat([{id: uid(), welcome: true}])});
+    setTimeout(spinSoon, 900);
+    return true;
+  }
   const MINI_WHEEL = (() => { const cols = ["#F5B700", "#FFE7A8", "#7C3AED", "#FFD36B", "#2563EB", "#FFE7A8", "#E5484D", "#FFD36B"];
     const p = (d, r) => [20 + r * Math.sin(d * Math.PI / 180), 20 - r * Math.cos(d * Math.PI / 180)].map(v => v.toFixed(2));
     return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="18" fill="#2B2233"/>${cols.map((c, k) => { const [x0, y0] = p(k * 45, 15), [x1, y1] = p(k * 45 + 45, 15); return `<path d="M20 20L${x0} ${y0}A15 15 0 0 1 ${x1} ${y1}Z" fill="${c}" transform="translate(0 1)"/>`; }).join("")}<circle cx="20" cy="21" r="4" fill="#FFF4C8" stroke="#2B2233" stroke-width="1.5"/><path d="M16 1.5h8l-4 7z" fill="#E5484D" stroke="#2B2233" stroke-width="1.2" stroke-linejoin="round"/></svg>`; })();
@@ -61868,7 +61883,9 @@ var SBSC = (() => {
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
-    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(spinSoon, 2500); return; }
+    // (the welcome spin doesn't wait for an empty box the app put the cursor in: the welcome setup's Add My First Task)
+    const typing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable) && !(spinQueue()[0].welcome && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && !ae.value);
+    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || typing) { setTimeout(spinSoon, 2500); return; }
     showWheel(spinQueue()[0]);
   }
   function showWheel(sp, after){
@@ -61878,7 +61895,7 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     const list = prizes.slice().sort((a, b) => a.p - b.p);
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
-      <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
+      <div class="scr-head">${sp.welcome ? `<span class="scr-kick">Welcome to Studyboard!</span><h2 id="scrWhT">A free spin to start you off</h2>` : sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
       <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
       <div class="wh-result" aria-live="polite"></div>
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
@@ -62176,7 +62193,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -74434,10 +74451,10 @@ var COMP_ACC_MORE = K => {
       `<path d="M-16 -1L0 -22L16 -1Z" ${WF} ${OUT(2.2)}/><path d="M-7.5 -7h5.5M-5.5 -11h8M-2.5 -15h4M1.5 -7h6" stroke="#8C87A8" stroke-width="1.2" stroke-linecap="round"/><path d="M0 -22L-3.5 -1" stroke="${INK}" stroke-opacity=".18" stroke-width="1.4"/>
       <path d="M-18 -3H18L17 4.5H-17Z" ${WF} ${OUT(2.2)}/><path d="M-18 -3H18L17 4.5H-17Z" fill="${INK}" opacity=".08"/><path d="M-13 .6h6M-4 .6h9M9 .6h4" stroke="#8C87A8" stroke-width="1.1" stroke-linecap="round"/>`},
     // Rare
-    {id: "tophat", name: "Top Hat", rarity: "rare", def: "#E5484D", icon: [12, .85], art: () =>
-      `<path d="M-11 -1V-26Q0 -28.5 11 -26V-1Z" fill="#3A3450" ${OUT(2.4)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" fill="#4A4366" ${OUT(2)}/><path d="M-7 -22.5V-12" stroke="#fff" stroke-opacity=".22" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M-11 -9.5Q0 -7.5 11 -9.5V-3Q0 -1 -11 -3Z" ${WF} ${OUT(2)}/><path d="M6 -8.6v5.2" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" fill="#3A3450" ${OUT(2.4)}/>`},
+    {id: "tophat", name: "Top Hat", rarity: "rare", def: "#3A3450", icon: [12, .85], art: () =>
+      `<path d="M-11 -1V-26Q0 -28.5 11 -26V-1Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" ${WF} ${OUT(2)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" fill="#fff" opacity=".12"/><path d="M-7 -22.5V-12" stroke="#fff" stroke-opacity=".22" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-11 -9.5Q0 -7.5 11 -9.5V-3Q0 -1 -11 -3Z" fill="#E5484D" ${OUT(2)}/><path d="M6 -8.6v5.2" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" ${WF} ${OUT(2.4)}/>`},
     {id: "cowboy", name: "Cowboy Hat", rarity: "rare", def: "#B07A45", art: () =>
       `<path d="M-10 -1Q-11.5 -15 -7 -19.5Q-3.4 -16.2 0 -18Q3.4 -16.2 7 -19.5Q11.5 -15 10 -1Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -16Q-8.4 -10 -8 -4" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       <path d="M-10.6 -6Q0 -4 10.6 -6V-2Q0 0 -10.6 -2Z" fill="#5A3B22" ${OUT(1.6)}/>${star(0, -3.6, 2.4, "#F2C14E", 1)}
@@ -74446,8 +74463,8 @@ var COMP_ACC_MORE = K => {
       `<path d="M-10.5 0V-8.5Q-17.5 -10 -15.5 -16.5Q-13 -22.5 -6.5 -20.5Q-3 -27.5 4 -25.8Q10.5 -24.5 10.4 -19.4Q17.5 -18.5 16.2 -12Q15 -7.5 10.5 -8.5V0Z" ${WF} ${OUT(2.4)}/><path d="M-4.5 -9V-1M1 -10V-1M6 -9V-1" stroke="#C9C3D6" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 -15.5Q-9 -19 -5 -18M1 -23Q5 -23.6 7 -21" fill="none" stroke="#E4DEEE" stroke-width="1.6" stroke-linecap="round"/>
       <path d="M-11.5 -2.6H11.5V4H-11.5Z" ${WF} ${OUT(2.2)}/><path d="M-11.5 -2.6H11.5V4H-11.5Z" fill="#B9B2C4" opacity=".25"/>`},
     {id: "propeller", name: "Propeller Beanie", rarity: "rare", def: "#5A95FF", icon: [12, .9], art: () =>
-      `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/>
-      <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" fill="#4CB782" ${OUT(2)}/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+      `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/><path d="M-16 -1.6H16V4H-16Z" fill="none"/>
+      <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" ${WF} ${OUT(2)}/><path d="M-16 -1.6H16V4H-16Z" fill="${INK}" opacity=".18"/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
       <g class="cp-spin"><ellipse cx="-6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#E5484D" ${OUT(1.6)}/><ellipse cx="6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#FFD35A" ${OUT(1.6)}/></g><circle cx="0" cy="-23.4" r="1.9" fill="#fff" ${OUT(1.3)}/>`},
     {id: "tricorn", name: "Pirate Hat", rarity: "rare", def: "#3A3450", art: () =>
       `<path d="M-20 -6.5Q-12 2.2 0 1.2Q12 2.2 20 -6.5Q16.5 -14.5 8.5 -12.5Q4.5 -20.5 0 -20.5Q-4.5 -20.5 -8.5 -12.5Q-16.5 -14.5 -20 -6.5Z" ${WF} ${OUT(2.4)}/><path d="M-18 -5.6Q-11 .4 0 -.6Q11 .4 18 -5.6" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/>
@@ -74457,10 +74474,10 @@ var COMP_ACC_MORE = K => {
       `<path d="M-12 0Q-8 -14 -3 -26Q1 -35 10 -36.5Q4.5 -31 4.4 -24Q7 -12 12 0Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -10Q-4 -19 -.5 -25" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       ${star(-2.5, -12, 2.6, "#FFD35A", 1)}${star(3.5, -20.5, 1.9, "#FFD35A", .9)}<path d="M-1.4 -27.5a3 3 0 1 0 3.2 -3.6a2.3 2.3 0 1 1 -3.2 3.6Z" fill="#FFF3B0" ${OUT(.9)}/>${star(10, -36.5, 2.2, "#FFD35A", 1)}
       <path d="M-22 2.5Q0 -4.5 22 2.5Q0 9 -22 2.5Z" ${WF} ${OUT(2.4)}/><path d="M-12 -.6Q0 2.5 12 -.6L11.3 -4.6Q0 -1.8 -11.3 -4.6Z" fill="#F2C14E" ${OUT(1.6)}/>`},
-    {id: "viking", name: "Viking Helmet", rarity: "exotic", def: "#8B6A4F", art: () =>
+    {id: "viking", name: "Viking Helmet", rarity: "exotic", def: "#B9C0CC", art: () =>
       `<path d="M-12 -6Q-22.5 -8 -24.5 -23Q-18.5 -15 -10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M12 -6Q22.5 -8 24.5 -23Q18.5 -15 10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M-17 -9.6l-1.4 2.6M-20.6 -13.6l-2 2M17 -9.6l1.4 2.6M20.6 -13.6l2 2" stroke="#C9B48E" stroke-width="1.3" stroke-linecap="round"/>
-      <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" fill="#B9C0CC" ${OUT(2.4)}/><path d="M0 -17V0" stroke="#8E96A6" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
+      <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" ${WF} ${OUT(2.4)}/><path d="M0 -17V0" stroke="${INK}" stroke-opacity=".2" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" fill="#8B6A4F" ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
     {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
@@ -74472,7 +74489,7 @@ var COMP_ACC_MORE = K => {
       const pts = [[-16, -.5], [-9.5, -5], [0, -6.8], [9.5, -5], [16, -.5]];
       return `<path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
         ${[[-13, -4.4, -30], [-4.5, -8, -10], [4.5, -8, 10], [13, -4.4, 30]].map(([x, y, a]) => `<ellipse cx="${x}" cy="${y}" rx="3.4" ry="1.8" transform="rotate(${a} ${x} ${y})" fill="#7ED19B" ${OUT(1.2)}/>`).join("")}
-        ${pts.map(([x, y], i) => flower(x, y, i === 2 ? 5.6 : 4.6, i % 2 ? `fill="#FFF8F0"` : WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}`; }},
+        ${pts.map(([x, y], i) => flower(x, y, i === 2 ? 5.6 : 4.6, WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}`; }},
     // Legendary
     {id: "phoenix", name: "Phoenix Crest", rarity: "legendary", def: "#FF5A2B", icon: [13, .78], art: () => {
       const fan = [[-42, 19], [-21, 25], [0, 30], [21, 25], [42, 19]];
@@ -74499,7 +74516,7 @@ var COMP_ACC_MORE = K => {
     {id: "unicorn", name: "Unicorn Horn", rarity: "legendary", def: "#FFD8EE", icon: [12, .85], art: () =>
       `<path d="M-4 -2Q-11 -8 -16.5 -3.5" fill="none" stroke="#FF7A9C" stroke-width="3" stroke-linecap="round"/><path d="M-4 -.4Q-11.4 -4.6 -15 1" fill="none" stroke="#FFD35A" stroke-width="3" stroke-linecap="round"/><path d="M4 -2Q11 -8 16.5 -3.5" fill="none" stroke="#5A95FF" stroke-width="3" stroke-linecap="round"/><path d="M4 -.4Q11.4 -4.6 15 1" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
       <path d="M-5.4 -1.5L0 -33L5.4 -1.5Q0 1 -5.4 -1.5Z" ${WF} ${OUT(2.2)}/><path d="M-4.4 -6.6L4.4 -9.6M-3.5 -12.4L3.5 -15.4M-2.6 -18.2L2.6 -21M-1.6 -24L1.6 -26.4" stroke="#F2B63A" stroke-width="1.8" stroke-linecap="round"/><path d="M-1.8 -8L-.6 -26" stroke="#fff" stroke-opacity=".7" stroke-width="1.1" stroke-linecap="round"/>
-      ${flower(-7.5, 0, 4.4, `fill="#FFB3D1"`, "#FFE07A")}${flower(7.5, 0, 4.4, `fill="#BFD8FF"`, "#FFE07A")}${tw(-11, -22, 3.2, 0)}${tw(11, -29, 3.4, .9)}${tw(13.5, -12, 2.4, 1.7)}`}
+      ${flower(-7.5, 0, 4.4, WF, "#FFE07A")}${flower(7.5, 0, 4.4, WF, "#FFE07A")}${tw(-11, -22, 3.2, 0)}${tw(11, -29, 3.4, .9)}${tw(13.5, -12, 2.4, 1.7)}`}
   ];
 
   /* ---------------- Face ---------------- */
@@ -74602,20 +74619,20 @@ var COMP_ACC_MORE = K => {
     {id: "necktie", name: "School Tie", rarity: "common", def: "#2F4A8A", pat: true, icon: [-11, .8], art: () =>
       `<path d="M-2.5 7L-4.6 21.5L0 26.4L4.6 21.5L2.5 7Z" ${WF} ${OUT(2)}/><path d="M-3.4 1.2H3.4L2.5 7H-2.5Z" ${WF} ${OUT(2)}/><path d="M-3.6 13l7 -3.4M-4.2 18.4l8.2 -4M-3.4 23.4l6.6 -3.2" stroke="#fff" stroke-opacity=".45" stroke-width="1.3" stroke-linecap="round"/>`},
     // Rare
-    {id: "pearls", name: "Pearl Necklace", rarity: "rare", def: "#FF7A9C", art: hw => {
+    {id: "pearls", name: "Pearl Necklace", rarity: "rare", def: "#FFF8F0", art: hw => {
       const n = Math.max(8, Math.round(hw / 2.4));
-      const pearl = ([x, y], r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="${f(x - r * .35)}" cy="${f(y - r * .35)}" r="${f(r * .3)}" fill="#fff"/>`;
-      return `${along(hw, -2.5, 4.5, n, .88).map(p => pearl(p, 1.9)).join("")}${along(hw, 0, 7.6, n + 1, .84).map(p => pearl(p, 2.1)).join("")}<path d="M0 9.6Q-3.4 13.4 0 17Q3.4 13.4 0 9.6Z" ${WF} ${OUT(1.4)}/><path d="M-.9 12.2l.6 -1.2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }},
+      const pearl = ([x, y], r) => `<circle cx="${x}" cy="${y}" r="${r}" ${WF} ${OUT(1.1)}/><circle cx="${f(x - r * .35)}" cy="${f(y - r * .35)}" r="${f(r * .3)}" fill="#fff"/>`;
+      return `${along(hw, -2.5, 4.5, n, .88).map(p => pearl(p, 1.9)).join("")}${along(hw, 0, 7.6, n + 1, .84).map(p => pearl(p, 2.1)).join("")}<path d="M0 9.6Q-3.4 13.4 0 17Q3.4 13.4 0 9.6Z" fill="#FF7A9C" ${OUT(1.4)}/><path d="M-.9 12.2l.6 -1.2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }},
     {id: "lei", name: "Flower Lei", rarity: "rare", def: "#FF7A9C", art: hw => {
       const n = Math.max(5, Math.round(hw / 5.2)), pts = along(hw, -1.5, 6, n, .86), lv = along(hw, -.5, 6.4, n - 1, .66);
-      return `${lv.map(([x, y], i) => `<ellipse cx="${x}" cy="${f(y + 2.2)}" rx="3.2" ry="1.6" transform="rotate(${i % 2 ? 25 : -25} ${x} ${f(y + 2.2)})" fill="#7ED19B" ${OUT(1.1)}/>`).join("")}${pts.map(([x, y], i) => flower(x, y, 4, i % 3 === 1 ? `fill="#FFD35A"` : i % 3 === 2 ? `fill="#FFF8F0"` : WF, i % 3 === 1 ? "#FF9A3C" : "#FFD35A")).join("")}`; }},
+      return `${lv.map(([x, y], i) => `<ellipse cx="${x}" cy="${f(y + 2.2)}" rx="3.2" ry="1.6" transform="rotate(${i % 2 ? 25 : -25} ${x} ${f(y + 2.2)})" fill="#7ED19B" ${OUT(1.1)}/>`).join("")}${pts.map(([x, y], i) => flower(x, y, 4, WF, i % 3 === 1 ? "#FF9A3C" : "#FFD35A")).join("")}`; }},
     {id: "sailor", name: "Sailor Collar", rarity: "rare", def: "#2F4A8A", art: hw => {
       const e = f(hw + 1.5);
       return `<path d="M${-e} -4Q0 3 ${e} -4L${f(e + 1)} 4.6Q${f(hw * .45)} 6.8 0 14.5Q${f(-hw * .45)} 6.8 ${f(-e - 1)} 4.6Z" ${WF} ${OUT(2.2)}/><path d="M${f(e - 1.6)} 2.6Q${f(hw * .45)} 4.4 0 10.6Q${f(-hw * .45)} 4.4 ${f(-e + 1.6)} 2.6" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
         <path d="M0 13L-5.4 10.4L-5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M0 13L5.4 10.4L5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M-1 13.6L-3 20.4M1 13.6L3 20.4" stroke="#E5484D" stroke-width="2.4" stroke-linecap="round"/><circle cx="0" cy="13" r="2" fill="#E5484D" ${OUT(1.3)}/>`; }},
     {id: "headphones", name: "Headphones", rarity: "rare", def: "#E5484D", art: hw => {
       const c = f(Math.max(8, hw * .78));
-      return `${line2(`M${-c} 3Q0 ${f(16 + hw * .12)} ${c} 3`, 2.6, "#3A3450")}${[-1, 1].map(s => `<g transform="translate(${f(s * c)} 2)"><ellipse rx="5.2" ry="6.6" ${WF} ${OUT(2)}/><ellipse cx="${f(-s * 1.4)}" rx="3" ry="4.6" fill="#3A3450"/><path d="M${f(s * 2.2)} -4.4q${f(s * 1.4)} 2 ${f(s * 1.2)} 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/></g>`).join("")}`; }},
+      return `${line2(`M${-c} 3Q0 ${f(16 + hw * .12)} ${c} 3`, 2.6, WS("#E5484D"))}${[-1, 1].map(s => `<g transform="translate(${f(s * c)} 2)"><ellipse rx="5.2" ry="6.6" ${WF} ${OUT(2)}/><ellipse cx="${f(-s * 1.4)}" rx="3" ry="4.6" fill="#3A3450"/><path d="M${f(s * 2.2)} -4.4q${f(s * 1.4)} 2 ${f(s * 1.2)} 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/></g>`).join("")}`; }},
     {id: "ruff", name: "Ruffled Collar", rarity: "rare", def: "#FFF8F0", art: hw => {
       const n = Math.max(7, Math.round(hw * 2 / 5.2) + 1), pts = along(hw, -1, 4, n, .92);
       return `${pts.map(([x, y]) => `<ellipse cx="${x}" cy="${f(y + .6)}" rx="3.8" ry="5.2" ${WF} ${OUT(1.5)}/><path d="M${x} ${f(y - 2.6)}V${f(y + 3.4)}" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>`).join("")}`; }},
@@ -74634,7 +74651,7 @@ var COMP_ACC_MORE = K => {
       const n = 7, pts = along(hw, -2, 3.2, n, .86), w = hw * .86 * 2 / (n - 1) * .62;
       return `${pts.map(([x, y], i) => { const tx = f(x * 1.12), ty = f(y + 11 - Math.abs(x / hw) * 2); return `<path d="M${f(x - w)} ${f(y - .5)}L${tx} ${ty}L${f(x + w)} ${f(y - .5)}Z" ${i % 2 ? `fill="#FFD35A"` : WF} ${OUT(1.6)}/><circle cx="${tx}" cy="${f(ty + 1.2)}" r="1.7" fill="${GOLD}" ${OUT(1)}/>`; }).join("")}${band(hw, -4, 3.2, -.6, 3.2, WF, 1.8)}`; }},
     {id: "fairylights", name: "Fairy Lights", rarity: "exotic", def: "#FFD35A", art: hw => {
-      const pts = along(hw, -2, 6, Math.max(6, Math.round(hw / 4.2)), .9), cols = [null, "#FF7A9C", "#5A95FF", "#4CB782"];
+      const pts = along(hw, -2, 6, Math.max(6, Math.round(hw / 4.2)), .9), cols = [null, null, null, null];
       return `<path d="${arcP(hw, -2, 6, 1)}" fill="none" stroke="#3E7A4A" stroke-width="1.5"/>${pts.map(([x, y], i) => { const c = cols[i % 4], fl = c ? `fill="${c}"` : WF, a = f(-x / hw * 25); return `<g transform="translate(${x} ${f(y + 1)}) rotate(${a})"><circle cy="3" r="4.4" ${fl} opacity=".3"/><rect x="-1.1" y="-.6" width="2.2" height="1.8" rx=".4" fill="#3E7A4A"/><ellipse cy="3.2" rx="1.9" ry="2.6" ${fl} ${OUT(1)}/><circle cx="-.6" cy="2.4" r=".6" fill="#fff"/></g>`; }).join("")}`; }},
     // Legendary
     {id: "pharaoh", name: "Pharaoh's Collar", rarity: "legendary", def: "#2F6FD6", icon: [-8, .9], art: hw => {
@@ -74643,17 +74660,17 @@ var COMP_ACC_MORE = K => {
         <path d="M${f(-hw)} -1.6Q0 7.4 ${f(hw)} -1.6" fill="none" ${WS("#2F6FD6")} stroke-width="2.8"/><path d="M${f(-hw)} 1.8Q0 13 ${f(hw)} 1.8" fill="none" stroke="#2FC9B5" stroke-width="2.4"/><path d="M${f(-hw)} -3.4Q0 4.6 ${f(hw)} -3.4M${f(-hw)} .1Q0 10.2 ${f(hw)} .1M${f(-hw)} 3.6Q0 15.6 ${f(hw)} 3.6" fill="none" stroke="${GOLD_D}" stroke-width=".8"/>
         ${drops.map(([x, y], i) => `<path d="M${x} ${f(y - 1.6)}Q${f(x - 2)} ${f(y + 1.6)} ${x} ${f(y + 3.4)}Q${f(x + 2)} ${f(y + 1.6)} ${x} ${f(y - 1.6)}Z" ${i % 2 ? `fill="#E5484D"` : WF} ${OUT(.9)}/>`).join("")}
         ${tw(f(-hw - 3), -7, 2.8, 0)}${tw(f(hw + 3), 6, 3, .9)}${tw(0, 19, 2.2, 1.7)}`; }},
-    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#E5484D", icon: [-9, .9], art: hw => {
+    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#F5C542", icon: [-9, .9], art: hw => {
       let rays = ""; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; rays += `M${f(6.4 * Math.cos(a - .22))} ${f(13 + 6.4 * Math.sin(a - .22))}L${f(9.2 * Math.cos(a))} ${f(13 + 9.2 * Math.sin(a))}L${f(6.4 * Math.cos(a + .22))} ${f(13 + 6.4 * Math.sin(a + .22))}Z`; }
-      return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, GOLD).replace(`stroke="${GOLD}" stroke-width="1.6"`, `stroke="${GOLD}" stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" fill="${GOLD}" ${OUT(1)}/>
-        <circle cx="0" cy="13" r="6.4" fill="${GOLD}" ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" ${WF} ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
+      return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, WS("#F5C542")).replace(`stroke-width="1.6"`, `stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" ${WF} ${OUT(1)}/>
+        <circle cx="0" cy="13" r="6.4" ${WF} ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" fill="#E5484D" ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
         ${tw(-10, 6, 2.8, 0)}${tw(10.5, 19, 2.6, 1)}${tw(f(hw * .7), -6, 2.2, 1.7)}`; }},
     {id: "phoenixstole", name: "Phoenix Feather Stole", rarity: "legendary", def: "#FF5A2B", icon: [-7, .85], art: hw => {
       // plumes fanned along the neck from the sides in, each a fire-red feather with a gold heart, then two long tail plumes
       const n = Math.max(6, Math.round(hw / 3.4)), pts = along(hw, -.5, 4.5, n, .9).map((p, i) => [p, i]).sort((a, b) => Math.abs(b[0][0]) - Math.abs(a[0][0]));
       const plume = ([x, y], len, wd) => `<g transform="translate(${x} ${y}) rotate(${f(180 - 62 * x / hw)})">${feather(len, wd, WF, 1.6)}${feather(len * .62, wd * .5, `fill="#FFD35A"`)}<path d="M0 -1V${f(-len * .78)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/></g>`;
       const tail = (x, l, a) => `<g transform="translate(${f(x)} ${ny(hw, -.5, 4.5, x)}) rotate(${a})">${feather(l, 4.6, WF, 1.6)}${feather(l * .68, 2.2, `fill="#FFD35A"`)}<path d="M0 -1V${f(-l * .82)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9"/><circle cy="${f(-l * .86)}" r="1.5" fill="#FFF3B0"/></g>`;
-      return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, `fill="#C2361C"`, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
+      return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, WF, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
     {id: "ermine", name: "Royal Ermine Collar", rarity: "legendary", def: "#FFF8F0", art: hw => {
       const spots = along(hw, 0, 3.6, Math.max(4, Math.round(hw / 5)), .78);
       return `${line2(`M${f(-hw * .62)} ${ny(hw, 2.6, 3.6, -hw * .62)}Q0 ${f(17 + hw * .05)} ${f(hw * .62)} ${ny(hw, 2.6, 3.6, hw * .62)}`, 2, GOLD).replace(`stroke="${GOLD}" stroke-width="2"`, `stroke="${GOLD}" stroke-width="2" stroke-dasharray="2.6 1.2"`)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF} ${OUT(1.8)}/>`).join("")}${band(hw + 1, -5, 3.3, 4.4, 3.8, WF, 2.2)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF}/>`).join("")}<path d="M${f(-hw + 2)} -1.6Q0 4 ${f(hw - 2)} -1.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
@@ -74662,7 +74679,7 @@ var COMP_ACC_MORE = K => {
     {id: "galaxyscarf", name: "Galaxy Scarf", rarity: "legendary", def: "#3B2A7A", icon: [-6, 1], art: hw => {
       const k = f(hw * .45 - 9.5), e = f(hw + 4), h = f(hw - 2), G = `fill="url(#cpgGalaxy)"`;
       const dots = along(hw, 0, 3.4, Math.max(5, Math.round(hw / 4)), .82);
-      return `<defs><linearGradient id="cpgGalaxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#3B2A7A)"/><stop offset=".55" stop-color="#6A3FC4"/><stop offset="1" stop-color="#D95FB0"/></linearGradient></defs>
+      return `<defs><linearGradient id="cpgGalaxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#3B2A7A)"/><stop offset=".55" style="stop-color:color-mix(in srgb,var(--cp-wear,#3B2A7A) 55%,#7B3FC4)"/><stop offset="1" style="stop-color:color-mix(in srgb,var(--cp-wear,#3B2A7A) 35%,#D95FB0)"/></linearGradient></defs>
         <path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${G} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2.2" stroke-linecap="round"/>
         ${dots.map(([x, y], i) => i % 2 ? star(x, y, 1.5, "#FFF3B0") : `<circle cx="${x}" cy="${y}" r=".8" fill="#fff"/>`).join("")}
         <g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${G} ${OUT(2.4)}/><circle cx="12" cy="11" r=".8" fill="#fff"/>${star(13.6, 16.2, 1.5, "#FFF3B0")}<path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="#FFD35A" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${G} ${OUT(2.4)}/>${tw(20.5, 24, 2.6, 1)}</g>
@@ -74691,13 +74708,13 @@ var COMP_ACC_MORE = K => {
     {id: "fez", name: "Tasseled Fez", rarity: "uncommon", def: "#C0283C", icon: [11, .95], art: () =>
       `<path d="M-10 2L-8 -15Q0 -17.4 8 -15L10 2Q0 4.6 -10 2Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-15" rx="8" ry="2" fill="${INK}" opacity=".25"/><path d="M-5.6 -12L-6.8 0" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       ${line2("M0 -16.4Q8 -16 9.4 -12.6L9.8 -5.6", 1.2, GOLD)}<path d="M8.4 -6L11.2 -6L12.4 1.6L7.2 1.6Z" fill="${GOLD}" ${OUT(1.1)}/><path d="M8.6 -2v3M10.2 -2v3" stroke="${GOLD_D}" stroke-width=".8"/><circle cx="0" cy="-16.6" r="1.4" fill="${GOLD}" ${OUT(1)}/>`},
-    {id: "bunnyears", name: "Bunny Ears", rarity: "uncommon", def: "#FF7A9C", icon: [12, .85], art: () => {
-      const ear = sc => `<g transform="scale(${sc} 1) rotate(-8)"><path d="M-9 1Q-15.5 -16 -10 -27Q-4.6 -25 -4 -13Q-3.8 -5 -3.6 1Z" fill="#FFF8F0" ${OUT(2.2)}/><path d="M-8.2 -3.6Q-12.4 -16 -9.4 -23Q-6.6 -20.4 -6.2 -11Q-6 -6 -5.8 -3.6Z" fill="#FFB3C7"/></g>`;
-      return `${ear(1)}${ear(-1)}${line2("M-16.5 4Q0 -5 16.5 4", 2.6, WS("#FF7A9C"))}`; }},
-    {id: "sailorcap", name: "Sailor Cap", rarity: "uncommon", def: "#2F4A8A", art: () =>
-      `<path d="M-12.5 0Q-13.5 -12 0 -13Q13.5 -12 12.5 0Z" fill="#FFFFFF" ${OUT(2.4)}/><path d="M-7 -9.6Q-8.6 -5 -8.6 -1" fill="none" stroke="#DCE4F0" stroke-width="2" stroke-linecap="round"/><path d="M0 -13V-1" stroke="#DCE4F0" stroke-width="1.2"/>
-      <path d="M-15.5 -1.6Q0 1.6 15.5 -1.6V4Q0 7.2 -15.5 4Z" fill="#FFFFFF" ${OUT(2.2)}/><path d="M-15 1.2Q0 4.4 15 1.2" fill="none" ${WS("#2F4A8A")} stroke-width="1.8" stroke-linecap="round"/>
-      <g transform="translate(0 -6)" fill="none" ${WS("#2F4A8A")} stroke-width="1.2" stroke-linecap="round"><circle cy="-2.4" r="1"/><path d="M0 -1.4V2.6M-1.6 -.2H1.6M-2.4 1Q-2 2.8 0 2.8Q2 2.8 2.4 1"/></g>`},
+    {id: "bunnyears", name: "Bunny Ears", rarity: "uncommon", def: "#FFF8F0", icon: [12, .85], art: () => {
+      const ear = sc => `<g transform="scale(${sc} 1) rotate(-8)"><path d="M-9 1Q-15.5 -16 -10 -27Q-4.6 -25 -4 -13Q-3.8 -5 -3.6 1Z" ${WF} ${OUT(2.2)}/><path d="M-8.2 -3.6Q-12.4 -16 -9.4 -23Q-6.6 -20.4 -6.2 -11Q-6 -6 -5.8 -3.6Z" fill="#FFB3C7"/></g>`;
+      return `${ear(1)}${ear(-1)}${line2("M-16.5 4Q0 -5 16.5 4", 2.6, "#FF7A9C")}`; }},
+    {id: "sailorcap", name: "Sailor Cap", rarity: "uncommon", def: "#FFFFFF", art: () =>
+      `<path d="M-12.5 0Q-13.5 -12 0 -13Q13.5 -12 12.5 0Z" ${WF} ${OUT(2.4)}/><path d="M-7 -9.6Q-8.6 -5 -8.6 -1" fill="none" stroke="${INK}" stroke-opacity=".12" stroke-width="2" stroke-linecap="round"/><path d="M0 -13V-1" stroke="${INK}" stroke-opacity=".12" stroke-width="1.2"/>
+      <path d="M-15.5 -1.6Q0 1.6 15.5 -1.6V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/><path d="M-15 1.2Q0 4.4 15 1.2" fill="none" stroke="#2F4A8A" stroke-width="1.8" stroke-linecap="round"/>
+      <g transform="translate(0 -6)" fill="none" stroke="#2F4A8A" stroke-width="1.2" stroke-linecap="round"><circle cy="-2.4" r="1"/><path d="M0 -1.4V2.6M-1.6 -.2H1.6M-2.4 1Q-2 2.8 0 2.8Q2 2.8 2.4 1"/></g>`},
     // Exotic
     {id: "jesterhat", name: "Jester Hat", rarity: "exotic", def: "#8E6BE0", icon: [12, .78], art: () => {
       const bell = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><path d="M${x - 1.2} ${y + .6}h2.4" stroke="${GOLD_D}" stroke-width=".9"/>`;
@@ -74708,16 +74725,16 @@ var COMP_ACC_MORE = K => {
       const yA = x => f(2 - 2.5 * (1 - (x / 15) * (x / 15)));
       const gem = (x, h, w, fill) => `<path d="M${x} ${yA(x)}L${f(x + w)} ${f(yA(x) - h * .45)}L${x} ${f(yA(x) - h)}L${f(x - w)} ${f(yA(x) - h * .45)}Z" ${fill} ${OUT(1.2)}/><path d="M${f(x - w * .45)} ${f(yA(x) - h * .45)}L${x} ${f(yA(x) - h * .9)}" stroke="#fff" stroke-opacity=".8" stroke-width=".9" stroke-linecap="round"/>`;
       return `${[[-11, 6, 2.2], [-5.6, 9.5, 2.6], [5.6, 9.5, 2.6], [11, 6, 2.2]].map(([x, h, w]) => gem(x, h, w, WF)).join("")}${gem(0, 14, 3.4, WF)}<circle cx="0" cy="${f(yA(0) - 6)}" r="1.8" fill="#FF7AC8" ${OUT(.9)}/>
-        ${line2("M-16 3Q0 -3 16 3", 2.2, "#DDE2EA")}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
+        ${line2("M-16 3Q0 -3 16 3", 2.2, WS("#9AD8FF"))}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
   );
   FACE.push(
     // Common
     {id: "ovalglasses", name: "Oval Glasses", rarity: "common", def: "#8B6A4F", art: g =>
       `${bridge(g, 2.2, 1.4, WS("#8B6A4F"))}${temples(g, 1.4, WS("#8B6A4F"))}${pair(g, R => `<ellipse rx="${f(R * 1.04)}" ry="${f(R * .76)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="3.4"/><ellipse rx="${f(R * 1.04)}" ry="${f(R * .76)}" fill="none" ${WS("#8B6A4F")} stroke-width="1.6"/>${shine(R * .8)}`)}`},
-    {id: "sportshades", name: "Sport Shades", rarity: "common", def: "#E5484D", art: g => {
+    {id: "sportshades", name: "Sport Shades", rarity: "common", def: "#3A3450", art: g => {
       const R = g.R, y = g.y, m = g.mx, e = Math.min(2, g.ext), L = f(g.lx - R * 1.05 - e), Rr = f(g.rx + R * 1.05 + e);
       const d = `M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}Q${f(Rr + 1.2)} ${f(y)} ${f(Rr - 1)} ${f(y + R * .55)}Q${g.rx} ${f(y + R * .95)} ${f(m + R * .35)} ${f(y + R * .45)}Q${m} ${f(y + R * .15)} ${f(m - R * .35)} ${f(y + R * .45)}Q${g.lx} ${f(y + R * .95)} ${f(+L + 1)} ${f(y + R * .55)}Q${f(L - 1.2)} ${f(y)} ${L} ${f(y - R * .6)}Z`;
-      return `<path d="${d}" fill="#3A3450" ${OUT(2.2)}/>${line2(`M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}`, 2, WS("#E5484D"))}<path d="M${f(g.lx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0M${f(g.rx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round"/>`; }},
+      return `<path d="${d}" ${WF} ${OUT(2.2)}/>${line2(`M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}`, 2, "#E5484D")}<path d="M${f(g.lx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0M${f(g.rx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round"/>`; }},
     {id: "labgoggles", name: "Lab Goggles", rarity: "common", def: "#7FB8D9", art: g => {
       const R = g.R, e = Math.min(2.5, g.ext), x0 = g.lx - R * 1.05 - e * .4, x1 = g.rx + R * 1.05 + e * .4, d = rr(x0, g.y - R * .85, x1 - x0, R * 1.7, R * .7);
       return `${line2(`M${f(x0 - e)} ${g.y}H${f(x0)}M${f(x1)} ${g.y}H${f(x1 + e)}`, 2, "#3A3450")}<path d="${d}" fill="#DFF4FF" fill-opacity=".4" stroke="${INK}" stroke-width="5"/><path d="${d}" fill="none" ${WS("#7FB8D9")} stroke-width="3"/>${[-.5, 0, .5].map(t => `<circle cx="${f(g.mx + t * (g.gap * .45))}" cy="${f(g.y - R * .85)}" r=".8" fill="${INK}" opacity=".5"/>`).join("")}<path d="M${f(x0 + R * .4)} ${f(g.y - R * .35)}l${f(R * .6)} -${f(R * .2)}" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>`; }},
@@ -74767,12 +74784,12 @@ var COMP_ACC_MORE = K => {
       const pts = along(hw, -2, 6.5, Math.max(5, Math.round(hw / 4.4)), .84);
       // a scallop shell hanging from its hinge: the fan opens downward
       const shell = (x, y, s, fill) => `<path d="M${f(x)} ${f(y - s * 1.1)}L${f(x - s)} ${f(y + s * .3)}Q${f(x)} ${f(y + s * 1.5)} ${f(x + s)} ${f(y + s * .3)}Z" ${fill} ${OUT(1.1)}/><path d="M${f(x)} ${f(y - s)}V${f(y + s * .85)}M${f(x)} ${f(y - s)}L${f(x - s * .55)} ${f(y + s * .6)}M${f(x)} ${f(y - s)}L${f(x + s * .55)} ${f(y + s * .6)}" stroke="#fff" stroke-opacity=".75" stroke-width=".8"/><rect x="${f(x - s * .35)}" y="${f(y - s * 1.3)}" width="${f(s * .7)}" height="${f(s * .45)}" rx=".4" ${fill} ${OUT(.8)}/>`;
-      return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#8B6A4F" stroke-width="1.2"/>${pts.map(([x, y], i) => Math.abs(x) < .5 ? "" : i % 2 ? `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF8F0" ${OUT(.8)}/>` : shell(x, y + 2, 2.4, i % 4 ? WF : `fill="#FFC2D4"`)).join("")}${shell(0, 4.5 + 4.6, 3.8, `fill="#FFC2D4"`)}`; }},
+      return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#8B6A4F" stroke-width="1.2"/>${pts.map(([x, y], i) => Math.abs(x) < .5 ? "" : i % 2 ? `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF8F0" ${OUT(.8)}/>` : shell(x, y + 2, 2.4, WF)).join("")}${shell(0, 4.5 + 4.6, 3.8, WF)}`; }},
     {id: "cravat", name: "Frilly Cravat", rarity: "uncommon", def: "#FFF8F0", icon: [-9, .95], art: () =>
       `<path d="M-6.5 7Q0 11 6.5 7L5.6 15Q2.4 18.4 0 16.4Q-2.4 18.4 -5.6 15Z" ${WF} ${OUT(1.8)}/><path d="M-3 9.4Q-2 13 -3.2 15.4M3 9.4Q2 13 3.2 15.4M0 10V16" fill="none" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>
       <path d="M-5.4 .6Q0 3.6 5.4 .6L7.4 8.4Q3.2 11.6 0 9.8Q-3.2 11.6 -7.4 8.4Z" ${WF} ${OUT(1.8)}/><path d="M-3.2 3.6Q-3.4 6.6 -5 8.4M3.2 3.6Q3.4 6.6 5 8.4" fill="none" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/><circle cx="0" cy="4.4" r="1.8" fill="#FF7AC8" ${OUT(1)}/><circle cx="-.5" cy="3.9" r=".5" fill="#fff"/>`},
     {id: "locket", name: "Heart Locket", rarity: "uncommon", def: "#F5C542", art: hw =>
-      `${line2(arcP(hw, -2.5, 8, .9), 1.2, GOLD).replace(`stroke="${GOLD}" stroke-width="1.2"`, `stroke="${GOLD}" stroke-width="1.2" stroke-dasharray="1.4 .9"`)}<circle cx="0" cy="6.6" r="1.2" fill="none" stroke="${INK}" stroke-width="1.1"/>${heart(0, 10.6, 4, WF, 1.6)}<path d="M-1.6 9.4q-.4 1.6 .6 2.8" fill="none" stroke="${GOLD_D}" stroke-width=".9" stroke-linecap="round"/><path d="M-2.4 8.4q.8 -1.2 2 -1" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`},
+      `${line2(arcP(hw, -2.5, 8, .9), 1.2, WS("#F5C542")).replace(`stroke-width="1.2"`, `stroke-width="1.2" stroke-dasharray="1.4 .9"`)}<circle cx="0" cy="6.6" r="1.2" fill="none" stroke="${INK}" stroke-width="1.1"/>${heart(0, 10.6, 4, WF, 1.6)}<path d="M-1.6 9.4q-.4 1.6 .6 2.8" fill="none" stroke="${GOLD_D}" stroke-width=".9" stroke-linecap="round"/><path d="M-2.4 8.4q.8 -1.2 2 -1" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`},
     // Exotic
     {id: "bubbles", name: "Bubble Necklace", rarity: "exotic", def: "#9AD8FF", art: hw => {
       const pts = along(hw, -2, 6.5, Math.max(6, Math.round(hw / 3.6)), .88), sz = [2.2, 3, 2.4, 3.4];
@@ -74798,13 +74815,13 @@ var COMP_ACC_MORE = K => {
     {id: "aplus", name: "A+ Sticker", rarity: "common", at: "pin", def: "#FF5C8A", art: () => `${sticker(7.6, WF)}<circle r="5.4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-dasharray="1.4 1.2"/>${txt("A+", 0, 2.6, 7, "#fff")}`},
     {id: "applepin", name: "Apple Pin", rarity: "common", at: "pin", def: "#E5484D", art: () => `<path d="M0 -3.4Q-4 -7 -7 -3.4Q-9.2 1 -6 5.6Q-3 8.8 0 7.2Q3 8.8 6 5.6Q9.2 1 7 -3.4Q4 -7 0 -3.4Z" ${WF} ${OUT(1.6)}/><path d="M0 -3.6Q.4 -6.6 1.6 -8" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><path d="M1.2 -6.4Q4.4 -9.2 6.4 -6.8Q3.8 -4.6 1.2 -6.4Z" fill="#4CB782" ${OUT(1)}/><path d="M-5 -1.6q.4 -2 2.2 -2.4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/>`},
     {id: "pawpatch", name: "Paw Print Patch", rarity: "common", at: "pin", def: "#8B6A4F", art: () => `<circle r="7.8" ${WF} ${OUT(1.6)}/><circle r="6.4" fill="none" stroke="#FFF1DC" stroke-width=".8" stroke-dasharray="1.3 1.1"/><ellipse cx="0" cy="1.8" rx="2.6" ry="2.2" fill="#FFF1DC"/><circle cx="-2.8" cy="-1.6" r="1.1" fill="#FFF1DC"/><circle cx="-1" cy="-3.4" r="1.1" fill="#FFF1DC"/><circle cx="1" cy="-3.4" r="1.1" fill="#FFF1DC"/><circle cx="2.8" cy="-1.6" r="1.1" fill="#FFF1DC"/>`},
-    {id: "rainbowpatch", name: "Rainbow Patch", rarity: "common", at: "pin", def: "#8E6BE0", art: () => `<rect x="-9" y="-7" width="18" height="13" rx="4" fill="#FFF8F0" ${OUT(1.6)}/><rect x="-7.6" y="-5.6" width="15.2" height="10.2" rx="3" fill="none" ${WS("#8E6BE0")} stroke-width=".9" stroke-dasharray="1.3 1.1"/>${[["#E5484D", 5.6], ["#FFC93C", 4.2], ["#4CB782", 2.8], ["#5A95FF", 1.5]].map(([c, r]) => `<path d="M${-r} 2.6A${r} ${r} 0 0 1 ${r} 2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`).join("")}<circle cx="-5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/><circle cx="5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/>`},
+    {id: "rainbowpatch", name: "Rainbow Patch", rarity: "common", at: "pin", def: "#FFF8F0", art: () => `<rect x="-9" y="-7" width="18" height="13" rx="4" ${WF} ${OUT(1.6)}/><rect x="-7.6" y="-5.6" width="15.2" height="10.2" rx="3" fill="none" stroke="#8E6BE0" stroke-width=".9" stroke-dasharray="1.3 1.1"/>${[["#E5484D", 5.6], ["#FFC93C", 4.2], ["#4CB782", 2.8], ["#5A95FF", 1.5]].map(([c, r]) => `<path d="M${-r} 2.6A${r} ${r} 0 0 1 ${r} 2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`).join("")}<circle cx="-5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/><circle cx="5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/>`},
     // Rare
     {id: "rosette", name: "Prize Rosette", rarity: "rare", at: "pin", def: "#2563EB", art: () => { let p = ""; for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; p += `<circle cx="${f(5.4 * Math.cos(a))}" cy="${f(5.4 * Math.sin(a))}" r="2.6" ${WF} ${OUT(1)}/>`; }
       return `<path d="M-2 3L-6.4 14L-3.4 12.6L-1.6 15L.6 4Z" ${WF} ${OUT(1.3)}/><path d="M2 3L6.4 14L3.4 12.6L1.6 15L-.6 4Z" ${WF} ${OUT(1.3)}/>${p}<circle r="4.4" fill="${GOLD}" ${OUT(1.3)}/>${txt("1", 0, 2.2, 6, INK)}`; }},
     {id: "sheriff", name: "Sheriff Star", rarity: "rare", at: "pin", def: "#F5C542", art: () => { let p = "", tips = ""; for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i * Math.PI / 6, q = i % 2 ? 4.4 : 8; p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); if (!(i % 2)) tips += `<circle cx="${f(8.6 * Math.cos(a))}" cy="${f(8.6 * Math.sin(a))}" r="1.3" ${WF} ${OUT(.9)}/>`; }
       return `${tips}<path d="${p}Z" ${WF} ${OUT(1.6)}/><circle r="3.2" fill="none" stroke="${GOLD_D}" stroke-width="1"/><circle r="1" fill="${GOLD_D}"/><path d="M-2.6 -4.6L-.8 -6.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>`; }},
-    {id: "pocketwatch", name: "Pocket Watch", rarity: "rare", at: "pin", def: "#F5C542", art: () => `${line2("M-8 -8Q-8 1 -1 1.6", 1, GOLD).replace(`stroke="${GOLD}" stroke-width="1"`, `stroke="${GOLD}" stroke-width="1" stroke-dasharray="1.2 .8"`)}<circle cx="-8" cy="-8" r="1.3" fill="${GOLD}" ${OUT(.8)}/><rect x="1.2" y="-4.2" width="2.6" height="2.4" rx=".6" ${WF} ${OUT(1)}/><circle cx="2.5" cy="4.4" r="6.4" ${WF} ${OUT(1.6)}/><circle cx="2.5" cy="4.4" r="4.8" fill="#FFF8F0" ${OUT(.9)}/><path d="M2.5 4.4V1.4M2.5 4.4L4.6 5.6" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><circle cx="2.5" cy="4.4" r=".6" fill="${INK}"/>`},
+    {id: "pocketwatch", name: "Pocket Watch", rarity: "rare", at: "pin", def: "#F5C542", art: () => `${line2("M-8 -8Q-8 1 -1 1.6", 1, WS("#F5C542")).replace(`stroke-width="1"`, `stroke-width="1" stroke-dasharray="1.2 .8"`)}<circle cx="-8" cy="-8" r="1.3" ${WF} ${OUT(.8)}/><rect x="1.2" y="-4.2" width="2.6" height="2.4" rx=".6" ${WF} ${OUT(1)}/><circle cx="2.5" cy="4.4" r="6.4" ${WF} ${OUT(1.6)}/><circle cx="2.5" cy="4.4" r="4.8" fill="#FFF8F0" ${OUT(.9)}/><path d="M2.5 4.4V1.4M2.5 4.4L4.6 5.6" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><circle cx="2.5" cy="4.4" r=".6" fill="${INK}"/>`},
     {id: "boltpin", name: "Lightning Pin", rarity: "rare", at: "pin", def: "#FFC93C", art: () => `<path d="M2.4 -9.4L-6.4 1.2H-1L-3.4 9.6L6.4 -2H1Z" ${WF} ${OUT(1.8)}/><path d="M1 -6L-3.4 -.6" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linecap="round"/>`},
     {id: "cameo", name: "Cameo Brooch", rarity: "rare", at: "mid", def: "#F2B5C4", art: () => `<ellipse rx="7.6" ry="9.4" fill="${GOLD}" ${OUT(1.6)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<circle cx="${f(7.6 * Math.cos(a))}" cy="${f(9.4 * Math.sin(a))}" r=".9" fill="#FFF8F0"/>`; }).join("")}<ellipse rx="5.6" ry="7.4" ${WF} ${OUT(1)}/><path d="M1.4 -5Q-2.6 -5 -2.6 -1.4L-4 .4L-2.6 1.2Q-2.8 3 -1.2 3.4L-.8 5.6H3Q2.6 2.6 3.4 .6Q4.2 -4.6 1.4 -5Z" fill="#FFF8F0"/>`},
     // Exotic
@@ -74814,8 +74831,8 @@ var COMP_ACC_MORE = K => {
     {id: "butterflybrooch", name: "Jeweled Butterfly", rarity: "exotic", at: "pin", def: "#8E6BE0", art: () => `${[[-1, 1], [1, 1]].map(([sx]) => `<g transform="scale(${sx} 1)"><ellipse cx="4.6" cy="-3" rx="4.8" ry="3.8" transform="rotate(-25 4.6 -3)" ${WF} ${OUT(1.3)}/><ellipse cx="3.6" cy="3.4" rx="3.2" ry="2.6" transform="rotate(30 3.6 3.4)" ${WF} ${OUT(1.3)}/><circle cx="5.4" cy="-3.6" r="1.2" fill="#7CF5FF" ${OUT(.6)}/><circle cx="3.6" cy="3.6" r=".9" fill="#FF9AD5"/></g>`).join("")}<ellipse rx="1.3" ry="5" fill="${GOLD}" ${OUT(1)}/>${line2("M-.4 -4.6q-1 -2.4 -2.8 -3M.4 -4.6q1 -2.4 2.8 -3", .6, GOLD)}`},
     // Legendary
     {id: "wingedheart", name: "Winged Heart Crest", rarity: "legendary", at: "mid", def: "#E5484D", art: () => `${[-1, 1].map(sx => `<g transform="scale(${sx} 1)">${[[-58, 9], [-82, 10.5], [-106, 9]].map(([a, l]) => `<g transform="translate(4 -1) rotate(${-a})">${feather(l, 2.6, `fill="#FFF8F0"`, 1.2)}</g>`).join("")}</g>`).join("")}${heart(0, 0, 6.4, `fill="${GOLD}"`, 1.6)}${heart(0, .3, 4.6, WF)}<path d="M-2.8 -2.4q.8 -1.4 2.2 -1.2" fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>${tw(-12, -8, 2.6, 0)}${tw(12, 6, 2.4, 1)}`},
-    {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#2563EB", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
-      return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" fill="#DDE2EA" ${OUT(1.5)}/><circle r="5.4" fill="${GOLD}" ${OUT(1.3)}/><circle r="3.9" ${WF} ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
+    {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#DDE2EA", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
+      return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" ${WF} ${OUT(1.5)}/><path d="${p}Z" fill="#fff" opacity=".25"/><circle r="5.4" ${WF} ${OUT(1.3)}/><circle r="3.9" fill="#2563EB" ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
   ];
   CHEST.forEach(a => { a.slot = "chest"; });
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
@@ -76923,7 +76940,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     aiBusy = true;
     const req = build();
     try {
-      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
+      const r = mode === "lite" ? await liteCall(req) : await aiCall({quiet: true, task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
       const s2 = aiRead(); delete s2.err; s2.model = r && r.model; aiWrite(s2);
       return r && r.data;
     } catch (e) {
@@ -82678,7 +82695,7 @@ Examples:
     // the smaller on-device models (Chrome's or Edge's built-in AI, Gemma 4 E2B, Apple's) get worked examples of the requests they
     // mix up most in Studyboard's tests; Gemma 4 E4B and the cloud models read the shorter list
     const small = typeof DEVAI !== "undefined" && typeof aiOnDevice === "function" && aiOnDevice() && DEVAI.kind !== "litert";
-    const ask = extra => aiCall({task: "quickadd", system: ISYS + (small ? ISYS_SMALL : "") + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
+    const ask = extra => aiCall({quiet: true, task: "quickadd", system: ISYS + (small ? ISYS_SMALL : "") + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
     let r = await ask(), d = r && r.data && typeof r.data === "object" ? r.data : {};
     // the shape is checked here, whatever the model or its mode: an intent that isn't one of Studyboard's is asked for once more
     if (!INTENTS.includes(d.intent)) { try { r = await ask(`\n\nIMPORTANT: "intent" must be exactly one of: ${INTENTS.join(", ")}. Reply with only the JSON object.`); d = r && r.data && typeof r.data === "object" ? r.data : {}; } catch (e) {} }
@@ -83886,7 +83903,7 @@ ANSWERING
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
     const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${(() => { try { const u = (SBCOMP.unlockWays ? SBCOMP.unlockWays() : []).filter(x => !x.have && x.ways.length); return u.length ? `Accessories you don't have yet are bought in the Wardrobe with Studyboard Credits, gold coins the student earns by studying (focus time, flashcards, practice quizzes, finished tasks, presentation practice; harder work earns more). The student has ${SBCOMP.credits ? SBCOMP.credits() : 0} credits. Prices: ${u.map(x => `${x.name} ${x.price} credits`).join("; ")}. Studyboard Bucks (green bills bought with money) are only for the Style Shop, not accessories. ` : ""; } catch (e) { return ""; } })()}${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
     const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said: "another one" right after you explained or gave an example of something is another example of that same thing. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
-    const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
+    const call = extra => aiCall({quiet: true, task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
     // (too many requests this minute: waited for a free slot, a few times, rather than given up)
     const tryCall = async () => { for (let i = 0; ; i++) { try { return await call(); } catch (e) { if (stopsHere(e) || usedUp(e) || i >= 3) throw e; const rate = !!(e && (e.rate || e.code === "limit" || /requests already|too many|a minute/i.test(String(e.message || "")))); if (rate) { T.status = "Lots of questions at once. One moment…"; drawStatus(); } await new Promise(res => setTimeout(res, rate ? 8000 : 1500)); } } };
@@ -84617,7 +84634,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       const PERSONA = `\n\nWhen they ask your opinion, favourite or choice ("which class would you take", "would you rather", "what's your favourite"), pick one and say why in a sentence, as ${me.name || "their companion"}. When they start a game or role-play (20 questions, a riddle, a mock interview, talking like a pirate), play it: take your turn, ask your question, keep score. Never say you are an AI, a language model or a chatbot, or that you have no feelings or preferences.`;
       const system = system0 + PERSONA + CONVO + TALK + (careMode ? CARE.CARE_RULE : "") + (integ ? CARE.INTEGRITY_RULE : "");
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
-      const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
+      const call = (fmt, free) => aiCall({quiet: true, onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan ? "\n\nFirst list the key points in points, then write the answer covering each one in order, with a short concrete example where it helps." : ""}`}])});
       // Always a real answer: the full format, then the simplest one, then a free reply; a moment between tries after an
       // error (busy, slow). If the AI still can't be reached, an answer is made on this device from what was found.
@@ -84634,7 +84651,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const given = `${ctx.text}\n${cat ? cat.text : ""}\n${seen}\n${hist}\n${q}\n${att.map(x => (x.part && x.part.text) || "").join("\n")}`;
         let bad = TR.unsupported(d.answer, given);
         if (bad.length && !att.some(x => x.part && !x.part.text)) {
-          try { const x = await aiCall({task: "chat", maxTokens: 4000, temperature: 0.1, schema: PLAIN, system: system + `\n\nIMPORTANT: use ONLY facts in what you were given. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in it. If the answer isn't there, say you couldn't find it.`,
+          try { const x = await aiCall({quiet: true, task: "chat", maxTokens: 4000, temperature: 0.1, schema: PLAIN, system: system + `\n\nIMPORTANT: use ONLY facts in what you were given. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in it. If the answer isn't there, say you couldn't find it.`,
             parts: [{text: `THE STUDENT'S PLANNER AND SOURCES:\n${ctx.text}\n\n${cat ? cat.text + "\n\n" : ""}THE STUDENT ASKS: ${q}`}]});
             if (x && x.data && !junk(x.data.answer) && !TR.unsupported(x.data.answer, given).length) { d.answer = x.data.answer; bad = []; } } catch (e) {}
           if (bad.length) d.answer = "I couldn't find a reliable answer to that in your Studyboard" + (ctx.src.some(x => /^Wikipedia/.test(x)) ? " or on Wikipedia" : "") + ". Try asking it another way, or add a key in AI Features for a stronger AI.";
@@ -84660,7 +84677,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
           if (a1.split(/\s+/).length < 4 || (prevA && same(a1, prevA))) {
             try { const x = await call(null, true).catch(() => null), y = x && x.data ? x.data : null;
               // (asked once more, told what not to say)
-              const z = y && !junk(y.answer) && !(prevA && same(y.answer, prevA)) ? y : (await aiCall({task: "chat", maxTokens: 500, temperature: 0.7, schema: PLAIN, system: system + `\n\nStay in character as ${me.name || "their companion"}: never say you are an AI or that you have no feelings or hobbies; answer as yourself. Reply to what they JUST said; your last reply was "${clip(prevA, 300)}", so say something new.`,
+              const z = y && !junk(y.answer) && !(prevA && same(y.answer, prevA)) ? y : (await aiCall({quiet: true, task: "chat", maxTokens: 500, temperature: 0.7, schema: PLAIN, system: system + `\n\nStay in character as ${me.name || "their companion"}: never say you are an AI or that you have no feelings or hobbies; answer as yourself. Reply to what they JUST said; your last reply was "${clip(prevA, 300)}", so say something new.`,
                 parts: [{text: `${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT SAYS: ${q}`}]}).catch(() => null) || {}).data;
               if (z && z.answer && !junk(z.answer)) { const a2 = fixAns(z.answer); if (a2.split(/\s+/).length >= 4 && !(prevA && same(a2, prevA))) a1 = a2; }
             } catch (e) {}
