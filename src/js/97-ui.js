@@ -52,14 +52,14 @@
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
     account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "haptics", "haptic-try", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "wrap-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
     school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
     capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
     data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
-    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help", "invite-friends"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
@@ -80,7 +80,7 @@
     "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
     "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
     export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
-    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "invite-friends": "🎁", haptics: "📳", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
   const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
   function addEmoji(r){
     if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;

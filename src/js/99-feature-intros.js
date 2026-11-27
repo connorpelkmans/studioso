@@ -1,7 +1,7 @@
 /* ===== module: 99-feature-intros.js ===== */
 /* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
    they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
-   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+   sheet, one intro a visit (the Discord invite counts), never within two minutes of the daily quote, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
 (() => {
   const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -59,6 +59,7 @@
   }
   function show(f){
     const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    window.__sbPopAt = Date.now();
     openSheet(html(f, i));
     const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
     sheet.addEventListener("click", e => {
@@ -73,7 +74,10 @@
   function check(){
     if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
     if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
-    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    // one intro a visit (after the Discord invite, say, this waits for the next visit), and never straight after the daily quote
+    if (window.__sbPopAt) return;
+    const quote = window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000;
+    if (quote || dlg.open || document.querySelector("dialog[open]") || document.getElementById("qod") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 12) setTimeout(check, 20000); return; }
     const f = due(); if (f) show(f);
   }
   hook("boot", () => setTimeout(check, 8000));

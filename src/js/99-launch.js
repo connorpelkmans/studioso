@@ -206,7 +206,9 @@
       ["Your Own Order", "Drag Concept Maps, Presentations and Writing cards into the order you like."]
     ]
   };
-  const isNewcomer = () => { try { return !tasksArr().length && !decksArr().length; } catch (e) { return true; } };
+  // (a brand-new install counts for its first two days, even once the welcome setup has added courses and tasks)
+  const freshInstall = () => { try { const e = window.SBESS && SBESS.state(); return !!e && e.why === "new" && Date.now() - (e.at || 0) < 2 * 864e5; } catch (e) { return false; } };
+  const isNewcomer = () => { try { return freshInstall() || (!tasksArr().length && !decksArr().length); } catch (e) { return true; } };
   function whatsNewDue(){
     const v = ver(), seen = ls.json(NEW_KEY) || {}, notes = NOTES[v];
     if (!notes || seen.v === v) return null;

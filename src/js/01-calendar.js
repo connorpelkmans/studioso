@@ -1008,6 +1008,7 @@ function dailyQuote(force){
   if (!force && (dlg.open || document.getElementById("qod") || document.hidden)) { setTimeout(() => dailyQuote(false), 4000); return; }
   try { localStorage.setItem("studyboard:quoteDay", d); } catch(e) {}
   const [q, who] = todaysQuote();
+  window.__sbQuoteAt = Date.now();   // the one-time intros (Discord, feature intros) give it a couple of minutes before they show
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
     ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
