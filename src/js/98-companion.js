@@ -2100,7 +2100,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     aiBusy = true;
     const req = build();
     try {
-      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
+      const r = mode === "lite" ? await liteCall(req) : await aiCall({quiet: true, task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
       const s2 = aiRead(); delete s2.err; s2.model = r && r.model; aiWrite(s2);
       return r && r.data;
     } catch (e) {

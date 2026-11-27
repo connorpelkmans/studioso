@@ -432,7 +432,7 @@
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
+      case "apptour": tourNext = !!window.SBTOUR; finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
       case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
@@ -561,6 +561,7 @@
     }
   });
 
+  const WSPIN = "sb:welcomeSpin"; let tourNext = false;
   function finish(completed, firstTask){
     if (completed) flushCourse();
     if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
@@ -573,6 +574,10 @@
     if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // a new student's welcome spin on the prize wheel: now, or once the App Tour they chose is finished or skipped
+    // (only the first time through: a replay from Settings isn't a new student)
+    if (mode === "first") try { if (tourNext) localStorage.setItem(WSPIN, "tour"); else if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } catch (e) {}
+    tourNext = false;
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
       const bar = i.closest(".qa-bar");
