@@ -35448,7 +35448,7 @@ document.head.appendChild(AREA_CSS);
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
+      case "apptour": tourNext = !!window.SBTOUR; finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
       case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
@@ -35577,6 +35577,7 @@ document.head.appendChild(AREA_CSS);
     }
   });
 
+  const WSPIN = "sb:welcomeSpin"; let tourNext = false;
   function finish(completed, firstTask){
     if (completed) flushCourse();
     if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
@@ -35589,6 +35590,10 @@ document.head.appendChild(AREA_CSS);
     if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // a new student's welcome spin on the prize wheel: now, or once the App Tour they chose is finished or skipped
+    // (only the first time through: a replay from Settings isn't a new student)
+    if (mode === "first") try { if (tourNext) localStorage.setItem(WSPIN, "tour"); else if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } catch (e) {}
+    tourNext = false;
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
       const bar = i.closest(".qa-bar");
@@ -36414,6 +36419,8 @@ const ERRCORE = (() => {
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
+    // the welcome spin waits for the tour a new student chose at the end of the welcome setup (40-onboarding.js)
+    try { if (localStorage.getItem("sb:welcomeSpin") === "tour") { localStorage.removeItem("sb:welcomeSpin"); if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } } catch (e) {}
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -61796,6 +61803,14 @@ var SBSC = (() => {
     setSc({wpro: {[wk]: 1}, wsq: spinQueue().concat([{id: uid(), pro: true}])});
     setTimeout(spinSoon, 600);
   }
+  // A new student's welcome spin: once, when they first get into the app (the welcome setup done, and the App Tour finished or
+  // skipped if they took it). 40-onboarding.js and 49-apptour.js call it; sc.wwel marks it given, so it never comes twice
+  function welcomeSpin(){
+    if (sc().wwel || spinQueue().some(x => x.welcome)) return false;
+    setSc({wwel: 1, wsq: spinQueue().concat([{id: uid(), welcome: true}])});
+    setTimeout(spinSoon, 900);
+    return true;
+  }
   const MINI_WHEEL = (() => { const cols = ["#F5B700", "#FFE7A8", "#7C3AED", "#FFD36B", "#2563EB", "#FFE7A8", "#E5484D", "#FFD36B"];
     const p = (d, r) => [20 + r * Math.sin(d * Math.PI / 180), 20 - r * Math.cos(d * Math.PI / 180)].map(v => v.toFixed(2));
     return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="18" fill="#2B2233"/>${cols.map((c, k) => { const [x0, y0] = p(k * 45, 15), [x1, y1] = p(k * 45 + 45, 15); return `<path d="M20 20L${x0} ${y0}A15 15 0 0 1 ${x1} ${y1}Z" fill="${c}" transform="translate(0 1)"/>`; }).join("")}<circle cx="20" cy="21" r="4" fill="#FFF4C8" stroke="#2B2233" stroke-width="1.5"/><path d="M16 1.5h8l-4 7z" fill="#E5484D" stroke="#2B2233" stroke-width="1.2" stroke-linejoin="round"/></svg>`; })();
@@ -61867,7 +61882,9 @@ var SBSC = (() => {
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
-    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(spinSoon, 2500); return; }
+    // (the welcome spin doesn't wait for an empty box the app put the cursor in: the welcome setup's Add My First Task)
+    const typing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable) && !(spinQueue()[0].welcome && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && !ae.value);
+    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || typing) { setTimeout(spinSoon, 2500); return; }
     showWheel(spinQueue()[0]);
   }
   function showWheel(sp, after){
@@ -61877,7 +61894,7 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     const list = prizes.slice().sort((a, b) => a.p - b.p);
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
-      <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
+      <div class="scr-head">${sp.welcome ? `<span class="scr-kick">Welcome to Studyboard!</span><h2 id="scrWhT">A free spin to start you off</h2>` : sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
       <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
       <div class="wh-result" aria-live="polite"></div>
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
@@ -62175,7 +62192,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
