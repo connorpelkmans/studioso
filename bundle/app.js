@@ -834,7 +834,8 @@ const TB = (() => {
     d = d || {};
     if (kind === "course") return cut(d.name || d.code, 70) || "Course";
     if (kind === "task") return cut(d.title, 70) || "Task";
-    if (kind === "note") return d.wb ? "Whiteboard: " + (cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Untitled") : cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    // (a first line written as a Markdown heading, "# Lecture 22", is named without its #)
+    if (kind === "note") { const l = (String(d.text || "").split("\n").find(x => x.trim()) || "").replace(/^\s*#{1,6}\s+/, ""); return d.wb ? "Whiteboard: " + (cut(l, 60) || "Untitled") : cut(l, 60) || "Empty note"; }
     if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
     if (kind === "file") return cut(d.name, 70) || "File";
     if (kind === "event") return cut(d.title, 70) || "Event";
@@ -13789,6 +13790,8 @@ function card(t){
 }
 function backupNudge(){
   if (inPreview() || !tasksArr().length) return "";
+  // a brand-new planner isn't nagged in its first 3 days: the welcome setup and Getting Started offer backups already
+  try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if (at && Date.now() - at < 3 * 864e5) return ""; } catch (e) {}
   if (FSB.status === "paused") return `<div class="nudge"><span>Automatic backups to “${esc(FSB.where)}” are paused until you allow access again.</span><button class="btn small primary" data-act="fsb-resume">Resume Backups</button></div>`;
   if (FSB.status === "on") return "";
   const last = Number(localStorage.getItem("studioso:lastExport") || 0), later = Number(localStorage.getItem("studioso:nudge") || 0);
@@ -14744,6 +14747,10 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   // Open tasks with no due date can't be ranked; Full Ranking ends with a line that lists them
   const nUndated = tasksArr().filter(t => t.status !== "done" && !t.due && inFilter(t) && matchesQ(t)).length;
+  // Only work that starts later (a new student's first task, say): say so, rather than "nothing due yet"
+  const laterOnes = !todayList.length && !overdue && !queued ? F.later.filter(inView).map(x => x.t).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))) : [];
+  const laterSum = !laterOnes.length ? "" : laterOnes.length === 1 && laterOnes[0].start ? `Nothing needs work today. ${esc(laterOnes[0].title)} starts ${esc(fmtDate(laterOnes[0].start))}${laterOnes[0].due ? ` (due ${esc(fmtDate(laterOnes[0].due))})` : ""}.`
+    : `Nothing needs work today. ${laterOnes.length === 1 ? "Your task starts" : `${laterOnes.length} tasks start`} later: see Not Started Yet below.`;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater || nUndated;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
   let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
@@ -14763,10 +14770,10 @@ function focusHtml(){
   const planTile = offToday ? "" : `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : laterSum || "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(offToday ? "" : `<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${termHtml}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml || laterSum ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
       ${window.SBDAYWRAP && !pick ? SBDAYWRAP.rowHtml(F) : ""}
@@ -17615,6 +17622,7 @@ function dailyQuote(force){
   if (!force && (dlg.open || document.getElementById("qod") || document.hidden)) { setTimeout(() => dailyQuote(false), 4000); return; }
   try { localStorage.setItem("studyboard:quoteDay", d); } catch(e) {}
   const [q, who] = todaysQuote();
+  window.__sbQuoteAt = Date.now();   // the one-time intros (Discord, feature intros) give it a couple of minutes before they show
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
     ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
@@ -60137,14 +60145,14 @@ var TP_DATA = [];
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
     account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "haptics", "haptic-try", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "wrap-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
     school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
     capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
     data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
-    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help", "invite-friends"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
@@ -60165,7 +60173,7 @@ var TP_DATA = [];
     "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
     "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
     export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
-    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "invite-friends": "🎁", haptics: "📳", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
   const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
   function addEmoji(r){
     if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;
@@ -97975,7 +97983,9 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
       ["Your Own Order", "Drag Concept Maps, Presentations and Writing cards into the order you like."]
     ]
   };
-  const isNewcomer = () => { try { return !tasksArr().length && !decksArr().length; } catch (e) { return true; } };
+  // (a brand-new install counts for its first two days, even once the welcome setup has added courses and tasks)
+  const freshInstall = () => { try { const e = window.SBESS && SBESS.state(); return !!e && e.why === "new" && Date.now() - (e.at || 0) < 2 * 864e5; } catch (e) { return false; } };
+  const isNewcomer = () => { try { return freshInstall() || (!tasksArr().length && !decksArr().length); } catch (e) { return true; } };
   function whatsNewDue(){
     const v = ver(), seen = ls.json(NEW_KEY) || {}, notes = NOTES[v];
     if (!notes || seen.v === v) return null;
@@ -104931,6 +104941,7 @@ var SBEARLY = null;
    - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
    - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
    - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways: the flag is written before the popup is drawn (and the popup is skipped if it can't be written),
    the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -104969,8 +104980,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -104981,6 +104995,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
     } catch (e) { return false; }
@@ -105016,6 +105032,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     let has = false; try { has = typeof aiProAvail === "function" && !!aiProAvail(); } catch (e) {}
     qodPop(html(has), "aii qod-plain");
     return true;
@@ -105044,6 +105061,7 @@ var SBEARLY = null;
 /* "Join the Studyboard Discord": a one-time popup with a link to the community server.
    - People who started using Studyboard before 18 Nov 2026 see it once, the next time the app is quiet.
    - Everyone who starts later sees it once, 7 days after they started.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways, as in 99-ai-intro.js: the flag is written before the popup is drawn (and the popup is skipped if it
    can't be written), the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -105080,8 +105098,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -105092,6 +105113,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
       if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return false;
@@ -105124,6 +105147,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     qodPop(html(), "aii dci qod-plain");
     return true;
   }
@@ -131764,6 +131788,9 @@ setTimeout(async () => {
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
+      // not on the day of the welcome setup (it may finish while this waits): Getting Started offers backups already, and a new
+      // student has enough to read. It comes on a later visit.
+      try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if ((at && Date.now() - at < 864e5) || (window.SBOB && SBOB.pending())) return; } catch (e) {}
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
         {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
@@ -131987,7 +132014,7 @@ ui._day = todayISO();
 /* ===== module: 99-feature-intros.js ===== */
 /* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
    they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
-   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+   sheet, one intro a visit (the Discord invite counts), never within two minutes of the daily quote, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
 (() => {
   const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -132045,6 +132072,7 @@ ui._day = todayISO();
   }
   function show(f){
     const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    window.__sbPopAt = Date.now();
     openSheet(html(f, i));
     const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
     sheet.addEventListener("click", e => {
@@ -132059,7 +132087,10 @@ ui._day = todayISO();
   function check(){
     if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
     if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
-    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    // one intro a visit (after the Discord invite, say, this waits for the next visit), and never straight after the daily quote
+    if (window.__sbPopAt) return;
+    const quote = window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000;
+    if (quote || dlg.open || document.querySelector("dialog[open]") || document.getElementById("qod") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 12) setTimeout(check, 20000); return; }
     const f = due(); if (f) show(f);
   }
   hook("boot", () => setTimeout(check, 8000));
