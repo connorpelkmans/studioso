@@ -117,6 +117,9 @@
         var u = new URL(ev.url), q = new URLSearchParams();
         // the end of Sign in with Google / Apple in the browser tab (section 11)
         if (u.protocol === "studyboard:" && u.hostname === "auth-callback") { if (authBack) authBack(String(ev.url)); return; }
+        // "Back to Studyboard" from Safari after signing in to a school there: the sign-in screen picks it up if it's open; otherwise
+        // the school sites sync now (the new sign-in is put in place first, StudyboardLms.swift)
+        if (u.protocol === "studyboard:" && u.hostname === "school-signed-in") { setTimeout(function () { try { if (window.__sbSchoolSync) window.__sbSchoolSync(); } catch (e) { } }, 800); return; }
         if (u.protocol === "studyboard:" && (u.hostname === "add" || u.hostname === "capture")) {
           var tries = 0, raw = String(ev.url);
           (function route() {

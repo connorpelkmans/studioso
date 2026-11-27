@@ -338,4 +338,67 @@ The iPhone app can sign in to Brightspace, Canvas and Blackboard itself, the way
 * The web side is `lms-mobile.js`, built from `lms-mobile.src.js` and `lms.js` by `scripts/build-lms-mobile.js`. `node prepare.js` with `STUDYBOARD_OUT=ios-www` (step 2a) builds it into `ios-www/` and adds `<script src="lms-mobile.js">` to the page by itself. It runs the desktop app's exact harvest scripts and cleans their results with lms.js's own code, and it switches on only when the native plugin exists.
 * No extra Capacitor plugins, entitlements or Info.plist keys are needed. The school pages open in their own web views, so `allowNavigation` in `capacitor.config.json` does not change.
 * App Store: the sign-in page shows the real address, Studyboard never sees the password, and it only reads (except a Canvas inbox reply the student writes and sends). Say so in the review notes, and mention it in the privacy answers (it reads the student's own courses, grades and announcements from their school and stores them on the device and in their own account). Per-platform separate sign-ins need iOS 17; on iOS 15 and 16 the platforms share one store and sign-out removes only that school's records.
-* Test on a real device with a real account for each platform. Google single sign-on is expected to be refused inside an embedded web view; Microsoft usually works. See `../MOBILE-SCHOOL-SYNC-SCOPE.md` for the fallbacks.
+* Test on a real device with a real account for each platform. Google's sign-in is never loaded in these web views (Google doesn't allow it there); schools that sign in with Google go through Safari instead, below. Microsoft usually works in the web view.
+
+### Schools that sign in with Google (Safari extension in the app, UNTESTED)
+
+Google refuses its sign-in inside an app's own web view, so the app never shows Google's page. When a school's sign-in heads to `accounts.google.com`, the sign-in screen switches to a short "Finish Signing In with Safari" step instead:
+
+1. The student taps **Open Canvas in Safari** (or Brightspace...). Safari opens the school site, even when Chrome is the default browser (`x-safari-https`), and they sign in there as usual. Google's sign-in works normally in Safari, and is often already remembered.
+2. Studyboard's Safari extension, built into this app, sees the student is signed in to that school site and hands **that site's own sign-in** (its cookies on that site, never a Google cookie or password) to the app on the same iPhone, through the shared keychain. A note on the page offers **Back to Studyboard**.
+3. The app puts the sign-in into that platform's web view store and finishes connecting. From then on it **syncs by itself in the hidden web view, exactly as for other schools**; the student doesn't open Safari to sync.
+4. When the school's sign-in runs out, the app shows Sign In Again as before. It also tells the extension it's waiting, so if the student opens the school site in Safari in the meantime, the fresh sign-in comes over by itself. And whenever the site is open in Safari anyway, the extension refreshes the app's sign-in (at most every 6 hours), so it rarely runs out at all.
+
+First time only, the steps on screen also ask the student to switch the extension on (Settings > Apps > Safari > Extensions > Studyboard) and allow it on the school site (in Safari: the extension's Agree, Allow and Connect, then Always Allow on This Website). The app learns from the extension when each is done and leaves those steps out after that.
+
+Files:
+
+* `native/SchoolSafari/SBSchoolHandoff.swift` (App **and** extension targets): which sites the app is waiting for (App Group), whether the extension is on and allowed there, and the handed-over sign-in (keychain, this device only, deleted as it's read, thrown away after a day). Only sites the app asked for are accepted, and only cookies that site would get.
+* `native/SchoolSafari/SafariWebExtensionHandler.swift` (extension target only): answers the extension's two native messages.
+* `native/StudyboardLms.swift`: never loads `accounts.google.com` (sign-in screen or hidden sync); the Safari step; picks up a waiting sign-in before each sync.
+* The extension itself is `extension/src` (the same School Sync extension as Chrome, Firefox and Safari), built as `extension/build/safari-inapp/`: the Safari build plus `nativeMessaging` and `cookies`. The hand-over code in `background.js` only runs in that build. `npm run ios:stage` copies it to `ios-wrapper/ios-safari-extension/`.
+
+Set up once in Xcode (needs the Mac):
+
+1. Open `ios-wrapper/ios/App/App.xcodeproj`. **File > New > Target > iOS > Safari Extension.** Product Name `StudyboardSafari`, Language Swift, Embed in Application **App**. When Xcode offers to activate the new scheme, choose **Cancel** (keep building App).
+2. In the new `StudyboardSafari` folder, delete the **Resources** group Xcode made (Move to Trash). Keep the folder and its `Info.plist`.
+3. Run `npm run ios:stage`. It builds `ios-wrapper/ios-safari-extension/`, replaces the template handler with Studyboard's, adds `SBSchoolHandoff.swift` to both targets, gives the extension the App Group and keychain group (the same as the app's), and puts `SBKeychainAccessGroup` and the name Studyboard in its Info.plist (`scripts/ios-school-safari.js`; it says what it did).
+4. **File > Add Files to "App"**, pick `ios-wrapper/ios-safari-extension`, choose **Create folder references**, untick **Copy items if needed**, tick **only** the `StudyboardSafari` target, Add.
+5. `StudyboardSafari` target, **Signing & Capabilities**: pick the team. App Groups and Keychain Sharing come from its entitlements file; let Xcode register them for the new bundle ID (`com.studyboardapp.studyboard.StudyboardSafari`).
+6. Build and run App on an iPhone. Then **Settings > Apps > Safari > Extensions > Studyboard**: Allow Extension.
+
+Even before this target is added, `ios:stage` puts `SBSchoolHandoff.swift` in the App target, so the app keeps building; Google schools just can't connect until the extension is there.
+
+The separate **Studyboard School Sync** iOS app (`scripts/make-safari-app.sh`, `com.studyboardapp.SchoolSync`) is no longer needed on iPhone and iPad once this ships: keep it for the Mac. If someone has both on, both read the school site; nothing breaks, it's just done twice.
+
+### School sites in the background (UNTESTED)
+
+`native/SchoolSafari/StudyboardSchoolBackground.swift` (App target; `ios:stage` adds it next to `SBSchoolHandoff.swift`) keeps school sites current while the app isn't open, for every school, Google or not:
+
+1. **Quick check** (Background App Refresh, `com.studyboardapp.studyboard.schoolcheck`, asked for every 20 minutes; iOS decides, usually a few times a day for an app the student opens often). Within about 20 seconds and without a web view (iOS may pause those in the background), it asks each school site's own API with the app's sign-in: Canvas, the student's planner (new work and new grades); Brightspace, the calendar (new due dates; Brightspace has no one call for new grades); Blackboard and Moodle, only whether the student is still signed in. New work and grades become notifications (only that there's a grade, never the mark, since notifications show on the Lock Screen; more than 3 at once become one summary; the first check only learns what's there). Every check also counts as activity, so the school's sign-in doesn't time out, and cookies the school sends back are kept for the next sync.
+2. **Full sync** (a background processing task, `com.studyboardapp.studyboard.schoolsync`, at most every 3 hours; iOS usually runs these while the phone is idle, often charging). The page's own quiet Sync Now (`window.__sbSchoolSync`, `src/js/95-lms.js`).
+3. **The Safari extension's reads** (schools that sign in with Google): whenever it reads the site in Safari, the extension leaves what it read for the app (App Group file). A sync whose own sign-in has run out uses that read if it's under 12 hours old (`lms-mobile.src.js`, `fromSafari`).
+4. **Signed out:** one notification a day at most ("Canvas signed you out"). Tapping it reconnects: a Google school opens straight in Safari, where Google often still remembers the student, so the school signs them in by itself, the extension hands the sign-in back, and the app syncs when they tap Back to Studyboard. Any other school opens the app's own Sign In Again. (A tap that starts the app from closed just opens it; the Sign In Again button is waiting there, fed by the same check through the page's keepAlive.) And reconnecting a Google school that's been through Safari before goes straight to Safari, without the steps screen.
+
+The student controls it per site under the school site's Options: **Sync Automatically** (off: no background checks or syncs for that site) and **Notify Me About New Work and Grades** (phone only). The notifications use the permission the student already gave for reminders; without it, the checks still run and keep the sign-in alive, silently.
+
+Info.plist (`Info.plist.additions.plist`, merged by `ios:stage`): the two task identifiers in `BGTaskSchedulerPermittedIdentifiers`, and `processing` in `UIBackgroundModes`. `MainViewController.swift` registers the tasks by name (so the app builds without this file).
+
+What iOS won't allow, so it isn't attempted: a fixed schedule ("every 15 minutes"), anything after the student swipes the app away, or with Background App Refresh or Low Power Mode off. Silent pushes on a timer would wake the app more, but Apple discourages that and throttles them, so it isn't used.
+
+Test on a device (Xcode can start background tasks on demand: pause in the debugger and run `e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.studyboardapp.studyboard.schoolcheck"]`, then the same with `schoolsync`):
+
+* Quick check: add an assignment in a Canvas test course, run the check: one notification, nothing on a second run. Grade it: "New grade in ...", without the mark.
+* Brightspace: a new dated item shows; a signed-out session gives one "signed you out" notification, and tapping it opens Safari (Google school) or the app's sign-in (other schools).
+* Full sync: run `schoolsync` with the app in the background: Studyboard shows the new work when opened, without syncing again.
+* Google school, app signed out, school site opened in Safari: the next sync in the app shows Safari's read instead of Sign In Again.
+* Options: with Notify off, no notifications; with Sync Automatically off, no background requests to that school (check in the Network instrument).
+
+Test on a device (each with a real Google-school account, one Canvas and one Brightspace):
+
+* First connect: the Safari step appears instead of Google's page; the extension steps disappear once done; Back to Studyboard returns and the connect finishes; a sync brings in courses, due dates, grades and feedback.
+* With Chrome as the default browser: Open in Safari still opens Safari.
+* Close the app, reopen it the next day: it still syncs without Safari.
+* Sign In Again after the school's sign-in has run out (or after Sign Out): with Google still remembered in Safari, it should take two taps.
+* If the school doesn't accept the handed-over sign-in (the screen says it didn't carry over), note which platform and school: some sites tie a sign-in to the browser.
+* App Store: add to the review notes that schools using Google sign-in are signed in to in Safari, and the app's own Safari extension passes that school site's sign-in to the app on the device (nothing is sent anywhere). Privacy answers don't change (the same school data, read the same way).

@@ -294,6 +294,10 @@ enum StudyboardBackgroundRefresh {
     private static var registered = false
 
     static func register() {
+        // School sites in the background (SchoolSafari/StudyboardSchoolBackground.swift), by name so the app builds without it
+        if let school = NSClassFromString("StudyboardSchoolBackground") as? NSObject.Type, school.responds(to: NSSelectorFromString("register")) {
+            _ = school.perform(NSSelectorFromString("register"))
+        }
         guard !registered else { return }
         // a reminder's Mark Done or Snooze can start the app in the background: its handler has to be there before launch ends
         // (after the guard, so a line another change adds above it merges without a conflict; register() runs once at launch)
