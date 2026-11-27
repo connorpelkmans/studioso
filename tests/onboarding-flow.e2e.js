@@ -22,14 +22,14 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return d.to
   const fresh = async () => {
     const ctx = await browser.newContext({viewport: {width: 390, height: 844}}); const page = await ctx.newPage(); page.errs = [];
     page.on("pageerror", e => page.errs.push(e.message));
-    await page.goto(base); await page.waitForSelector("#sbSignUp", {timeout: 20000});
+    await page.goto(base); await page.waitForSelector('.sb-welc [data-sbm="signin"]', {timeout: 20000});
     return {ctx, page};
   };
   try {
     /* Skip Setup */
     {
       const {ctx, page} = await fresh();
-      ok(/about a minute/.test(await page.textContent(".sb-welc")) && !/crash reports|Custom Server/.test(await page.textContent(".sb-welc")), "Mochi's welcome says how long setup takes, with no crash report or server note");
+      ok(/Let's plan your semester\. No account needed\./.test(await page.textContent(".sb-welc")) && !/crash reports|Custom Server/.test(await page.textContent(".sb-welc")), "Mochi's welcome says no account is needed, with no crash report or server note");
       await page.click('dialog[open] .sheet-head [data-act="close"]'); await page.waitForSelector(".sheet.ob", {timeout: 10000});
       ok(await page.getAttribute(".sheet.ob", "data-step") === "area" && /Step 1 of 3/.test(await page.textContent(".ob-count")), "setup starts at step 1 of 3, What Do You Study");
       await page.click('[data-ob="skip"]'); await page.waitForTimeout(300);

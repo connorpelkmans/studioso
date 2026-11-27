@@ -21,7 +21,11 @@
 
    7. Focus timer Live Activity (iPhone, UNTESTED): StudyboardNative.focusActivity.show(state) / end() put the running Focus timer in the Dynamic Island
       and on the Lock Screen through the local plugin StudyboardFocusActivity (ios-wrapper/native/FocusActivity). show() resolves true when it is showing,
-      so the page can take the timer out of its own header. Missing on Android and when the plugin isn't in the build.
+      so the page can take the timer out of its own header. On Android the same calls draw an ongoing notification with a countdown, Pause and
+      Stop (show() resolves false there). Missing when the plugin isn't in the build.
+   6b. Home Screen widgets on iPhone, iPad and Android: StudyboardNative.homeWidgets (save/drain/ack/clear), the same on both.
+   12. Block distracting apps during Focus: StudyboardNative.focusGuard (Android Do Not Disturb, iPhone Screen Time), only when the plugin exists.
+   13. Mark Done / Snooze 1 Hour on reminders: StudyboardNative.notifActions (drain/ack), drained by src/js/71-native-actions.js.
 
    Needs these Capacitor plugins installed (README-IOS.md section 2, README-ANDROID.md section 2): @capacitor/app, @capacitor/browser, @capacitor/push-notifications, @capacitor/filesystem + @capacitor/share (saveBlob in src/js/01-pwa.js),
    capacitor-secure-storage-plugin, @revenuecat/purchases-capacitor (section 6), @capacitor/screen-orientation (section 8), @capacitor/keyboard (section 9), plus the two local plugins in ios-wrapper/native (StudyboardCaptureToken, StudyboardSharedQueue) for section 5. */
@@ -113,6 +117,9 @@
         var u = new URL(ev.url), q = new URLSearchParams();
         // the end of Sign in with Google / Apple in the browser tab (section 11)
         if (u.protocol === "studyboard:" && u.hostname === "auth-callback") { if (authBack) authBack(String(ev.url)); return; }
+        // "Back to Studyboard" from Safari after signing in to a school there: the sign-in screen picks it up if it's open; otherwise
+        // the school sites sync now (the new sign-in is put in place first, StudyboardLms.swift)
+        if (u.protocol === "studyboard:" && u.hostname === "school-signed-in") { setTimeout(function () { try { if (window.__sbSchoolSync) window.__sbSchoolSync(); } catch (e) { } }, 800); return; }
         if (u.protocol === "studyboard:" && (u.hostname === "add" || u.hostname === "capture")) {
           var tries = 0, raw = String(ev.url);
           (function route() {
@@ -384,12 +391,13 @@
     }).then(function () { result("manage", "success"); });
   });
 
-  /* 6b. Home Screen and Lock Screen widgets (iPhone and iPad, UNTESTED; ios-wrapper/native/HomeWidgets) */
-  // save(data): the day the widgets show (src/js/70-widgets.js phoneData), written to the App Group, then the widgets reload.
+  /* 6b. Home Screen and Lock Screen widgets (iPhone and iPad: ios-wrapper/native/HomeWidgets; Android home-screen widgets:
+         android-wrapper/app/src/main/java/.../widgets; both UNTESTED on a device). The same plugin name, methods and JSON on both. */
+  // save(data): the day the widgets show (src/js/70-widgets.js phoneData), written to the App Group (Android: private storage), then the widgets redraw.
   // drain(): tasks checked off on a widget, [{id, kind: "done", task, at}], oldest first; ack(ids) once they're done in the page.
   var HW = P.StudyboardHomeWidgets;
   try { if (!HW && C.isPluginAvailable && C.isPluginAvailable("StudyboardHomeWidgets") && C.registerPlugin) HW = C.registerPlugin("StudyboardHomeWidgets"); } catch (e) {}
-  if (HW && !(C.getPlatform && C.getPlatform() === "android")) {
+  if (HW) {
     window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
       homeWidgets: {
         save: function (data) {
@@ -426,41 +434,103 @@
       return Promise.resolve().then(function () { return FA.available(); }).then(function (r) { return r && r.value ? "ok" : "off"; }, function () { return "setup"; });
     }
   });
-  if (FA && !(C.getPlatform && C.getPlatform() === "android")) {
+  // Android (UNTESTED on a device): the same plugin name draws the running timer as an ongoing notification with a live countdown,
+  // Pause/Resume and Stop (and a Wear OS ongoing activity); show() resolves false there, so the page keeps its own header timer.
+  // Only show, end, take and onAction exist on Android: the alarm and test sound stay the page's own.
+  if (FA) {
     var str = function (v, n) { return String(v == null ? "" : v).slice(0, n); };
+    var faApi = {
+      show: function (st) {
+        st = st || {};
+        var mode = ["focus", "short", "long"].indexOf(st.mode) >= 0 ? st.mode : "focus";
+        return Promise.resolve().then(function () {
+          return FA.show({mode: mode, label: str(st.label, 24), task: str(st.task, 80), running: !!st.running,
+            endsAt: Number(st.endsAt) || 0, left: Math.round(Number(st.left) || 0), total: Math.round(Number(st.total) || 1500),
+            accent: /^#[0-9a-f]{6}$/i.test(String(st.accent || "")) ? st.accent : "",
+            plan: (Array.isArray(st.plan) ? st.plan : []).slice(0, 8).map(function (x) { return {mode: ["focus", "short", "long"].indexOf(x && x.mode) >= 0 ? x.mode : "focus", label: str(x && x.label, 24), total: Math.round(Number(x && x.total) || 1500)}; })});
+        }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
+      },
+      end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); },
+      // Pause, Play and Skip pressed on the Lock Screen, and Siri's pause/resume/stop/start: [{a: "pause"|"play"|"skip"|"reset"|"start", t: ms,
+      // task?, mins?}], oldest first, each handed over once
+      take: function () {
+        if (typeof FA.take !== "function") return Promise.resolve([]);
+        return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
+          return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset", "start"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
+            .map(function (x) { var o = {a: x.a, t: Number(x.t)}; if (Number(x.left) >= 0) o.left = Number(x.left); if (Number(x.end) > 0) o.end = Number(x.end);
+              // a start from Siri: the task it named and the minutes it said
+              if (x.a === "start") { if (typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task)) o.task = x.task; if (Number(x.mins) >= 5 && Number(x.mins) <= 180) o.mins = Math.round(Number(x.mins)); }
+              return o; });
+        }, function () { return []; });
+      },
+      // The session-end alarm iOS rings itself: hasSound(name) says whether that sound file is saved already; alarm({name, wav})
+      // saves it (wav: base64) and asks once to ring; resolves whether ringing is allowed
+      hasSound: function (name) { if (typeof FA.hasSound !== "function") return Promise.resolve(false); return Promise.resolve().then(function () { return FA.hasSound({name: String(name)}); }).then(function (r) { return !!(r && r.value); }, function () { return false; }); },
+      alarm: function (o) { if (typeof FA.alarm !== "function") return Promise.resolve(false); o = o || {}; return Promise.resolve().then(function () { return FA.alarm({name: String(o.name || ""), wav: typeof o.wav === "string" ? o.wav : undefined}); }).then(function (r) { return !!(r && r.allowed); }, function () { return false; }); },
+      // "Play Test Sound": plays a short .wav (base64) through iOS, so it's heard with the phone on silent; resolves whether it played
+      preview: function (wav) { if (typeof FA.preview !== "function" || typeof wav !== "string" || !wav) return Promise.resolve(false); return Promise.resolve().then(function () { return FA.preview({wav: wav}); }).then(function (r) { return !!(r && r.played); }, function () { return false; }); },
+      // fn() runs when one is pressed while the app is open in the background (and the page calls take())
+      onAction: function (fn) { try { if (FA.addListener) FA.addListener("action", function () { fn(); }); } catch (e) {} }
+    };
+    if (isAndroid) { delete faApi.hasSound; delete faApi.alarm; delete faApi.preview; }
+    window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {focusActivity: faApi});
+  }
+
+  /* 12. Block distracting apps during Focus (UNTESTED on a device). Android: Do Not Disturb for the session (android-wrapper/.../focus/
+         FocusGuard.kt). iPhone: Screen Time shields on the apps the student picked (ios-wrapper/native/FocusGuard, needs Apple's Family
+         Controls entitlement). Defined only when this build has the plugin, so the page hides the setting otherwise.
+         StudyboardNative.focusGuard = {available(): Promise<{dnd, apps}>, pickApps(): Promise<boolean>,
+                                        start({until, apps, dnd}): Promise<boolean>, stop(): Promise<boolean>}
+         until: ms since 1970 (the session's end); everything is put back at that time even if the app is closed or killed. */
+  var FG = P.StudyboardFocusGuard;
+  try { if (!FG && C.isPluginAvailable && C.isPluginAvailable("StudyboardFocusGuard") && C.registerPlugin) FG = C.registerPlugin("StudyboardFocusGuard"); } catch (e) {}
+  if (FG) {
+    var fgCall = function (name, arg) {
+      if (typeof FG[name] !== "function") return Promise.resolve(null);
+      return Promise.resolve().then(function () { return FG[name](arg); }).then(function (r) { return r || null; }, function () { return null; });
+    };
     window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
-      focusActivity: {
-        show: function (st) {
-          st = st || {};
-          var mode = ["focus", "short", "long"].indexOf(st.mode) >= 0 ? st.mode : "focus";
-          return Promise.resolve().then(function () {
-            return FA.show({mode: mode, label: str(st.label, 24), task: str(st.task, 80), running: !!st.running,
-              endsAt: Number(st.endsAt) || 0, left: Math.round(Number(st.left) || 0), total: Math.round(Number(st.total) || 1500),
-              accent: /^#[0-9a-f]{6}$/i.test(String(st.accent || "")) ? st.accent : "",
-              plan: (Array.isArray(st.plan) ? st.plan : []).slice(0, 8).map(function (x) { return {mode: ["focus", "short", "long"].indexOf(x && x.mode) >= 0 ? x.mode : "focus", label: str(x && x.label, 24), total: Math.round(Number(x && x.total) || 1500)}; })});
-          }).then(function (r) { return !!(r && r.shown); }, function () { return false; });
+      focusGuard: {
+        available: function () { return fgCall("available").then(function (r) { return {dnd: !!(r && r.dnd), apps: !!(r && r.apps)}; }); },
+        pickApps: function () { return fgCall("pickApps").then(function (r) { return !!(r && r.value); }); },
+        start: function (o) {
+          o = o || {};
+          var until = Math.round(Number(o.until) || 0), now = Date.now();
+          // a session is at most a few hours; anything else is a mistake and nothing is blocked
+          if (!(until > now && until <= now + 12 * 3600000) || (!o.apps && !o.dnd)) return Promise.resolve(false);
+          return fgCall("start", {until: until, apps: !!o.apps, dnd: !!o.dnd}).then(function (r) { return !!(r && r.value); });
         },
-        end: function () { return Promise.resolve().then(function () { return FA.end(); }).then(function () {}, function () {}); },
-        // Pause, Play and Skip pressed on the Lock Screen, and Siri's pause/resume/stop/start: [{a: "pause"|"play"|"skip"|"reset"|"start", t: ms,
-        // task?, mins?}], oldest first, each handed over once
-        take: function () {
-          if (typeof FA.take !== "function") return Promise.resolve([]);
-          return Promise.resolve().then(function () { return FA.take(); }).then(function (r) {
-            return (r && Array.isArray(r.actions) ? r.actions : []).filter(function (x) { return x && ["pause", "play", "skip", "reset", "start"].indexOf(x.a) >= 0 && Number(x.t) > 0; })
-              .map(function (x) { var o = {a: x.a, t: Number(x.t)}; if (Number(x.left) >= 0) o.left = Number(x.left); if (Number(x.end) > 0) o.end = Number(x.end);
-                // a start from Siri: the task it named and the minutes it said
-                if (x.a === "start") { if (typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task)) o.task = x.task; if (Number(x.mins) >= 5 && Number(x.mins) <= 180) o.mins = Math.round(Number(x.mins)); }
-                return o; });
+        stop: function () { return fgCall("stop").then(function (r) { return !!(r && r.value); }); }
+      }
+    });
+  }
+
+  /* 13. Mark Done and Snooze 1 Hour on a reminder, pressed on the phone or a watch (UNTESTED on a device). The phone tells the server
+         itself; each press also waits here until the page has done it (src/js/71-native-actions.js).
+         StudyboardNative.notifActions = {drain(): Promise<[{id, kind: "done"|"snooze", task, rid, at, until?, server}]>, ack(ids): Promise} */
+  var NA = P.StudyboardNotifActions;
+  try { if (!NA && C.isPluginAvailable && C.isPluginAvailable("StudyboardNotifActions") && C.registerPlugin) NA = C.registerPlugin("StudyboardNotifActions"); } catch (e) {}
+  if (NA) {
+    window.StudyboardNative = Object.assign(window.StudyboardNative || {}, {
+      notifActions: {
+        drain: function () {
+          if (typeof NA.drain !== "function") return Promise.resolve([]);
+          return Promise.resolve().then(function () { return NA.drain(); }).then(function (r) {
+            return (r && Array.isArray(r.items) ? r.items : []).filter(function (x) {
+              return x && typeof x.id === "string" && /^[\w-]{1,64}$/.test(x.id) && (x.kind === "done" || x.kind === "snooze") &&
+                (x.task === "" || x.task == null || (typeof x.task === "string" && /^[\w:.-]{1,80}$/.test(x.task)));
+            }).map(function (x) {
+              var o = {id: x.id, kind: x.kind, task: typeof x.task === "string" ? x.task : "", rid: typeof x.rid === "string" && /^[\w.:-]{1,200}$/.test(x.rid) ? x.rid : "",
+                at: Number(x.at) || 0, server: x.server === true};
+              if (Number(x.until) > 0) o.until = Number(x.until);
+              return o;
+            });
           }, function () { return []; });
         },
-        // The session-end alarm iOS rings itself: hasSound(name) says whether that sound file is saved already; alarm({name, wav})
-        // saves it (wav: base64) and asks once to ring; resolves whether ringing is allowed
-        hasSound: function (name) { if (typeof FA.hasSound !== "function") return Promise.resolve(false); return Promise.resolve().then(function () { return FA.hasSound({name: String(name)}); }).then(function (r) { return !!(r && r.value); }, function () { return false; }); },
-        alarm: function (o) { if (typeof FA.alarm !== "function") return Promise.resolve(false); o = o || {}; return Promise.resolve().then(function () { return FA.alarm({name: String(o.name || ""), wav: typeof o.wav === "string" ? o.wav : undefined}); }).then(function (r) { return !!(r && r.allowed); }, function () { return false; }); },
-        // "Play Test Sound": plays a short .wav (base64) through iOS, so it's heard with the phone on silent; resolves whether it played
-        preview: function (wav) { if (typeof FA.preview !== "function" || typeof wav !== "string" || !wav) return Promise.resolve(false); return Promise.resolve().then(function () { return FA.preview({wav: wav}); }).then(function (r) { return !!(r && r.played); }, function () { return false; }); },
-        // fn() runs when one is pressed while the app is open in the background (and the page calls take())
-        onAction: function (fn) { try { if (FA.addListener) FA.addListener("action", function () { fn(); }); } catch (e) {} }
+        ack: function (ids) {
+          if (typeof NA.ack !== "function") return Promise.resolve();
+          return Promise.resolve().then(function () { return NA.ack({ids: (ids || []).filter(function (x) { return typeof x === "string"; }).slice(0, 100)}); }).then(function () {}, function () {});
+        }
       }
     });
   }

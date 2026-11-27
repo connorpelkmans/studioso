@@ -257,7 +257,9 @@
       const v = Number(m[1]) / Number(m[2]) * 100; return out(`${F(Number(m[1]))} is ${F(v, 2)}% of ${F(Number(m[2]))}`, {kind: "num", value: v, steps: `Divide the part by the whole and multiply by 100: ${m[1]} ÷ ${m[2]} × 100 = ${F(v, 2)}%.`});
     }
     // percent change / increase / decrease from 50 to 65
-    if ((m = new RegExp(`^(?:the )?(?:percent(?:age)?|%) (change|increase|decrease|difference) (?:from|between) ${N} (?:to|and) ${N}$`).exec(s)) || (m = new RegExp(`^(?:by )?(?:what|how much) (?:percent|%) (?:is |did it |does it )?(?:go|change|increase|decrease)?\\s*(?:from )?${N} to ${N}$`).exec(s)) && (m = [m[0], "change", m[1], m[2]])) {
+    if ((m = new RegExp(`^(?:the )?(?:percent(?:age)?|%) (change|increase|decrease|difference) (?:from|between) ${N} (?:to|and) ${N}$`).exec(s)) || (m = new RegExp(`^(?:by )?(?:what|how much) (?:percent|%) (?:is |did it |does it )?(?:go|change|increase|decrease)?\\s*(?:from )?${N} to ${N}$`).exec(s)) && (m = [m[0], "change", m[1], m[2]])
+      // "if a price goes from $2 to $2.50 what's the % increase", "rent went up from 800 to 900, what percent is that"
+      || (m = new RegExp(`\\bfrom ${N} to ${N}(?![\\d.])`).exec(s)) && /(?:%|\bpercent(?:age)?\b)\s*(?:increase|decrease|change|difference|rise|drop|up|down|is that|was that|\?|$)|\bby what (?:%|percent)/.test(s) && !/(?:%|percent) of\b/.test(s) && (m = [m[0], "change", m[1], m[2]])) {
       const a = Number(m[2]), b = Number(m[3]); if (!a) return null; const v = (b - a) / a * 100;
       return out(`From ${F(a)} to ${F(b)} is ${v >= 0 ? "an increase" : "a decrease"} of ${F(Math.abs(v), 2)}%.`, {kind: "pctchg", a, b, value: v, steps: `Change ÷ starting value × 100: (${F(b)} − ${F(a)}) ÷ ${F(a)} × 100 = ${F(v, 2)}%.`});
     }

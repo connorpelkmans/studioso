@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- UNTESTED: written without Android Studio -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Push reminders (@capacitor/push-notifications + FCM) -->
@@ -8,6 +8,10 @@
     <!-- Record a Lecture (Pro) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Block distracting apps (Android): Do Not Disturb during a Focus session; the student grants the access once in Settings -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- ...and it is put back after a phone restart in the middle of a session (focus/FocusGuard.kt) -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- (1) On the existing <application ...> element add these attributes -->
     <application
@@ -71,6 +75,53 @@
             </intent-filter>
         </service>
 
+        <!-- BEGIN sb-native: widgets, the Focus notification, Do Not Disturb, reminder buttons. scripts/android-build.js merges this
+             block as one, before </application>. The manifest root needs xmlns:tools="http://schemas.android.com/tools". -->
+        <!-- Home-screen widgets (widgets/HomeWidgets.kt). The providers must be exported for the launcher; ticks and redraws go
+             through WidgetActionReceiver, which is not. -->
+        <receiver
+            android:name=".widgets.TodayWidgetProvider"
+            android:exported="true"
+            android:label="@string/sbw_today_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/sbw_today_info" />
+        </receiver>
+        <receiver
+            android:name=".widgets.CountdownWidgetProvider"
+            android:exported="true"
+            android:label="@string/sbw_countdown_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/sbw_countdown_info" />
+        </receiver>
+        <receiver android:name=".widgets.WidgetActionReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.LOCALE_CHANGED" />
+            </intent-filter>
+        </receiver>
+        <!-- The Focus timer's ongoing notification: Pause/Resume/Stop (focus/FocusNotification.kt) -->
+        <receiver android:name=".focus.FocusActionReceiver" android:exported="false" />
+        <!-- Do Not Disturb put back at the session's end, and after a restart (focus/FocusGuard.kt) -->
+        <receiver android:name=".focus.FocusGuardReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+        <!-- Reminders with Mark Done and Snooze 1 Hour (notify/): Studyboard's messaging service replaces the push plugin's own -->
+        <receiver android:name=".notify.ReminderActionReceiver" android:exported="false" />
+        <service android:name=".notify.StudyboardMessagingService" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <service android:name="com.capacitorjs.plugins.pushnotifications.MessagingService" tools:node="remove" />
+        <!-- END sb-native -->
 
     </application>
 </manifest>

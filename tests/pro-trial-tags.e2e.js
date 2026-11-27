@@ -26,7 +26,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       document.querySelectorAll("dialog[open]").forEach(d => d.close()); return r;
     }, trial);
     const trial = await count(true), paid = await count(false);
-    ok(trial.acc > 0, "on the free weeks, Pro accessories keep their PRO tag: " + JSON.stringify(trial));
+    ok(trial.acc === 0, "accessories carry no PRO tag on the free weeks either: they're bought with Studyboard Credits: " + JSON.stringify(trial));
     ok(paid.all === 0, "paying for Pro, no PRO tags in the companion picker: " + JSON.stringify(paid));
     // Photo themes: none can be made on the free weeks; paid Pro can make them; after Pro ends, a theme someone made stays theirs
     const addTile = trial => p.evaluate(async trial => {

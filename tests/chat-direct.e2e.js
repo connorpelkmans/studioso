@@ -20,7 +20,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   const p = await ctx.newPage(); const errs = []; p.on("pageerror", e => errs.push(e.message));
   await p.goto(`http://127.0.0.1:${server.address().port}/index.html`); await p.waitForFunction(() => window.SBCOMPTAB && window.__sbDevAI, null, {timeout: 30000}); await p.waitForTimeout(600);
   await p.evaluate(() => SBCOMPTAB.open()); await p.waitForSelector("#cptIn");
-  const chat = async q => { const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length); await p.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => { if (!d.contains(document.querySelector("#cptIn"))) d.close(); })); await p.fill("#cptIn", q); await p.click("#cptGo");
+  const chat = async q => { const n0 = await p.evaluate(() => document.querySelectorAll(".cpt-a, .cpt-err").length); await p.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => { if (!d.contains(document.querySelector("#cptIn"))) d.close(); }); document.querySelectorAll(".cpu").forEach(o => o.remove()); }); await p.fill("#cptIn", q); await p.click("#cptGo");
     await p.waitForFunction(n => document.querySelectorAll(".cpt-a, .cpt-err").length > n && !document.querySelector("#cptGo").disabled && !/Thinking…|Looking|Working/.test([...document.querySelectorAll(".cpt-a, .cpt-err")].pop().innerText), n0, {timeout: 30000}).catch(() => {});
     return p.evaluate(() => { const l = [...document.querySelectorAll(".cpt-a, .cpt-err")].pop(); return l ? l.innerText.split("\n").slice(0, 8).join(" ") : ""; }); };
   const notes = () => p.evaluate(() => JSON.stringify(window.__sbSync.state.notes || {}));
@@ -121,6 +121,7 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
   await conv([["how many seconds in a day", /86,400/], ["in a week?", /604,800/]]);
   await conv([["98.6 F in celsius", /37°C/], ["show the formula", /\(°F − 32\) × 5\/9/]]);
   await conv([["if a shirt is $40 and 25% off whats the price", /\$30/], ["then 8% tax on that?", /32\.4/]]);
+  await conv([["if a price goes from $2 to $2.50 what's the % increase", /25%/]]);
   await conv([["solve 2x+3=11", /x = 4/], ["show the steps", /Subtract 3/], ["now what if it's 3x instead?", /8\/3/]]);
   await conv([["solve x^2 - 5x + 6 = 0", /x = 2 or x = 3/], ["how do i check that?", /works/]]);
   await conv([["1/3 + 1/4", /7\/12/], ["now multiply that by 6", /= 3\.5/]]);
@@ -437,7 +438,87 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Bio worksheet"}; });
     a = await chat("make it high priority");
     const r = await p.evaluate(() => { const L = Object.values(window.__sbSync.state.tasks).filter(t => /bio worksheet/i.test(t.title)); return {n: Object.keys(window.__sbSync.state.tasks).length, k: L.length, pr: L.map(t => t.priority)}; });
-    ok(r.k === 1 && r.n === n0 + 1 && r.pr[0] === "high", "\"make it high priority\" changes the task just added: " + JSON.stringify(r) + " " + a); }
+    ok(r.k === 1 && r.n === n0 + 1 && r.pr[0] === "high", "\"make it high priority\" changes the task just added: " + JSON.stringify(r) + " " + a);
+    // a priority with more said after it ("actually urgent, i forgot its due monday"): still that task's priority
+    a = await chat("actually urgent, i forgot its for my lab");
+    ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /bio worksheet/i.test(t.title) && t.priority === "urgent")), "\"actually urgent, ...\" sets the priority: " + a); }
+  // a day on its own right after adding something with no day: its due day
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "History quiz"}; });
+  a = await chat("add a history quiz");
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("thursday");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /history quiz/i.test(t.title) && !!t.due && new Date(t.due + "T12:00").getDay() === 4)), "a bare \"thursday\" after adding it sets its day: " + a);
+  // chat the small model calls "cant" or a new task: talk, never "I can't do that" or a task named after the words
+  await fresh(); await resetT();
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.tasks).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "cant"}; });
+    a = await chat("ok i gotta go");
+    ok(!/can't do that from the chat|not able to do that from the chat/i.test(a), "\"ok i gotta go\" called cant is talk: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "I havent started"}; });
+    a = await chat("i havent started");
+    ok(await p.evaluate(n0 => Object.keys(window.__sbSync.state.tasks).length === n0, n0), "\"i havent started\" called add_task adds nothing: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "add_task", title: "Read Chapter 7"}; });
+    a = await chat("add read chapter 7 to my list");
+    ok(await p.evaluate(n0 => Object.keys(window.__sbSync.state.tasks).length === n0, n0) && /already on your list/i.test(a), "an open task isn't added twice: " + a);
+    await p.evaluate(() => { window.__stubIntent = {intent: "change_setting", field: "text size", value: "louder"}; });
+    a = await chat("louder");
+    ok(!/text size|Settings/i.test(a), "\"louder\" doesn't open a setting: " + a);
+    await p.evaluate(() => { window.__stubIntent = null; }); }
+  // a course's own facts from what's saved, and the instructor it asks for saved from the reply
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("what's the course code for ochem?");
+  ok(/CHEM 211/.test(a), "the course code is the saved one: " + a);
+  a = await chat("who teaches ochem?");
+  ok(/no instructor saved|doesn't have an instructor|doesn't list an instructor/i.test(a), "no instructor is said plainly, none made up: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("it's Dr. Patel");
+  ok(await p.evaluate(() => /patel/i.test(String(window.__sbSync.state.courses.c2.instructor || ""))), "\"it's Dr. Patel\" saves the instructor: " + a);
+  // the planner's own sums: which comes first and how far apart, how late, time blocked for something
+  await fresh(); await resetT();
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("is care plan 2 before or after read chapter 7?");
+  ok(/Care Plan 2 \([^)]*\) is 3 days before Read Chapter 7/.test(a), "two dates compared exactly: " + a);
+  a = await chat("how many days late is clinical orientation");
+  ok(/isn.t late|Nothing is overdue/.test(a), "something not due yet isn't late: " + a);
+  { const e0 = await p.evaluate(() => Object.keys(window.__sbSync.state.events || {}).length);
+    await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+    a = await chat("block 2-4 tomorrow for care plan 2");
+    const ev = await p.evaluate(() => Object.values(window.__sbSync.state.events || {}).find(e => /care plan 2/i.test(e.title || "")) || null);
+    ok(ev && ev.start === "14:00" && ev.end === "16:00" && await p.evaluate(n => Object.keys(window.__sbSync.state.events || {}).length === n + 1, e0), "\"block 2-4 tomorrow for care plan 2\" is a 2-4pm event: " + JSON.stringify(ev) + " " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
+  // a deck named without the words around it, then "rename it" renames that deck
+  await fresh();
+  await p.evaluate(() => { window.__stubIntent = {intent: "make_deck", title: "WWI for it"}; });
+  a = await chat("make a new deck called WWI for it");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "WWI")), "\"a new deck called WWI for it\" is named WWI: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("rename it to History Essay Prep");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "History Essay Prep") && !Object.values(window.__sbSync.state.decks || {}).some(d => d.name === "WWI")), "\"rename it to ...\" renames the deck it just made: " + a);
+  // "what notes do i have": every note, not five of them
+  await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });
+  a = await chat("what notes do i have");
+  { const nN = await p.evaluate(() => Object.values(window.__sbSync.state.notes || {}).filter(n => n && !n.archived && String(n.text || "").trim()).length);
+    ok(!nN || new RegExp("You have " + nN + " note").test(a), "\"what notes do i have\" lists all " + nN + ": " + a); }
+  // "too dark, go back" right after dark mode: light mode again
+  await p.evaluate(() => { window.__stubIntent = {intent: "set_theme", value: "dark"}; });
+  a = await chat("turn on dark mode");
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("too dark, go back");
+  ok(/light mode/i.test(a) && !/nothing recent to undo/i.test(a), "\"too dark, go back\" after dark mode switches back: " + a);
+  // what the companion wears can be undone ("take everything off" then "undo that")
+  await p.evaluate(() => { window.__stubIntent = {intent: "chat"}; });
+  a = await chat("take everything off");
+  a = await chat("undo that");
+  ok(!/nothing recent to undo/i.test(a) && /Undone/i.test(a), "\"undo that\" after taking accessories off puts them back: " + a);
+  // "quick deck on X" makes cards (it went to the notes lookup)
+  await p.evaluate(() => { window.__stubIntent = null; });
+  { const n0 = await p.evaluate(() => Object.keys(window.__sbSync.state.decks || {}).length);
+    a = await chat("quick deck on defense mechanisms");
+    const more = await p.evaluate(n => Object.keys(window.__sbSync.state.decks || {}).length > n, n0);
+    ok(!/^From your notes/i.test(a) && (more || /\bcards?\b/i.test(a)), "\"quick deck on ...\" makes cards: " + a); }
+  await p.evaluate(() => { window.__stubIntent = null; });
   // an event's time range ("wednesday 1-2"): from 1 to 2 in the afternoon
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "add_event", title: "Office hours with Prof Ruiz"}; });
@@ -451,6 +532,39 @@ let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? "ok   " : "FA
     a = await chat("add nclex practice questions tmrw");
     const r = await p.evaluate(() => ({ev: Object.keys(window.__sbSync.state.events || {}).length, t: Object.values(window.__sbSync.state.tasks).some(t => /nclex/i.test(t.title))}));
     ok(r.t && r.ev === e0, "\"nclex practice questions tmrw\" is a task: " + JSON.stringify(r) + " " + a); }
+  // an event's length and a shift by hours ("make it an hour longer", "2 hours earlier"): from its own start and end
+  await fresh();
+  await p.evaluate(() => { const S = window.__sbSync, d = new Date(Date.now() + 2 * 864e5), iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    S.applyChanges([{kind: "event", id: "evx", after: {id: "evx", title: "Study group", date: iso, start: "18:00", end: "19:30", allDay: false}}], "x"); window.__stubIntent = {intent: "edit_item", kind: "event", item: "Study group", field: "duration", value: "longer"}; });
+  a = await chat("make the study group an hour longer");
+  ok(await p.evaluate(() => window.__sbSync.state.events.evx.end === "20:30"), "\"an hour longer\" moves the end from 7:30 to 8:30: " + a);
+  await p.evaluate(() => { window.__stubIntent = {intent: "move_task", task: "Study group"}; });
+  a = await chat("move the study group 2 hours earlier");
+  ok(await p.evaluate(() => window.__sbSync.state.events.evx.start === "16:00"), "\"2 hours earlier\" moves 6 pm to 4 pm, not 2 o'clock: " + a);
+  // a follow-up right after a move: "actually one more day" is a day after the new date (E2B: chat, nothing moved)
+  { const x5 = new Date(Date.now() + 5 * 864e5), txt = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"][x5.getMonth()] + " " + x5.getDate();
+    a = await chat("move the study group to " + txt);
+    const d1 = await p.evaluate(() => window.__sbSync.state.events.evx.date);
+    a = await chat("actually one more day");
+    const d2 = await p.evaluate(() => window.__sbSync.state.events.evx.date), want = new Date(x5.getTime() + 864e5);
+    ok(new Date(d1 + "T12:00:00").getDate() === x5.getDate() && new Date(d2 + "T12:00:00").toDateString() === new Date(want.toDateString()).toDateString(), "\"actually one more day\" after a move pushes it one more day: " + d1 + " " + d2 + " " + a); }
+  // a task named by when it's due, and the day it moves to (not the day that names it)
+  await fresh(); await resetT();
+  // (only Care Plan 2 due tomorrow, whatever day the test runs: tasks added earlier, "a bio worksheet due friday", move out of the way)
+  await p.evaluate(() => { const S = window.__sbSync, t8 = S.state.tasks.t8; Object.values(S.state.tasks).filter(t => t.id !== "t8" && t.due === t8.due).forEach(t => { const n = S.clone(t); n.due = "2031-01-01"; S.applyChanges([{kind: "task", id: t.id, after: n}], "x"); }); });
+  await p.evaluate(() => { window.__stubIntent = {intent: "mark_done", task: "the thing due tomorrow"}; });
+  a = await chat("the thing due tomorrow is done");
+  ok(await p.evaluate(() => window.__sbSync.state.tasks.t8.status === "done"), "\"the thing due tomorrow is done\" marks the one task due tomorrow: " + a);
+  await resetT();
+  { const want = await p.evaluate(() => { const t = window.__sbSync.state.tasks.t9, x = new Date(t.due + "T12:00:00"); return t.due; });
+    await p.evaluate(() => { window.__stubIntent = {intent: "move_task", task: "Read Chapter 7"}; });
+    a = await chat("read chapter 7 on " + ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date(want + "T12:00:00").getDay()] + " is now friday");
+    ok(await p.evaluate(() => new Date(window.__sbSync.state.tasks.t9.due + "T12:00:00").getDay() === 5), "\"X on <day> is now friday\" moves it to friday: " + a); }
+  // "add an a&p worksheet": the title keeps its first word
+  await fresh();
+  a = await chat("add an a&p worksheet due wednesday");
+  ok(await p.evaluate(() => Object.values(window.__sbSync.state.tasks).some(t => /^a&p worksheet$/i.test(t.title))), "\"add an a&p worksheet\" is titled A&P worksheet: " + a);
+  await p.evaluate(() => { window.__stubIntent = null; });
   // flashcards counted and found from the decks, how-to never makes a deck, a file that isn't here is said
   await fresh();
   await p.evaluate(() => { window.__stubIntent = {intent: "question"}; });

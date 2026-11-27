@@ -632,7 +632,7 @@ window.__sbPlanObj = () => PLAN;
   const directCheckout = period => checkoutCall({plan: period, src: "app"});
   // Tests run the real call with their own server (window.__SB_TEST only)
   if (window.__SB_TEST) window.__sbCheckoutCall = (what, client, user) => checkoutCall(what, client, user);
-  // what: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  // what: {plan} for a subscription, or {pack} for Studyboard Bucks (the server's credit packs). The server decides every price.
   async function checkoutCall(what, client, user){
     const c = client || sb, u = client ? user : sbUser;
     if (!c || !u || u.is_anonymous) return null;

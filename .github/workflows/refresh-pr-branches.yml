@@ -1,0 +1,46 @@
+# Keeps open pull requests mergeable. Every branch rebuilds bundle/ and re-stamps index.html, so when one pull request merges,
+# the others conflict on those generated lines. Whenever main changes, this merges main into each open pull request's branch
+# and rebuilds the generated files from the merged sources (scripts/refresh-pr-branches.sh). A real conflict in a source file
+# is left alone and shows in this run's summary.
+# Pushes made here use the workflow's own token, and GitHub doesn't start other workflows from those, so a refreshed pull
+# request's tests rerun on its next push (or from the Actions tab).
+name: Refresh pull request branches
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:       # run it by hand from the Actions tab
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: refresh-pr-branches
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Refresh every open pull request into main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          # branches in this repository with an open pull request into main (forks can't be pushed to)
+          mapfile -t branches < <(gh pr list --base main --state open --limit 100 --json headRefName,isCrossRepository \
+            --jq '.[] | select(.isCrossRepository | not) | .headRefName')
+          if [ ${#branches[@]} -eq 0 ]; then echo "No open pull requests."; exit 0; fi
+          bash scripts/refresh-pr-branches.sh "${branches[@]}" | tee refresh.log
+          code=${PIPESTATUS[0]}
+          { echo "### Pull request branches"; grep -E '^(Updated|Skipped):' refresh.log; } >> "$GITHUB_STEP_SUMMARY"
+          exit $code

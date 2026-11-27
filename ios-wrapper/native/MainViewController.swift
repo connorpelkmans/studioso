@@ -13,13 +13,16 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
 
     override func capacitorDidLoad() {
         // Studyboard's own plugins, each only if its file is in the project (so this file builds whatever you've added)
-        for name in ["StudyboardFocusActivityPlugin", "StudyboardHomeWidgetsPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin", "StudyboardHapticsPlugin", "StudyboardOnDeviceAIPlugin"] {
+        for name in ["StudyboardFocusActivityPlugin", "StudyboardHomeWidgetsPlugin", "StudyboardCaptureTokenPlugin", "StudyboardSharedQueuePlugin", "StudyboardSiriDataPlugin", "StudyboardLmsPlugin", "StudyboardSignInPlugin", "StudyboardStorePlugin", "StudyboardHapticsPlugin", "StudyboardOnDeviceAIPlugin", "StudyboardFocusGuardPlugin", "StudyboardNotifActionsPlugin"] {
             // (ios:stage also lists them for Capacitor, which then connects them itself; never twice)
             if let type = NSClassFromString(name) as? CAPPlugin.Type, let plugin = (type as NSObject.Type).init() as? CAPPlugin,
                bridge?.plugin(withName: (plugin as? CAPBridgedPlugin)?.jsName ?? "") == nil {
                 bridge?.registerPluginInstance(plugin)
             }
         }
+        // Mark Done / Snooze 1 Hour on reminders (Notifications/StudyboardNotifActions.swift, when it's in the project): put back in
+        // front of Capacitor's own notification handling, which was set up just now
+        Self.installNotifActions()
         guard let webView = bridge?.webView else { return }
         let scroll = webView.scrollView
         // The page can't be pulled past its top or bottom (it handles the notch and home bar itself, contentInset "never")
@@ -54,6 +57,14 @@ class MainViewController: CAPBridgeViewController, WKScriptMessageHandler {
         view.backgroundColor = colour
         bridge?.webView?.backgroundColor = .clear
         bridge?.webView?.scrollView.backgroundColor = colour
+    }
+
+    // by name, so this file builds without Notifications/StudyboardNotifActions.swift
+    static func installNotifActions() {
+        if let cls: AnyObject = NSClassFromString("StudyboardNotifActionsPlugin") {
+            let sel = NSSelectorFromString("installDelegate")
+            if cls.responds(to: sel) { _ = cls.perform(sel) }
+        }
     }
 
     private static func colour(_ hex: String) -> UIColor? {
@@ -283,7 +294,14 @@ enum StudyboardBackgroundRefresh {
     private static var registered = false
 
     static func register() {
+        // School sites in the background (SchoolSafari/StudyboardSchoolBackground.swift), by name so the app builds without it
+        if let school = NSClassFromString("StudyboardSchoolBackground") as? NSObject.Type, school.responds(to: NSSelectorFromString("register")) {
+            _ = school.perform(NSSelectorFromString("register"))
+        }
         guard !registered else { return }
+        // a reminder's Mark Done or Snooze can start the app in the background: its handler has to be there before launch ends
+        // (after the guard, so a line another change adds above it merges without a conflict; register() runs once at launch)
+        MainViewController.installNotifActions()
         registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
             guard let task = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
             handle(task)
