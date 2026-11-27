@@ -227,6 +227,8 @@ var SBPRO = null;
     const up = climbs.filter(x => x.t.cur - x.t.first >= 2).sort((a, b) => (b.t.cur - b.t.first) - (a.t.cur - a.t.first))[0];
     if (up) out.push({k: "Biggest Climb", big: courseLabel(up.c), line: `From ${Math.round(up.t.first)}% to ${Math.round(up.t.cur)}%${up.t.letter ? ` (${up.t.letter})` : ""}. That came from the work you put in.`});
     else { const best = climbs.sort((a, b) => b.t.cur - a.t.cur)[0]; if (best) out.push({k: "Top Course", big: courseLabel(best.c), line: `Finishing at ${Math.round(best.t.cur)}%${best.t.letter ? ` (${best.t.letter})` : ""}.`}); }
+    // the term in grades: GPA against last term, the best mark, and the study pattern that went with better marks (90-grade-habits.js)
+    try { if (window.SBGINS && SBGINS.recapSlides) out.push(...SBGINS.recapSlides(T)); } catch (e) { console.warn("recap: grades", e); }
     return out;
   }
   const seenRecap = () => Array.isArray(S().recapSeen) ? S().recapSeen : [];

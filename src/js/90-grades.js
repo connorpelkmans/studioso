@@ -1334,6 +1334,8 @@
     const soon = todayISO(), cut = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
     let big = null; live.forEach(gr => gr.open.forEach(t => { const w = wOf(t); if (w > 0 && t.status !== "done" && (!t.due || (t.due >= soon && t.due <= cut)) && (!big || w > big.w)) big = {w, t, gr}; }));
     if (big) J.push(`The biggest item coming up: ${big.t.title} in ${courseLabel(big.gr.c)}, worth ${fmtW(big.w)}${big.t.due ? ", due " + big.t.due : ""}.`);
+    // points lost, letter cutoffs, forecasts and study patterns (90-grade-insights.js)
+    try { if (window.SBGINS && SBGINS.judgments) J.push(...SBGINS.judgments(all, S)); } catch (e) { console.warn("grade insights: judgments", e); }
     return J;
   }
   const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
@@ -2370,6 +2372,9 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // The rest of the grade math, for the insights modules (90-grade-insights.js and the ones after it)
+  Object.assign(window.SBGRADES.math, {grades, wOf, GRULES, holdOf, gset, saveG, termStats, typePl, fmtW, fmtN, fmtG, fmtCr, gpaMax, isFinal, excused, closed,
+    inDanger, zeroed, nowOf, finalOf, terms, gradeLine, markSheet, r1});
   // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
   window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,

@@ -51,6 +51,8 @@ window.SBLOCALANS = (() => {
     } catch (e) {}
     const view = document.getElementById("view");
     let text = ""; try { text = view ? view.innerText : ""; } catch (e) {}
+    // a course's Grades tab keeps Breakdown, Outlook and What If in tabs: what's in the hidden ones is on the page too
+    try { if (view) view.querySelectorAll(".gi-pan[hidden]").forEach(p => { const t = (p.textContent || "").replace(/\s+/g, " ").trim(); if (t) text += "\n" + t; }); } catch (e) {}
     let sheet = "";
     try { if (dlg && dlg.open) { const h = dlg.querySelector("h2"); sheet = `${h ? h.textContent.trim() + ": " : ""}${clip(dlg.innerText, 2500)}`; } } catch (e) {}
     return {tab, name: NAMES[tab] || tab, detail: bits.join("; "), text: clip(text, 5000), sheet, at: Date.now()};
@@ -360,7 +362,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         case "grade": {
           // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
           const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
-          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; ui.grTab = "marks"; render(); await frame(); await wait(60);
           const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
           if (!flash(row && (row.closest("li") || row))) taskView(k);
           return true;

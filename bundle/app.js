@@ -47239,6 +47239,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const soon = todayISO(), cut = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
     let big = null; live.forEach(gr => gr.open.forEach(t => { const w = wOf(t); if (w > 0 && t.status !== "done" && (!t.due || (t.due >= soon && t.due <= cut)) && (!big || w > big.w)) big = {w, t, gr}; }));
     if (big) J.push(`The biggest item coming up: ${big.t.title} in ${courseLabel(big.gr.c)}, worth ${fmtW(big.w)}${big.t.due ? ", due " + big.t.due : ""}.`);
+    // points lost, letter cutoffs, forecasts and study patterns (90-grade-insights.js)
+    try { if (window.SBGINS && SBGINS.judgments) J.push(...SBGINS.judgments(all, S)); } catch (e) { console.warn("grade insights: judgments", e); }
     return J;
   }
   const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
@@ -48275,6 +48277,9 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // The rest of the grade math, for the insights modules (90-grade-insights.js and the ones after it)
+  Object.assign(window.SBGRADES.math, {grades, wOf, GRULES, holdOf, gset, saveG, termStats, typePl, fmtW, fmtN, fmtG, fmtCr, gpaMax, isFinal, excused, closed,
+    inDanger, zeroed, nowOf, finalOf, terms, gradeLine, markSheet, r1});
   // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
   window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
@@ -48415,6 +48420,1017 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
   window.SBTREND = {GTREND, dataFor, sumText};
 })();
 
+/* ===== module: 90-grade-insights.js ===== */
+/* Deeper grade analysis (GRADE-ANALYSIS-PLAN.md). This module holds the math for every phase (GINS, which uses no app state, so
+   tests can load it alone) and Phase 1: Where Your Points Went, the moment a mark is saved, letter cutoffs close by, and how you
+   compare with the class. 90-grade-forecast.js (forecast, Target GPA, best next hour) and 90-grade-habits.js (patterns, timeline,
+   weekly summary, term recap) build on it. Everything is worked out on the device from marks, weights, dates and focus time. */
+(() => {
+  /*GINS-START*/
+  const GINS = (() => {
+    const isN = v => v != null && v !== "" && isFinite(Number(v));
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+    const sdev = a => { if (a.length < 2) return null; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+
+    /* 1. Where the points went. items: [{id, title, cat, w (the share of the course it counts for, %), pct (its mark, %),
+       pen (the late penalty, in percent of the item), missed (couldn't be handed in: counts as 0), dropped (a drop rule took it out)}]
+       Points are course points: 10% of the course marked at 70% loses 3 of them. */
+    function lost(items){
+      let total = 0, late = 0, missed = 0, marked = 0, earned = 0, dropped = 0;
+      const byCat = {}, rows = [];
+      (items || []).forEach(it => {
+        if (!it || !(Number(it.w) > 0)) return;
+        if (it.dropped) { dropped++; return; }
+        const w = Number(it.w), p = it.missed ? 0 : clamp(Number(it.pct) || 0, 0, 100), pts = w * (100 - p) / 100;
+        marked += w; earned += w * p / 100;
+        if (pts <= 1e-9) return;
+        const lp = !it.missed && Number(it.pen) > 0 ? Math.min(pts, w * Number(it.pen) / 100) : 0;
+        total += pts; late += lp;
+        if (it.missed) missed += pts; else byCat[it.cat || "Other"] = (byCat[it.cat || "Other"] || 0) + pts - lp;
+        rows.push({id: it.id, title: it.title || "", cat: it.cat || "Other", pts, late: lp, missed: !!it.missed});
+      });
+      const slices = Object.entries(byCat).filter(x => x[1] > 1e-9).map(([cat, pts]) => ({key: cat, kind: "cat", pts}))
+        .concat(missed > 1e-9 ? [{key: "missed", kind: "missed", pts: missed}] : [], late > 1e-9 ? [{key: "late", kind: "late", pts: late}] : [])
+        .sort((a, b) => b.pts - a.pts);
+      return {total, late, missed, marked, earned, dropped, slices, items: rows.sort((a, b) => b.pts - a.pts)};
+    }
+
+    /* 2. The letter a grade is in, how far above its line, and how far to the next one up. scale: [[letter, lowest %]] */
+    function boundary(p, scale){
+      if (!isN(p) || !Array.isArray(scale)) return null;
+      const sc = scale.map(x => [String(x[0]), Number(x[1])]).filter(x => isFinite(x[1])).sort((a, b) => b[1] - a[1]);
+      const i = sc.findIndex(x => Number(p) >= x[1] - 1e-9); if (i < 0) return null;
+      const up = i > 0 ? sc[i - 1] : null, dn = i + 1 < sc.length ? sc[i + 1] : null;
+      return {letter: sc[i][0], floor: sc[i][1], above: Number(p) - sc[i][1], up: up ? {letter: up[0], th: up[1], gap: up[1] - Number(p)} : null, down: dn && sc[i][1] > 0 ? {letter: dn[0]} : null};
+    }
+    // Within `near` points of the next letter up, or of falling to the one below
+    function edge(p, scale, near){
+      const b = boundary(p, scale), n = near == null ? 1 : near; if (!b) return null;
+      if (b.up && b.up.gap > 1e-9 && b.up.gap <= n) return {dir: "up", letter: b.up.letter, gap: b.up.gap, now: b.letter};
+      if (b.down && b.above <= n) return {dir: "down", letter: b.letter, gap: b.above, below: b.down.letter, now: b.letter};
+      return null;
+    }
+
+    /* 8. The class's results on one item, in percent: low, quartiles, median, high, mean, and where your mark sits */
+    function spread(cls, of, mine){
+      if (!cls || !(Number(of) > 0)) return null;
+      const f = v => isN(v) ? Number(v) / Number(of) * 100 : null;
+      const o = {lo: f(cls.lo), lq: f(cls.lq), med: f(cls.median), uq: f(cls.uq), hi: f(cls.hi), mean: f(cls.mean), mine: isN(mine) ? Number(mine) : null};
+      if (o.med == null && o.mean == null) return null;
+      o.mid = o.med != null ? o.med : o.mean;
+      o.vs = o.mine != null ? o.mine - o.mid : null;
+      o.band = o.mine == null ? null : o.uq != null && o.mine >= o.uq - 1e-9 ? "top" : o.lq != null && o.mine < o.lq - 1e-9 ? "low" : o.mine >= o.mid - 1e-9 ? "upper" : "lower";
+      return o;
+    }
+
+    /* Random numbers that repeat for the same seed, so a forecast doesn't flicker between redraws */
+    function rng(seed){
+      let a = (Number(seed) >>> 0) || 1;
+      const next = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      let spare = null;
+      next.normal = () => { if (spare != null) { const s = spare; spare = null; return s; } let u = 0, v = 0; while (u === 0) u = next(); v = next(); const r = Math.sqrt(-2 * Math.log(u)); spare = r * Math.sin(2 * Math.PI * v); return r * Math.cos(2 * Math.PI * v); };
+      return next;
+    }
+    const seedOf = s => { let h = 2166136261; String(s || "").split("").forEach(ch => { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }); return h >>> 0; };
+
+    /* 3. Forecast. GR: the grade rules (GRULES: finalWith does drops and bonus the same way the grade does). items: GRULES items
+       [{id, w, cat, fin, pct (null when unmarked), z (counts as 0)}], R: rules, D: what the course is out of.
+       Each unmarked item is drawn around your average on that type of work (pulled toward your overall average while there are
+       few marks), with a spread from how much your marks vary (never under 6 points, 8 for exams), plus a shared "form" for the
+       whole run (a good or bad stretch moves everything a little). Needs 3 marks; returns null otherwise or when nothing is left. */
+    function catStats(items){
+      const marked = items.filter(it => it.pct != null && isFinite(it.pct)), all = marked.map(it => Number(it.pct));
+      if (marked.length < 3) return null;
+      const mAll = mean(all), sAll = Math.max(sdev(all) || 0, 6), K = 2, by = {};
+      marked.forEach(it => { (by[it.cat || ""] = by[it.cat || ""] || []).push(Number(it.pct)); });
+      const of = cat => {
+        const a = by[cat || ""] || [], n = a.length, m = (n * (n ? mean(a) : 0) + K * mAll) / (n + K), s0 = n >= 2 ? sdev(a) : sAll;
+        return {m, s: Math.max(Math.sqrt((n * s0 * s0 + K * sAll * sAll) / (n + K)), cat === "Exam" ? 8 : 6), n};
+      };
+      return {mAll, sAll, of, n: marked.length};
+    }
+    function forecast(GR, items, R, D, o){
+      o = o || {};
+      const S = catStats(items || []); if (!S) return null;
+      const open = items.filter(it => it.pct == null && !it.z && Number(it.w) > 0); if (!open.length) return null;
+      const st = new Map(open.map(it => [it, S.of(it.cat)])), rnd = rng(o.seed || 1), runs = Math.max(50, o.runs || 2000), form = o.form != null ? o.form : 4;
+      const out = new Float64Array(runs), add = Number(o.add) || 0, fix = o.fix || {};
+      for (let r = 0; r < runs; r++) {
+        const f = rnd.normal() * form;
+        const copy = items.map(it => {
+          if (it.pct != null || it.z || !(Number(it.w) > 0)) return it;
+          if (isN(fix[it.id])) return Object.assign({}, it, {pct: Number(fix[it.id])});
+          const s = st.get(it);
+          return Object.assign({}, it, {pct: clamp(s.m + f + rnd.normal() * s.s, 0, 100)});
+        });
+        out[r] = GR.finalWith(copy, R, D, 0) + add;
+      }
+      const v = Array.from(out).sort((a, b) => a - b), q = p => v[Math.min(v.length - 1, Math.max(0, Math.round(p * (v.length - 1))))];
+      const at = th => v.filter(x => x >= th - 1e-9).length / v.length;
+      let buckets = null, top = null;
+      if (Array.isArray(o.scale) && o.scale.length) {
+        const sc = o.scale.map(x => [String(x[0]), Number(x[1])]).sort((a, b) => b[1] - a[1]);
+        buckets = sc.map((x, i) => { const hi = i ? sc[i - 1][1] : Infinity; return {letter: x[0], th: x[1], p: v.filter(y => y >= x[1] - 1e-9 && y < hi - 1e-9).length / v.length}; });
+        top = buckets.slice().sort((a, b) => b.p - a.p)[0];
+      }
+      // samples: the runs in the order they were drawn, so a term GPA can combine courses run by run
+      return {runs, p10: q(0.1), p25: q(0.25), p50: q(0.5), p75: q(0.75), p90: q(0.9), mean: mean(v), at, buckets, top, cat: S.of, samples: out};
+    }
+
+    /* 4. Target GPA. courses: [{id, cr (credits), rem (share of the course still to come, %), base (your average so far),
+       opts: [{letter, pts (GPA points), need (the average needed on what's left: 0 or less is secured, over 100 out of reach,
+       null when the course is finished and this is its letter)}]}]. Picks one letter per course so the credit-weighted GPA reaches
+       `target`, asking as little as possible beyond what you're already doing: cost grows with the square of how far a needed
+       average is above your average so far. locks: {courseId: letter}. */
+    function gpaPlan(courses, target, locks){
+      locks = locks || {};
+      const C = [], fixed = [];
+      for (const c of courses || []) {
+        if (!(Number(c.cr) > 0) || !Array.isArray(c.opts) || !c.opts.length) continue;
+        let opts = c.opts.filter(x => isN(x.pts) && (x.need == null || x.need <= 100 + 1e-9));
+        const sec = opts.filter(x => x.need != null && x.need <= 1e-9).sort((a, b) => b.pts - a.pts)[0], fin = opts.filter(x => x.need == null);
+        if (fin.length) opts = [fin.sort((a, b) => b.pts - a.pts)[0]];
+        else if (sec) opts = opts.filter(x => x.pts >= sec.pts - 1e-9 && (x.need > 1e-9 || x === sec));
+        if (locks[c.id]) { const L = opts.filter(x => x.letter === locks[c.id]); if (!L.length) return {ok: false, why: "lock", id: c.id}; opts = L; }
+        if (!opts.length) continue;
+        const base = isN(c.base) ? Number(c.base) : 75, rem = clamp(Number(c.rem) || 0, 0, 100);
+        const cost = x => x.need == null || x.need <= 0 ? 0 : Number(c.cr) * rem / 100 * Math.pow(Math.max(0, x.need - base) / 10, 2) + Number(c.cr) * rem / 100 * x.need / 1e4;
+        const best = new Map(); opts.forEach(x => { const k = x.pts; if (!best.has(k) || cost(x) < cost(best.get(k))) best.set(k, x); });
+        const o2 = [...best.values()].map(x => Object.assign({}, x, {cost: cost(x)})).sort((a, b) => a.pts - b.pts);
+        (o2.length === 1 ? fixed : C).push({id: c.id, cr: Number(c.cr), opts: o2});
+      }
+      const all = C.concat(fixed), tot = all.reduce((s, c) => s + c.cr, 0);
+      if (!tot) return {ok: false, why: "none"};
+      const maxG = all.reduce((s, c) => s + c.cr * c.opts[c.opts.length - 1].pts, 0) / tot, minG = all.reduce((s, c) => s + c.cr * c.opts[0].pts, 0) / tot;
+      const fixPts = fixed.reduce((s, c) => s + c.cr * c.opts[0].pts, 0);
+      if (maxG < target - 1e-9) return {ok: false, why: "reach", max: maxG, min: minG};
+      C.sort((a, b) => b.cr - a.cr);
+      const restMax = new Array(C.length + 1).fill(0);
+      for (let i = C.length - 1; i >= 0; i--) restMax[i] = restMax[i + 1] + C[i].cr * C[i].opts[C[i].opts.length - 1].pts;
+      const need = target * tot - 1e-9;
+      let best = null, bestCost = Infinity, steps = 0;
+      const pick = new Array(C.length);
+      (function go(i, pts, cost){
+        if (++steps > 400000 || cost >= bestCost - 1e-12) return;
+        if (pts + fixPts + restMax[i] < need) return;
+        if (i === C.length) { bestCost = cost; best = pick.slice(); return; }
+        for (const x of C[i].opts) { pick[i] = x; go(i + 1, pts + C[i].cr * x.pts, cost + x.cost); }
+      })(0, 0, 0);
+      if (!best) return {ok: false, why: "reach", max: maxG, min: minG};
+      const picks = C.map((c, i) => Object.assign({id: c.id, cr: c.cr}, best[i])).concat(fixed.map(c => Object.assign({id: c.id, cr: c.cr, fixed: true}, c.opts[0])));
+      return {ok: true, gpa: picks.reduce((s, p) => s + p.cr * p.pts, 0) / tot, cost: bestCost, picks, max: maxG, min: minG};
+    }
+    // The GPA a set of future terms needs for a cumulative target: null when there are no future credits
+    function cumNeed(o){
+      const {pastPts = 0, pastCr = 0, termGpa = 0, termCr = 0, target, futureCr} = o || {};
+      if (!(Number(futureCr) > 0) || !isN(target)) return null;
+      return (target * (pastCr + termCr + futureCr) - pastPts - termGpa * termCr) / futureCr;
+    }
+
+    /* 7. Best use of the next hour. items: [{id, w (share of the course, %), hours (left), m (what you usually get on this type),
+       gapUp (points to the course's next letter, when close)}]. lift: how much better than usual focused work could do on it,
+       half the room left under 97, between 2 and 25 points. gain: what that is in course points. Ranked by gain per hour;
+       cross: the gain would reach the course's next letter. */
+    function roi(items){
+      return (items || []).filter(it => Number(it.w) > 0).map(it => {
+        const m = isN(it.m) ? Number(it.m) : 75, lift = clamp((97 - m) * 0.5, 2, 25), gain = Number(it.w) * lift / 100, h = Math.max(0.25, Number(it.hours) || 1);
+        const cross = isN(it.gapUp) && Number(it.gapUp) > 0 && Number(it.gapUp) <= gain;
+        return Object.assign({}, it, {lift, gain, h, perHour: gain / h, cross});
+      }).sort((a, b) => b.perHour - a.perHour || (b.cross ? 1 : 0) - (a.cross ? 1 : 0));
+    }
+
+    /* 5. Habits and results. marks: [{pct, type, lead (days between first working on it and its due date), min (minutes worked),
+       late (handed in late: true/false/null), penPts (course points lost to its late penalty), ready (practice score before an
+       exam), night (worked mostly 10pm-4am: true/false/null)}]. Each finding needs 4 or more marks on each side and a 5-point gap;
+       they come out strongest first. Correlations only: the wording elsewhere says "tended to". */
+    const MIN_N = 4, MIN_GAP = 5;
+    function habits(marks){
+      const out = [], pctOf = a => mean(a.map(x => Number(x.pct)));
+      const cmp = (key, a, b, extra) => {
+        if (a.length < MIN_N || b.length < MIN_N) return;
+        const ma = pctOf(a), mb = pctOf(b), gap = ma - mb;
+        if (Math.abs(gap) < MIN_GAP) return;
+        out.push(Object.assign({key, a: ma, b: mb, na: a.length, nb: b.length, gap, w: Math.abs(gap) * Math.sqrt(Math.min(a.length, b.length))}, extra || {}));
+      };
+      const M = (marks || []).filter(x => x && isN(x.pct));
+      const L = M.filter(x => isN(x.lead));
+      cmp("lead", L.filter(x => x.lead >= 3), L.filter(x => x.lead <= 1));
+      const byType = {};
+      M.filter(x => Number(x.min) > 0).forEach(x => { (byType[x.type || "Other"] = byType[x.type || "Other"] || []).push(x); });
+      Object.entries(byType).forEach(([type, a]) => {
+        if (a.length < MIN_N * 2) return;
+        const s = a.slice().sort((x, y) => x.min - y.min), h = Math.floor(s.length / 2), cut = s[h].min;
+        cmp("time", s.slice(h), s.slice(0, h), {type, cut});
+      });
+      const late = M.filter(x => x.late === true), on = M.filter(x => x.late === false);
+      const cost = late.reduce((s, x) => s + (Number(x.penPts) || 0), 0);
+      if (late.length >= 2 && cost > 0.05) out.push({key: "late", n: late.length, cost, w: 3 + cost * 2});
+      cmp("lateMark", on, late);
+      const rd = M.filter(x => isN(x.ready));
+      if (rd.length >= 3) {
+        const bias = mean(rd.map(x => Number(x.ready) - Number(x.pct))), err = mean(rd.map(x => Math.abs(Number(x.ready) - Number(x.pct))));
+        if (err <= 8 || Math.abs(bias) >= 8) out.push({key: "ready", n: rd.length, bias, err, w: err <= 8 ? 4 : Math.abs(bias) / 2});
+      }
+      const nt = M.filter(x => x.night === true || x.night === false);
+      cmp("night", nt.filter(x => !x.night), nt.filter(x => x.night));
+      return out.sort((a, b) => b.w - a.w);
+    }
+
+    /* 6. Term timeline. Week ends (Sundays) from `start` to `end` ("YYYY-MM-DD"), with `end` itself last. */
+    const dUTC = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN; };
+    const isoUTC = ms => new Date(ms).toISOString().slice(0, 10);
+    function weeks(start, end){
+      const a = dUTC(start), b = dUTC(end); if (!isFinite(a) || !isFinite(b) || b < a) return [];
+      const out = []; let d = a + ((7 - new Date(a).getUTCDay()) % 7) * 864e5;
+      for (let k = 0; d < b && k < 60; k++, d += 7 * 864e5) out.push(isoUTC(d));
+      out.push(isoUTC(b));
+      return out;
+    }
+    // points: [{key: week end, v}] -> the change over the last week, and the biggest single-week move
+    function moves(pts){
+      const v = (pts || []).filter(p => isN(p.v));
+      if (v.length < 2) return {last: null, big: null};
+      let big = null;
+      for (let i = 1; i < v.length; i++) { const d = v[i].v - v[i - 1].v; if (!big || Math.abs(d) > Math.abs(big.d)) big = {key: v[i].key, d}; }
+      return {last: v[v.length - 1].v - v[v.length - 2].v, big};
+    }
+
+    return {lost, boundary, edge, spread, rng, seedOf, catStats, forecast, gpaPlan, cumNeed, roi, habits, weeks, moves, mean, sdev, MIN_N, MIN_GAP};
+  })();
+  /*GINS-END*/
+
+  const M = () => window.SBGRADES && window.SBGRADES.math;
+  const r1 = v => Math.round(v * 10) / 10;
+  const pts = v => tr("gi.pts", "{n} pts", {n: SBI18N.fmtN(r1(v))});
+  const catName = (k, m) => k === "late" ? tr("gi.lost.late", "Late penalties") : k === "missed" ? tr("gi.lost.missed", "Missed work") : m.typePl(k);
+  // The share of the course a mark counts for, as the grade counts it (a drop rule's kept marks carry the dropped ones' weight)
+  const shareOf = (gr, t) => { const m = M(), ew = gr.ew || {}; return (isNum(ew[t.id]) ? ew[t.id] : m.wOf(t)) / gr.D * 100; };
+  const penPct = t => { const k = t.mark; return k && isNum(k.before) && Number(k.outOf) > 0 && Number(k.before) > Number(k.got) ? (Number(k.before) - Number(k.got)) / Number(k.outOf) * 100 : 0; };
+
+  /* 1. Where Your Points Went */
+  function lostOf(gr){
+    const m = M();
+    const its = gr.marked.map(t => ({id: t.id, title: t.title, cat: t.type || "Other", w: shareOf(gr, t), pct: gr.pm.get(t.id), pen: penPct(t), dropped: gr.dropped.has(t.id)}))
+      .concat((gr.missed || []).map(t => ({id: t.id, title: t.title, cat: t.type || "Other", w: m.wOf(t) / gr.D * 100, pct: 0, missed: true})));
+    return GINS.lost(its);
+  }
+  const SLICE_C = ["var(--accent)", "color-mix(in srgb,var(--accent) 62%,var(--ink))", "color-mix(in srgb,var(--accent) 45%,var(--surface))", "color-mix(in srgb,var(--accent) 30%,var(--ink))", "color-mix(in srgb,var(--accent) 25%,var(--surface))"];
+  const sliceColor = (s, i) => s.kind === "late" ? "var(--warn,#c98a12)" : s.kind === "missed" ? "var(--late)" : SLICE_C[i % SLICE_C.length];
+  function lostHtml(gr){
+    if (gr.unw || gr.current == null) return "";
+    const L = lostOf(gr), m = M(); if (L.total < 0.05) return "";
+    const cs = L.slices.filter(s => s.kind === "cat");
+    const sl = L.slices.map(s => Object.assign({}, s, {c: sliceColor(s, cs.indexOf(s))}));
+    const name = s => catName(s.key, m);
+    const sum = tr("gi.lost.sum", "You've lost {lost} of {course} so far, out of the {marked} marked.", {lost: pts(L.total), course: courseLabel(gr.c), marked: m.fmtW(L.marked)});
+    const bar = `<div class="gi-lost-bar" role="img" aria-label="${esc(sum + " " + sl.map(s => name(s) + " " + pts(s.pts)).join(", "))}">${sl.map(s => `<i style="flex:${s.pts.toFixed(3)} 1 0;background:${s.c}" title="${esc(name(s) + ": " + pts(s.pts))}"></i>`).join("")}</div>`;
+    const legend = `<ul class="gi-lost-leg">${sl.map(s => `<li><i style="background:${s.c}" aria-hidden="true"></i><span>${esc(name(s))}</span><b>${esc(pts(s.pts))}</b></li>`).join("")}</ul>`;
+    const top = L.items.filter(x => x.pts >= 0.3).slice(0, 3);
+    const lines = [];
+    if (top.length) lines.push(esc(tr("gi.lost.top", "Most lost on: {list}.", {list: top.map(x => tr("gi.lost.item", "{title} ({n}{why})", {title: x.title, n: pts(x.pts), why: x.missed ? ", " + tr("gi.lost.missedw", "missed") : x.late > 0.05 ? ", " + tr("gi.lost.latew", "{n} of it late", {n: pts(x.late)}) : ""})).join(", ")})));
+    if (L.late > 0.05) lines.push(esc(tr("gi.lost.lateLine", "Late penalties cost you {n}. Handing in on time is the cheapest fix there is.", {n: pts(L.late)})));
+    if (L.dropped) lines.push(esc(trn("gi.lost.drop", L.dropped, "{n} dropped mark isn't counted here, as your drop rule leaves it out.|{n} dropped marks aren't counted here, as your drop rule leaves them out.")));
+    return `<div class="gr-sub gi-lost"><h4>${esc(tr("gi.lost.title", "Where Your Points Went"))}</h4><p class="gi-lost-sum">${esc(sum)}</p>${bar}${legend}${lines.length ? `<ul class="gb-lines">${lines.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+  // Late penalties across every course this term, for the Grades page
+  function lateTotal(all){
+    let n = 0, p = 0;
+    all.forEach(gr => gr.marked.forEach(t => { const pp = penPct(t); if (pp > 0 && !gr.dropped.has(t.id)) { n++; p += shareOf(gr, t) * pp / 100; } }));
+    return {n, pts: p};
+  }
+
+  /* 2. Letter cutoffs close by */
+  function edgeOf(gr){
+    if (gr.current == null || gr.g.pf || gr.unw || gr.final) return null;
+    return GINS.edge(gr.current, gr.g.scale, 1);
+  }
+  const edgeText = e => e.dir === "up" ? tr("gi.edge.up", "{n} from {letter}", {n: pts(e.gap), letter: e.letter}) : tr("gi.edge.down", "{n} above the {letter} line", {n: pts(e.gap), letter: e.letter});
+  const edgeLong = (gr, e) => e.dir === "up"
+    ? tr("gi.edge.upL", "You're {n} from {letter}. A strong mark on your next graded item could tip it over.", {n: pts(e.gap), letter: e.letter})
+    : tr("gi.edge.downL", "You're {n} above the {letter} line, so a weak mark could drop you to {below}.", {n: pts(e.gap), letter: e.letter, below: e.below});
+
+  /* 8. How you compare with the class (opt-in, Grade Options) */
+  const LMS_KEYS = ["bs", "cv", "bb", "md", "sg", "gc"];
+  function spreadOf(t){
+    const m = M(), L = LMS_KEYS.map(f => t && t[f]).find(Boolean), fb = L && L.fb, p = m.markPct(t);
+    return fb && fb.cls ? GINS.spread(fb.cls, fb.of, p) : null;
+  }
+  // The class's spread on one item: a light track (0 to 100%), the full range, the middle half as a soft pill, the median as a thin
+  // tick, and your mark as a ringed dot. Drawn in HTML so it stays crisp at any width.
+  function stripSvg(s){
+    const p = v => Math.max(0, Math.min(100, v)).toFixed(2) + "%", w = (a, b) => Math.max(0.5, Math.min(100, b) - Math.max(0, a)).toFixed(2) + "%";
+    const parts = [];
+    if (s.lo != null && s.hi != null) parts.push(`<i class="gi-st-rng" style="left:${p(s.lo)};width:${w(s.lo, s.hi)}"></i>`);
+    if (s.lq != null && s.uq != null) parts.push(`<i class="gi-st-box" style="left:${p(s.lq)};width:${w(s.lq, s.uq)}"></i>`);
+    parts.push(`<i class="gi-st-mid" style="left:${p(s.mid)}"></i>`);
+    if (s.mine != null) parts.push(`<i class="gi-st-me gi-st-${esc(s.band || "upper")}" style="left:${p(s.mine)}"></i>`);
+    return `<span class="gi-st" aria-hidden="true"><span class="gi-st-in">${parts.join("")}</span></span>`;
+  }
+  function compareHtml(gr){
+    const m = M(); if (!m.gset().cls) return "";
+    const rows = gr.marked.map(t => ({t, s: spreadOf(t)})).filter(x => x.s && x.s.mine != null);
+    if (!rows.length) return "";
+    const above = rows.filter(x => x.s.vs > 0.05).length, mid = rows.some(x => x.s.med != null) ? tr("gi.cmp.median", "median") : tr("gi.cmp.mean", "average");
+    const P = v => m.fmtP(v);
+    const li = rows.sort((a, b) => sortTasks(a.t, b.t)).map(({t, s}) => {
+      const said = tr("gi.cmp.row", "{title}: you {mine}, class {mid} {cmid}{range}", {title: t.title, mine: P(s.mine), mid, cmid: P(s.mid), range: s.lo != null && s.hi != null ? tr("gi.cmp.range", ", range {lo} to {hi}", {lo: P(s.lo), hi: P(s.hi)}) : ""});
+      const tag = s.band === "top" ? tr("gi.cmp.top", "Top quarter") : s.band === "low" ? tr("gi.cmp.low", "Bottom quarter") : Math.abs(s.vs) < 0.5 ? tr("gi.cmp.at", "At the {mid}", {mid}) : s.vs >= 0 ? tr("gi.cmp.upper", "Above {mid}", {mid}) : tr("gi.cmp.lower", "Below {mid}", {mid});
+      return `<li role="img" aria-label="${esc(said)}"><span class="gi-cmp-t"><b>${esc(t.title)}</b><span class="mini">${esc(tr("gi.cmp.sub", "you {mine} · class {mid} {cmid}", {mine: P(s.mine), mid, cmid: P(s.mid)}))}</span></span>${stripSvg(s)}<span class="pill gi-band gi-band-${s.band}">${esc(tag)}</span></li>`;
+    }).join("");
+    return `<div class="gr-sub gi-cmp"><h4>${esc(tr("gi.cmp.title", "How You Compare"))}</h4><p class="mini" style="margin:0">${esc(trn("gi.cmp.sum", rows.length, "Above the class {mid} on {a} of {n} item your school site shares results for. It's context, not a ranking.|Above the class {mid} on {a} of {n} items your school site shares results for. It's context, not a ranking.", {a: above, mid}))}</p>
+      <ul class="gi-cmp-list">${li}</ul><p class="mini gi-cmp-key" aria-hidden="true"><span class="gi-k-box"></span>${esc(tr("gi.cmp.keyBox", "middle half of the class"))} <span class="gi-k-mid"></span>${esc(mid)} <span class="gi-k-me"></span>${esc(tr("gi.cmp.keyMe", "you"))}</p></div>`;
+  }
+
+  /* 2. The moment a mark is saved: what it did to the course */
+  const MOMENT_ID = "giMoment";
+  let momentT = null;
+  function momentEl(){
+    let el = document.getElementById(MOMENT_ID);
+    if (!el) { el = document.createElement("div"); el.id = MOMENT_ID; el.className = "gi-moment"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.hidden = true; document.body.appendChild(el); }
+    return el;
+  }
+  function hideMoment(){ const el = document.getElementById(MOMENT_ID); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
+  function momentFor(t, before, after){
+    const m = M(), g = after.g, p = m.markPct(t), cur = after.current, was = before ? before.current : null;
+    const L = v => v != null ? m.letterOf(v, g.scale) : "", d = cur != null && was != null ? cur - was : null;
+    const head = tr("gi.mo.head", "{title}: {mark}", {title: t.title, mark: m.fmtP(p) + (L(p) ? " " + L(p) : "")});
+    const moved = cur == null ? "" : d == null ? tr("gi.mo.first", "{course} starts at {cur}.", {course: courseLabel(after.c), cur: m.fmtP(cur)})
+      : Math.abs(d) < 0.05 ? tr("gi.mo.same", "{course} stays at {cur}.", {course: courseLabel(after.c), cur: m.fmtP(cur)})
+      : tr("gi.mo.moved", "{course} is now {cur} ({d}).", {course: courseLabel(after.c), cur: m.fmtP(cur), d: (d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(d)))});
+    const lw = L(was), lc = L(cur);
+    let note = "", party = false;
+    if (lc && lw && lc !== lw) { const up = cur > was; note = up ? tr("gi.mo.letterUp", "Up to {l}!", {l: lc}) : tr("gi.mo.letterDown", "That moves you to {l}. One mark doesn't decide a course.", {l: lc}); party = up; }
+    const goal = g.goal;
+    if (!note && goal != null && before && !after.done) {
+      const nb = before.need(goal), na = after.need(goal);
+      if (na != null && na <= 0 && !(nb != null && nb <= 0)) { note = tr("gi.mo.goal", "Your goal of {g} is locked in.", {g: m.fmtP(goal)}); party = true; }
+      else if (na != null && na > 100 && !(nb != null && nb > 100)) note = tr("gi.mo.goalOut", "Your goal of {g} is out of reach now. The highest you can still get is {max}.", {g: m.fmtP(goal), max: m.fmtP(after.maxFinal)});
+    }
+    if (!note && cur != null) { const e = edgeOf(after); if (e) note = edgeLong(after, e); else { const b = GINS.boundary(cur, g.scale); if (b && b.letter && !g.pf) note = b.up ? tr("gi.mo.still", "Still {l}, {n} above the line and {u} from {up}.", {l: b.letter, n: pts(b.above), u: pts(b.up.gap), up: b.up.letter}) : tr("gi.mo.top", "Still {l}, the top of the scale.", {l: b.letter}); } }
+    return {head, moved, note, party};
+  }
+  function showMoment(t, before, after){
+    if (!after || after.unw || after.g.pf) return;
+    const x = momentFor(t, before, after), el = momentEl();
+    el.innerHTML = `<span class="gi-mo-ic${x.party ? " party" : ""}" aria-hidden="true">${x.party ? "🎉" : `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>`}</span>
+      <span class="gi-mo-t"><b>${esc(x.head)}</b><span>${esc(x.moved)}</span>${x.note ? `<span class="gi-mo-note">${esc(x.note)}</span>` : ""}</span>
+      <span class="gi-mo-acts"><button type="button" class="btn small" data-act="gi-mo-open" data-id="${esc(after.c.id)}">${esc(tr("gi.mo.open", "See Grades"))}</button><button type="button" class="icon-btn" data-act="gi-mo-close" aria-label="${esc(tr("gi.mo.close", "Close"))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>`;
+    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    try { if (typeof sbHaptic === "function") sbHaptic(x.party ? "success" : "tap"); } catch (e) {}
+    clearTimeout(momentT); momentT = setTimeout(hideMoment, 9000);
+  }
+  // Around every save: the course grades before, and if one mark changed, what it did
+  const sameMark = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  const origApply = applyChanges;
+  applyChanges = function(changes){
+    let before = null;
+    try {
+      const m = M();
+      if (m && Array.isArray(changes) && changes.length && changes.length <= 3 && changes.every(c => c && c.kind === "task")) {
+        before = {};
+        changes.forEach(c => { const t = state.tasks[c.id], cid = (c.after && c.after.courseId) || (t && t.courseId); if (cid && !before[cid] && state.courses[cid]) before[cid] = {gr: m.courseGrade(state.courses[cid]), marks: {}}; if (cid && before[cid]) before[cid].marks[c.id] = t ? t.mark : null; });
+      }
+    } catch (e) { before = null; }
+    const r = origApply.apply(this, arguments);
+    if (before) {
+      try {
+        const m = M(), hit = [];
+        Object.entries(before).forEach(([cid, b]) => Object.entries(b.marks).forEach(([id, was]) => { const t = state.tasks[id]; if (t && t.courseId === cid && t.mark && m.markPct(t) != null && !t.mark.ex && !sameMark(was, t.mark)) hit.push({t, cid}); }));
+        if (hit.length === 1 && m.gset().moment !== false) { const {t, cid} = hit[0]; showMoment(t, before[cid].gr, m.courseGrade(state.courses[cid])); }
+      } catch (e) { console.warn("grade insights: moment", e); }
+    }
+    return r;
+  };
+  hook("act", (act, el, id) => {
+    if (act === "gi-mo-close") { hideMoment(); return true; }
+    if (act === "gi-mo-open") { hideMoment(); if (state.courses[id]) { ui.tab = "courses"; ui.courseId = id; ui.courseTab = "grades"; ui.courseTabFor = id; render(); } return true; }
+    return false;
+  });
+
+  /* Putting the sections in place after each redraw (the same way the grade trend does) */
+  const SECTIONS = {course: [], page: [], row: []};
+  // where: "course" (a course's Grades card), "page" (the Grades page, under the course list), "row" (each course row on the Grades page)
+  const addSection = (where, fn) => SECTIONS[where].push(fn);
+  addSection("course", (gr, card) => {
+    // letter cutoff close by, under the three numbers at the top
+    const e = edgeOf(gr), top = card.querySelector(".gr-top");
+    if (e && top && !card.querySelector(".gi-edge")) top.insertAdjacentHTML("afterend", `<p class="gi-edge gi-edge-${e.dir}" role="note"><span class="pill">${esc(edgeText(e))}</span> ${esc(edgeLong(gr, e))}</p>`);
+    const html = lostHtml(gr) + compareHtml(gr); if (!html || card.querySelector(".gi-lost,.gi-cmp")) return;
+    const gb = card.querySelector(".gr-sub.gb"), wi = card.querySelector(".gr-wi"), marked = [...card.querySelectorAll(".gr-sub")].find(x => !x.classList.contains("gt-sec") && /Marked/.test((x.querySelector("h4") || {}).textContent || ""));
+    if (gb) gb.insertAdjacentHTML("afterend", html); else if (wi) wi.insertAdjacentHTML("beforebegin", html); else if (marked) marked.insertAdjacentHTML("beforebegin", html); else card.insertAdjacentHTML("beforeend", html);
+  });
+  addSection("row", (gr, row) => {
+    const e = edgeOf(gr), main = row.querySelector(".gp-main .gp-who .mini");
+    if (e && main && !row.querySelector(".gi-edge-chip")) main.insertAdjacentHTML("beforeend", ` · <span class="gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+  });
+  addSection("page", all => {
+    const lt = lateTotal(all); if (lt.n < 1 || lt.pts < 0.05) return "";
+    // Your Patterns says it when there's a pattern to it
+    try { if (window.SBGINS.habitsOf && SBGINS.habitsOf(all).list.some(h => h.key === "late")) return ""; } catch (e) {}
+    return {order: 90, html: `<p class="gi-late-note mini" role="note"><b>${esc(tr("gi.late.k", "Late penalties this term:"))}</b> ${esc(trn("gi.late.v", lt.n, "{pts} of course grade lost on {n} item.|{pts} of course grade lost across {n} items.", {pts: pts(lt.pts)}))}</p>`};
+  });
+  hook("render", tab => {
+    if (tab !== "courses") return;
+    const m = M(); if (!m) return;
+    try {
+      if (ui.courseId) {
+        if (ui.courseTab !== "grades" || ui.courseTabFor !== ui.courseId) return;
+        const card = document.querySelector('.gr-card[aria-label="Grades"]'), c = courseOf(ui.courseId);
+        if (!card || card.classList.contains("gr-empty") || !c) return;
+        const gr = m.courseGrade(c); if (!gr.ts.length) return;
+        SECTIONS.course.forEach(fn => { try { fn(gr, card); } catch (e) { console.warn("grade insights: course", e); } });
+        return;
+      }
+      if (ui.courseTab !== "grades") return;
+      const page = document.querySelector("section.gp"); if (!page || page.querySelector(".gi-page")) return;
+      const all = m.grades();
+      page.querySelectorAll(".gp-course").forEach(row => {
+        const id = (row.querySelector(".gp-main") || {}).dataset; const c = id && courseOf(id.id); if (!c) return;
+        const gr = all.find(x => x.c.id === c.id); if (!gr) return;
+        SECTIONS.row.forEach(fn => { try { fn(gr, row); } catch (e) { console.warn("grade insights: row", e); } });
+      });
+      const parts = [];
+      SECTIONS.page.forEach(fn => { try { const r = fn(all); if (r && r.html) parts.push(r); } catch (e) { console.warn("grade insights: page", e); } });
+      const html = parts.sort((a, b) => a.order - b.order).map(p => p.html).join("");
+      const at = page.querySelector(".gp-need") || page.querySelector(".gp-hero");
+      if (at) at.insertAdjacentHTML("afterend", `<div class="gi-page">${html}</div>`);
+    } catch (e) { console.warn("grade insights", e); }
+  });
+
+  /* What the AI coach is told (it words these; it doesn't work them out) */
+  const JUDGE = [];
+  JUDGE.push(all => {
+    const m = M(), out = [];
+    all.filter(gr => gr.current != null && !gr.unw && !m.zeroed(gr)).forEach(gr => {
+      const L = lostOf(gr), name = courseLabel(gr.c);
+      if (L.total >= 0.5 && L.slices.length) out.push(`${name}: ${r1(L.total)} course points lost so far on the ${r1(L.marked)}% marked; most from ${catName(L.slices[0].key, m).toLowerCase()} (${r1(L.slices[0].pts)} points)${L.late > 0.05 ? `, ${r1(L.late)} to late penalties` : ""}.`);
+      const e = edgeOf(gr); if (e) out.push(`${name}: ${e.dir === "up" ? `${r1(e.gap)} points from ${e.letter}` : `only ${r1(e.gap)} points above the ${e.letter} cutoff`}.`);
+    });
+    return out;
+  });
+
+  window.SBGINS = {GINS, addSection, lostOf, edgeOf, spreadOf, shareOf, penPct, pts, judge: fn => JUDGE.push(fn),
+    judgments: (all, S) => [].concat(...JUDGE.map(fn => { try { return fn(all, S) || []; } catch (e) { return []; } }))};
+})();
+/* ===== module: 90-grade-forecast.js ===== */
+/* Grade analysis, Phase 2 (GRADE-ANALYSIS-PLAN.md): a forecast with how sure it is (each course, and the term's GPA), the Target
+   GPA planner, and the best use of your next hour. The math is GINS in 90-grade-insights.js. */
+(() => {
+  const M = () => window.SBGRADES && window.SBGRADES.math, X = () => window.SBGINS, G = () => window.SBGINS.GINS;
+  const r1 = v => Math.round(v * 10) / 10;
+  const pctS = v => Math.round(v * 100) + "%";
+  const chance = p => p >= 0.95 ? tr("fc.p.very", "very likely") : p <= 0.05 ? tr("fc.p.unlikely", "unlikely") : tr("fc.p.about", "about {p} likely", {p: pctS(p)});
+
+  /* 3. The forecast for one course, kept until something changes */
+  let FC = {st: null, at: 0, by: new Map()};
+  function fcOf(gr, opts){
+    const m = M(); if (!m || gr.unw || gr.g.pf || gr.done || gr.current == null) return null;
+    opts = opts || {};
+    if (!opts.fix && FC.st === state && FC.at === state.updated && FC.by.has(gr.c.id)) return FC.by.get(gr.c.id);
+    if (FC.st !== state || FC.at !== state.updated) FC = {st: state, at: state.updated, by: new Map()};
+    const f = G().forecast(m.GRULES, gr.items, gr.R, gr.D, {seed: G().seedOf(gr.c.id), runs: opts.runs || 2000, scale: gr.g.scale, add: gr.xcGot || 0, fix: opts.fix});
+    if (!opts.fix) FC.by.set(gr.c.id, f);
+    return f;
+  }
+  // What would move it most: the heaviest item still to come, done well
+  function lever(gr, f, target){
+    const m = M(), open = gr.open.filter(t => m.wOf(t) > 0).sort((a, b) => m.wOf(b) - m.wOf(a))[0]; if (!open || !f) return null;
+    const usual = f.cat(open.type).m, good = Math.min(100, Math.max(85, Math.round(usual + 10)));
+    if (good <= usual + 2) return null;
+    const g2 = fcOf(gr, {fix: {[open.id]: good}, runs: 800});
+    return g2 ? {t: open, good, before: f.at(target.v), after: g2.at(target.v), target} : null;
+  }
+  // The line worth watching: your goal, else the next letter up from the likeliest one
+  function targetOf(gr, f){
+    const g = gr.g, m = M();
+    if (g.goal != null) return {v: g.goal, name: tr("fc.t.goal", "your {g} goal", {g: m.fmtP(g.goal)})};
+    const b = G().boundary(f.p50, g.scale);
+    return b && b.up ? {v: b.up.th, name: tr("fc.t.letter", "{l} or better", {l: b.up.letter})} : b ? {v: b.floor, name: tr("fc.t.letter", "{l} or better", {l: b.letter})} : null;
+  }
+  function fcHtml(gr){
+    const m = M(), g = gr.g;
+    if (gr.unw || g.pf || gr.done || gr.current == null) return "";
+    if (gr.marked.length < 3) return `<div class="gr-sub gi-fc"><h4>${esc(tr("fc.title", "Forecast"))}</h4><p class="gi-fc-early">${esc(tr("fc.early", "Too early to forecast: a forecast starts after 3 marks, once there's a pattern to go on."))}</p></div>`;
+    const f = fcOf(gr); if (!f) return "";
+    const L = v => m.letterOf(v, g.scale), lo = m.fmtP(f.p10), hi = m.fmtP(f.p90), risky = !!gr.risk;
+    const top = f.top, shown = (f.buckets || []).filter(b => b.p >= 0.03);
+    const big = top ? tr("fc.big", "Most likely {l}", {l: top.letter}) : m.fmtP(f.p50);
+    const sub = tr("fc.range", "Likely between {lo} and {hi}, middle {mid}", {lo, hi, mid: m.fmtP(f.p50)});
+    const bar = shown.length ? `<div class="gi-fc-bar" role="img" aria-label="${esc(shown.map(b => tr("fc.bucket", "{l}: {p}", {l: b.letter, p: pctS(b.p)})).join(", "))}">${shown.slice().reverse().map(b => `<span class="${top && b.letter === top.letter ? "on" : ""}" style="flex:${b.p.toFixed(3)} 1 0;background:color-mix(in srgb,var(--accent) ${Math.round(15 + b.p * 70)}%,var(--surface))" title="${esc(b.letter + ": " + pctS(b.p))}">${b.p >= 0.08 ? esc(b.letter + " " + pctS(b.p)) : ""}</span>`).join("")}</div>` : "";
+    const lines = [], tg = targetOf(gr, f);
+    // at risk: the range and what would change it, not a failing chance
+    if (!risky && tg) lines.push(tr("fc.chance", "Reaching {t}: {c}.", {t: tg.name, c: chance(f.at(tg.v))}));
+    if (risky) lines.push(f.at(g.pass) >= 0.5 ? tr("fc.passOk", "Passing ({p}) is {c} if things go the way they have been.", {p: m.fmtP(g.pass), c: chance(f.at(g.pass))}) : tr("fc.passRisk", "This one is close. What you do on the work still to come decides it, and that's still in your hands."));
+    const lv = tg || risky ? lever(gr, f, risky ? {v: g.pass, name: tr("fc.t.pass", "a pass")} : tg) : null;
+    if (lv && lv.after - lv.before >= 0.04) lines.push(tr("fc.lever", "{good} on {title} would make {t} {c}.", {good: lv.good + "%", title: lv.t.title, t: lv.target.name, c: chance(lv.after)}));
+    return `<div class="gr-sub gi-fc"><h4>${esc(tr("fc.title", "Forecast"))}</h4><div class="gi-fc-head"><span class="gi-fc-big">${esc(big)}</span><span class="mini">${esc(sub)}</span></div>${bar}
+      <ul class="gi-fc-lines">${lines.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+      <p class="gi-fc-why">${esc(tr("fc.why", "From {n} marks: your average on each type of work and how much your marks vary, run 2,000 times over what's left. Drop rules and bonus count. It's a likely range, not a promise.", {n: gr.marked.length}))}</p></div>`;
+  }
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(".gi-fc")) return;
+    const html = fcHtml(gr); if (!html) return;
+    // the forecast says what Projected Final did, with a range
+    if (html.indexOf("gi-fc-early") < 0) [...card.querySelectorAll(".gr-top .gr-stat")].forEach(s => { if (/Projected Final/.test((s.querySelector(".gr-k") || {}).textContent || "")) s.remove(); });
+    const at = card.querySelector(".gr-bar") || card.querySelector(".gr-top");
+    if (at) at.insertAdjacentHTML("afterend", html);
+  });
+
+  /* The term's GPA forecast: each course's runs in step, letters to points, by credits */
+  function gpaFc(all){
+    const m = M(), max = m.gpaMax(); if (!max) return null;
+    const S = m.termStats(all), parts = [];
+    all.forEach(gr => {
+      if (gr.current == null || gr.g.pf || gr.unw) return;
+      const cr = isNum(gr.c.credits) ? Number(gr.c.credits) : S.def; if (!(cr > 0)) return;
+      const f = fcOf(gr);
+      parts.push({cr, gr, f, fixed: f ? null : m.GRULES.points(m.letterOf(m.finalOf(gr), gr.g.scale), max)});
+    });
+    if (!parts.length || !parts.some(p => p.f)) return null;
+    const runs = 2000, tot = parts.reduce((s, p) => s + p.cr, 0), out = [];
+    for (let r = 0; r < runs; r++) {
+      let s = 0, w = 0;
+      parts.forEach(p => { const v = p.f ? m.GRULES.points(m.letterOf(p.f.samples[r % p.f.samples.length], p.gr.g.scale), max) : p.fixed; if (v != null) { s += p.cr * v; w += p.cr; } });
+      if (w > 0) out.push(s / w);
+    }
+    out.sort((a, b) => a - b);
+    const q = p => out[Math.round(p * (out.length - 1))];
+    return {p10: q(0.1), p50: q(0.5), p90: q(0.9), at: v => out.filter(x => x >= v - 1e-9).length / out.length, max, n: parts.length, tot};
+  }
+
+  /* 4. Target GPA */
+  function planInputs(all){
+    const m = M(), max = m.gpaMax(), S = m.termStats(all);
+    return all.filter(gr => gr.current != null && !gr.g.pf && !gr.unw).map(gr => {
+      const cr = isNum(gr.c.credits) ? Number(gr.c.credits) : S.def;
+      const fin = gr.done ? m.letterOf(gr.minFinal, gr.g.scale) : null;
+      const opts = gr.g.scale.map(x => ({letter: x[0], th: Number(x[1]), pts: m.GRULES.points(x[0], max)})).filter(x => x.pts != null)
+        .map(x => Object.assign(x, {need: gr.done ? (x.letter === fin ? null : 999) : gr.need(x.th)})).filter(x => x.need == null || x.need <= 100);
+      return {id: gr.c.id, gr, cr, rem: gr.remaining, base: gr.current, opts};
+    }).filter(x => x.cr > 0 && x.opts.length);
+  }
+  // the best letter already secured in a course (no lower one is worth picking)
+  const secOf = x => x.opts.filter(o => o.need != null && o.need <= 0).sort((a, b) => b.pts - a.pts)[0];
+  const PLAN_UI = {target: null, locks: {}, cum: null, fut: null};
+  function planHtml(all){
+    const m = M(), max = m.gpaMax(); if (!max) return "";
+    const ins = planInputs(all); if (!ins.length) return "";
+    const S = m.termStats(all);
+    const tgt = PLAN_UI.target != null ? PLAN_UI.target : Math.min(max, Math.ceil(((S.gpaProj || S.gpaNow || 3) + 0.05) * 10) / 10);
+    const res = G().gpaPlan(ins, tgt, PLAN_UI.locks);
+    const head = `<h3>${esc(tr("gp.plan.title", "Target GPA"))}<span class="spacer"></span><span class="mini">${esc(tr("gp.plan.now", "projected now {g}", {g: m.fmtG(S.gpaProj != null ? S.gpaProj : S.gpaNow)}))}</span></h3>`;
+    const inp = `<div class="gi-plan-row"><label for="giPlanT">${esc(tr("gp.plan.q", "What term GPA are you aiming for?"))}</label><input id="giPlanT" type="number" min="0" max="${max}" step="0.05" inputmode="decimal" value="${esc(String(tgt))}" data-noenter></div>`;
+    let body;
+    if (!res.ok) {
+      body = res.why === "reach" ? `<p class="gi-plan-out">${esc(tr("gp.plan.reach", "A {t} isn't reachable this term: the most still possible is {max}, with full marks on everything left. {low}", {t: m.fmtG(tgt), max: m.fmtG(res.max), low: res.max >= 0.1 ? tr("gp.plan.try", "Try a target at or under that.") : ""}))}</p>`
+        : res.why === "lock" ? `<p class="gi-plan-out">${esc(tr("gp.plan.lock", "One of the letters you picked can't be reached any more."))} <button type="button" class="link-btn" data-act="gi-plan-unlock">${esc(tr("gp.plan.unlockAll", "Clear My Picks"))}</button></p>` : "";
+    } else {
+      const byId = new Map(res.picks.map(p => [p.id, p]));
+      const rows = ins.map(x => {
+        const p = byId.get(x.id); if (!p) return "";
+        const c = x.gr.c, need = p.need == null ? tr("gp.plan.final", "final grade") : p.need <= 0 ? tr("gp.plan.sec", "already secured") : tr("gp.plan.need", "needs {n} on the remaining {w}", {n: m.fmtN(p.need), w: m.fmtW(x.rem)});
+        const sel = x.opts.length > 1 && p.need != null ? `<select data-plan-c="${esc(c.id)}" aria-label="${esc(tr("gp.plan.pick", "Letter for {c}", {c: courseLabel(c)}))}">${x.opts.filter(o => o.need > 0 || o === secOf(x)).sort((a, b) => b.pts - a.pts).map(o => `<option value="${esc(o.letter)}"${o.letter === p.letter ? " selected" : ""}>${esc(o.letter)}</option>`).join("")}</select>` : "";
+        const locked = !!PLAN_UI.locks[c.id];
+        return `<li class="${locked ? "lock" : ""}" style="--c:${esc(c.color)}"><span class="gi-plan-n"><b>${esc(courseLabel(c))}</b><span class="mini">${esc(need)} · ${esc(tr("gp.plan.cr", "{n} credits", {n: m.fmtCr(x.cr)}))}${locked ? " · " + esc(tr("gp.plan.locked", "your pick")) : ""}</span></span>${sel || `<span class="gi-plan-l">${esc(p.letter)}</span>`}</li>`;
+      }).join("");
+      const hard = res.picks.filter(p => p.need != null && p.need > 0).sort((a, b) => b.need - a.need)[0];
+      const say = tr("gp.plan.say", "Here's the easiest way to a {t}: it asks the least above what you've been getting.", {t: m.fmtG(tgt)}) + (hard ? " " + tr("gp.plan.hard", "The biggest ask is {c}.", {c: courseLabel(state.courses[hard.id])}) : "");
+      // cumulative with this plan, when past terms are saved
+      let cum = "";
+      if (S.pastGpa != null) {
+        const pastCr = [].concat(...S.T.filter(t => !t.manual).map(t => (t.courses || []).map(x => isNum(x.credits) ? Number(x.credits) : S.def))).reduce((s, v) => s + v, 0) + S.T.filter(t => t.manual).reduce((s, t) => s + (Number(t.credits) || 0), 0);
+        const termCr = ins.reduce((s, x) => s + x.cr, 0), cumG = (S.pastGpa * pastCr + res.gpa * termCr) / (pastCr + termCr);
+        cum = `<p class="mini">${esc(tr("gp.plan.cum", "With your past terms, this plan puts your cumulative GPA at {g}.", {g: m.fmtG(cumG)}))}</p>`;
+        const ct = PLAN_UI.cum, fc = PLAN_UI.fut;
+        const need = ct != null && fc ? G().cumNeed({pastPts: S.pastGpa * pastCr, pastCr, termGpa: res.gpa, termCr, target: ct, futureCr: fc}) : null;
+        cum += `<details class="gi-cum"${ct != null ? " open" : ""}><summary>${esc(tr("gp.plan.ahead", "Planning further ahead?"))}</summary><div class="gi-plan-row"><label>${esc(tr("gp.plan.cumT", "Cumulative goal"))} <input id="giCumT" type="number" min="0" max="${max}" step="0.05" inputmode="decimal" value="${ct != null ? esc(String(ct)) : ""}" data-noenter></label><label>${esc(tr("gp.plan.fut", "Credits still to take"))} <input id="giCumF" type="number" min="1" max="400" step="1" inputmode="numeric" value="${fc ? esc(String(fc)) : ""}" data-noenter></label></div>${need != null ? `<p class="gi-plan-out">${esc(need > max ? tr("gp.plan.cumNo", "That would take more than a {max} on everything after this term, so it's out of reach. A lower goal still counts.", {max: m.fmtG(max)}) : need <= 0 ? tr("gp.plan.cumYes", "You'd already be there after this term.") : tr("gp.plan.cumNeed", "You'd need about a {g} average over your next {c} credits.", {g: m.fmtG(need), c: fc}))}</p>` : ""}</details>`;
+      }
+      body = `<p class="gi-plan-out">${esc(say)}</p><ul class="gi-plan-list">${rows}</ul>${cum}
+        <div class="gi-plan-acts"><button type="button" class="btn small primary" data-act="gi-plan-save">${esc(tr("gp.plan.save", "Use These as My Course Goals"))}</button>${Object.keys(PLAN_UI.locks).length ? `<button type="button" class="btn small" data-act="gi-plan-unlock">${esc(tr("gp.plan.unlockAll", "Clear My Picks"))}</button>` : ""}</div>`;
+      PLAN_UI.last = {res, ins};
+    }
+    return `<section class="gi-card gi-plan" aria-labelledby="giPlanH">${head.replace("<h3>", '<h3 id="giPlanH">')}${inp}<div class="gi-plan-body" aria-live="polite">${body}</div></section>`;
+  }
+  function savePlanGoals(){
+    const L = PLAN_UI.last; if (!L || !L.res.ok) return;
+    const chs = L.res.picks.filter(p => p.need != null).map(p => {
+      const c = state.courses[p.id], x = L.ins.find(i => i.id === p.id), o = x && x.opts.find(q => q.letter === p.letter); if (!c || !o) return null;
+      const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: o.th}); return {kind: "course", id: c.id, after: n};
+    }).filter(Boolean);
+    if (chs.length) applyChanges(chs, trn("gp.plan.saved", chs.length, "Goal set for {n} course|Goals set for {n} courses"));
+  }
+  // Only the results redraw, so the box being typed in stays put (replacing it mid-blur would fire its change again)
+  let planBusy = false;
+  const redrawPlan = () => {
+    const sec = document.querySelector(".gi-plan"); if (!sec || planBusy) return;
+    planBusy = true;
+    try {
+      const tmp = document.createElement("div"); tmp.innerHTML = planHtml(M().grades());
+      const nb = tmp.querySelector(".gi-plan-body"), ob = sec.querySelector(".gi-plan-body"), nh = tmp.querySelector("h3"), oh = sec.querySelector("h3");
+      const f = document.activeElement && ob && ob.contains(document.activeElement) ? document.activeElement.id || (document.activeElement.dataset.planC && "plan:" + document.activeElement.dataset.planC) : "";
+      if (nh && oh && oh.innerHTML !== nh.innerHTML) oh.innerHTML = nh.innerHTML;
+      // unchanged results stay as they are (leaving the box fires a change; a button being clicked mustn't be swapped out)
+      if (nb && ob) { if (ob.innerHTML !== nb.innerHTML) ob.innerHTML = nb.innerHTML; } else if (ob) ob.innerHTML = "";
+      if (f) { const el = f.startsWith("plan:") ? sec.querySelector(`[data-plan-c="${CSS.escape(f.slice(5))}"]`) : document.getElementById(f); if (el) el.focus(); }
+    } finally { planBusy = false; }
+  };
+  document.addEventListener("change", e => {
+    const t = e.target; if (!t || !t.closest || !t.closest(".gi-plan")) return;
+    if (t.id === "giPlanT") { const v = Number(t.value), max = M().gpaMax(); if (isFinite(v) && v > 0 && v <= max) { PLAN_UI.target = Math.round(v * 100) / 100; PLAN_UI.locks = {}; } redrawPlan(); }
+    else if (t.dataset.planC) { PLAN_UI.locks[t.dataset.planC] = t.value; redrawPlan(); }
+    else if (t.id === "giCumT" || t.id === "giCumF") { const v = Number(t.value); if (t.id === "giCumT") PLAN_UI.cum = isFinite(v) && v > 0 ? v : null; else PLAN_UI.fut = isFinite(v) && v > 0 ? Math.round(v) : null; redrawPlan(); }
+  });
+  hook("act", (act) => {
+    if (act === "gi-plan-save") { savePlanGoals(); return true; }
+    if (act === "gi-plan-unlock") { PLAN_UI.locks = {}; redrawPlan(); return true; }
+    return false;
+  });
+
+  /* 7. Best use of your next hour */
+  function roiItems(all){
+    const m = M(), today = todayISO(), out = [];
+    all.forEach(gr => {
+      if (gr.unw || gr.done || gr.g.pf) return;
+      const f = fcOf(gr), proj = f ? f.p50 : gr.projected != null ? gr.projected : gr.current;
+      const b = proj != null ? G().boundary(proj, gr.g.scale) : null;
+      gr.open.forEach(t => {
+        if (t.status === "done" || (t.due && t.due < today) || !(m.wOf(t) > 0)) return;
+        let h = 0; try { h = remainingOf(t); if (!(h > 0) && MILESTONE(t.type)) h = effortOf(t) * (1 - progress(t).frac); } catch (e) { h = 1; }
+        const usual = f ? f.cat(t.type).m : gr.current;
+        out.push({id: t.id, t, gr, w: m.wOf(t) / gr.D * 100, hours: h, m: usual, gapUp: b && b.up ? b.up.gap : null, up: b && b.up ? b.up.letter : ""});
+      });
+    });
+    return G().roi(out);
+  }
+  function roiHtml(all){
+    const m = M(), list = roiItems(all).slice(0, 5); if (list.length < 2) return "";
+    const rows = list.map((x, i) => {
+      const c = x.gr.c, why = tr("gr.roi.why", "you usually get {m} on {type}, it's worth {w}, about {h} left", {m: m.fmtP(x.m), type: m.typePl(x.t.type).toLowerCase(), w: m.fmtW(x.w), h: fmtHM(x.hours)});
+      return `<li style="--c:${esc(c.color)}"><span class="gi-roi-n">${i + 1}</span><span class="gi-roi-t"><b>${esc(x.t.title)}</b><span class="mini">${esc(courseLabel(c))}${x.t.due ? " · " + esc(fmtShort(x.t.due)) : ""} · ${esc(why)}${x.cross ? " · " + esc(tr("gr.roi.cross", "could tip you to {l}", {l: x.up})) : ""}</span></span><span class="gi-roi-v">${esc(tr("gr.roi.v", "+{n} pts/hr", {n: SBI18N.fmtN(r1(x.perHour * 10) / 10)}))}</span></li>`;
+    }).join("");
+    return `<section class="gi-card gi-roi" aria-labelledby="giRoiH"><h3 id="giRoiH">${esc(tr("gr.roi.title", "Best Use of Your Next Hour"))}</h3><p class="gi-sub">${esc(tr("gr.roi.sub", "Graded work ranked by how much an hour on it could add to that course's grade, if it goes {l} points better than you usually do there.", {l: "10–15"}))}</p><ol class="gi-roi-list">${rows}</ol></section>`;
+  }
+
+  /* On the Grades page: the forecast summary, Target GPA and the next hour */
+  function termFcHtml(all){
+    const m = M(), gf = gpaFc(all);
+    const rows = all.map(gr => ({gr, f: fcOf(gr)})).filter(x => x.f && x.f.top);
+    if (!gf && !rows.length) return "";
+    const head = gf ? `<div class="gi-fc-head"><span class="gi-fc-big">${esc(tr("fc.gpa", "Term GPA likely {mid}", {mid: m.fmtG(gf.p50)}))}</span><span class="mini">${esc(tr("fc.gpaR", "between {lo} and {hi} out of {max}", {lo: m.fmtG(gf.p10), hi: m.fmtG(gf.p90), max: m.fmtG(gf.max)}))}</span></div>` : "";
+    const list = rows.map(({gr, f}) => `<li>${esc(tr("fc.row", "{c}: most likely {l} ({lo} to {hi})", {c: courseLabel(gr.c), l: f.top.letter, lo: m.fmtP(f.p10), hi: m.fmtP(f.p90)}))}</li>`).join("");
+    return `<section class="gi-card gi-fc" aria-labelledby="giFcH"><h3 id="giFcH">${esc(tr("fc.termTitle", "Where This Term Is Heading"))}</h3>${head}${list ? `<ul class="gi-fc-lines">${list}</ul>` : ""}<p class="gi-fc-why">${esc(tr("fc.termWhy", "Each course's forecast, from your marks so far. Open a course for its letter chances and what would change them."))}</p></section>`;
+  }
+  X().addSection("page", all => ({order: 10, html: termFcHtml(all)}));
+  X().addSection("page", all => ({order: 20, html: roiHtml(all)}));
+  X().addSection("page", all => ({order: 30, html: planHtml(all)}));
+
+  X().judge((all) => {
+    const m = M(), out = [];
+    all.forEach(gr => { const f = fcOf(gr); if (f && f.top) out.push(`${courseLabel(gr.c)} forecast: most likely ${f.top.letter} (${r1(f.p10)}% to ${r1(f.p90)}%), from the student's marks so far; a likely range, not a promise.`); });
+    const gf = gpaFc(all); if (gf) out.push(`Term GPA forecast: most likely ${m.fmtG(gf.p50)} (${m.fmtG(gf.p10)} to ${m.fmtG(gf.p90)}).`);
+    const top = roiItems(all)[0]; if (top) out.push(`Best use of the next hour for grades: ${top.t.title} in ${courseLabel(top.gr.c)} (about ${r1(top.perHour)} course points per hour if it goes better than usual).`);
+    return out;
+  });
+  window.SBGFC = {fcOf, gpaFc, planInputs, roiItems};
+})();
+/* ===== module: 90-grade-habits.js ===== */
+/* Grade analysis, Phases 3 and 4 (GRADE-ANALYSIS-PLAN.md): Your Patterns (how starting early, time spent, handing in late, late
+   nights and practice scores went with your marks, from data the app already keeps), the term timeline, This Week in Grades, and
+   grade cards for the Term Recap. The math is GINS in 90-grade-insights.js. */
+(() => {
+  const M = () => window.SBGRADES && window.SBGRADES.math, X = () => window.SBGINS, G = () => window.SBGINS.GINS;
+  const r1 = v => Math.round(v * 10) / 10;
+  const LMS_KEYS = ["bs", "cv", "bb", "md", "sg", "gc"];
+
+  /* When each mark came in. A mark from the school site says when it was graded; one typed in is noted the first time it's seen
+     (this device). The first time this runs, marks already there get their due date or the day they were finished, not today,
+     so a whole term of marks doesn't look new. */
+  const LOG_KEY = "studyboard:markSeen";
+  const sigOf = t => t && t.mark ? [t.mark.got, t.mark.outOf, t.mark.letter || "", t.mark.pf || ""].join("|") : "";
+  const logGet = () => { try { const v = JSON.parse(localStorage.getItem(LOG_KEY) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } };
+  const logSet = v => { try { localStorage.setItem(LOG_KEY, JSON.stringify(v)); } catch (e) {} };
+  const guessAt = t => Number(t.doneAt) || (t.due ? parse(t.due).getTime() + 12 * 36e5 : Number(t.created) || Date.now());
+  function syncLog(){
+    const m = M(); if (!m) return {};
+    let log = logGet(); const first = !log; log = log || {};
+    let ch = false;
+    allTasks().forEach(t => {
+      if (!t.mark || m.markPct(t) == null) return;
+      const s = sigOf(t), e = log[t.id];
+      if (e && e.s === s) return;
+      log[t.id] = {s, at: first || !e && t.markNew === undefined && guessAt(t) < Date.now() - 864e5 * 21 ? guessAt(t) : Date.now()}; ch = true;
+    });
+    const ids = Object.keys(log); if (ids.length > 900) { ids.sort((a, b) => log[a].at - log[b].at).slice(0, ids.length - 900).forEach(k => delete log[k]); ch = true; }
+    if (ch) logSet(log);
+    return log;
+  }
+  hook("changed", () => { try { syncLog(); } catch (e) {} });
+  function markAt(t, log){
+    const L = LMS_KEYS.map(f => t && t[f]).find(Boolean), g = L && L.fb && L.fb.at;
+    if (g && isFinite(new Date(g).getTime())) return new Date(g).getTime();
+    const e = (log || {})[t.id]; return e && e.s === sigOf(t) ? e.at : guessAt(t);
+  }
+  const dayOf = ms => iso(new Date(ms));
+
+  /* 5. Your Patterns */
+  // The day work on a task started: its first logged or focused minutes, else the first time it moved to Doing or got progress
+  function startDay(t){
+    const w = (typeof workEntries === "function" ? workEntries(t) : []).map(e => e.d).sort()[0];
+    const h = (t.history || []).filter(x => x && /^(Status: To Do → |Progress: 0% → |Preparedness: 0% → )/.test(x.text || "") && Number(x.at) > 0).map(x => dayOf(Number(x.at))).sort()[0];
+    return [w, h].filter(Boolean).sort()[0] || null;
+  }
+  function nightOf(t){
+    const es = typeof workEntries === "function" ? workEntries(t).filter(e => e.kind === "focus" && Number(e.at) > 0) : [];
+    const tot = es.reduce((s, e) => s + e.min, 0); if (tot < 30) return null;
+    const late = es.filter(e => { const h = new Date(e.at).getHours(); return h >= 22 || h < 4; }).reduce((s, e) => s + e.min, 0);
+    return late / tot >= 0.5;
+  }
+  function lateOfT(t){
+    if (X().penPct(t) > 0) return true;
+    if (!t.doneAt || !t.due) return null;
+    return Number(t.doneAt) > new Date(t.due + "T" + (t.time || "23:59")).getTime() + 6e4;
+  }
+  function marksOf(all){
+    const m = M(), out = [];
+    all.forEach(gr => gr.marked.forEach(t => {
+      if (t.prepFor || gr.dropped.has(t.id)) return;
+      const pct = gr.pm.get(t.id), sd = startDay(t), mins = typeof workEntries === "function" ? workEntries(t).reduce((s, e) => s + e.min, 0) : Number(t.focusMin) || 0;
+      const rs = (t.readySnap && isNum(t.readySnap.measured)) ? t.readySnap.measured : t.wrap && isNum(t.wrap.measured) ? t.wrap.measured : null;
+      out.push({id: t.id, t, gr, pct, type: t.type || "Other", lead: sd && t.due && !MILESTONE(t.type) ? dayDiff(sd, t.due) : null, min: MILESTONE(t.type) ? 0 : mins,
+        late: MILESTONE(t.type) ? null : lateOfT(t), penPts: X().shareOf(gr, t) * X().penPct(t) / 100, ready: MILESTONE(t.type) ? rs : null, night: MILESTONE(t.type) ? null : nightOf(t)});
+    }));
+    return out;
+  }
+  let HB = {st: null, at: 0, v: null};
+  function habitsOf(all){
+    if (HB.st === state && HB.at === state.updated && HB.v) return HB.v;
+    const marks = marksOf(all), v = {marks, list: G().habits(marks)};
+    HB = {st: state, at: state.updated, v};
+    return v;
+  }
+  const P = v => M().fmtP(v);
+  const minsTxt = n => n >= 60 ? fmtHM(n / 60) : tr("hb.min", "{n} min", {n: Math.round(n)});
+  // The next piece of graded work a finding is about, to act on
+  function nextOpen(all, type){
+    const m = M(), today = todayISO(), c = [];
+    all.forEach(gr => gr.open.forEach(t => { if (t.status !== "done" && t.due && t.due > today && !MILESTONE(t.type) && m.wOf(t) > 0 && (!type || t.type === type)) c.push(t); }));
+    return c.sort((a, b) => a.due.localeCompare(b.due))[0] || null;
+  }
+  function habitText(h, all){
+    const m = M();
+    switch (h.key) {
+      case "lead": {
+        const say = h.gap > 0 ? tr("hb.lead", "Work you started 3 or more days before it was due averaged {a} ({na} items). Work started the day before, or on the day, averaged {b} ({nb} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb})
+          : tr("hb.leadRev", "Oddly, work you started the day before averaged {b} ({nb} items), above the {a} for work started 3+ days early ({na} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb});
+        const nx = h.gap > 0 ? nextOpen(all) : null, sd = nx ? addDays(nx.due, -3) : "";
+        const ok = nx && (!nx.start || nx.start > sd) && sd >= todayISO();
+        return {title: tr("hb.leadT", "Starting Early"), say, bars: [[tr("hb.early", "3+ days early"), h.a, h.na], [tr("hb.lateStart", "Day before"), h.b, h.nb]],
+          act: ok ? {label: sd === todayISO() ? tr("hb.leadDoT", "Start {title} Today", {title: nx.title}) : tr("hb.leadDo", "Start {title} on {d}", {title: nx.title, d: fmtShort(sd)}), act: "hb-start", id: nx.id, v: sd} : null};
+      }
+      case "time": return {title: tr("hb.timeT", "Time on {type}", {type: m.typePl(h.type)}), say: h.gap > 0 ? tr("hb.time", "Your {type} averaged {a} when you put in {cut} or more, and {b} with less ({n} items).", {type: m.typePl(h.type).toLowerCase(), a: P(h.a), b: P(h.b), cut: minsTxt(h.cut), n: h.na + h.nb})
+        : tr("hb.timeRev", "More time didn't go with better marks on your {type}: {a} with {cut} or more, {b} with less. Working differently may help more than working longer.", {type: m.typePl(h.type).toLowerCase(), a: P(h.a), b: P(h.b), cut: minsTxt(h.cut)}),
+        bars: [[tr("hb.more", "{cut}+", {cut: minsTxt(h.cut)}), h.a, h.na], [tr("hb.less", "Less"), h.b, h.nb]]};
+      case "late": return {title: tr("hb.lateT", "Late Penalties"), say: trn("hb.late", h.n, "Handing in late cost you {pts} of course grade on {n} item this term.|Handing in late cost you {pts} of course grade across {n} items this term.", {pts: X().pts(h.cost)}) + " " + tr("hb.lateDo", "A start date 3 days before each due date is the easiest way to keep those points.")};
+      case "lateMark": return {title: tr("hb.lmT", "On Time vs Late"), say: tr("hb.lm", "Work you handed in on time averaged {a}; late work averaged {b}, before counting the penalty itself.", {a: P(h.a), b: P(h.b)}), bars: [[tr("hb.ontime", "On time"), h.a, h.na], [tr("hb.latew", "Late"), h.b, h.nb]]};
+      case "ready": return {title: tr("hb.readyT", "Your Practice Scores"), say: h.err <= 8 ? trn("hb.readyOk", h.n, "Before {n} exam, your flashcard and quiz scores predicted your mark within about {e} points. You can trust them to tell you when you're ready.|Before {n} exams, your flashcard and quiz scores predicted your mark within about {e} points. You can trust them to tell you when you're ready.", {e: Math.round(h.err)})
+        : h.bias > 0 ? tr("hb.readyHi", "Your practice scores ran about {e} points above your exam marks ({n} exams). Practise with questions in the exam's own style to get a truer read.", {e: Math.round(h.bias), n: h.n})
+        : tr("hb.readyLo", "You did about {e} points better on exams than your practice scores said ({n} exams). You're more ready than they suggest.", {e: Math.round(-h.bias), n: h.n})};
+      case "night": return {title: tr("hb.nightT", "Late Nights"), say: h.gap > 0 ? tr("hb.night", "Work you did mostly before 10pm averaged {a} ({na} items); work done mostly after 10pm averaged {b} ({nb} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb})
+        : tr("hb.nightRev", "Your late-night work averaged {b}, a little above the {a} for daytime work. Whatever time works for you is fine.", {a: P(h.a), b: P(h.b)}),
+        bars: [[tr("hb.day", "Before 10pm"), h.a, h.na], [tr("hb.nightw", "After 10pm"), h.b, h.nb]]};
+    }
+    return null;
+  }
+  function habitsHtml(all){
+    const H = habitsOf(all); if (H.marks.length < 4) return "";
+    const items = H.list.map(h => Object.assign({h}, habitText(h, all))).filter(x => x.say).slice(0, 3);
+    const bar = ([label, v, n], i) => `<div class="gi-hab-bar${i ? " b" : ""}"><span>${esc(label)}</span><span aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span><b>${esc(P(v))}</b></div>`;
+    const body = items.length ? `<ul class="gi-hab-list">${items.map(x => `<li><b>${esc(x.title)}</b><span>${esc(x.say)}</span>${x.bars ? `<div class="gi-hab-bars" role="img" aria-label="${esc(x.bars.map(b => `${b[0]}: ${P(b[1])} over ${b[2]}`).join(", "))}">${x.bars.map(bar).join("")}</div>` : ""}${x.act ? `<button type="button" class="btn small gi-hab-do" data-act="${esc(x.act.act)}" data-id="${esc(x.act.id)}" data-v="${esc(x.act.v)}">${esc(x.act.label)}</button>` : ""}</li>`).join("")}</ul>`
+      : `<p class="gi-hab-empty">${esc(tr("hb.empty", "No clear patterns yet. They show up once there are at least {n} marks on each side of a comparison (like work started early and work started late), with a gap of {g} points or more.", {n: G().MIN_N, g: G().MIN_GAP}))}</p>`;
+    return `<section class="gi-card gi-hab" aria-labelledby="giHabH"><h3 id="giHabH">${esc(tr("hb.title", "Your Patterns"))}</h3><p class="gi-sub">${esc(trn("hb.sub", H.marks.length, "From {n} mark, with the focus time, start dates and hand-in times Studyboard already keeps. These show what went with your better marks, not what caused them.|From {n} marks, with the focus time, start dates and hand-in times Studyboard already keeps. These show what went with your better marks, not what caused them."))}</p>${body}</section>`;
+  }
+  hook("act", (act, el, id) => {
+    if (act !== "hb-start") return false;
+    const t = state.tasks[id], v = el.dataset.v; if (!t || !isDate(v)) return true;
+    const n = clone(t); n.start = v; applyChanges([{kind: "task", id, after: n}], tr("hb.started", "{title} now starts {d}", {title: t.title, d: fmtShort(v)}));
+    return true;
+  });
+
+  /* 6. Term timeline: the credit-weighted average at the end of each week, rebuilt from the marks (nothing stored) */
+  let TL = {st: null, at: 0, v: null};
+  function timeline(all){
+    if (TL.st === state && TL.at === state.updated && TL.v) return TL.v;
+    const m = M(), log = syncLog(), S = m.termStats(all);
+    const live = all.filter(gr => gr.marked.length && !gr.unw);
+    const dated = live.map(gr => ({gr, its: gr.marked.map(t => ({t, d: t.due || dayOf(markAt(t, log))}))}));
+    const first = dated.flatMap(x => x.its.map(i => i.d)).filter(Boolean).sort()[0];
+    let v = null;
+    if (first) {
+      const wk = G().weeks(first, todayISO());
+      if (wk.length >= 3) {
+        const series = dated.map(x => ({gr: x.gr, pts: wk.map(w => { const ids = new Set(x.its.filter(i => i.d <= w).map(i => i.t.id)); return {key: w, v: ids.size ? m.courseGrade(x.gr.c, ids).current : null, ids}; })}));
+        const avg = wk.map((w, i) => { const rows = series.map(s => ({v: s.pts[i].v, cr: s.gr.c.credits})).filter(r => r.v != null); return {key: w, v: rows.length ? m.GRULES.avg(rows, S.def) : null}; });
+        // moves count from the first week every course has a mark: before that, a course joining the average isn't a real move
+        const full = Math.max(0, avg.findIndex((p, i) => series.every(s => s.pts[i].v != null)));
+        const mv = G().moves(avg.slice(full));
+        // what moved it most: the heaviest marks that week
+        let why = "";
+        if (mv.big) {
+          const k = wk.indexOf(mv.big.key), prev = wk[k - 1] || "";
+          const its = dated.flatMap(x => x.its.filter(i => i.d > prev && i.d <= mv.big.key).map(i => ({t: i.t, gr: x.gr, w: m.wOf(i.t)}))).sort((a, b) => b.w - a.w);
+          if (its[0]) why = `${its[0].t.title} (${courseLabel(its[0].gr.c)})`;
+        }
+        v = {wk, series, avg, mv, why};
+      }
+    }
+    TL = {st: state, at: state.updated, v};
+    return v;
+  }
+  function timelineHtml(all){
+    const m = M(), T = timeline(all); if (!T) return "";
+    const wide = !(window.matchMedia && matchMedia("(max-width:600px)").matches), W = wide ? 640 : 340, H = wide ? 190 : 200, box = {l: 40, t: 16, w: W - 40 - 18, h: H - 16 - 30};
+    const vals = T.avg.map(p => p.v).concat(...T.series.map(s => s.pts.map(p => p.v))).filter(v => v != null);
+    const dom = window.SBTREND ? SBTREND.GTREND.domain(vals) : {lo: 0, hi: 100}, n = T.wk.length;
+    const xy = (i, v) => window.SBTREND ? SBTREND.GTREND.xy(i, n, v, dom, box) : {x: box.l + i * box.w / (n - 1), y: box.t + (dom.hi - v) / (dom.hi - dom.lo) * box.h};
+    const path = pts => { let d = "", on = false; pts.forEach((p, i) => { if (p.v == null) { on = false; return; } const q = xy(i, p.v); d += (on ? "L" : "M") + q.x.toFixed(1) + " " + q.y.toFixed(1); on = true; }); return d; };
+    const ticks = [dom.hi, Math.round((dom.lo + dom.hi) / 2 / 5) * 5, dom.lo].filter((v, i, a) => a.indexOf(v) === i);
+    const last = T.avg[n - 1], lp = last.v != null ? xy(n - 1, last.v) : null;
+    const bi = T.mv.big ? T.wk.indexOf(T.mv.big.key) : -1, bp = bi >= 0 && T.avg[bi].v != null ? xy(bi, T.avg[bi].v) : null;
+    const lastTxt = T.mv.last == null ? "" : Math.abs(T.mv.last) < 0.05 ? tr("tl.same", "No change since last week") : tr("tl.wk", "{d} since last week", {d: (T.mv.last > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.last)))});
+    const bigTxt = T.mv.big && Math.abs(T.mv.big.d) >= 0.3 ? tr("tl.big", "Biggest week: {d} in the week ending {w}{why}.", {d: (T.mv.big.d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.big.d))), w: fmtShort(T.mv.big.key), why: T.why ? tr("tl.why", ", mostly {x}", {x: T.why}) : ""}) : "";
+    const first = T.avg.find(p => p.v != null);
+    const desc = tr("tl.desc", "Your average across courses at the end of each week, from {a} to {b}.", {a: first ? P(first.v) : "", b: last.v != null ? P(last.v) : ""});
+    const svg = `<svg class="gi-tl-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(desc + " " + bigTxt)}">
+      ${ticks.map(v => `<line class="gi-tl-grid" x1="${box.l}" x2="${box.l + box.w}" y1="${xy(0, v).y.toFixed(1)}" y2="${xy(0, v).y.toFixed(1)}"/><text class="gi-tl-ax" x="${box.l - 6}" y="${(xy(0, v).y + 4).toFixed(1)}" text-anchor="end">${v}%</text>`).join("")}
+      ${T.series.map(s => `<path class="gi-tl-c" d="${path(s.pts)}" style="stroke:${esc(s.gr.c.color)}"/>`).join("")}
+      <path class="gi-tl-avg" d="${path(T.avg)}"/>
+      ${lp ? `<circle class="gi-tl-dot" cx="${lp.x.toFixed(1)}" cy="${lp.y.toFixed(1)}" r="4.5"/>` : ""}
+      ${bp && bigTxt ? `<text class="gi-tl-big" x="${bp.x.toFixed(1)}" y="${(bp.y - 9).toFixed(1)}" text-anchor="middle">${esc((T.mv.big.d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.big.d))))}</text>` : ""}
+      <text class="gi-tl-ax" x="${box.l}" y="${H - 8}">${esc(fmtShort(T.wk[0]))}</text><text class="gi-tl-ax" x="${box.l + box.w}" y="${H - 8}" text-anchor="end">${esc(tr("tl.today", "Today"))}</text></svg>`;
+    const leg = `<ul class="gi-tl-leg"><li><i style="background:var(--ink);height:3px"></i>${esc(tr("tl.avg", "Average"))}</li>${T.series.map(s => `<li><i style="background:${esc(s.gr.c.color)}"></i>${esc(courseLabel(s.gr.c))}</li>`).join("")}</ul>`;
+    const cls = T.mv.last > 0.05 ? "up" : T.mv.last < -0.05 ? "down" : "";
+    return `<section class="gi-card gi-tl" aria-labelledby="giTlH"><h3 id="giTlH">${esc(tr("tl.title", "Your Term So Far"))}<span class="spacer"></span>${lastTxt ? `<span class="gi-wk ${cls}">${esc(lastTxt)}</span>` : ""}</h3>${svg}${leg}${bigTxt ? `<p class="mini">${esc(bigTxt)}</p>` : ""}</section>`;
+  }
+
+  /* 9. This Week in Grades */
+  const DG_KEY = "studyboard:digestHidden";
+  function digest(all){
+    const m = M(), log = syncLog(), since = Date.now() - 7 * 864e5, out = {marks: [], moved: [], next: null};
+    all.forEach(gr => {
+      const fresh = gr.marked.filter(t => markAt(t, log) >= since); if (!fresh.length) return;
+      const allIds = new Set(gr.marked.map(t => t.id)), now = m.courseGrade(gr.c, allIds).current;
+      fresh.forEach(t => { const w = new Set(allIds); w.delete(t.id); const b = w.size ? m.courseGrade(gr.c, w).current : null; out.marks.push({t, gr, pct: gr.pm.get(t.id), d: b != null && now != null ? now - b : null}); });
+      const w = new Set([...allIds].filter(id => !fresh.some(t => t.id === id))), b = w.size ? m.courseGrade(gr.c, w).current : null;
+      if (b != null && now != null) out.moved.push({gr, d: now - b, now});
+    });
+    const today = todayISO(), end = addDays(today, 7);
+    all.forEach(gr => gr.open.forEach(t => { if (t.status !== "done" && t.due && t.due >= today && t.due <= end && m.wOf(t) > 0) { const w = m.wOf(t) / gr.D * 100; if (!out.next || w > out.next.w) out.next = {t, gr, w}; } }));
+    out.marks.sort((a, b) => markAt(b.t, log) - markAt(a.t, log));
+    out.moved.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    return out;
+  }
+  function digestHtml(all, onBoard){
+    const m = M(), D = digest(all); if (!D.marks.length && !D.next) return "";
+    if (onBoard && !D.marks.length) return "";
+    const sg = v => (v > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(v)));
+    const today = todayISO(), range = tr("dg.range", "{a} to {b}", {a: fmtShort(addDays(today, -6)), b: fmtShort(today)});
+    // New marks: one row each, course colour, the mark, and what it did to the course
+    const chip = d => d == null || Math.abs(d) < 0.05 ? `<span class="gi-dg-d same">${esc(tr("dg.same", "no change"))}</span>` : `<span class="gi-dg-d ${d > 0 ? "up" : "down"}" title="${esc(tr("dg.dTip", "What it did to the course grade"))}">${esc(sg(d))}</span>`;
+    const rows = D.marks.slice(0, 5).map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gi-dg-t"><b>${esc(x.t.title)}</b><span class="mini">${esc(courseLabel(x.gr.c))}</span></span><span class="gi-dg-m">${esc(P(x.pct))}</span>${chip(x.d)}</li>`).join("");
+    const more = D.marks.length > 5 ? `<p class="mini gi-dg-more">${esc(trn("dg.more", D.marks.length - 5, "and {n} more mark|and {n} more marks"))}</p>` : "";
+    const marks = D.marks.length ? `<div class="gi-dg-sec"><h4>${esc(tr("dg.newH", "New Marks"))}</h4><ul class="gi-dg-rows"><li class="gi-dg-cols" aria-hidden="true"><span></span><span>${esc(tr("dg.colMark", "Mark"))}</span><span>${esc(tr("dg.colCourse", "Course"))}</span></li>${rows}</ul>${more}</div>` : "";
+    // Two tiles: the course that moved most, and the biggest graded item next week
+    const mv = D.moved.filter(x => Math.abs(x.d) >= 0.3)[0], tiles = [];
+    if (mv) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(mv.gr.c.color)}"><span class="k">${esc(tr("dg.mvH", "Biggest Move"))}</span><b>${esc(courseLabel(mv.gr.c))} <span class="gi-dg-d ${mv.d > 0 ? "up" : "down"}">${esc(sg(mv.d))}</span></b><span class="mini">${esc(tr("dg.mvS", "now {now}", {now: P(mv.now)}))}</span></div>`);
+    if (D.next) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(D.next.gr.c.color)}"><span class="k">${esc(tr("dg.nextH", "Coming Up"))}</span><b>${esc(D.next.t.title)}</b><span class="mini">${esc(tr("dg.nextS", "{c} · worth {w} · due {due}", {c: courseLabel(D.next.gr.c), w: m.fmtW(D.next.w), due: fmtShort(D.next.t.due)}))}</span></div>`);
+    const tl = tiles.length ? `<div class="gi-dg-tiles">${tiles.join("")}</div>` : "";
+    // One study pattern, as a tip
+    const H = habitsOf(all).list[0], ht = H ? habitText(H, all) : null;
+    const tip = ht ? `<div class="gi-dg-tip"><span class="gi-dg-tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg></span><span><b>${esc(tr("dg.tipH", "Your Pattern: {t}", {t: ht.title}))}</b><span>${esc(ht.say)}</span></span></div>` : "";
+    const count = D.marks.length ? trn("dg.count", D.marks.length, "{n} new mark|{n} new marks") : "";
+    return `<section class="gi-card gi-dg" aria-labelledby="giDgH"><div class="gi-dg-head"><h3 id="giDgH">${esc(tr("dg.head0", "This Week in Grades"))}</h3><span class="mini">${esc(range)}${count ? " · " + esc(count) : ""}</span></div>
+      ${marks}${tl}${tip}
+      ${onBoard ? `<div class="gi-dg-acts"><button type="button" class="btn small primary" data-act="dg-open">${esc(tr("dg.open", "Open Grades"))}</button><button type="button" class="btn small" data-act="dg-hide">${esc(tr("dg.hide", "Done for This Week"))}</button></div>` : ""}</section>`;
+  }
+  const dgHidden = () => { try { return localStorage.getItem(DG_KEY) === mondayOf(todayISO()); } catch (e) { return false; } };
+  // On Today: over the weekend and on Monday, once a week, when marks came in
+  const origBoard = viewBoard;
+  viewBoard = function(){
+    const html = origBoard.apply(this, arguments);
+    try {
+      const wd = new Date().getDay(), m = M();
+      if (!m || dgHidden() || !(wd === 6 || wd === 0 || wd === 1 || window.__sbDigestAny) || m.gset().digest === false) return html;
+      const card = digestHtml(m.grades(), true); if (!card) return html;
+      const k = html.indexOf('<div class="qa-wrap">');
+      return k >= 0 ? html.slice(0, k) + card + html.slice(k) : card + html;
+    } catch (e) { console.warn("grade insights: digest", e); return html; }
+  };
+  hook("act", act => {
+    if (act === "dg-hide") { try { localStorage.setItem(DG_KEY, mondayOf(todayISO())); } catch (e) {} render(); return true; }
+    if (act === "dg-open") { ui.tab = "courses"; ui.courseId = null; ui.courseTab = "grades"; render(); window.scrollTo(0, 0); return true; }
+    return false;
+  });
+
+  X().addSection("page", all => ({order: 5, html: digestHtml(all, false)}));
+  X().addSection("page", all => ({order: 40, html: timelineHtml(all)}));
+  X().addSection("page", all => ({order: 50, html: habitsHtml(all)}));
+
+  /* 11. What to Shore Up (topics and mastery, from what's already there): where a course has lost the most points, the topics
+     of its next exam's prep plan you rated weakest, and its flashcard decks by how ready you are. No new tagging needed. */
+  const CONF_ORDER = {weak: 0, ok: 1, strong: 2}, CONF_TXT = {weak: () => tr("su.weak", "shaky"), ok: () => tr("su.ok", "okay"), strong: () => tr("su.strong", "strong")};
+  function shoreHtml(gr){
+    const m = M(), c = gr.c, today = todayISO();
+    const ex = allTasks().filter(t => t.courseId === c.id && MILESTONE(t.type) && !t.prepFor && t.status !== "done" && t.due && t.due >= today).sort((a, b) => a.due.localeCompare(b.due))[0];
+    const topics = ex && ex.prep && Array.isArray(ex.prep.topics) ? ex.prep.topics.filter(t => t && t.name && !t.done).slice().sort((a, b) => (CONF_ORDER[a.conf] ?? 1) - (CONF_ORDER[b.conf] ?? 1)).slice(0, 5) : [];
+    const decks = typeof deckStats === "function" ? Object.values(state.decks || {}).filter(d => d && d.courseId === c.id && !d.archived && (d.cards || []).length).map(d => ({d, r: deckStats(d).ready})).sort((a, b) => a.r - b.r).slice(0, 4) : [];
+    if (!topics.length && !decks.length) return "";
+    const L = X().lostOf(gr), top = L.slices.find(s => s.kind === "cat");
+    const lines = [];
+    if (top && top.pts >= 1) lines.push(tr("su.lost", "{type} are where you've lost the most so far ({n}).", {type: m.typePl(top.key), n: X().pts(top.pts)}) + (ex ? " " + tr("su.next", "Next up: {title} on {d}, worth {w}.", {title: ex.title, d: fmtShort(ex.due), w: m.fmtW(m.wOf(ex) || 0)}) : ""));
+    const tl = topics.length ? `<p class="mini" style="margin:0">${esc(tr("su.topics", "Topics for {title}, weakest first (from its prep plan):", {title: ex.title}))}</p><ul class="gi-su-topics">${topics.map(t => `<li class="gi-su-${esc(t.conf || "ok")}"><b>${esc(t.name)}</b><span class="mini">${esc(tr("su.rated", "you rated it {c}", {c: (CONF_TXT[t.conf] || CONF_TXT.ok)()}))}</span></li>`).join("")}</ul><button type="button" class="btn small" data-act="prep-plan" data-id="${esc(ex.id)}">${esc(tr("su.plan", "Open the Prep Plan"))}</button>` : "";
+    const dl = decks.length ? `<ul class="gi-su-decks">${decks.map(x => `<li><span class="gi-su-dn"><b>${esc(x.d.name)}</b><span class="mini">${esc(trn("su.cards", x.d.cards.length, "{n} card|{n} cards"))} · ${esc(tr("su.ready", "{p}% ready", {p: x.r}))}</span></span><span class="gi-su-bar" role="img" aria-label="${esc(tr("su.ready", "{p}% ready", {p: x.r}))}"><i style="width:${x.r}%"></i></span><button type="button" class="btn small" data-act="fc-study" data-id="${esc(x.d.id)}">${esc(tr("su.study", "Study"))}</button></li>`).join("")}</ul>` : "";
+    return `<div class="gr-sub gi-su"><h4>${esc(tr("su.title", "What to Shore Up"))}</h4>${lines.map(x => `<p class="gi-su-lead">${esc(x)}</p>`).join("")}${tl}${dl}</div>`;
+  }
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(".gi-su")) return;
+    const html = shoreHtml(gr); if (!html) return;
+    const at = card.querySelector(".gi-cmp") || card.querySelector(".gi-lost") || card.querySelector(".gr-sub.gb");
+    if (at) at.insertAdjacentHTML("afterend", html); else card.insertAdjacentHTML("beforeend", html);
+  });
+
+  /* 10. Term Recap: grade cards beside the planner's ones (99-pro.js) */
+  function recapSlides(T){
+    const m = M(); if (!m) return [];
+    const all = m.grades(), S = m.termStats(all), out = [];
+    const g = S.gpaProj != null ? S.gpaProj : S.gpaNow, prev = S.T.length ? S.past[0].gpa : null;
+    if (S.max && g != null) out.push({k: tr("rc.gpa", "Term GPA"), big: m.fmtG(g), line: prev != null ? (g >= prev + 0.05 ? tr("rc.gpaUp", "Up from {p} last term. That's real progress.", {p: m.fmtG(prev)}) : g <= prev - 0.05 ? tr("rc.gpaDn", "{p} last term. One term doesn't define you, and you know more now than you did.", {p: m.fmtG(prev)}) : tr("rc.gpaSame", "Right in line with last term's {p}.", {p: m.fmtG(prev)})) : tr("rc.gpaFirst", "Out of {max}, across {n} courses.", {max: m.fmtG(S.max), n: S.n})});
+    const best = all.flatMap(gr => gr.marked.map(t => ({t, gr, p: gr.pm.get(t.id), w: m.wOf(t)}))).filter(x => x.p != null && x.w >= 3).sort((a, b) => b.p - a.p || b.w - a.w)[0];
+    if (best) out.push({k: tr("rc.best", "Best Mark"), big: P(best.p), line: tr("rc.bestL", "On {title} in {c}.", {title: best.t.title, c: courseLabel(best.gr.c)})});
+    const H = habitsOf(all).list.find(h => (h.key === "lead" || h.key === "time" || h.key === "night") && h.gap > 0) || habitsOf(all).list.find(h => h.key === "ready" && h.err <= 8);
+    if (H) { const x = habitText(H, all); if (x) out.push({k: tr("rc.worked", "What Worked"), big: x.title, line: x.say}); }
+    return out;
+  }
+  X().judge(all => {
+    const out = [], H = habitsOf(all).list.slice(0, 3);
+    H.forEach(h => { const x = habitText(h, all); if (x) out.push(`Study pattern (a correlation from the student's own data, not a cause): ${x.say}`); });
+    const T = timeline(all); if (T && T.mv.last != null) out.push(`Average across courses changed ${r1(T.mv.last)} points since last week.`);
+    return out;
+  });
+  /* A course's Grades tab, organized: the summary stays on top (the numbers, the letter cutoff, the goal, the bar and What You
+     Need), and everything else sits in four tabs: Marks, Breakdown, Outlook and What If. Runs after every other section is in
+     place (this is the last course section), and only moves what's there. The tab is remembered while the app is open. */
+  const GTABS = [
+    ["marks", () => tr("gt.marks", "Marks"), c => c.marks],
+    ["breakdown", () => tr("gt.breakdown", "Breakdown"), c => c.breakdown],
+    ["outlook", () => tr("gt.outlook", "Outlook"), c => c.outlook],
+    ["whatif", () => tr("gt.whatif", "What If"), c => c.whatif]];
+  const h4Of = el => ((el.querySelector(":scope > h4") || {}).textContent || "").trim();
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(":scope > .gi-tabs")) return;
+    const kids = [...card.children];
+    const subs = kids.filter(el => el.classList.contains("gr-sub"));
+    const groups = {
+      marks: subs.filter(el => /^(Marked|Still to Mark)\b/.test(h4Of(el))),
+      breakdown: subs.filter(el => el.matches(".gb, .gi-lost, .gi-cmp")),
+      outlook: subs.filter(el => el.matches(".gi-fc, .gt-sec, .gi-su")),
+      whatif: subs.filter(el => el.matches(".gr-wi"))};
+    const tabs = GTABS.filter(([k, , f]) => f(groups).length);
+    if (tabs.length < 2) return;
+    const want = ui.grTab && tabs.some(t => t[0] === ui.grTab) ? ui.grTab : tabs[0][0];
+    const cid = gr.c.id, n = groups.marks.reduce((s, el) => s + el.querySelectorAll(":scope > .gr-work > li").length, 0);
+    const bar = document.createElement("div");
+    bar.className = "gi-tabs"; bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", tr("gt.label", "Course grade details"));
+    bar.innerHTML = tabs.map(([k, name]) => `<button type="button" role="tab" id="gtab-${k}" class="gi-tab" data-act="gi-gtab" data-id="${k}" aria-controls="gpan-${k}" aria-selected="${k === want}" tabindex="${k === want ? 0 : -1}">${esc(name())}${k === "marks" && n ? `<span class="n">${n}</span>` : ""}</button>`).join("");
+    // the summary keeps its order on top; the tabs and their sections go after it
+    card.appendChild(bar);
+    let at = bar;
+    tabs.forEach(([k, , f]) => {
+      const p = document.createElement("div");
+      p.className = "gi-pan"; p.id = "gpan-" + k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "gtab-" + k); p.dataset.cid = cid;
+      if (k !== want) p.hidden = true;
+      f(groups).forEach(el => p.appendChild(el));
+      at.after(p); at = p;
+    });
+  });
+  function gtabGo(k, focus){
+    ui.grTab = k;
+    document.querySelectorAll(".gi-tabs .gi-tab").forEach(b => { const on = b.dataset.id === k; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
+    document.querySelectorAll(".gi-pan").forEach(p => { p.hidden = p.id !== "gpan-" + k; });
+  }
+  hook("act", (act, el, id) => { if (act !== "gi-gtab") return false; gtabGo(id); return true; });
+  // arrow keys move between tabs, as tabs do
+  document.addEventListener("keydown", e => {
+    const t = e.target; if (!t || !t.classList || !t.classList.contains("gi-tab") || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const all = [...t.parentNode.querySelectorAll(".gi-tab")], i = all.indexOf(t);
+    const j = e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length;
+    e.preventDefault(); gtabGo(all[j].dataset.id, true);
+  });
+  // something that points at a mark (search, the companion) opens the Marks tab
+  window.SBGTAB = gtabGo;
+
+  Object.assign(window.SBGINS, {recapSlides, habitsOf, timeline, digest, markAt});
+})();
 /* ===== module: 92-estimates.js ===== */
 /* Quick time estimates */
 var SBEST = (() => {
@@ -76861,6 +77877,8 @@ window.SBLOCALANS = (() => {
     } catch (e) {}
     const view = document.getElementById("view");
     let text = ""; try { text = view ? view.innerText : ""; } catch (e) {}
+    // a course's Grades tab keeps Breakdown, Outlook and What If in tabs: what's in the hidden ones is on the page too
+    try { if (view) view.querySelectorAll(".gi-pan[hidden]").forEach(p => { const t = (p.textContent || "").replace(/\s+/g, " ").trim(); if (t) text += "\n" + t; }); } catch (e) {}
     let sheet = "";
     try { if (dlg && dlg.open) { const h = dlg.querySelector("h2"); sheet = `${h ? h.textContent.trim() + ": " : ""}${clip(dlg.innerText, 2500)}`; } } catch (e) {}
     return {tab, name: NAMES[tab] || tab, detail: bits.join("; "), text: clip(text, 5000), sheet, at: Date.now()};
@@ -77170,7 +78188,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         case "grade": {
           // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
           const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
-          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; ui.grTab = "marks"; render(); await frame(); await wait(60);
           const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
           if (!flash(row && (row.closest("li") || row))) taskView(k);
           return true;
@@ -98968,6 +99986,8 @@ var SBPRO = null;
     const up = climbs.filter(x => x.t.cur - x.t.first >= 2).sort((a, b) => (b.t.cur - b.t.first) - (a.t.cur - a.t.first))[0];
     if (up) out.push({k: "Biggest Climb", big: courseLabel(up.c), line: `From ${Math.round(up.t.first)}% to ${Math.round(up.t.cur)}%${up.t.letter ? ` (${up.t.letter})` : ""}. That came from the work you put in.`});
     else { const best = climbs.sort((a, b) => b.t.cur - a.t.cur)[0]; if (best) out.push({k: "Top Course", big: courseLabel(best.c), line: `Finishing at ${Math.round(best.t.cur)}%${best.t.letter ? ` (${best.t.letter})` : ""}.`}); }
+    // the term in grades: GPA against last term, the best mark, and the study pattern that went with better marks (90-grade-habits.js)
+    try { if (window.SBGINS && SBGINS.recapSlides) out.push(...SBGINS.recapSlides(T)); } catch (e) { console.warn("recap: grades", e); }
     return out;
   }
   const seenRecap = () => Array.isArray(S().recapSeen) ? S().recapSeen : [];
