@@ -119,6 +119,8 @@ function syncOne(id, why) {
       const at = Date.now();
       await set({ ["result:" + id]: { v: 1, id, origin: s.origin, at, h: c } });
       await setStatus(id, Object.assign({ state: "ok", at, lastOk: at, error: "", fails: 0, why: why || "", name: (c.me && c.me.name) || "" }, count(c)));
+      handOrigin(s.origin).catch(() => {});
+      resultToApp(id, s.origin, at, c).catch(() => {});
       return { ok: true };
     }
     await setStatus(id, { state: c.needLogin ? "login" : "error", at: Date.now(), error: c.needLogin ? "" : String(c.error || err || "error").slice(0, 160), lastOk: prev.lastOk || 0, fails: Math.min(20, (prev.fails || 0) + 1) });
@@ -162,6 +164,7 @@ async function addSchool(origin0, platform, replace) {
     if (!Object.values(st.schools).some(x => x.origin === old.origin)) chrome.permissions.remove({ origins: [old.origin + "/*"] }).catch(() => {});
   }
   syncOne(id, "added");
+  handOrigin(origin).catch(() => {});
   return { ok: true, id };
 }
 // The person signed out of Studyboard
@@ -203,6 +206,135 @@ chrome.tabs.onUpdated.addListener(async (tabId, info, tab) => {
     if ((st.state === "syncing" && Date.now() - (st.since || 0) < 5 * 60000) || (st.state === "ok" && Date.now() - (st.lastOk || 0) < 30 * 60000)) continue;
     syncOne(id, "visit");
   }
+});
+
+// The Studyboard iPhone app (the copy of this extension built into it; ios-wrapper/native/SchoolSafari/)
+// Schools that sign in with Google can't be signed in to inside the app (Google allows its sign-in only in a browser),
+// so the student signs in here in Safari, and this hands that school site's own sign-in (its cookies on that site, never
+// a Google cookie or password) to the app on the same iPhone. The app then syncs by itself. Only sites the app asks
+// for, only once Safari has let this extension read them, and only while the student is really signed in there.
+const TO_APP = (chrome.runtime.getManifest().permissions || []).includes("nativeMessaging");
+const APP_ID = "com.studyboardapp.studyboard";
+const HAND_EVERY = 6 * 3600000;
+function toApp(m) {
+  try {
+    const B = globalThis.browser || chrome;
+    if (!B.runtime || !B.runtime.sendNativeMessage) return Promise.resolve(null);
+    return within(Promise.resolve(B.runtime.sendNativeMessage(APP_ID, m)), 8000).catch(() => null);
+  } catch (e) { return Promise.resolve(null); }
+}
+// The sites the app wants a sign-in for (telling it which sites Safari lets this extension read, for its setup steps)
+async function appWants() {
+  if (!TO_APP) return [];
+  let granted = [];
+  try { granted = ((await chrome.permissions.getAll()).origins || []).slice(0, 500); } catch (e) {}
+  const r = await toApp({ v: 1, op: "wanted", granted });
+  if (!r || r.v !== 1 || !Array.isArray(r.wanted)) return [];
+  return r.wanted.filter(w => w && NAMES[w.id] && typeof w.origin === "string" && SBX.originOf(w.origin) === w.origin).map(w => ({ id: w.id, origin: w.origin, need: w.need === true }));
+}
+// Whether the student is signed in to the site (self-contained: also run inside a tab of the site, where Safari's
+// tracking protection can't keep the site's sign-in from the request)
+async function signedInHere(id, base, f) {
+  f = f || ((u, o) => fetch(new URL(u, base).href, Object.assign({ credentials: "include" }, o || {})));
+  const json = async p => { const r = await f(p, { headers: { Accept: "application/json" } }); return r.ok && /json/i.test(r.headers.get("content-type") || "") ? r.json() : null; };
+  try {
+    if (id === "canvas") { const me = await json("/api/v1/users/self"); return !!(me && me.id); }
+    if (id === "blackboard") {
+      for (const p of ["/learn/api/public/v1/users/me", "/learn/api/v1/users/me"]) { try { const me = await json(p); if (me && me.id) return true; } catch (e) {} }
+      return false;
+    }
+    if (id === "brightspace") {
+      const v = await json("/d2l/api/versions/"), lp = String(((Array.isArray(v) ? v : []).find(x => x && String(x.ProductCode).toLowerCase() === "lp") || {}).LatestVersion || "1.30");
+      const me = await json("/d2l/api/lp/" + (/^\d{1,2}\.\d{1,3}$/.test(lp) ? lp : "1.30") + "/users/whoami");
+      return !!(me && (me.Identifier || me.UniqueName));
+    }
+    if (id === "moodle") {
+      const r = await f("/user/profile.php", { headers: { Accept: "text/html" } });
+      if (!r.ok) return false;
+      const u = new URL(r.url);
+      return u.origin === new URL(base).origin && !/\/login\//.test(u.pathname) && /data-userid|usermenu|user-menu-toggle|userbutton/.test(await r.text());
+    }
+  } catch (e) {}
+  return false;
+}
+// The site's cookies (those it gets on any of its pages), as the app's handler expects them
+async function siteCookies(origin) {
+  const B = globalThis.browser || chrome, host = new URL(origin).hostname;
+  if (!B.cookies || !B.cookies.getAll) return [];
+  const lists = await Promise.all([B.cookies.getAll({ url: origin + "/" }).catch(() => []), B.cookies.getAll({ domain: host }).catch(() => [])]);
+  const seen = new Set(), out = [];
+  for (const c of [].concat(lists[0] || [], lists[1] || [])) {
+    if (!c || typeof c.name !== "string" || typeof c.value !== "string" || typeof c.domain !== "string") continue;
+    const d = c.domain.toLowerCase().replace(/^\./, "");
+    if (!(host === d || host.endsWith("." + d))) continue;
+    const k = c.name + "\n" + d + "\n" + (c.path || "/");
+    if (seen.has(k)) continue; seen.add(k);
+    out.push({ name: c.name, value: c.value, domain: c.domain, path: c.path || "/", secure: !!c.secure, httpOnly: !!c.httpOnly, hostOnly: !!c.hostOnly,
+      sameSite: typeof c.sameSite === "string" ? c.sameSite : null, expirationDate: typeof c.expirationDate === "number" ? c.expirationDate : null });
+  }
+  return out.slice(0, 150);
+}
+// A note on the school page when the app was waiting: back to the app in one tap
+function backToAppNote(name) {
+  if (document.getElementById("studyboard-app-note")) return;
+  const host = document.createElement("div"); host.id = "studyboard-app-note";
+  host.style.cssText = "position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:2147483647;";
+  const root = host.attachShadow({ mode: "closed" }), box = document.createElement("div"), txt = document.createElement("span"), go = document.createElement("a"), x = document.createElement("button");
+  box.setAttribute("role", "status");
+  box.style.cssText = "display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;background:#0E2A56;color:#fff;font:15px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25);";
+  txt.textContent = "Signed in. Studyboard can sync " + name + " now."; txt.style.flex = "1";
+  go.textContent = "Back to Studyboard"; go.href = "studyboard://school-signed-in";
+  go.style.cssText = "color:#0E2A56;background:#fff;border-radius:10px;padding:9px 12px;font-weight:600;text-decoration:none;white-space:nowrap;";
+  x.textContent = "×"; x.setAttribute("aria-label", "Close");
+  x.style.cssText = "background:none;border:0;color:#fff;font-size:22px;line-height:1;padding:4px;cursor:pointer;";
+  x.onclick = () => host.remove();
+  box.append(txt, go, x); root.append(box); document.documentElement.append(host);
+}
+const handing = {};
+async function handToApp(w, tabId) {
+  if (handing[w.origin]) return handing[w.origin];
+  handing[w.origin] = (async () => {
+    const key = "handAt:" + w.origin, last = Number((await get(key))[key]) || 0;
+    if (!w.need && Date.now() - last < HAND_EVERY) return false;
+    if (!(await granted(w.origin))) return false;
+    let ok = await within(signedInHere(w.id, w.origin, schoolFetch(w.origin)), 20000).catch(() => false);
+    if (!ok && tabId != null) {
+      try { const r = await within(chrome.scripting.executeScript({ target: { tabId }, func: signedInHere, args: [w.id, w.origin, null] }), 20000); ok = !!(r && r[0] && r[0].result); } catch (e) {}
+    }
+    if (!ok) return false;
+    const cookies = await siteCookies(w.origin).catch(() => []);
+    if (!cookies.length) return false;
+    const r = await toApp({ v: 1, op: "handoff", id: w.id, origin: w.origin, at: Date.now(), cookies });
+    if (!r || r.ok !== true) return false;
+    await set({ [key]: Date.now() });
+    if (w.need && tabId != null) chrome.scripting.executeScript({ target: { tabId }, func: backToAppNote, args: [NAMES[w.id]] }).catch(() => {});
+    return true;
+  })().catch(() => false).finally(() => { handing[w.origin] = null; });
+  return handing[w.origin];
+}
+// What was read from a site the app asked about goes to the app too: it uses it while its own sign-in has run out
+// (only the copy in the iPhone app; never more than about 5 MB in one message)
+async function resultToApp(id, origin, at, h) {
+  if (!TO_APP) return false;
+  const w = (await appWants()).find(x => x.origin === origin && x.id === id);
+  if (!w) return false;
+  let size = 0; try { size = JSON.stringify(h).length; } catch (e) { return false; }
+  if (size > 5000000) return false;
+  const r = await toApp({ v: 1, op: "result", id, origin, at, h });
+  return !!(r && r.ok === true);
+}
+// After the school site loads in a tab, after connecting a site, and after a good read
+async function handOrigin(origin, tabId) {
+  if (!TO_APP || !origin) return;
+  const w = (await appWants()).find(x => x.origin === origin);
+  if (!w) return;
+  if (tabId == null) { const t = await openTabOf(origin); tabId = t ? t.id : null; }
+  await handToApp(w, tabId);
+}
+if (TO_APP) chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== "complete" || !tab || !tab.url) return;
+  let o = ""; try { o = new URL(tab.url).origin; } catch (e) { return; }
+  if (SBX.originOf(o) === o) handOrigin(o, tabId).catch(() => {});
 });
 
 // Firefox closes the toolbar popup when it asks for a permission
