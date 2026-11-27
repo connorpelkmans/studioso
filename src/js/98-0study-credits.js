@@ -10,9 +10,9 @@
                         a step of a broken-down task 3 (at most 8 tasks a day count, so splitting work up doesn't pay)
      - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
-   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
+   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Epic 500, Legendary 1,000): a steady
    study day (a 25-minute focus session 12, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
-   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Epic about a week and a Legendary about two weeks.
    The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
@@ -171,11 +171,11 @@ var SBSC = (() => {
      credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
      How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
      A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
-     a Rare every 4 days, an Exotic every 2 weeks and a Legendary about every 2 months. */
+     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
   const CHEST = {
     common: {name: "Common", min: 5, max: 20, p: 0.70},
     rare: {name: "Rare", min: 20, max: 50, p: 0.22},
-    exotic: {name: "Exotic", min: 50, max: 100, p: 0.065},
+    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
     legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
@@ -298,7 +298,7 @@ var SBSC = (() => {
   /* ---------- The prize wheel: a spin for an exam grade of 80% or more ----------
      A mark of 80% or more on an exam (typed in, or from the school site) earns a spin, once per exam,
      at most SPINS_A_WEEK a week (Monday to Sunday). The wheel has 12 prizes, each slice as big as its chance, so what you see is
-     what you get: 1 Legendary accessory (2%), 2 Exotic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
+     what you get: 1 Legendary accessory (2%), 2 Epic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
      100 (10%), 150 (8%), 200 (6%). The accessories are picked at random from ones the student doesn't own yet (none of a rarity
      left: that slice is coins instead, half its price). Marks already there when this first runs, and more than 3 arriving at
      once (a sync catching up), are counted as seen without a spin. A spin waits (sc.wsq) until it's spun.
@@ -419,7 +419,7 @@ var SBSC = (() => {
   }
   const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
   const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
-  const RNAME = {legendary: "Legendary", exotic: "Exotic", rare: "Rare"};
+  const RNAME = {legendary: "Legendary", exotic: "Epic", rare: "Rare"};
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
@@ -747,7 +747,7 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Epic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
   return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
