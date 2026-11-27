@@ -14506,6 +14506,7 @@ function planGapWhy(F){
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
   if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
+  if (rest >= 0.25) why.push(tr("plan.gap.free", "That's all the work there is to do today, so {time} of the {set} you set is free.", {time: fmtHM(q(rest)), set: fmtHM(F.thSet)}));
   return why;
 }
 // For tests: the plan as the app sees it right now
@@ -34914,7 +34915,7 @@ var SBAREA = (() => {
     ex: {type: "STRING", description: "One realistic quick-add example task for a student in this field, like 'chem lab report fri 5pm worth 8%'. Lowercase, under 60 characters, with a short day and optional time or weight"},
     types: {type: "ARRAY", items: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]}, description: "All eight task types, the ones this field uses most first"},
     hours: {type: "OBJECT", properties: {Assignment: {type: "NUMBER"}, Project: {type: "NUMBER"}, Lab: {type: "NUMBER"}, Reading: {type: "NUMBER"}, Exam: {type: "NUMBER"}, Quiz: {type: "NUMBER"}, Study: {type: "NUMBER"}}, description: "Typical hours a student in this field spends on one task of each type"},
-    skin: {type: "STRING", enum: FIELD_SKINS.concat([""]), description: "The theme that fits the field best, or an empty string when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
+    skin: {type: "STRING", enum: FIELD_SKINS.concat(["none"]), description: "The theme that fits the field best, or none when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
   // The same tuning each preset field has
   const cleanTuned = (r, text) => {
     if (!r || typeof r !== "object") return null;
@@ -51719,7 +51720,7 @@ function cleanFile(r) {
     // Without an account: the calendar link (kept up to date) is the way in, so the account comes first and then straight
     // back here. A one-off calendar file stays under Other options
     const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Keep Due Dates Synced With Your Calendar Link" : "Keep It Synced Automatically"}</b><span class="bs-pill">Free Account</span></div>
-          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.</p>
+          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
           ${findSteps(true)}
           <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-acct">Create a Free Account</button><button class="btn" data-act="${A}-acct-in">I Have an Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
@@ -81024,6 +81025,8 @@ window.SBTRUTH = (() => {
     if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
+    // (a hello or a question about the app isn't a planner question to follow on from: "hi!" then "what's left in BSNC 1055?")
+    { const H = window.SBAPPHELP; try { if (H && H.answer(L)) return ""; } catch (e) {} }
     if (AFTER.test(s)) return "__AFTER__";
     // "who teaches that class", "what's my grade in that course": the course the last answer was about
     if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
@@ -81667,7 +81670,7 @@ window.SBMATHAI = (() => {
     if (/\bhypotenuse\b|\bpythag/.test(s) || (k.legs && /\blegs?\b/.test(s))) { if (N.length >= 2) { const [a, b] = N, c = Math.sqrt(a * a + b * b); return {answer: `The hypotenuse is ${fmt(c)}: √(${fmt(a)}² + ${fmt(b)}²) = √(${fmt(a * a)} + ${fmt(b * b)}) = √${fmt(a * a + b * b)} = ${fmt(c)}.`, value: c, legs: true}; } }
     // circles: radius or diameter, then area or circumference
     const circ = /\bcircle\b|\bradius\b|\bdiameter\b/.test(s) || (k.r != null && /\b(area|circumference|perimeter|diameter)\b/.test(s));
-    if (circ) { let r = (m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s)) ? Number(m[1]) : (m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s)) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
+    if (circ) { let r = ((m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s))) ? Number(m[1]) : ((m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s))) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
       if (r != null && isFinite(r)) { if (/\bcircumference|perimeter\b/.test(s)) { const v = 2 * Math.PI * r; return {answer: `The circumference is ${fmt(2 * r)}π, about ${fmt4(v)}: C = 2πr = 2 × π × ${fmt(r)}.`, value: v, r}; }
         if (/\barea\b/.test(s)) { const v = Math.PI * r * r; return {answer: `The area is ${fmt(r * r)}π, about ${fmt4(v)} square units: A = πr² = π × ${fmt(r)}².`, value: v, r}; } } }
     // cubes, boxes, rectangles, triangles
@@ -81680,7 +81683,7 @@ window.SBMATHAI = (() => {
       if (/\bperimeter\b/.test(s)) return {answer: `The perimeter is ${fmt(2 * (a + b))}: 2 × (${fmt(a)} + ${fmt(b)}).`, value: 2 * (a + b)};
       if (/\barea\b/.test(s)) return {answer: `The area is ${fmt(a * b)} square units: ${fmt(a)} × ${fmt(b)}.`, value: a * b}; }
     // the angles of a polygon
-    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : (m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s)) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
+    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : ((m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s))) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
       if (n >= 3 && /\bangles?\b/.test(s)) { const sum = (n - 2) * 180, name = nm || `${n}-sided shape`;
         if (/\b(each|one|regular|every)\b/.test(s) && !/\bsum\b/.test(s)) return {answer: `Each interior angle of a regular ${name} is ${fmt(sum / n)}°: the angles add up to (${n} − 2) × 180 = ${sum}°, shared equally by ${n} angles.`, value: sum / n, ngon: n};
         if (/\bexterior\b/.test(s)) return {answer: `The exterior angles of any convex polygon add up to 360°${n ? `, so each one of a regular ${name} is ${fmt(360 / n)}°` : ""}.`, value: 360 / n, ngon: n};
@@ -82574,7 +82577,7 @@ window.SBCARDS = (() => {
     "start_timer", "stop_timer", "pause_timer", "resume_timer", "undo", "make_flashcards", "make_quiz", "make_map", "find_notes",
     "delete_item", "rename_item", "open_item", "edit_item", "change_setting", "set_theme", "wear_accessory", "remove_accessory",
     "add_card", "make_deck", "study_deck", "add_mark", "new_group", "join_group", "open_page", "cant"];
-  const KINDS = ["", "task", "event", "course", "deck", "quiz", "note", "board", "file"];
+  const KINDS = ["task", "event", "course", "deck", "quiz", "note", "board", "file"];
   const ISCHEMA = {type: "OBJECT", properties: {
     intent: {type: "STRING", enum: INTENTS},
     task: {type: "STRING", description: "the existing task it's about, in the student's words or as listed; \"it\" if they only say it/that"},
@@ -82587,7 +82590,7 @@ window.SBCARDS = (() => {
     end: {type: "STRING", description: "24-hour HH:MM end time"},
     where: {type: "STRING"},
     minutes: {type: "NUMBER"},
-    priority: {type: "STRING", enum: ["", "urgent", "high", "med", "low"]},
+    priority: {type: "STRING", enum: ["urgent", "high", "med", "low"]},
     text: {type: "STRING", description: "a note's exact words; PHOTO_TEXT if the note should say what the attached picture says"},
     board: {type: "STRING", description: "the note board named, if any"},
     topic: {type: "STRING", description: "the topic for flashcards, a quiz, a map or a note search"},
@@ -84518,7 +84521,9 @@ ANSWERING
       // a day or time on its own, said right after something was added or named ("thursday" after "Added History quiz ... no due
       // date", "dec 10"): that item's day
       const bareWhen = q.split(/\s+/).length <= 6 && !ISQ(q) && !String(q).toLowerCase().replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|next|this|week|the|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}(:\d\d)?\s*(am|pm)?|\d{1,2}\/\d{1,2}|at|on|by|due|it'?s|its|it|is|make|then|instead|actually|no|nah|ok|okay|please|pls|maybe|morning|afternoon|evening|night|noon)\b/g, " ").replace(/[^a-z]+/g, "").length && (() => { const x = whenOf("move it to " + q, {}); return !!(x.date || x.time); })();
-      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
+      // (not in a message of several steps, "move my essay to march 14 and make it high priority": there "it" is what the step
+      // before it named, and each step is done in turn below)
+      if (!made && !fix && !multi && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
         const a0 = last.a || {}, pick = r => { const nm = refName(r); return nm && /^(task|event)$/.test(r.kind) ? {kind: r.kind, name: nm} : null; };
         let LI = a0.ref ? pick(a0.ref) : null;
         if (!LI && a0.did && a0.did.task) { const t = taskOf0(a0.did.task, null, true); if (t) LI = {kind: "task", name: t.title}; }
@@ -98783,6 +98788,12 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <h3>Optional: reminders, calendar link, study groups</h3>
 <p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. <b>Friends</b> see each other's display name and @username, and nothing else. A friend request needs your exact username or your friend link: nobody can search for you, Studyboard never reads your contacts, and blocking someone ends the friendship. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
+<h3>Optional: sending to friends</h3>
+<p>If you send a deck, quiz or concept map to a friend, a copy of it is kept on our server until they add it or say No Thanks (then it is deleted at once), and for at most 30 days if they don't answer. Only that friend can receive it; nobody else can see it. A short note that it was sent (who, what and when) is kept for 7 days after they answer, then deleted.</p>
+
+<h3>Optional: Classmates and Course Hubs</h3>
+<p>If you turn on <b>Classmates</b>, Studyboard stores which of your courses synced from your school site you take, as a one-way scrambled code for each course (not the course&rsquo;s name, your school site&rsquo;s address or its course id), together with your age group (13 to 17, or 18 and older, worked out from the birthday you gave). Classmates who also turned it on, are in the same age group and haven&rsquo;t blocked you (or been blocked by you) can see your display name in the courses you share, and you can see theirs. Nothing else is shown: not your email, your other courses, your birthday or your work. If you join a course&rsquo;s <b>Course Hub</b>, it works like any study group. Turning Classmates off in Settings removes your courses straight away (Course Hubs you joined stay until you leave them); courses that haven&rsquo;t been synced for 120 days are removed on their own.</p>
+
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
 <p><b>Google Drive:</b> Studyboard asks only for access to the files it creates (in a folder called &ldquo;Studyboard&rdquo;) and the folders you pick for it; it can&rsquo;t see anything else in your Drive. <b>OneDrive:</b> Microsoft gives apps access to the whole OneDrive, but Studyboard only saves into the folders you choose and reads only the folders you ask it to watch. It never deletes anything in Google Drive or OneDrive. A file&rsquo;s contents are read only when you ask (to open, summarize or study from it), and go to an AI service only if you allowed AI for that account (a checkbox when you connect it, which you can change any time in Files, Cloud) and then use an AI feature on that file. Studyboard&rsquo;s use of information received from Google APIs follows the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Disconnect any time in Files, Cloud (or in your Google or Microsoft account settings); deleting your Studyboard account deletes the stored sign-in too.</p>
@@ -98816,6 +98827,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <li><b>After you delete your account:</b> your data is removed from our database and storage straight away. Encrypted backups can hold a copy for up to 30 days before they are overwritten; nothing is restored for a deleted account.</li>
 <li><b>Payment records:</b> Stripe and the app stores keep them as tax and accounting law requires. We keep a log of payment events (such as a renewal or a cancellation) linked to your account for up to 120 days so your plan stays right, then delete it. When you delete your account, your Stripe customer profile is deleted and any payment records we still hold lose their link to you.</li>
 <li><b>Crash reports:</b> kept for about 30 days, then deleted. They are anonymous and not linked to your account.</li>
+<li><b>Classmates:</b> while it&rsquo;s on, and at most 120 days after a course was last synced. A record of which scrambled course codes your account sent is kept for 30 days to stop misuse.</li>
 <li><b>Study group reports:</b> kept for up to a year. The copy of what was reported is cleared 90 days after the report is handled.</li>
 <li><b>Studyboard AI Pro usage (how much of your allowance you have used):</b> until you delete your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem, and never longer than 180 days (screenshots attached to a report are deleted after 30 days). Reports sent while signed in are deleted with your account.</li>
@@ -133547,6 +133559,12 @@ ui._day = todayISO();
       }
     } catch (e) {}
   };
+  // As it opens and again a frame later; a button the opener focused on purpose once it was open (the timer's Start) keeps the focus
+  // (a typing box still doesn't on a phone)
+  const quietOpen = d => {
+    quiet(d); const was = document.activeElement;
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a !== was && a.tagName === "BUTTON" && d.contains(a)) return; quiet(d); });
+  };
   // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
   // Close (X) first, as it's seen, rather than last after the whole sheet
   document.addEventListener("keydown", e => {
@@ -133570,7 +133588,7 @@ ui._day = todayISO();
     noAuto(this);
     const r = showModal0.apply(this, arguments);
     hold(this);
-    quiet(this); requestAnimationFrame(() => quiet(this));
+    quietOpen(this);
     return r;
   };
   // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
@@ -133628,7 +133646,7 @@ ui._day = todayISO();
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quietOpen(this); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped

@@ -24,10 +24,13 @@ const SEED = {v: 2, courses: [], tasks: [], files: [], events: [], settings: {},
       // the keyboard has been up once already, so its height is known
       await page.evaluate(() => { window.__kbL.keyboardWillShow({keyboardHeight: 336}); window.__kbL.keyboardWillHide && window.__kbL.keyboardWillHide(); }); await page.waitForTimeout(300);
       await page.evaluate(() => { const x = document.createElement("button"); x.dataset.act = "fc-add"; x.dataset.id = "d1"; x.hidden = true; document.body.appendChild(x); x.click(); x.remove(); });
-      const tops = [];
-      for (let i = 0; i < 14; i++) { tops.push(await page.evaluate(() => { const s = document.querySelector("dialog[open] .fc-add"); return s ? Math.round(s.getBoundingClientRect().top) : null; })); await page.waitForTimeout(80); }
-      const settled = tops[tops.length - 1], kb = await page.evaluate(() => document.documentElement.classList.contains("kb-open"));
-      ok(settled != null && tops.slice(4).every(t => Math.abs(t - settled) <= 2) && !kb, `${idiom}: Add Card opens in place, with no rise for a keyboard that isn't coming: ` + tops.join(","));
+      // the sheet's own entrance (a .42s slide up from the bottom edge on phones) is left out: from when it ends, the sheet must not move,
+      // and the keyboard lift (kb-open) must never come on, not even for a moment while it slides
+      const tops = [], moving = [];
+      let kb = false;
+      for (let i = 0; i < 14; i++) { const r = await page.evaluate(() => { const s = document.querySelector("dialog[open] .fc-add"), d = s && s.closest("dialog"); return {top: s ? Math.round(s.getBoundingClientRect().top) : null, anim: !!d && d.getAnimations().some(a => a.playState === "running"), kb: document.documentElement.classList.contains("kb-open")}; }); tops.push(r.top); moving.push(r.anim); kb = kb || r.kb; await page.waitForTimeout(80); }
+      const settled = tops[tops.length - 1], from = Math.max(4, moving.lastIndexOf(true) + 1);
+      ok(settled != null && from <= 7 && tops.slice(from).every(t => Math.abs(t - settled) <= 2) && !kb, `${idiom}: Add Card opens in place, with no rise for a keyboard that isn't coming: ` + tops.join(",") + " (still from " + from + ")");
       ok(!errs.length, `${idiom}: no page errors: ` + errs.join(" | "));
       await ctx.close();
     }
