@@ -375,7 +375,7 @@
   const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
-  // a gift (the Santa Hat, from the Christmas present) is never sold
+  // a gift (from a holiday present: the Santa Hat and the 2027 holidays') is never sold
   const forSale = a => !!a && !a.gift && (!a.festive || inSeason());
   const coinHtml = px => SC() ? SC().coin(px) : "";
   const creditsTxt = n => `${(+n || 0).toLocaleString()} ${+n === 1 ? "credit" : "credits"}`;
@@ -1764,33 +1764,86 @@
     if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
     revealProp(revealQ.shift());
   }
-  /* The Christmas present: from Dec 25 to Jan 6, at the first calm moment after the app opens (that day or whenever it's next
-     opened), a wrapped present pops up in the middle of the screen. Open It lifts the lid and the Santa Hat (never sold) is
-     inside: it's added to the wardrobe and shown with Put It On. Later keeps it for the next time the app is opened.
-     Once a student has the hat, it doesn't come again. comp.gift marks the season it was opened */
-  const giftSeason = () => { const d = new Date(), m = d.getMonth(), day = d.getDate(); return (m === 11 && day >= 25) || (m === 0 && day <= 6); };
-  const giftYear = () => { const d = new Date(); return d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear(); };
-  // (browser tests see it only when they ask for it)
+  /* Holiday presents: on each holiday (or the next time the app is opened, until the window ends), a wrapped present pops up at
+     the first calm moment. Open It lifts the lid and the holiday's accessory (never sold) is inside: it's added to the wardrobe
+     and shown with Put It On. Later keeps it for the next time the app is opened. Each comes once (comp.gift[key]).
+     The Santa Hat (Christmas 2026) and the New Year's Hat (2027) are for everyone; every other holiday's gift is for Pro (a paid plan, a code, a promotion or a
+     grant; not the free weeks of a trial, and none while the paywall is off). The wrapping paper fits the holiday */
+  const GIFTS = [
+    {key: "2026", item: "santahat", from: "2026-12-25", to: "2027-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas", all: true, join: 14},
+    {key: "ny2027", item: "newyearhat", from: "2027-01-01", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14},
+    {key: "val2027", item: "heartboppers", from: "2027-02-14", to: "2027-02-21", wrap: "valentine", hi: "Happy Valentine's Day!", what: "Valentine's Day"},
+    {key: "stp2027", item: "leprechaun", from: "2027-03-17", to: "2027-03-24", wrap: "stpat", hi: "Happy St. Patrick's Day!", what: "St. Patrick's Day"},
+    {key: "eas2027", item: "chickpin", from: "2027-03-28", to: "2027-04-04", wrap: "easter", hi: "Happy Easter!", what: "Easter"},
+    {key: "jul2027", item: "unclesam", from: "2027-07-04", to: "2027-07-11", wrap: "july4", hi: "Happy Fourth of July!", what: "Fourth of July"},
+    {key: "hal2027", item: "batbowtie", from: "2027-10-31", to: "2027-11-07", wrap: "halloween", hi: "Happy Halloween!", what: "Halloween"},
+    {key: "thx2027", item: "leafgarland", from: "2027-11-25", to: "2027-12-02", wrap: "harvest", hi: "Happy Thanksgiving!", what: "Thanksgiving"},
+    {key: "xm2027", item: "antlers", from: "2027-12-25", to: "2028-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas"}
+  ];
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const md = iso => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
+  // how each gift is got, in words, for the Wardrobe and the chat
+  GIFTS.forEach(g => { const a = ACC.find(x => x.id === g.item); if (a) { a.giftOf = g; a.giftNote = `inside the ${g.what} present that pops up between ${md(g.from)} and ${md(g.to)}, ${g.to.slice(0, 4)}${g.all ? "" : " (a Studyboard Pro gift)"}`; } });
+  // Pro, but not a free trial (the free weeks): a paid plan, a code, a promotion or a grant all count
+  const paidPro = () => { try { if (typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || !PLAN.isPro()) return false; const e = PLAN.entitlement(); if (!e) return true;
+    const live = t => !!t && Date.parse(t) > Date.now();
+    const trial = e.plan !== "lifetime" && !(e.plan === "pro" && (!e.pro_until || live(e.pro_until))) && live(e.trial_until);
+    return !trial; } catch (e) { return false; } };
+  // (browser tests see them only when they ask; giftPro is the tests' stand-in for a paid plan)
   const giftOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:gift-test") !== "1"; } catch (e) { return false; } };
-  const giftHat = () => ACC.find(a => a.id === "santahat");
-  const giftDue = () => giftSeason() && !giftOff() && !!SC() && !!giftHat() && !isEarned(giftHat()) && !(cfg().gift || {})[giftYear()];
+  const giftProNow = () => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:gift-pro")) return localStorage.getItem("studyboard:gift-pro") === "1"; } catch (e) {} return paidPro(); };
+  // when this student joined: the account's creation, or (with no account) when the welcome setup was finished
+  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:at")) || 0;
+    if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } catch (e) { return ""; } };
+  const plusDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  // in its window; or, for a gift with join (Christmas, New Year's), a student who joined within that many days of the holiday
+  // (before or after) gets it the next time they open the app from the holiday on, even after the window
+  const giftOpen = (g, t) => (t >= g.from && t <= g.to) || (!!g.join && (j => !!j && j >= plusDays(g.from, -g.join) && j <= plusDays(g.from, g.join) && t >= g.from)(joinedISO()));
+  const giftNow = () => { if (giftOff() || !SC()) return null; const t = todayISO(), done = cfg().gift || {};
+    return GIFTS.find(g => giftOpen(g, t) && !done[g.key] && (g.all || giftProNow()) && (a => a && !isEarned(a))(ACC.find(x => x.id === g.item))) || null; };
   let giftOn = false, giftT = 0, giftLater = false;
-  const GIFT_BOX = `<svg class="cpg-box" viewBox="-50 -62 100 110" aria-hidden="true"><ellipse cx="0" cy="44" rx="40" ry="5" fill="#000" opacity=".22"/>
-    <path d="M-34 -8H34V36Q34 42 28 42H-28Q-34 42 -34 36Z" fill="#E5484D" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-34 -8H34V2Q0 7 -34 2Z" fill="#B8323F" opacity=".55"/>
-    <path d="M-7 -8H7V42H-7Z" fill="#FFD35A" stroke="#2B2233" stroke-width="2.4"/><path d="M-3 -6V40" stroke="#fff" stroke-opacity=".6" stroke-width="1.6"/>
-    <path d="M-28 6l3 -3l3 3l-3 3ZM18 22l3 -3l3 3l-3 3ZM-24 30l2.4 -2.4l2.4 2.4l-2.4 2.4ZM20 0l2 -2l2 2l-2 2Z" fill="#fff" opacity=".85"/>
-    <g class="cpg-lid"><path d="M-39 -22H39V-6Q39 -2 35 -2H-35Q-39 -2 -39 -6Z" fill="#E5484D" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-36 -19H36" stroke="#fff" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M-8 -22H8V-2H-8Z" fill="#FFD35A" stroke="#2B2233" stroke-width="2.4"/>
-      <path d="M0 -24Q-18 -46 -26 -34Q-30 -24 0 -24Z" fill="#FFD35A" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/><path d="M0 -24Q18 -46 26 -34Q30 -24 0 -24Z" fill="#FFD35A" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/>
-      <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="#F5B700" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
-      <circle cx="0" cy="-24" r="5" fill="#F5B700" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
+  // the wrapping paper: box, its shade, ribbon and knot colours, and a little motif scattered over it
+  const WRAP = {
+    xmas: {box: "#E5484D", dark: "#B8323F", rib: "#FFD35A", knot: "#F5B700", m: "snow", mc: "#fff"},
+    newyear: {box: "#1E1B26", dark: "#0E0C14", rib: "#F5C542", knot: "#E0A82E", m: "confetti", mc: "#F5C542"},
+    valentine: {box: "#FF8FB1", dark: "#E56A92", rib: "#E5484D", knot: "#B8323F", m: "heart", mc: "#fff"},
+    stpat: {box: "#2E9E5B", dark: "#1F7A44", rib: "#F5C542", knot: "#E0A82E", m: "clover", mc: "#BFF0CF"},
+    easter: {box: "#C9B6F2", dark: "#A892DE", rib: "#7ED9B0", knot: "#4FBF8E", m: "egg", mc: "#FFF3B0"},
+    july4: {box: "#2F4A9E", dark: "#22377A", rib: "#E5484D", knot: "#B8323F", m: "star", mc: "#fff"},
+    halloween: {box: "#F28C28", dark: "#C96A12", rib: "#5B3FA0", knot: "#3F2A78", m: "bat", mc: "#2B2233"},
+    harvest: {box: "#B5652E", dark: "#8A4A1F", rib: "#F5C542", knot: "#E0A82E", m: "leaf", mc: "#FFD08A"}
+  };
+  const MOTIF = {
+    snow: (x, y, c) => `<path d="M${x} ${y - 3.2}V${y + 3.2}M${x - 2.8} ${y - 1.6}L${x + 2.8} ${y + 1.6}M${x - 2.8} ${y + 1.6}L${x + 2.8} ${y - 1.6}" stroke="${c}" stroke-width="1.3" stroke-linecap="round" opacity=".9"/>`,
+    star: (x, y, c) => `<path d="${starPath(x, y, 3.4)}" fill="${c}" opacity=".9"/>`,
+    heart: (x, y, c) => `<path d="M${x} ${y + 2.6}C${x - 4.2} ${y} ${x - 3} ${y - 3} ${x} ${y - 1.1}C${x + 3} ${y - 3} ${x + 4.2} ${y} ${x} ${y + 2.6}Z" fill="${c}" opacity=".9"/>`,
+    clover: (x, y, c) => `<g fill="${c}" opacity=".9"><circle cx="${x}" cy="${y - 1.6}" r="1.6"/><circle cx="${x - 1.6}" cy="${y + .6}" r="1.6"/><circle cx="${x + 1.6}" cy="${y + .6}" r="1.6"/></g><path d="M${x} ${y + 1}l1 2.6" stroke="${c}" stroke-width=".9" opacity=".9"/>`,
+    egg: (x, y, c, k) => `<ellipse cx="${x}" cy="${y}" rx="2.4" ry="3.1" fill="${["#FFF3B0", "#FFB3D1", "#fff", "#BDEFFF"][k % 4]}" opacity=".95"/><path d="M${x - 2.2} ${y}l1.1 -.9l1.1 .9l1.1 -.9l1.1 .9" fill="none" stroke="#A892DE" stroke-width=".7"/>`,
+    bat: (x, y, c) => `<path d="M${x} ${y}q-2 -2 -5 -1q1 1.4 0 2.6q1.6 -.6 2.4 .8q1 -1.2 2.6 -.4q1.6 -.8 2.6 .4q.8 -1.4 2.4 -.8q-1 -1.2 0 -2.6q-3 -1 -5 1z" fill="${c}" opacity=".85"/>`,
+    // gold and silver streamers and dots on black, for New Year's
+    confetti: (x, y, c, k) => `<path d="M${x - 3} ${y + 1}q1.5 -2.4 3 0t3 0" fill="none" stroke="${k % 2 ? "#E4E8EF" : c}" stroke-width="1.2" stroke-linecap="round" transform="rotate(${k % 3 ? -25 : 20} ${x} ${y})"/><circle cx="${x + 2.4}" cy="${y - 2.6}" r=".9" fill="${k % 2 ? c : "#E4E8EF"}"/><circle cx="${x - 2.6}" cy="${y + 2.8}" r=".7" fill="${k % 3 ? "#FF7AC8" : c}"/>`,
+    leaf: (x, y, c, k) => `<path d="M${x} ${y - 3.2}C${x - 3} ${y - 1} ${x - 2.4} ${y + 2.4} ${x} ${y + 3.2}C${x + 2.4} ${y + 2.4} ${x + 3} ${y - 1} ${x} ${y - 3.2}Z" fill="${["#FFD08A", "#F5C542", "#FF9A5A"][k % 3]}" transform="rotate(${k % 2 ? 30 : -30} ${x} ${y})" opacity=".9"/>`
+  };
+  function giftBox(wrap){
+    // the paper: the motif tiled in an even half-drop (two per tile, the second a half step down and across), clipped to the box
+    const w = WRAP[wrap] || WRAP.xmas, mo = MOTIF[w.m], T = 15, pid = "cpgw-" + (WRAP[wrap] ? wrap : "xmas");
+    const tile = `<pattern id="${pid}" patternUnits="userSpaceOnUse" x="-3" y="-2" width="${T}" height="${T}"><rect width="${T}" height="${T}" fill="${w.box}"/>${mo(T / 4, T / 4, w.mc, 0)}${mo(T * 3 / 4, T * 3 / 4, w.mc, 1)}</pattern>`;
+    return `<svg class="cpg-box" viewBox="-50 -62 100 110" aria-hidden="true"><defs>${tile}</defs><ellipse cx="0" cy="44" rx="40" ry="5" fill="#000" opacity=".22"/>
+    <path d="M-34 -8H34V36Q34 42 28 42H-28Q-34 42 -34 36Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-34 -8H34V2Q0 7 -34 2Z" fill="${w.dark}" opacity=".5"/>
+    <path d="M-7 -8H7V42H-7Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/><path d="M-3 -6V40" stroke="#fff" stroke-opacity=".6" stroke-width="1.6"/>
+    <g class="cpg-lid"><path d="M-39 -22H39V-6Q39 -2 35 -2H-35Q-39 -2 -39 -6Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-36 -19H36" stroke="#fff" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M-8 -22H8V-2H-8Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/>
+      <path d="M0 -24Q-18 -46 -26 -34Q-30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/><path d="M0 -24Q18 -46 26 -34Q30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="${w.knot}" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="0" cy="-24" r="5" fill="${w.knot}" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
+  }
   function giftSoon(){
     clearTimeout(giftT);
-    if (giftOn || giftLater || !giftDue()) return;
+    if (giftOn || giftLater || !giftNow()) return;
     if (revealOn || revealBusy() || document.querySelector(".scr-rw, .cpu") || (window.SBTOUR && SBTOUR.active())) { giftT = setTimeout(giftSoon, 2500); return; }
-    showGift();
+    showGift(giftNow());
   }
-  function showGift(){
+  function showGift(gf){
     giftOn = true;
     const o = document.createElement("div");
     o.className = "cpu cpu-legendary cpu-gift" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpgT"); o.setAttribute("aria-describedby", "cpgD");
@@ -1798,9 +1851,9 @@
     const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
     o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
       <button type="button" class="cpu-stage cpg-stage" data-cpg="open" aria-label="Open the present"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
-        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}${GIFT_BOX}</button>
-      <span class="cpu-kick">Merry Christmas!</span><h2 class="cpu-name" id="cpgT">A Gift for You</h2>
-      <p class="cpu-how" id="cpgD">Something to wear is wrapped up inside. Open it to see.</p>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}${giftBox(gf.wrap)}</button>
+      <span class="cpu-kick">${esc(gf.hi)}</span><h2 class="cpu-name" id="cpgT">A Gift for You</h2>
+      <p class="cpu-how" id="cpgD">Something to wear is wrapped up inside. Open it to see.</p>${gf.all ? "" : `<span class="cpg-pro">${PRO_BADGE}<span>A thank-you for being Pro</span></span>`}
       <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
@@ -1817,13 +1870,13 @@
         try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
         return;
       }
-      const hat = giftHat();
+      const hat = ACC.find(x => x.id === gf.item);
       // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
       try { SC().grant(hat.id); } catch (e) {}
-      setCfg({gift: {[giftYear()]: 1}});
+      setCfg({gift: {[gf.key]: 1}});
       try { sbHaptic("success", {force: true}); } catch (e) {}
       o.classList.add("cpg-opening");
-      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: "Merry Christmas!", gift: true})); }, still() ? 0 : 900);
+      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpg]"); if (b) close(b.dataset.cpg === "open"); });
     o.addEventListener("keydown", e => {
@@ -1849,7 +1902,7 @@
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
       <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
-      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? `<span class="cpu-did">A gift from Studyboard.</span> ` : ""}${esc(how)}</p>
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
@@ -1867,7 +1920,7 @@
       // the companion celebrates too
       if (act && cur) {
         hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-        if (talkOn()) say(a.gift ? (wear ? `Merry Christmas! How do I look in my ${a.name}?` : `Merry Christmas! The ${a.name} is in my wardrobe whenever you want it.`) : wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        if (talkOn()) say(a.gift ? (wear ? `${a.hi || "Thank you!"} How do I look in my ${a.name}?` : `${a.hi || "Ooh!"} The ${a.name} is in my wardrobe whenever you want it.`) : wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
@@ -3221,10 +3274,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // null for no such accessory (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
     earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
       if (isEarned(a)) return `You already have the ${a.name}. Open Companion, then Wardrobe, to put it on.`;
-      if (a.gift) return `The ${a.name} isn't sold: it's inside the Christmas present that pops up when you open Studyboard between Dec 25 and Jan 6.`;
+      if (a.gift) return `The ${a.name} isn't sold: it's ${a.giftNote || "a holiday gift"}.`;
       const bal = credits();
       return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
+    // a holiday present's wrapping, drawn (for previews and tests): its SVG
+    giftBox: wrap => giftBox(wrap), gifts: () => GIFTS.map(g => Object.assign({}, g)),
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
     // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
@@ -3256,7 +3311,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
       if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
-      if (!canWear(a)) return a.gift ? `I don't have the ${a.name} yet. It's inside the Christmas present that pops up between Dec 25 and Jan 6.` : `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
+      if (!canWear(a)) return a.gift ? `I don't have the ${a.name} yet. It's ${a.giftNote || "a holiday gift"}.` : `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
@@ -3280,7 +3335,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.gift ? "Open the Christmas present that pops up between Dec 25 and Jan 6" : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
     // Studyboard Credits for the chat ("how many credits do I have")
     credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
