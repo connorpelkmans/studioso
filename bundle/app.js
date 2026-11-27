@@ -6441,6 +6441,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -6517,7 +6519,9 @@ function viewAiQuiz(){
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
-  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end)
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${label}${q.topic ? ` · ${esc(q.topic)}` : ""}</span>
@@ -23203,7 +23207,11 @@ function viewStudy(){
   if (!c) { f.i++; return viewStudy(); }
   const RD = f.flipped ? rateDues(d, c) : null;
   const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
-  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
+  // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
+  const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
+  // Studyboard Credits this session has earned so far (98-0study-credits.js): one a card, each card once
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; return SBSC.liveHtml(SBSC.earned(true) - f.cr0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${crLive}${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
     ${fcChipsHtml(c, f)}
@@ -23213,13 +23221,12 @@ function viewStudy(){
         <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
-    ${fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`)}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
       <button class="rate-btn again" data-act="fc-rate" data-id="again"><b>Again</b><span>${lbl("again")}</span></button>
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${buddy}${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>${buddy}`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -23366,6 +23373,8 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (r && r.correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
@@ -23414,7 +23423,9 @@ function viewQuiz(){
   const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I Was Right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
-  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end); the same quiz key finishQuiz uses
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); return SBSC.liveHtml(SBSC.quizTriesLeft(key) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${q.type === "mc" ? `Pick the ${kind[1]}` : q.type === "tf" ? "True or false" : `Type the ${kind[1]}`}</span>
@@ -24411,11 +24422,20 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), under the dial while a focus session is going
+let pomoCrN = -1;
+function pomoCreditsHtml(){
+  if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
+  const l = SBSC.focusLive(); pomoCrN = l.n;
+  return SBSC.liveHtml(l.n);
+}
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
+  // the credits chip changes once a minute (a little bump when it does)
+  try { const box = document.querySelector("[data-pomo-cr]"); if (box && typeof SBSC !== "undefined" && SBSC) { const was = pomoCrN, html = pomoCreditsHtml(); if (pomoCrN !== was || !box.innerHTML !== !html) { box.innerHTML = html; const c = box.firstElementChild; if (c && was >= 0 && pomoCrN > was) c.classList.add("bump"); } } } catch (e) {}
   const ring = $("#pomoRing"); if (ring) ring.style.strokeDashoffset = String(ring.dataset.c * (1 - frac));
   setTitle();
 }
@@ -24580,6 +24600,7 @@ function renderPomo(){
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
         <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
+      <div class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>
@@ -61438,7 +61459,7 @@ var SBSTATS = (() => {
    They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
-     - Focus time       1 per minute             (at most 3 hours a day count)
+     - Focus time       1 per 2 minutes          (at most 3 hours a day count)
      - Flashcards       1 per card reviewed      active recall (at most 150 a day count)
      - Practice quizzes 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; 3 tries a quiz a day
      - Tasks            by type: Exam 40, Project 30, Quiz 20, Assignment and Lab 12, Reading and Study 6, Other 4;
@@ -61446,8 +61467,8 @@ var SBSTATS = (() => {
      - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
    How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
-   study day (a 25-minute focus session 25, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
-   75 credits. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   study day (a 25-minute focus session 12, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
+   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
    The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
@@ -61470,7 +61491,7 @@ var SBSC = (() => {
   const PRES_SLIDE = 3, PRES_WHOLE = 20, PRES_MASTER = 30, PRES_RUNS_A_DAY = 2;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
-    ["focus", "Focus Time", "1 credit for every minute on the focus timer (up to 3 hours a day)"],
+    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
     ["cards", "Flashcards", "1 credit for every card you review (up to 150 a day)"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +5 for passing (70% or more), +5 more for a perfect score"],
     ["task", "Tasks", "By how big the task is: an exam 40, a project 30, a quiz 20, an assignment or lab 12, a reading 6 (up to 8 tasks a day)"],
@@ -61484,10 +61505,10 @@ var SBSC = (() => {
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own", "evOld", "cd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld", "cd", "chd", "wsw", "wpro"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     // events older than 45 days fold into one total per kind, so the list stays small
     const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
-    Object.keys(ev).forEach(k => { const m = /^(quiz|pres):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
+    Object.keys(ev).forEach(k => { const m = /^(quiz|pres|chest|spin):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
     next.ev = ev; next.evOld = fold;
     // card days older than 45 days fold into one total (already capped)
     const cd = Object.assign({}, next.cd); let cdOld = Number(next.cdOld) || 0;
@@ -61511,7 +61532,7 @@ var SBSC = (() => {
       if (typeof SBSTATS === "undefined") return 0;
       const days = Object.values(SBSTATS.focusDays()).map(m => Number(m) || 0), logged = days.reduce((n, m) => n + m, 0);
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
-      return capped + extra;
+      return (capped + extra) / 2;
     });
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
@@ -61547,7 +61568,7 @@ var SBSC = (() => {
   // Each card counts once per study session, however it was rated: a card marked Again comes back in the same session, and
   // seeing it again earns nothing more (so credits follow how many cards were gone through, never the ratings)
   const sessSeen = () => { try { const f = ui.fc; if (!f || f.mode !== "study") return null; return f.crSeen = f.crSeen || {}; } catch (e) { return null; } };
-  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; } cardRated(1); });
+  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; if (m[id] === 1) rollChest("cards"); } cardRated(1); });
   hook("fc-unrated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id && m[id]) { m[id]--; if (m[id] > 0) return; } cardRated(-1); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
   window.addEventListener("pagehide", flushCards);
@@ -61560,6 +61581,8 @@ var SBSC = (() => {
     DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
     by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
     by.pres = evSum("pres");
+    by.chest = evSum("chest");
+    by.spin = evSum("spin");
     by.cards = cardsTotal();
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
@@ -61583,7 +61606,9 @@ var SBSC = (() => {
   }
 
   /* ---------- Spending ---------- */
-  const owns = id => !!(sc().own || {})[id];
+  // An accessory owned from before credits (98-companion.js, props earned by milestones then): kept for good, at no cost
+  function grant(id){ if (!id || owns(id)) return; setSc({own: {[id]: 0}}); invalidate(); }
+  const owns = id => !!id && Object.prototype.hasOwnProperty.call(sc().own || {}, id);
   // Pays for an accessory: true when bought (or already owned), false when there aren't enough credits
   function buy(id, price){
     price = Math.max(0, Math.round(Number(price) || 0));
@@ -61594,6 +61619,306 @@ var SBSC = (() => {
     setSc({own: {[id]: price}});
     invalidate(); paintPills();
     return true;
+  }
+
+  /* ---------- Chests ----------
+     Now and then finishing a piece of work turns up a chest: a flashcard gone through (each card once a session), a quiz question
+     answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
+     credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
+     How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
+     a Rare every 4 days, an Exotic every 2 weeks and a Legendary about every 2 months. */
+  const CHEST = {
+    common: {name: "Common", min: 5, max: 20, p: 0.70},
+    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
+    exotic: {name: "Exotic", min: 50, max: 100, p: 0.065},
+    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+  };
+  const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
+  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
+  function rollChest(kind){
+    try {
+      // tests can make every roll find one (window.__SB_TEST only)
+      // in browser tests nothing is left to luck: no chests unless a test asks for one (window.__SB_TEST only)
+      let chance = CHEST_CHANCE[kind] || 0; try { if (window.__SB_TEST) chance = localStorage.getItem("studyboard:chest-test") ? 1 : 0; } catch (e) {}
+      if (Math.random() >= chance) return null;
+      const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
+      let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
+      const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
+      setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});
+      if (kind !== "focus") foundNote(c);
+      fire("chest-found", c);
+      return c;
+    } catch (e) { return null; }
+  }
+  const takeChests = () => { const l = pending(); if (l.length) setSc({chq: []}); return l; };
+  // the chest, drawn: a wooden chest with metal bands and a rim in its rarity's colour (lid apart, so it can open)
+  function chestSvg(t, small){
+    const rim = RIM[t] || RIM.common, id = "ch" + Math.random().toString(36).slice(2, 7);
+    return `<svg class="scr-chest${small ? " sm" : ""}" viewBox="0 0 120 112" aria-hidden="true"><defs>
+      <linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B5763A"/><stop offset="1" stop-color="#7A4A1E"/></linearGradient>
+      <linearGradient id="${id}l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C98A48"/><stop offset="1" stop-color="#94592A"/></linearGradient></defs>
+      ${small ? "" : `<ellipse cx="60" cy="104" rx="46" ry="6" fill="rgba(0,0,0,.18)"/>`}
+      <g class="ch-glow"><ellipse cx="60" cy="50" rx="40" ry="12" fill="${rim}" opacity=".9"/><ellipse cx="60" cy="50" rx="30" ry="7" fill="#fff" opacity=".85"/></g>
+      <g class="ch-base"><rect x="14" y="50" width="92" height="50" rx="6" fill="url(#${id}w)" stroke="#2B2233" stroke-width="3"/>
+        <path d="M18 66h84M18 82h84" stroke="#5A3412" stroke-opacity=".45" stroke-width="2"/>
+        <rect x="24" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/><rect x="86" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="14" y="50" width="92" height="7" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="51" y="54" width="18" height="20" rx="3.5" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/><circle cx="60" cy="62" r="2.6" fill="#2B2233"/><path d="M60 63v5" stroke="#2B2233" stroke-width="2.4" stroke-linecap="round"/></g>
+      <g class="ch-lid"><path d="M14 50V34Q14 12 60 12Q106 12 106 34V50Z" fill="url(#${id}l)" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M24 50V27Q24 17 34 15.5V50ZM86 50V15.5Q96 17 96 27V50Z" fill="${rim}" stroke="#2B2233" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M14 44h92" stroke="#2B2233" stroke-width="2.5"/><path d="M30 24Q60 16 90 24" stroke="#fff" stroke-opacity=".35" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="51" y="40" width="18" height="12" rx="3" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/></g></svg>`;
+  }
+  // Found: a small note near the top that goes by itself (nothing to tap, nothing in the way)
+  function foundNote(c){
+    if (screensOff()) return;
+    try {
+      const o = document.createElement("div"); o.className = "scr-found ch-" + c.t + (calm() ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
+      if (o.showPopover) o.setAttribute("popover", "manual");
+      // the very first chest a student finds also says when it opens; after that, the name is enough
+      const first = !sc().chSeen; if (first) setSc({chSeen: 1});
+      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b>${first ? "<small>Opens at the end</small>" : ""}</span>`;
+      document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      placeNote(o);
+      requestAnimationFrame(() => o.classList.add("show"));
+      setTimeout(() => { o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, 400); }, 2600);
+    } catch (e) {}
+    document.querySelectorAll("[data-scr-chests]").forEach(el => { el.innerHTML = chestsHtml(); });
+  }
+  // Where the note goes: in a presentation run, centred just under its top bar (the slides fill the middle and the filmstrip the
+  // bottom); in a flashcard session or a quiz, centred on the page's content near the bottom of the screen, above a phone's tab bar
+  function placeNote(o){
+    try {
+      const st = document.getElementById("prStage"), top = st && st.querySelector(".pr-top");
+      if (top) { const r = top.getBoundingClientRect(); o.classList.add("at-top"); o.style.top = Math.round(r.bottom + 10) + "px"; o.style.left = Math.round(innerWidth / 2) + "px"; return; }
+      const v = document.getElementById("view"), vr = v && v.getBoundingClientRect();
+      o.style.left = Math.round(vr && vr.width ? vr.left + vr.width / 2 : innerWidth / 2) + "px";
+      // anything fixed along the bottom (a phone's tab bar): the note sits above it
+      let edge = innerHeight, e = document.elementFromPoint(innerWidth / 2, innerHeight - 20);
+      while (e && e !== document.body && e !== document.documentElement) { const cs = getComputedStyle(e); if (!o.contains(e) && (cs.position === "fixed" || cs.position === "sticky")) { edge = Math.min(edge, e.getBoundingClientRect().top); break; } e = e.parentElement; }
+      // (more room on a phone, where the companion sits up out of the tab bar)
+      o.style.bottom = Math.round(innerHeight - edge + (innerWidth < 640 && edge < innerHeight ? 34 : 14)) + "px";
+    } catch (e) {}
+  }
+  // the chests waiting to be opened, as little icons (beside the credits chip while studying)
+  const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
+  // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
+  // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  function openChests(list, done){
+    const still = calm(), o = document.createElement("div");
+    o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    let i = 0, opened = false;
+    const draw = () => {
+      const c = list[i]; opened = false;
+      o.className = `scr-rw scr-ch ch-${c.t}` + (still ? " scr-still" : "");
+      o.innerHTML = `<div class="scr-dim"></div><div class="scr-ch-box">
+        <span class="scr-kick ch-kick">${list.length > 1 ? `Chest ${i + 1} of ${list.length}` : "You found a chest!"}</span>
+        <h2 id="scrChT">${CHEST[c.t].name} Chest</h2>
+        <button type="button" class="scr-ch-stage" data-ch="open" aria-label="Open the ${CHEST[c.t].name} chest"><span class="scr-ch-rays"></span>${chestSvg(c.t)}<span class="scr-ch-coins" aria-hidden="true"></span></button>
+        <p class="scr-ch-amt" aria-live="polite"><span class="scr-ch-hint">Tap to open</span></p>
+        <div class="scr-acts"><button type="button" class="btn primary scr-go" data-ch="open">Open</button></div></div>`;
+      setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    };
+    const open = () => {
+      if (opened) { i++; if (i < list.length) draw(); else close(); return; }
+      opened = true; const c = list[i];
+      o.classList.add("is-open");
+      try { if (typeof sbHaptic === "function") sbHaptic(c.t === "common" ? "tap" : "success", {force: true}); } catch (e) {}
+      const coins = o.querySelector(".scr-ch-coins");
+      if (coins && !still) coins.innerHTML = Array.from({length: c.t === "legendary" ? 14 : c.t === "exotic" ? 11 : c.t === "rare" ? 8 : 6}, (_, k) => `<img src="${COIN_SRC}" alt="" style="--x:${Math.round((k % 2 ? 1 : -1) * (14 + (k * 37) % 90))}px;--y:${-70 - (k * 53) % 80}px;--d:${(k * 0.045).toFixed(2)}s">`).join("");
+      const amt = o.querySelector(".scr-ch-amt");
+      amt.innerHTML = `${coin(26)}<b>+<span data-n>${still ? c.c : 0}</span></b><span>credits</span>`;
+      setTimeout(() => countUp(amt.querySelector("[data-n]"), 0, c.c, Math.min(1200, 400 + c.c * 6)), still ? 0 : 380);
+      const b = o.querySelector(".scr-go"); if (b) b.textContent = i + 1 < list.length ? "Next Chest" : "Collect";
+    };
+    const close = () => { o.classList.add("scr-out"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); done(); }, still ? 0 : 220); };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-ch]"); if (b) { if (b.classList.contains("scr-ch-stage") && opened) return; open(); } });
+    o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); while (i < list.length - 1) i++; opened = true; open(); } if (e.key === "Tab") e.preventDefault(); });
+    draw();
+  }
+  // chests left from a session that ended without its screen (closed early): opened the next time things are calm
+  function openLeftovers(){
+    if (!pending().length) return;
+    const ae = document.activeElement;
+    if (studying() || rOpen || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(openLeftovers, 15000); return; }
+    reward({kind: "hello", kick: "Chests to Open", title: "Found while you were studying", lines: [], showZero: true});
+  }
+
+  /* ---------- The prize wheel: a spin for an exam grade of 80% or more ----------
+     A mark of 80% or more on an exam (typed in, or from the school site) earns a spin, once per exam,
+     at most SPINS_A_WEEK a week (Monday to Sunday). The wheel has 12 prizes, each slice as big as its chance, so what you see is
+     what you get: 1 Legendary accessory (2%), 2 Exotic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
+     100 (10%), 150 (8%), 200 (6%). The accessories are picked at random from ones the student doesn't own yet (none of a rarity
+     left: that slice is coins instead, half its price). Marks already there when this first runs, and more than 3 arriving at
+     once (a sync catching up), are counted as seen without a spin. A spin waits (sc.wsq) until it's spun.
+     Pro: one free spin every week (Monday to Sunday) on top of the exam spins (sc.wpro marks the week's as given). The Wardrobe
+     says so to free students, with Get Pro, and shows Pro students theirs. */
+  const WHEEL_ITEMS = [["legendary", 1, 0.02], ["exotic", 2, 0.04], ["rare", 3, 0.06]];
+  const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
+  const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
+  const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
+  const weekKey = () => mondayOf(todayISO());
+  const spinsLeftThisWeek = () => Math.max(0, SPINS_A_WEEK - (Number((sc().wsw || {})[weekKey()]) || 0));
+  const spinQueue = () => (Array.isArray(sc().wsq) ? sc().wsq : []).filter(x => x && x.id);
+  let gradesReady = false;
+  function checkGrades(){
+    if (!gradesReady) return;
+    // exams only (a task of the type Exam)
+    const good = Object.values(state.tasks || {}).filter(t => t && t.id && t.type === "Exam" && (gradePct(t) || 0) >= 80);
+    const seenList = sc().wg;
+    if (!Array.isArray(seenList)) { setSc({wg: good.map(t => t.id).slice(-800)}); return; }
+    const seen = new Set(seenList), fresh = good.filter(t => !seen.has(t.id));
+    if (!fresh.length) return;
+    const ids = seenList.concat(fresh.map(t => t.id)).slice(-800);
+    // more than 3 at once: a sync or an import catching up, not grades just earned
+    if (fresh.length > 3) { setSc({wg: ids}); return; }
+    const wk = weekKey(), used = Number((sc().wsw || {})[wk]) || 0, n = Math.max(0, Math.min(fresh.length, SPINS_A_WEEK - used));
+    const add = fresh.slice(0, n).map(t => ({id: uid(), title: String(t.title || "").slice(0, 80), pct: Math.round(gradePct(t))}));
+    setSc({wg: ids, wsq: spinQueue().concat(add), wsw: {[wk]: used + add.length}});
+    if (add.length) setTimeout(spinSoon, 600);
+  }
+  // Pro's weekly spin (Pro only counts with the paywall on: with it off, everyone is Pro)
+  let planTest = null; // browser tests only: {paywall, pro}
+  const plan = () => { try { if (planTest) return planTest; return typeof PLAN !== "undefined" && !!PLAN ? {paywall: PLAN.paywall(), pro: PLAN.isPro()} : null; } catch (e) { return null; } };
+  const proNow = () => { const x = plan(); return !!x && x.paywall && x.pro; };
+  const proFree = () => { const x = plan(); return !!x && x.paywall && !x.pro; };
+  function checkPro(){
+    if (!gradesReady || !proNow()) return;
+    const wk = weekKey();
+    // this week's given already, or last week's still waiting to be spun (this week's comes once that one is)
+    if ((sc().wpro || {})[wk] || spinQueue().some(x => x.pro)) return;
+    setSc({wpro: {[wk]: 1}, wsq: spinQueue().concat([{id: uid(), pro: true}])});
+    setTimeout(spinSoon, 600);
+  }
+  const MINI_WHEEL = (() => { const cols = ["#F5B700", "#FFE7A8", "#7C3AED", "#FFD36B", "#2563EB", "#FFE7A8", "#E5484D", "#FFD36B"];
+    const p = (d, r) => [20 + r * Math.sin(d * Math.PI / 180), 20 - r * Math.cos(d * Math.PI / 180)].map(v => v.toFixed(2));
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="18" fill="#2B2233"/>${cols.map((c, k) => { const [x0, y0] = p(k * 45, 15), [x1, y1] = p(k * 45 + 45, 15); return `<path d="M20 20L${x0} ${y0}A15 15 0 0 1 ${x1} ${y1}Z" fill="${c}" transform="translate(0 1)"/>`; }).join("")}<circle cx="20" cy="21" r="4" fill="#FFF4C8" stroke="#2B2233" stroke-width="1.5"/><path d="M16 1.5h8l-4 7z" fill="#E5484D" stroke="#2B2233" stroke-width="1.2" stroke-linejoin="round"/></svg>`; })();
+  // the Wardrobe's line about it: Get Pro for free students, their spin for Pro students, nothing with the paywall off
+  function proSpinHtml(){
+    if (proFree()) return `<div class="wh-pro"><span class="wh-pro-ic">${MINI_WHEEL}</span><span class="wh-pro-t"><b>A free spin every week with Pro</b><span class="mini">Spin the prize wheel for credits and Rare to Legendary accessories, on top of your exam spins.</span></span><button type="button" class="btn small wh-pro-btn" data-act="plan-open" data-reason="Pro members get a free prize wheel spin every week, for credits and Rare to Legendary accessories.">Get Pro</button></div>`;
+    if (!proNow()) return "";
+    const ready = spinQueue().some(x => x.pro), given = !!(sc().wpro || {})[weekKey()];
+    return `<div class="wh-pro is-pro"><span class="wh-pro-ic">${MINI_WHEEL}</span><span class="wh-pro-t"><b>Your free Pro spin</b><span class="mini">${ready ? "This week's is ready." : given ? "Spun this week. The next one comes on Monday." : "One every week, on top of your exam spins."}</span></span>${ready ? `<button type="button" class="btn small wh-pro-btn" data-act="wh-pro-spin">Spin</button>` : ""}</div>`;
+  }
+  // the Wardrobe's Spin: the wheel straight away (over the sheet), then the Wardrobe redrawn
+  function spinPro(after){ const sp = spinQueue().find(x => x.pro); if (!sp || rOpen) return false; showWheel(sp, after); return true; }
+  // the wheel's prizes, freshly picked: [{k: "item"|"coins", r: rarity, id, name, n, p}]
+  function wheelPrizes(){
+    const list = (() => { try { return window.SBCOMP && SBCOMP.accList ? SBCOMP.accList() : []; } catch (e) { return []; } })();
+    const out = [], used = new Set();
+    WHEEL_ITEMS.forEach(([r, count, p]) => {
+      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
+      for (let i = 0; i < count; i++) {
+        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
+        else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
+      }
+    });
+    WHEEL_COINS.forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
+    // items spread between the coins, so the small slices aren't all bunched together
+    const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
+    while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
+    return mixed;
+  }
+  const RCOL = {legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
+  // The wheel: 12 equal slices, so every prize shows (each accessory's own picture on a badge in its rarity's colour, each coin
+  // prize a coin and its number). Which one it lands on follows the odds (the prize list under it says them); the slice sizes don't.
+  function wheelSvg(prizes){
+    const C = 160, R = 140, n = prizes.length, step = 360 / n, id = "wh" + Math.random().toString(36).slice(2, 6);
+    const pt = (deg, r) => [C + r * Math.sin(deg * Math.PI / 180), C - r * Math.cos(deg * Math.PI / 180)];
+    const defs = [`<radialGradient id="${id}c0" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFF8E1"/><stop offset="1" stop-color="#FFE7A8"/></radialGradient>`,
+      `<radialGradient id="${id}c1" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFEDB8"/><stop offset="1" stop-color="#FFD36B"/></radialGradient>`]
+      .concat(Object.entries(RCOL).map(([k, [a, b]]) => `<radialGradient id="${id}${k}" cx="50%" cy="50%" r="60%"><stop offset=".25" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`));
+    let ci = 0;
+    const slices = prizes.map((pz, k) => {
+      const a0 = k * step, a1 = a0 + step, [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R), mid = a0 + step / 2;
+      pz.mid = mid;
+      const fill = pz.r && pz.k === "item" ? `url(#${id}${pz.r})` : pz.r ? `url(#${id}${pz.r})` : `url(#${id}c${(ci++) % 2})`;
+      const path = `<path d="M${C} ${C}L${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z" fill="${fill}" stroke="#2B2233" stroke-width="2.5"/>`;
+      // the slice's prize, drawn upright at the top and turned round to its slice
+      let art;
+      if (pz.k === "item") {
+        const ic = (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "").replace("<svg ", `<svg x="${C - 19}" y="${C - R + 21}" width="38" height="38" `);
+        const ring = {legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
+        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="#F5B700" stroke-width="1.2"/>` : ""}`;
+      } else {
+        art = `<image href="${COIN_SRC}" x="${C - 15}" y="${C - R + 18}" width="30" height="30"/><text x="${C}" y="${C - R + 66}" text-anchor="middle" class="wh-n${pz.r ? " on-dark" : ""}">${pz.n}</text>`;
+      }
+      return path + `<g transform="rotate(${mid.toFixed(2)} ${C} ${C})" style="--cp-wear:#5B7FD6">${art}</g>`;
+    }).join("");
+    // lights round the rim, every other one lit
+    const bulbs = Array.from({length: 24}, (_, k) => { const [bx, by] = pt(k * 15, R + 9); return `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="3.6" class="wh-bulb${k % 2 ? " b2" : ""}"/>`; }).join("");
+    return `<svg class="wh-svg" viewBox="0 0 320 320" aria-hidden="true"><defs>${defs.join("")}<radialGradient id="${id}rim" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#4A3A6A"/><stop offset="1" stop-color="#231B33"/></radialGradient>
+      <radialGradient id="${id}hub" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF4C8"/><stop offset="1" stop-color="#E9A21C"/></radialGradient>
+      <radialGradient id="${id}sh" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="${C}" cy="${C}" r="${R + 16}" fill="url(#${id}rim)"/><circle cx="${C}" cy="${C}" r="${R + 16}" fill="none" stroke="#F2C14E" stroke-width="3"/>${bulbs}
+      ${slices}<circle cx="${C}" cy="${C}" r="${R}" fill="url(#${id}sh)" pointer-events="none"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#2B2233" stroke-width="3"/>
+      <circle cx="${C}" cy="${C}" r="30" fill="url(#${id}hub)" stroke="#2B2233" stroke-width="3"/><image href="${COIN_SRC}" x="${C - 22}" y="${C - 22}" width="44" height="44"/></svg>`;
+  }
+  const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
+  const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
+  const RNAME = {legendary: "Legendary", exotic: "Exotic", rare: "Rare"};
+  function spinSoon(){
+    if (!spinQueue().length || screensOff()) return;
+    const ae = document.activeElement;
+    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(spinSoon, 2500); return; }
+    showWheel(spinQueue()[0]);
+  }
+  function showWheel(sp, after){
+    rOpen = true;
+    const still = calm(), prizes = wheelPrizes(), o = document.createElement("div");
+    o.className = "scr-rw scr-wh" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrWhT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const list = prizes.slice().sort((a, b) => a.p - b.p);
+    o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
+      <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
+      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
+      <div class="wh-result" aria-live="polite"></div>
+      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
+      <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
+    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
+    let state0 = "ready", won = null;
+    const spin = () => {
+      state0 = "spinning";
+      // the prize, by its chance; then a landing spot inside its slice
+      let r = Math.random(); won = prizes[prizes.length - 1];
+      for (const pz of prizes) { if (r < pz.p) { won = pz; break; } r -= pz.p; }
+      const half = (360 / prizes.length) / 2 * 0.7, land = won.mid + (Math.random() * 2 - 1) * half, turns = still ? 0 : 5;
+      const rot = o.querySelector(".wh-rot"); rot.style.transition = still ? "none" : "transform 4.4s cubic-bezier(.12,.78,.18,1)";
+      rot.style.transform = `rotate(${turns * 360 - land}deg)`;
+      const b = o.querySelector(".wh-go"); b.disabled = true; b.textContent = "Spinning…"; if (!still) o.classList.add("spinning");
+      // the prize is the student's as soon as it's decided (closing the app mid-spin can't lose it)
+      if (won.k === "item") grant(won.id); else { setSc({ev: {[`spin:${todayISO()}:${sp.id}`]: won.n}}); invalidate(); }
+      setSc({wsq: spinQueue().filter(x => x.id !== sp.id)});
+      try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+      setTimeout(landed, still ? 50 : 4500);
+    };
+    const landed = () => {
+      state0 = "done"; o.classList.remove("spinning"); o.classList.add("wh-won", won.k === "item" ? "r-" + won.r : "r-coins");
+      try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+      const res = o.querySelector(".wh-result");
+      res.innerHTML = won.k === "item"
+        ? `<span class="wh-prize ch-${won.r}"><span class="wh-prize-ic">${prizeIcon(won)}</span></span><b>${esc(won.name)}</b><span class="cp-rar cp-rar-${won.r}">${RNAME[won.r]}</span><span class="mini">It's yours to keep.</span>`
+        : `${coin(30)}<b>+${won.n} credits</b>`;
+      const acts = o.querySelector(".scr-acts");
+      acts.innerHTML = won.k === "item" ? `<button type="button" class="btn" data-wh="done">Later</button><button type="button" class="btn primary scr-go" data-wh="wear">Put It On</button>` : `<button type="button" class="btn primary scr-go" data-wh="done">Collect</button>`;
+      setTimeout(() => { const b = acts.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+      seenTotal = totals().earned; paintPills();
+    };
+    const close = wear => {
+      if (wear && won && won.k === "item") { try { if (window.SBCOMP && SBCOMP.wearId) SBCOMP.wearId(won.id); } catch (e) {} }
+      o.classList.add("scr-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; invalidate(); seenTotal = totals().earned; paintPills(); if (after) try { after(); } catch (e) {} setTimeout(() => { try { checkPro(); } catch (e) {} spinSoon(); }, 800); setTimeout(showNext, 300); }, still ? 0 : 220);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-wh]"); if (!b) return; if (b.dataset.wh === "spin" && state0 === "ready") spin(); else if (state0 === "done") close(b.dataset.wh === "wear"); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape" && state0 === "done") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button:not([disabled]),summary")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
   }
 
   /* ---------- The reward screen ----------
@@ -61607,17 +61932,31 @@ var SBSC = (() => {
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
+  // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    const ch = spec.compact ? [] : takeChests();
+    if (!ch.length) { rewardNow(spec, []); return; }
+    // the coins are added as the chests are opened (or at once, where the screens aren't shown)
+    const credit = () => { setSc({ev: Object.fromEntries(ch.map(c => [`chest:${todayISO()}:${c.id}`, c.c]))}); invalidate(); };
+    if (screensOff() || document.hidden) { credit(); rewardNow(spec, ch); return; }
+    // while chests are being opened nothing else counts or shows (the session's own credits belong on the screen that follows)
+    rOpen = true;
+    openChests(ch, () => { rOpen = false; credit(); rewardNow(spec, ch); });
+  }
+  function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
     const gained = Math.max(0, now - before);
     seenTotal = now; lastBy = Object.assign({}, totals().by);
     keepHigh();
-    const lines = (spec.lines || []).filter(l => l && (l.n || l.s));
-    const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
+    const chestLines = (ch || []).map(c => ({t: `${CHEST[c.t].name} Chest`, n: c.c, s: "Found while you studied", chest: c.t}));
+    const chestSum = chestLines.reduce((a, l) => a + l.n, 0);
+    const lines = (spec.lines || []).filter(l => l && (l.n != null || l.s));
     // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
-    if (lines.length === 1 && lines[0].n != null) lines[0].n = gained;
-    else if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, gained - chestSum);
+    lines.push(...chestLines);
+    const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
+    if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     if (!gained && !spec.showZero) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
@@ -61666,7 +62005,7 @@ var SBSC = (() => {
       <div class="scr-big" aria-live="polite"><span class="scr-big-coin"><img src="${COIN_SRC}" alt="" width="84" height="84"><i class="scr-shine"></i></span>
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
-      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"><span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       ${goalHtml(r)}
       <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
@@ -61688,20 +62027,20 @@ var SBSC = (() => {
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-scr]"); if (b) close(b.dataset.scr === "wardrobe"); else if (e.target.classList && e.target.classList.contains("scr-dim")) close(false); });
     o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
   }
-  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner)
+  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner); it shows only
+  // what was earned, not what it's saving toward
   function showCompact(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-mini scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    const g = r.tgt, p0 = g ? Math.min(1, r.bal0 / g.price) : 0, p1 = g ? Math.min(1, r.bal / g.price) : 0;
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-      ${g ? `<span class="scr-mini-goal"><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span><span class="mini">${r.bal >= g.price ? `${esc(g.name)}: ready to buy!` : `${(g.price - r.bal).toLocaleString()} to ${esc(g.name)}`}</span></span>` : ""}</span>`;
+</span>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
-    setTimeout(() => { countUp(o.querySelector("[data-n]"), 0, r.gained, 600); const b = o.querySelector(".scr-goal-bar i"); if (b) b.style.width = Math.round(p1 * 100) + "%"; }, still ? 0 : 250);
+    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
@@ -61715,10 +62054,11 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
+    rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
       reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every minute"}]});
+        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
@@ -61727,7 +62067,7 @@ var SBSC = (() => {
     flushCards();
     const today = dayCards(todayISO());
     reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
-      lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : `1 credit for every card (${today.toLocaleString()} of ${CARDS_A_DAY} today)`}]});
+      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
@@ -61735,7 +62075,7 @@ var SBSC = (() => {
     const day = todayISO(), id = String(key || "quiz").replace(/:/g, "_"), ev = sc().ev || {};
     const tries = Object.keys(ev).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length;
     const pass = total >= 3 && right / total >= 0.7, perfect = pass && right >= total;
-    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} right`, n: right, s: "1 credit for each right answer"}].concat(pass ? [{t: "Passed", n: QUIZ_PASS, s: "70% or more"}] : [], perfect ? [{t: "Perfect score!", n: QUIZ_PERFECT}] : []);
+    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} answers right`, n: right}].concat(pass ? [{t: "For passing", n: QUIZ_PASS}] : [], perfect ? [{t: "For a perfect score!", n: QUIZ_PERFECT}] : []);
     const pts = lines.reduce((a, l) => a + l.n, 0);
     // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
     if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
@@ -61754,8 +62094,8 @@ var SBSC = (() => {
       const ok = idx.filter(k => { const t = Number(run.times[k]) || 0, b = Number((run.budgets || [])[k]) || 0; return b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000); }).length;
       const tgt = (Number(run.target) || 0) * 1000, whole = !run.sec && tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
       const first = whole && !ev[`pres:master:${pid}`] && !Object.keys(ev).some(k => k === `pres:${pid}:master`);
-      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `${ok} of ${idx.length} slide${idx.length === 1 ? "" : "s"} on time`, n: ok * PRES_SLIDE, s: `${PRES_SLIDE} credits a slide`}]
-        .concat(whole ? [{t: "Whole talk on target", n: PRES_WHOLE, s: "Within your time goal"}] : [], first ? [{t: "Mastered!", n: PRES_MASTER, s: "The first time on target"}] : []);
+      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `You practiced ${idx.length} slide${idx.length === 1 ? "" : "s"}, ${ok} on time`, n: ok * PRES_SLIDE}]
+        .concat(whole ? [{t: "For finishing the whole talk on target", n: PRES_WHOLE}] : [], first ? [{t: "Mastered! The first time on target", n: PRES_MASTER}] : []);
       const add = {}, pts = lines.reduce((a, l) => a + l.n, 0);
       if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
       if (first) add[`pres:master:${pid}`] = PRES_MASTER;
@@ -61767,6 +62107,7 @@ var SBSC = (() => {
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
   function notice(){
+    try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
     if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
@@ -61782,7 +62123,8 @@ var SBSC = (() => {
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
       return;
     }
-    reward({kind: "hello", compact: true, kick: "Credits Earned", title: "From your studying", lines: [{t: "Studying", n: gained}]});
+    // credits with no one piece of work behind them (counted quietly): the balance just goes up
+    seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
@@ -61793,7 +62135,30 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+    // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
+    setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
+  /* ---------- "+7 credits": a little chip while studying ----------
+     Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
+     up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
+  function liveHtml(n, note, id){
+    n = Math.max(0, Math.round(Number(n) || 0));
+    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"}</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}<span class="scr-live-ch" data-scr-chests>${chestsHtml()}</span></span>`;
+  }
+  // focus: a credit for every 2 minutes of this session so far, as far as today's 3 hours allow
+  function focusLive(){
+    const el = typeof pomoElapsedMin === "function" ? Math.floor(pomoElapsedMin()) : 0;
+    const today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
+    return {n: Math.floor(Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)) / 2), full: today >= FOCUS_MIN_A_DAY};
+  }
+  // flashcards: how many more cards count today
+  const cardsLeftToday = () => Math.max(0, CARDS_A_DAY - dayCards(todayISO()));
+  // a quiz: does it still earn today (QUIZ_TRIES_A_DAY tries each)
+  const quizTriesLeft = key => { const id = String(key || "quiz").replace(/:/g, "_"), day = todayISO(); return Math.max(0, QUIZ_TRIES_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length); };
+  // a presentation: runs left today, and what a run's slides so far have earned (each slide inside its time)
+  const presRunsLeft = pid => { const id = String(pid || "").replace(/:/g, "_"), day = todayISO(); return Math.max(0, PRES_RUNS_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`pres:${day}:${id}:`) === 0).length); };
+  const presSlideOk = (t, b) => b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000);
+
   // A little "+12 Credits" pop (kept for other parts of the app)
   function pop(n, why){ n = Math.round(n); if (n < 1) return; rq.push({kind: "hello", compact: true, kick: "Credits Earned", title: why || "", lines: [], gained: n, bal: balance(), bal0: balance() - n, day: todayN(), tgt: target()}); showNext(); }
 
@@ -61807,10 +62172,10 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -74098,7 +74463,7 @@ var COMP_ACC_MORE = K => {
     {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
-    {id: "plume", name: "Plumed Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
+    {id: "plume", name: "Plumed Musketeer", rarity: "exotic", def: "#8E6BE0", art: () =>
       `<path d="M3 -11Q10 -31 28 -27Q21 -25 19 -18.5Q15 -11.5 6.5 -7.5Z" fill="#FF7A9C" ${OUT(2)}/><path d="M7 -10.5Q13 -22 24 -25.5M11 -18l-2.6 -1.4M14.5 -21.5l-2 -2M17 -16.5l-2.2 -.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/>
       <path d="M-11 -1Q-12.5 -13.5 0 -14.5Q12.5 -13.5 11 -1Z" ${WF} ${OUT(2.4)}/><path d="M-22.5 -3.5Q-12 3 0 2Q12 3 22.5 -3.5Q24.5 4.5 0 6.4Q-24.5 4.5 -22.5 -3.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 .4Q-12 4.4 0 4.4Q12 4.4 21 .4Q18 5.4 0 5.8Q-18 5.4 -21 .4Z" fill="${INK}" opacity=".15"/>
       <path d="M-11.2 -5.4Q0 -3.4 11.2 -5.4V-1.8Q0 .2 -11.2 -1.8Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-3.5" r="2.1" fill="#2FB5C9" ${OUT(1.2)}/>`},
@@ -74480,7 +74845,8 @@ var COMP_ACC_MORE = K => {
   // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
   // quizzes, tasks and presentations, each by how hard it is. The price is set by the prop's rarity (PRICE). Once bought, a prop is kept for
   // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
-  // Props earned the old way (cfg().earned, before credits) stay yours.
+  // Credits are the only way to get one: props once unlocked by study milestones (cfg().earned, which older versions of the app
+  // still write) don't count, so an out-of-date device can't hand out free props. Past studying earned credits to buy them back.
   const ACC = [
     {id: "scarf", rarity: "common", name: "Cozy Scarf"},
     {id: "hat", rarity: "common", name: "Tiny Hat"},
@@ -74828,8 +75194,7 @@ var COMP_ACC_MORE = K => {
   /* Getting props: bought with Studyboard Credits */
   const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
   const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
-  const wasEarned = a => !!(cfg().earned || {})[a.id];
-  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
   const forSale = a => !!a && (!a.festive || inSeason());
@@ -76800,6 +77165,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
+  // Props unlocked by study milestones (cfg().earned) before credits stay yours: they become owned for good (sc.own, at no cost).
+  // Unlocks after credits went in (the wardrobe expansion and credits reached main on Nov 27, 06:47 UTC, but some devices and
+  // sites kept running the old milestone code) were a mistake and are taken back, as is any of the newer props it unlocked
+  // (none of those existed before). Whatever a taken-back prop was worn on comes off. Runs a little after start-up and after
+  // each sync, since an out-of-date device can still write new unlocks.
+  const CREDITS_FROM = Date.UTC(2026, 10, 27, 6, 47, 0);
+  const ORIGINAL = ["scarf", "hat", "bowtie", "glasses", "medal", "cape", "star", "beanie", "cap", "crown"];
+  function revokeUnbought(){
+    try {
+      const c = cfg(), earned = c.earned; if (!earned || typeof earned !== "object" || !SC()) return;
+      const keep = Object.keys(earned).filter(id => { const v = Number(earned[id]) || 0; return ORIGINAL.includes(id) && ACC.some(a => a.id === id) && (v === 1 || (v > 1 && v < CREDITS_FROM)); });
+      keep.forEach(id => SC().grant(id));
+      const wear = {};
+      Object.entries(c.wear || {}).forEach(([cid, list]) => { wear[cid] = wornList(list).filter(id => canWear(ACC.find(x => x.id === id))); });
+      const next = Object.assign({}, c, {wear}); delete next.earned;
+      state.settings = Object.assign({}, state.settings, {comp: next}); saveSettings();
+      curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+    } catch (e) { console.warn("companion: revoke", e); }
+  }
+  hook("boot", () => setTimeout(revokeUnbought, 4000));
+  hook("render", () => { if (cfg().earned) setTimeout(revokeUnbought, 2000); });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
   hook("plan-changed", () => { curSig = ""; refresh(0); });
   hook("stats-focus", () => later(checkUnlocks, 2500));
@@ -77085,6 +77471,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
@@ -77098,9 +77485,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${smartRow()}`;
   }
   /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
-  let buyBack = "";
+  let buyBack = "", buyKeep = null;
+  dlg.addEventListener("close", () => { const k = buyKeep; buyKeep = null; if (!k || !k.se) return;
+    // focus goes back to the tapped tile without scrolling (with it focused, the app's own refocus after a sheet leaves it be)
+    const put = () => { k.se.scrollTop = k.top; };
+    try { if (k.el && k.el.isConnected && k.el.focus) k.el.focus({preventScroll: true}); } catch (e) {}
+    put(); requestAnimationFrame(put); setTimeout(put, 60); setTimeout(put, 160); });
   function buyProp(a){
     if (!a) return;
+    // opened from the page (the Companion tab's Wardrobe): closing the sheet puts the page back exactly where it was (the browser
+    // would otherwise scroll the tapped tile into view as it gets focus back)
+    if (!dlg.open) { const se = document.scrollingElement; buyKeep = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
     if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
     stopPreviews();
     const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
@@ -77110,7 +77505,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
       <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
       <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
-      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 25 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 12 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
       ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
     if (!dlg.open) try { dlg.showModal(); } catch (e) {}
@@ -77199,6 +77594,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 
   hook("act", (a, el) => {
     if (a === "comp-open") { openPicker(); return true; }
+    if (a === "wh-pro-spin") { if (SC() && SC().spinPro) SC().spinPro(() => { try { refreshPicker(); } catch (e) {} try { render(); } catch (e) {} }); return true; }
     if (a === "comp-change") { openChange(); return true; }
     if (a === "comp-theme") {
       const k = el.dataset.skin, slot = Number(el.dataset.slot) || 0, pickC = REG[k] && REG[k].list[slot];
@@ -77581,6 +77977,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     accessoryNames: () => ACC.map(x => x.name),
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
+    // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
+    accList: () => ACC.map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
+    wearId: id => { try { const a = ACC.find(x => x.id === id), c = current(); if (!a || !c || !canWear(a)) return false; const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} return true; } catch (e) { return false; } },
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
@@ -78861,7 +79260,7 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per focus minute up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per 2 focus minutes up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
@@ -84511,7 +84910,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
         <div class="cpt3-mini sm-skip" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
-        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
+        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}<span class="mini cpt-meta" title="${esc(meta)}">${esc(meta || "Not wearing anything")}</span></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
     const tabs = `<div class="cpt3-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"]].concat(me ? [["wardrobe", "Wardrobe"]] : []).map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
     const pane = tab === "chat" ? chatHtml() : tab === "history" ? historyHtml() : `<section class="cpt3-ward">${SBCOMP.wardrobe()}</section>`;
@@ -84633,6 +85032,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
 .cpt-id h2{margin:0;font:800 1.85rem/1.15 var(--display)}
 .cpt-id p{margin:0}
+/* always one line, so putting something on (or taking it off) never moves the Wardrobe below */
+.cpt-id .cpt-meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
 .cpt-dress{min-height:46px;padding:11px 20px;font-size:1rem}
@@ -127177,6 +127578,7 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
         <span class="pr-clock"><b id="prClock">0:00</b><span>of ${fmt(S.tgt)}</span></span>
         <span class="pr-pace" id="prPace" hidden></span>
         <span class="pr-livechip" id="prLiveChip" hidden></span>
+        <span class="pr-cr" id="prCredits"></span>
         <button type="button" class="pr-ib" data-act="pr-remote" aria-label="Use your phone as a remote" title="Phone Remote">${IC.phone}</button>
         <button type="button" class="pr-end" data-act="pr-end">${S.follow ? "Leave" : "End"}</button>
       </div>
@@ -127311,6 +127713,13 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
       lbl.textContent = k === S.i && S.started && !S.qa ? `${fmt(t[k])} · target ${fmt(S.b[k])}` : done ? fmt(t[k]) : fmt(S.b[k]);
       b.classList.toggle("done", done && k !== S.i);
     });
+    // Studyboard Credits this run has earned so far (98-0study-credits.js): each finished slide that stayed inside its time
+    const crb = S.el.querySelector("#prCredits");
+    if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
+      const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
+      const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+    }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
       const before = S.b.slice(0, S.i).reduce((a, x) => a + x, 0), d = el - (before + Math.min(t[S.i], S.b[S.i]));
@@ -127385,7 +127794,10 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     if (S.follow) { if (i !== S.i) liveCmd(S, i > S.i ? "next" : "prev"); return; }
     const lo = S.sec ? S.sec[0] : 0, hi = S.sec ? S.sec[1] : S.d.n - 1;
     i = clamp(i, lo, hi); if (i === S.i) return;
-    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t}); S.open = {i, a: t}; }
+    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t});
+      // a slide practiced (the first time it's left in this run) can turn up a chest (98-0study-credits.js)
+      if (S.open && !S.follow && typeof SBSC !== "undefined" && SBSC) { S.crCh = S.crCh || {}; if (!S.crCh[S.open.i] && S.open.i !== i) { S.crCh[S.open.i] = 1; SBSC.rollChest("pres"); } }
+      S.open = {i, a: t}; }
     vStop(S);
     S.i = i; S.k = atEnd ? stepsOf(S.p, S.d, i) : 0; drawCur(); paint();
     if (S.started && !atEnd) mediaCalls(S, 0);

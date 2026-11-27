@@ -44,6 +44,15 @@ const ok = (c, m) => { console.log((c ? "ok   " : "FAIL ") + m); if (!c) process
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(1200);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(2200);
   await p.screenshot({path: OUT + "-4-stage.png"});
+  { const cr = await p.evaluate(() => { const c = document.querySelector("#prCredits .scr-live"); return c ? c.textContent : ""; });
+    ok(/^\+\d+\s*credits?$/.test(cr.trim()), "the stage shows the Studyboard Credits this run has earned so far, and nothing else: " + cr); }
+  // a chest found mid-run: its note sits just under the stage's top bar, clear of the slide and the filmstrip
+  await p.evaluate(() => { localStorage.setItem("studyboard:rewards-test", "1"); localStorage.setItem("studyboard:chest-test", "rare"); window.SBSC.rollChest("pres"); });
+  await p.waitForTimeout(700);
+  { const pos = await p.evaluate(() => { const n = document.querySelector(".scr-found"), t = document.querySelector("#prStage .pr-top"); if (!n) return null; const r = n.getBoundingClientRect(), tb = t.getBoundingClientRect(); return {atTop: n.classList.contains("at-top"), gap: Math.round(r.top - tb.bottom), mid: Math.round(r.left + r.width / 2), w: innerWidth}; });
+    ok(pos && pos.atTop && pos.gap >= 0 && pos.gap < 30 && Math.abs(pos.mid - pos.w / 2) < 3, "a chest found mid-run shows its note centred just under the top bar: " + JSON.stringify(pos)); }
+  await p.screenshot({path: OUT + "-4b-chest.png"});
+  await p.evaluate(() => { localStorage.removeItem("studyboard:rewards-test"); localStorage.removeItem("studyboard:chest-test"); });
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(700);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(400);
   await p.keyboard.press("p"); await p.waitForTimeout(1500); await p.keyboard.press("p");
