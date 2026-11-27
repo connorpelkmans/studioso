@@ -4876,7 +4876,7 @@ html.tpcss-loading [class*="cs-tp-"] .face *{visibility:hidden}
 /* The timer button slims to its time (a pause mark when paused) only when the menu is too short for it to stay full */
 nav.tabs[data-pill="slim"] .in .nav-focus.active .nf-m{display:none}
 /* paused: a drawn pause sign before the time (two bars with a clear gap; the ❚❚ characters ran together into one block) */
-nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"";display:inline-block;width:.64em;height:.8em;margin-inline-end:.42em;vertical-align:-.06em;border-radius:1px;
+nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content:"";display:inline-block;width:.52em;height:.66em;margin-inline-end:.38em;vertical-align:.01em;border-radius:1px;
   background:linear-gradient(90deg,currentColor 0 34%,transparent 34% 66%,currentColor 66% 100%);opacity:.9}
 /* ===== module: 97-ui-shop.css ===== */
 /* ===== 97-ui: an easier Style Shop ===== */
@@ -5614,7 +5614,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-live.bump b{animation:scr-bump .45s cubic-bezier(.2,1.8,.4,1)}
 :root[data-theme="dark"] .scr-live b{color:#FFD36B}
 @media (max-width:520px){.scr-live-n{display:none}}
-.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 1.9rem);display:flex;justify-content:center;pointer-events:none}
+.pomo-cr{position:absolute;left:0;right:0;bottom:calc(50% + 2.45rem);display:flex;justify-content:center;pointer-events:none}
 .pomo-read:has(.sp-dial) .pomo-cr{position:static;margin-bottom:2px}
 .pomo-cr .scr-live{font-size:.72rem;padding:2px 8px 2px 3px;gap:4px}
 .pomo-cr .scr-live img{width:14px;height:14px}
