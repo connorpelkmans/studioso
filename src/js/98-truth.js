@@ -74,6 +74,7 @@ window.SBTRUTH = (() => {
     q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
+    if (/^\s*(?:yo|hey|hi|hello|ok|so)?[,\s]*(?:what'?s|whats|wats|wuts|wassup|sup)(?: up| good| new)?(?: with you| packy| mochi| bramble)?\s*$/.test(s)) return null; // ("whats up" is hello)
     // plain arithmetic ("what is 3x3", "12% of 80", "(4+5)*2"): worked out here, exactly
     { const m = /^\s*(?:what(?:'s| is)|whats|calculate|compute|solve|how much is)?\s*([-+*/x×÷^().\d\s]+|[\d.]+\s*%\s*of\s*[\d.]+)\s*[=?]*\s*$/i.exec(s);
       if (m && /\d\s*[-+*/x×÷^%]\s*[\d(]|%\s*of/i.test(m[1])) {
@@ -415,7 +416,8 @@ window.SBTRUTH = (() => {
       if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/^\s*(?:what'?s|whats|what is|what are|explain|tell me|summari[sz]e)\s+/i, " ").replace(/\b(the|that|this|thing|things|stuff|part|bit)\b/gi, " ").replace(/[?!.]+/g, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 1 ? s : o.search}); } }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
-    const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
+    // (filler isn't the topic: "whats MAIN again" looked up "again" and found the film Singham Again)
+    const keys = (low(q).replace(/\b(again|still|now|exactly|anyway|tho|though|remind me|real quick|quickly|pls|please)\b/g, " ").replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
     const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;

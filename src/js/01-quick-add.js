@@ -7,7 +7,8 @@ function qaCourse(text){
 }
 function qaLocal(text){
   const d = SBCAPTURE.line(text);
-  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm")};
+  return {title: d.title || d.type, type: d.type, due: d.due, time: d.time, hours: d.hours, weight: d.weight, priority: d.priority, courseId: d.courseId, flags: d.flags || [], ampm: (d.flags || []).includes("ampm"),
+    repeat: d.repeat || null, pages: d.pages || null, reading: d.reading || ""};
 }
 const QA_SCHEMA = {type: "OBJECT", properties: {tasks: {type: "ARRAY", items: {type: "OBJECT", properties: {
   title: {type: "STRING"}, course: {type: "STRING", description: "Exactly one of the listed course codes, or empty"},
@@ -32,13 +33,16 @@ async function qaRun(text){
       const today = todayISO(), d = parse(today);
       const courses = coursesArr().map(c => `${c.code || c.name}${c.code ? ` (${c.name})` : ""}`).join("; ") || "none";
       const r = await aiCall({task: "quickadd", fast: true, maxTokens: 3000, temperature: 0.1, schema: QA_SCHEMA, parts: [{text: `Today is ${d.toLocaleDateString("en-US", {weekday: "long"})} ${today}. Courses: ${courses}.\nStudent wrote: "${text}"`}],
-        system: `You turn a student's quick note into planner tasks. Resolve relative dates from today: ${SBCAPTURE.core.WEEKDAY_RULE}; "end of the month" means its last day. Leave due empty if no date is given. Match the course to one of the listed codes when the note clearly refers to it (abbreviations like "bio", "chem", "calc" count). Titles are short and specific, like "Homework 3" or "Quiz 2: Cell Membranes", without the course name or date. Make one task per separate deliverable. hours: a realistic estimate of focused work for a typical college student (0 for exams and quizzes). Studying or reviewing for an exam or quiz is a Study task with hours, not an Exam or Quiz. Only set weight if a percentage is stated. Return JSON only.`});
+        system: `You turn a student's quick note into planner tasks. Resolve relative dates from today: ${SBCAPTURE.core.WEEKDAY_RULE}; "end of the month" means its last day. Leave due empty if no date is given. Match the course to one of the listed codes when the note clearly refers to it (abbreviations like "bio", "chem", "calc" count). Titles are short and specific, like "Homework 3" or "Quiz 2: Cell Membranes", without the course name or date. Make one task per separate deliverable. hours: a realistic estimate of focused work for a typical college student (0 for exams and quizzes). Studying or reviewing for an exam or quiz is a Study task with hours, not an Exam or Quiz. Only set weight if a percentage is stated. Leave repeat words ("every Monday", "MWF", "until Dec 12") and page counts ("30 pages", "pp. 45-80") out of the title. Return JSON only.`});
       const byCode = {}; coursesArr().forEach(c => { byCode[(c.code || c.name).toLowerCase()] = c.id; byCode[c.name.toLowerCase()] = c.id; });
       items = (r.data.tasks || []).map(x => ({title: String(x.title || "").trim(), type: TYPES.includes(x.type) ? x.type : "Assignment", due: isDate(x.due) ? x.due : "", time: /^\d\d:\d\d$/.test(x.time || "") ? x.time : "", start: isDate(x.start) ? x.start : "",
         hours: Number(x.hours) > 0 && !MILESTONE(x.type) ? Math.round(Number(x.hours) * 4) / 4 : null, weight: Number(x.weight) > 0 ? Number(x.weight) : null, priority: PRIO[x.priority] ? x.priority : "med", difficulty: DIFF_M[x.difficulty] ? x.difficulty : "med",
         courseId: byCode[String(x.course || "").toLowerCase()] || "", location: String(x.location || ""), reading: String(x.reading || ""), notes: String(x.notes || "")})).filter(x => x.title);
       items.forEach(x => { if (x.due && (dayDiff(today, x.due) < -45 || dayDiff(today, x.due) > 800)) x.due = ""; if (x.hours && x.hours > 40) x.hours = null; });
-      if (items.length === 1) { const x = items[0]; if (loc.type === "Study" && MILESTONE(x.type)) x.type = "Study"; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId; }
+      if (items.length === 1) { const x = items[0]; if (loc.type === "Study" && MILESTONE(x.type)) x.type = "Study"; if (loc.due) x.due = loc.due; if (loc.time) x.time = loc.time; if (loc.hours && !MILESTONE(x.type)) x.hours = loc.hours; if (loc.weight) x.weight = loc.weight; if (!x.courseId && loc.courseId) x.courseId = loc.courseId;
+        // a repeat and a page count are read on this device, the same with AI on or off
+        if (loc.repeat && x.type !== "Exam") x.repeat = loc.repeat;
+        if (loc.pages && !MILESTONE(x.type)) { x.pages = loc.pages; if (loc.reading && !x.reading) x.reading = loc.reading; if (!loc.hours) x.hours = null; } }
       by = "ai";
     } catch(e) { err = e.code ? e.message : ""; console.warn(e); }
   }
@@ -56,7 +60,7 @@ function qaBarHtml(){
       <select data-qa="type" data-i="${i}" aria-label="Type">${TYPES.map(y => `<option ${y === x.type ? "selected" : ""}>${y}</option>`).join("")}</select>
       <input type="date" data-qa="due" data-i="${i}" value="${esc(x.due)}" aria-label="Due date">
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
-      <span class="qa-meta">${!MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
+      <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
       <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
@@ -98,19 +102,29 @@ document.addEventListener("keydown", e => {
 });
 function qaAdd(){
   const q = ui.qa; if (!q) return;
-  const changes = q.items.filter(x => x.title.trim()).map(x => {
-    const due = isDate(x.due) ? x.due : "";
+  let rule = null;
+  const groups = q.items.filter(x => x.title.trim()).map(x => {
+    // a repeat starts on the first day it falls on, from the date picked
+    const rep = x.repeat && x.type !== "Exam" && isDate(x.due) ? x.repeat : null;
+    const due = isDate(x.due) ? (rep ? SBCAPTURE.core.repeatFirst(rep, x.due) : x.due) : "";
     let start = isDate(x.start) ? x.start : due ? addDays(due, -(SPAN[x.type] ?? 3)) : todayISO();
     if (start < todayISO()) start = todayISO(); if (due && start > due) start = due;
-    const t = newTask({title: x.title.trim(), type: x.type, courseId: x.courseId || "", due, time: x.time || "", start, hours: MILESTONE(x.type) ? null : (isNum(x.hours) ? Number(x.hours) : null),
+    // a reading with pages keeps no estimated hours: its time follows the course's reading pace
+    const pages = !MILESTONE(x.type) && Number(x.pages) >= 1 ? Math.min(5000, Math.round(Number(x.pages))) : 0;
+    const t = newTask({title: x.title.trim(), type: x.type, courseId: x.courseId || "", due, time: x.time || "", start, hours: MILESTONE(x.type) || (pages && x.est) ? null : (isNum(x.hours) ? Number(x.hours) : null),
       weight: x.weight || null, priority: x.priority || (x.type === "Exam" ? "high" : "med"), difficulty: x.difficulty || "med", location: x.location || "", reading: x.reading || "", notes: x.notes || ""});
-    return {kind: "task", id: t.id, after: t};
+    if (pages) t.pages = pages;
+    const out = [{kind: "task", id: t.id, after: t}];
+    if (rep) { t.seriesId = uid(); const r = ruleCopies(t, rep); out.push(...r.copies); rule = Object.assign({}, rep, {until: r.until}); }
+    return out;
   });
+  const changes = [].concat(...groups);
   ui.qa = null; ui.qaText = "";
-  const one = changes.length === 1 ? changes[0].after : null, ex1 = one && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  const one = groups.length === 1 ? changes[0].after : null, ex1 = one && !rule && MILESTONE(one.type) && one.due > todayISO() ? one : null;
+  const label = one && rule ? SBCAPTURE.seriesLabel(one, rule, changes.length) : one ? `Added ${one.title}` : `Added ${changes.length} tasks`;
   if (changes.length) sbHaptic("tap");
-  if (changes.length) applyChanges(changes, one ? `Added ${one.title}` : `Added ${changes.length} tasks`, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
-  const ask = changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
+  if (changes.length) applyChanges(changes, label, one ? [ex1 && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(ex1.id)} : null, {label: "Edit", fn: () => { if (state.tasks[one.id]) taskForm(state.tasks[one.id]); }}] : undefined); else render();
+  const ask = rule ? null : changes.map(c => c.after).find(t => MILESTONE(t.type) && t.due && t.due >= todayISO() && state.tasks[t.id] && !remoteOf(state.tasks[t.id]).v);
   if (ask) { remoteAsk(ask.id); return; }
   setTimeout(() => { const i = $("#qaIn"); if (i) i.focus(); }, 30);
 }
@@ -120,7 +134,9 @@ function qaFull(){
   taskForm(null, {courseId: x.courseId, due: x.due});
   const set = (n, v) => { const el = dlg.querySelector(`[name="${n}"]`); if (el && v != null && v !== "") el.value = v; };
   const ty = $("#tfType"); if (ty) { ty.value = x.type; ty.dispatchEvent(new Event("change", {bubbles: true})); }
-  set("title", x.title); set("time", x.time); set("hours", MILESTONE(x.type) ? "" : x.hours); set("weight", x.weight); set("location", x.location); set("reading", x.reading); set("notes", x.notes);
+  set("title", x.title); set("time", x.time); set("hours", MILESTONE(x.type) || (x.pages && x.est) ? "" : x.hours); set("pages", MILESTONE(x.type) ? "" : x.pages);
+  // a repeat the Repeat field can say (every day, week, 2 weeks or month, on the due date's weekday) carries over
+  const rp = x.repeat; if (rp && x.type !== "Exam" && ["1", "7", "14", "m"].includes(rp.every) && (rp.days || []).length <= 1) { set("repeat", rp.every); const r = dlg.querySelector("select[name=repeat]"); if (r) r.dispatchEvent(new Event("change", {bubbles: true})); if (rp.until) { const u = dlg.querySelector("input[name=until]"); if (u) { u.value = rp.until; u.dispatchEvent(new Event("input", {bubbles: true})); } } } set("weight", x.weight); set("location", x.location); set("reading", x.reading); set("notes", x.notes);
   const pr = dlg.querySelector(`input[name=priority][value="${x.priority}"]`); if (pr) pr.checked = true;
 }
 // What's typed in the add bar survives a reload on this device (pull to refresh, Ctrl+R, the browser restarting): it's back

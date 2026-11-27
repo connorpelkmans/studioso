@@ -1,6 +1,6 @@
 # Studyboard for Android: Capacitor wrapper, quick capture, push, purchases
 
-> **Status:** `npm run android:build` makes the Android project, merges everything in this folder into it and builds with Gradle. A debug `.apk` was built from the Studyboard sources on 2 November 2026 (package `com.studyboardapp.studyboard`, versionCode 11504, target API 36), so the Kotlin sources compile. **Not yet run on a phone or emulator**: do the checks in section 7 before you upload.
+> **Status:** `npm run android:build` makes the Android project, merges everything in this folder into it and builds with Gradle. A debug `.apk` was built from the Studyboard sources on 2 November 2026 (package `com.studyboardapp.studyboard`, versionCode 11504, target API 36), so the Kotlin sources compile. **Not yet run on a phone or emulator**: do the checks in section 7 before you upload. The home-screen widgets, Focus notification, Do Not Disturb and reminder buttons (sections 8 to 11) were added on 26 November 2026 and also build (debug `.apk`); their JVM tests run with `./gradlew testDebugUnitTest` in `android-wrapper/android`.
 
 ## 0. Quick start (this is all you need to build)
 
@@ -46,7 +46,12 @@ The rest of this file explains what each part does.
 | `.../ShareReceiverActivity.kt` | same | Share target, with a confirmation dialog. |
 | `.../QuickCaptureTileService.kt` | same | Quick Settings tile "Quick capture". |
 | `.../StudyboardLms.kt`, `.../StudyboardLmsScripts.kt` | same | School site plugin `StudyboardLms` and its generated script allowlist ("School sites on Android" below). |
-| `app/src/main/res/xml/{shortcuts,network_security_config,backup_rules,data_extraction_rules}.xml`, `res/values/strings.xml`, `res/drawable/ic_quick_capture.xml` | `res/` | Resources. |
+| `.../widgets/` (`HomeWidgetStore.kt`, `HomeWidgetModel.kt`, `HomeWidgets.kt`, `StudyboardHomeWidgetsPlugin.kt`) | same | Home-screen widgets Today and Countdown, and the plugin `StudyboardHomeWidgets` (section 8). |
+| `.../focus/StudyboardFocusActivityPlugin.kt`, `FocusNotification.kt` | same | The Focus timer's ongoing notification with Pause/Stop and the Wear OS ongoing activity (plugin `StudyboardFocusActivity`, section 9). |
+| `.../focus/FocusGuard.kt` | same | Do Not Disturb during Focus (plugin `StudyboardFocusGuard`, section 10). |
+| `.../notify/` (`ReminderNotifications.kt`, `StudyboardMessagingService.kt`, `StudyboardNotifActionsPlugin.kt`) | same | Reminders with Mark Done and Snooze 1 Hour (plugin `StudyboardNotifActions`, section 11). |
+| `app/src/test/.../widgets/HomeWidgetsTest.kt` | `app/src/test/` | JVM tests (Robolectric): the widgets' model, the tick queue, and both layouts drawn to PNG. |
+| `app/src/main/res/xml/{shortcuts,network_security_config,backup_rules,data_extraction_rules,sbw_today_info,sbw_countdown_info}.xml`, `res/values/strings.xml`, `res/values*/sbw_*.xml`, `res/layout/sbw_*.xml`, `res/drawable/*` | `res/` | Resources (every folder is copied; `strings.xml` goes in as `studyboard_strings.xml`). |
 | `build.gradle.additions.txt`, `proguard-rules.additions.pro` | Gradle files | SDK levels, Kotlin, coroutines, exifinterface, keep rules. |
 | `assetlinks.template.json` | your website | Digital Asset Links file for App Links (section 6). |
 | `SAMSUNG-BIXBY.md` | (doc) | Samsung routes and a support matrix. |
@@ -84,6 +89,10 @@ class MainActivity : BridgeActivity() {
         registerPlugin(StudyboardCaptureTokenPlugin::class.java)
         registerPlugin(StudyboardSharedQueuePlugin::class.java)
         registerPlugin(StudyboardLmsPlugin::class.java)          // school site sign-in and sync (StudyboardLms.kt)
+        registerPlugin(StudyboardHomeWidgetsPlugin::class.java)  // home-screen widgets (section 8)
+        registerPlugin(StudyboardFocusActivityPlugin::class.java) // Focus notification (section 9)
+        registerPlugin(StudyboardFocusGuardPlugin::class.java)   // Do Not Disturb during Focus (section 10)
+        registerPlugin(StudyboardNotifActionsPlugin::class.java) // Mark Done / Snooze on reminders (section 11)
         super.onCreate(savedInstanceState)
     }
 }
@@ -135,7 +144,7 @@ The web layer calls the same functions as on iOS (cap-server's Settings UI): `wi
 * **Backup:** nothing is backed up or moved to a new phone. `allowBackup` is false, and because Android 12+ ignores that flag once `dataExtractionRules` is set, `data_extraction_rules.xml` (and `backup_rules.xml` for older versions) excludes every domain too: the WebView data (Supabase session, Canvas token, school sign-in cookies), the capture token (its Keystore key cannot move anyway) and the queues. Everything is re-synced from the account after sign-in.
 * **Play 'Data safety':** capture sends the user's task text to the app's own Supabase project ("App activity / user content, collected, linked, for app functionality"). Push adds Device or other IDs (section 4); purchases add Purchase history (RevenueCat/Google Play). Keep the form consistent.
 * **ProGuard:** `proguard-rules.additions.pro` keeps plugin and entry-point classes. Test a **release** (minified) build: Capacitor plugins found by reflection are the usual failure.
-* **Permissions:** `INTERNET` and `POST_NOTIFICATIONS` (push). No microphone, storage or overlay permission.
+* **Permissions:** `INTERNET` and `POST_NOTIFICATIONS` (push, the Focus notification), `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS` (Record a Lecture), `ACCESS_NOTIFICATION_POLICY` (Do Not Disturb during Focus, granted by the student in Settings) and `RECEIVE_BOOT_COMPLETED` (to put Do Not Disturb back after a restart mid-session). No storage, exact-alarm or overlay permission.
 
 ## 7. Test steps (device, `adb`)
 
@@ -162,6 +171,80 @@ adb logcat | grep -i -E "studyboard|capture"
 ```
 
 Manual: long-press the icon (shortcuts), add the tile (swipe down twice > pencil > "Quick capture"), tap it, share from Chrome / Keep / Gallery. Share a photo taken in portrait: it must arrive upright (EXIF). Offline test: airplane mode, share text ("Saved. It will be added when you're back online."), reconnect, open the app: the task appears once. Revoked token: share text, the item appears in the app's confirm sheet instead. Push: turn reminders on (permission prompt on Android 13+), check a row in `push_subscriptions`, send a test reminder, tap it: the task opens. Purchases: with a Play license-test account, buy monthly, restore, manage; with the placeholder key the Buy buttons must be hidden.
+
+## 8. Home-screen widgets (UNTESTED on a device)
+
+Two widgets in the launcher's widget picker (long-press the home screen > Widgets > Studyboard). The debug build compiles them and
+`app/src/test/.../HomeWidgetsTest.kt` draws both layouts on the JVM (Robolectric), but nobody has placed them on a real launcher yet.
+
+* **Today** (2x2 to 4x4, resizable): Exam Mode's countdown at the top ("Chemistry midterm in 3 days · ready 72%"), the date, **Do This
+  Next** with its time slot ("Until 2:45 PM", or "3:00 PM to 3:30 PM" in a gap), then today's tasks with a round checkbox each (as many
+  rows as fit the size, then "+N more"), and the Time Cushion line at the bottom when the page sends one ("2h 30m to spare", amber
+  "Tight: 20m spare by Tue", red "45m short by Tue"). Tapping the checkbox ticks the task off; tapping a title opens it.
+* **Countdown** (2x1 to 4x2): the exam in Exam Mode, else the next exam in the week ahead, else the nearest deadline: the days left,
+  its title, the course and readiness when known (a bar at 2 rows tall). Tap to open it.
+* Both follow the system's light or dark mode (`res/values-night/sbw_colors.xml`) and use the theme accent the page sends; with no data
+  or after sign-out they say "Open Studyboard to see your day".
+
+How it works: the same JSON and plugin as the iPhone widgets. The page (`src/js/70-widgets.js`, `phoneData()` v1) calls
+`StudyboardNative.homeWidgets.save()` (native-bridge.js 6b, no longer iPhone-only), which stores it in private SharedPreferences and
+redraws the widgets 1.5 s later. A tick is queued (`drain`/`ack`, `[{id, kind: "done", task, at}]`), shows as done at once, and is done in
+the page with Undo the next time the app opens or comes back to the front. Do This Next moves on through the plan's blocks and after
+midnight today's list comes from the week ahead, without the app: an inexact, non-waking `AlarmManager` alarm redraws the widgets at
+the next block's start or end and just after midnight (plus on a time zone, clock or language change). The providers have to be
+exported for the launcher, so ticks and redraws go through `WidgetActionReceiver`, which is not: no other app can tick off tasks.
+
+Check on a device: add both widgets; change a task in the app (the widget follows within ~2 s); tick a box with the app closed, open
+the app (the task is done, with Undo); resize Today from 2x2 to 4x4 (more rows); switch dark mode; wait for a plan block to end; sign
+out (both say "Open Studyboard to see your day").
+
+## 9. Focus timer notification and Wear OS (UNTESTED on a device or watch)
+
+While a Focus timer runs, the app shows an ongoing notification with the system's own live countdown (Chronometer, so it ticks with the
+app closed) and **Pause** (then **Resume**) and **Stop**. It is the Android side of the plugin the iPhone uses for its Live Activity
+(`StudyboardFocusActivity`, `show/end/take` + an `action` event), so `src/js/01-focus.js` drives it unchanged: a press changes the
+notification at once and is queued with the moment it was pressed; the page applies it (`pomoTakeLock`) when it next runs, so both end up
+at exactly the same time. `show()` resolves false on Android, so the page keeps the timer in its header too. On Android 13+ the
+notification permission is asked for once, the first time a session starts without it.
+
+**Wear OS:** the notification is marked as an Ongoing Activity (`androidx.wear:wear-ongoing` 1.0.0, a timer status and the static icon).
+Be aware: Wear OS does not bridge a phone's *ongoing* notifications to the watch, so a watch paired with the phone may not show this one;
+the Ongoing Activity marking takes effect where the notification is posted on a Wear OS device. Showing the timer on a paired watch
+reliably needs a small watch app (not in v1). The reminder buttons in section 11 do reach a paired watch (ordinary notifications are
+bridged). `wear-ongoing` declares API 25, so the build adds `tools:overrideLibrary="androidx.wear.ongoing"` and the code only calls it on
+API 25+.
+
+## 10. Block distracting apps: Do Not Disturb during Focus (UNTESTED on a device)
+
+`window.StudyboardNative.focusGuard` (native-bridge.js section 12) exists when the plugin `StudyboardFocusGuard` is in the build:
+
+```
+available(): Promise<{dnd: boolean, apps: boolean}>   // Android: dnd = true unless an Android Go phone; apps = false (no per-app blocking)
+pickApps(): Promise<boolean>                          // Android: false
+start({until: number, apps: boolean, dnd: boolean}): Promise<boolean>   // until = the session's end, ms since 1970
+stop(): Promise<boolean>
+```
+
+`start({dnd: true})` the first time opens Settings > Do Not Disturb access (`ACCESS_NOTIFICATION_POLICY` in the manifest); back in the
+app it resolves whether the access was granted and DND is on. It sets the student's own **Priority only** mode, remembers the mode
+from before, and puts it back when the session ends (an alarm at `until`: exact when Android allows it without asking, otherwise within
+minutes), on `stop()`, when the app next starts after being killed, and after a phone restart (`RECEIVE_BOOT_COMPLETED`). If the
+student changed DND themselves in the meantime, it is left alone. Play: no special declaration is needed for notification-policy access.
+
+## 11. Reminders with Mark Done and Snooze 1 Hour (UNTESTED on a device or watch)
+
+`send-reminders` now sends Android reminders as FCM **data** messages (`sbRem: "1"`, title, body, taskId, rid, tok, api, k), and
+`StudyboardMessagingService` (which replaces the push plugin's own `MessagingService` via `tools:node="remove"` and passes everything
+on to it) draws them with **Mark Done** (tasks only) and **Snooze 1 Hour**. A paired Wear OS watch shows the same buttons. A press works
+with the app closed: it calls send-reminders' `done`/`snooze` with the reminder's one-time token (only to `*.supabase.co/functions/v1/
+send-reminders`), and is queued for the page (`StudyboardNative.notifActions.drain/ack`, items `{id, kind: "done"|"snooze", task, rid,
+at, until?, server}`); `src/js/71-native-actions.js` ticks the task off on the device (Undo label "Completed X (from a reminder)").
+A Snooze the server couldn't take is shown again by the phone after an hour. This needs push set up (section 4); data messages are not
+delivered to an app the user has force-stopped. Because the FCM message changed shape, Android installs made before this build would
+receive reminders but not show them: Android push was off until now (`PUSH_READY.android = false`), so there are none.
+
+Check on a device: send a test reminder for a task, press Mark Done with the app closed, open the app (the task is done); press Snooze
+in airplane mode (it comes back an hour later); repeat both from a paired Wear OS watch.
 
 ## Optional later: Gemini AppFunctions
 

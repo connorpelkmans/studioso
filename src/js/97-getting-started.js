@@ -37,15 +37,29 @@
       done: () => allTasks().some(t => t.due), go: quickAdd},
     {id: "focus", t: "Start a focus session", s: "Start the timer on any task. Even 10 minutes helps.",
       done: () => { if (get().focus) return true; try { return SBSTATS.totalFocusMinutes() > 0; } catch (e) { return false; } }, go: () => { if (dlg.open) dlg.close(); openPomo(); }},
-    {id: "note", t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
+    // (in Essentials, Notes and themes aren't on the list: Notes is one of the unlocks below it, and Style is under More)
+    {id: "note", full: true, t: "Make a note", s: "Pin a quick thought to your board, or press and hold anywhere on it.",
       done: () => notesArr().length > 0, go: () => goTab("notes")},
     // Only where automatic backups work (not every browser can save to a folder)
     {id: "backups", t: "Set up backups", s: "Save a copy to Google Drive or OneDrive every hour.", here: () => !!(window.SBOB && SBOB.backupsHere && SBOB.backupsHere()),
       done: () => !!(window.SBOB && SBOB.backupOn && SBOB.backupOn()), go: () => fire("act", "ob-backup", document.body, "")},
-    {id: "theme", t: "Select a theme", s: "Make Studyboard yours, light or dark.",
+    {id: "theme", full: true, t: "Select a theme", s: "Make Studyboard yours, light or dark.",
       done: () => !!get().theme, go: () => { set({theme: Date.now()}); render(); if (dlg.open) dlg.close(); styleShop("themes"); }}
   ];
-  const list = () => ITEMS.filter(it => { try { return !it.here || it.here(); } catch (e) { return false; } });
+  const ess = () => !!(window.SBESS && SBESS.on());
+  const list = () => ITEMS.filter(it => { try { return !(it.full && ess()) && (!it.here || it.here()); } catch (e) { return false; } });
+  // Essentials (99-essentials.js): the parts that turn on by themselves, each a link to how
+  const UNLOCKS = [
+    {id: "decks", t: "Flashcards", s: "Make your first deck", go: () => goTab("flashcards")},
+    {id: "notes", t: "Notes", s: "Make your first note", go: () => goTab("notes")},
+    {id: "groups", t: "Groups", s: "Join a study group", go: () => goTab("groups")},
+    {id: "examprep", t: "Exam Prep", s: "Add an exam", go: () => { if (SBESS.shows("examprep")) fire("act", "prep-plan", document.body, ""); else quickAdd(); }}
+  ];
+  function unlocksHtml(){
+    if (!ess()) return "";
+    return `<div class="gs-unl"><h3 class="gs-unl-h" id="gsUnlH">Turns on as you go</h3><ul class="gs-unl-list" aria-labelledby="gsUnlH">${UNLOCKS.map(u => { const on = SBESS.shows(u.id);
+      return `<li><button type="button" class="gs-unl-b${on ? " ok" : ""}" data-act="gs-unl" data-id="${u.id}"><span class="gs-unl-ck" aria-hidden="true">${on ? CHECK : PLUS}</span><span class="gs-unl-t"><b>${esc(u.t)}</b><span class="mini">${on ? "On" : esc(u.s)}</span></span></button></li>`; }).join("")}</ul></div>`;
+  }
   const doneOf = it => { try { return !!it.done(); } catch (e) { return false; } };
 
   // Shown for the first 30 days after the welcome setup, until it's finished or hidden.
@@ -61,6 +75,7 @@
 
   const CHECK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   const CHEV = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const PLUS = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>';
   const CLOSE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
   function cardHtml(){
@@ -85,7 +100,7 @@
         <button type="button" class="icon-btn gs-x" data-act="gs-hide" aria-label="Hide Getting Started">${CLOSE}</button>
       </div>
       <div class="gs-bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
-      <ul class="gs-list" id="gsList"${open ? "" : " hidden"}>${rows}</ul>
+      <ul class="gs-list" id="gsList"${open ? "" : " hidden"}>${rows}</ul>${open ? unlocksHtml() : ""}
     </section>`;
   }
 
@@ -100,6 +115,7 @@
     if (act === "gs-hide") { set({hide: Date.now()}); render(); toast("Getting Started hidden. Everything on it is still in the app."); return true; }
     if (act === "gs-fin") { set({fin: Date.now()}); render(); return true; }
     if (act === "gs-toggle") { set({open: get().open === false}); render(); return true; }
+    if (act === "gs-unl") { const u = UNLOCKS.find(x => x.id === (el && el.dataset ? el.dataset.id : "")); if (u) u.go(); return true; }
     if (act === "gs-go") {
       const id = el && el.dataset ? el.dataset.id : "", it = list().find(x => x.id === id);
       if (it && !doneOf(it)) it.go();
