@@ -35039,7 +35039,7 @@ document.head.appendChild(AREA_CSS);
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   // The time is kept too, so the Board's semester card waits a few days after the welcome setup
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); if (mode === "first" && !localStorage.getItem(KEY + ":first")) localStorage.setItem(KEY + ":first", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
@@ -75275,7 +75275,28 @@ var COMP_ACC_MORE = K => {
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
   // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  /* Every accessory's icon is fitted to its circle or tile: what it draws is measured once (twinkles left out), then centred and
+     scaled to fill about the same space, so a tall hat, a wide scarf and a small pin all sit in the middle at a matching size */
+  const ICON_FIT = {}, ICON_W = 40, ICON_H = 36;
+  function iconFit(id, inner){
+    if (ICON_FIT[id]) return ICON_FIT[id];
+    try {
+      const NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
+      sv.setAttribute("viewBox", "-26 -26 52 52"); sv.setAttribute("width", "52"); sv.setAttribute("height", "52");
+      sv.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none";
+      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw").forEach(t => t.remove());
+      document.body.appendChild(sv); const bb = sv.firstChild.getBBox(); sv.remove();
+      if (!(bb.width > 0 && bb.height > 0)) return null;
+      const k = Math.min(1.6, ICON_W / bb.width, ICON_H / bb.height);
+      return (ICON_FIT[id] = {k: f1(k), x: f1(-(bb.x + bb.width / 2) * k), y: f1(-(bb.y + bb.height / 2) * k)});
+    } catch (e) { return null; }
+  }
   function propIcon(a, tints){
+    const svg = propIconRaw(a, tints), m = /^(<svg[^>]*>)([\s\S]*)<\/svg>$/.exec(svg); if (!m) return svg;
+    const fit = iconFit(a.id, m[2]);
+    return fit ? `${m[1]}<g transform="translate(${fit.x} ${fit.y}) scale(${fit.k})">${m[2]}</g></svg>` : svg;
+  }
+  function propIconRaw(a, tints){
     tints = tints || tintsNow();
     const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
     // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
@@ -76732,7 +76753,7 @@ var COMP_ACC_MORE = K => {
      grant; not the free weeks of a trial, and none while the paywall is off). The wrapping paper fits the holiday */
   const GIFTS = [
     {key: "2026", item: "santahat", from: "2026-12-25", to: "2027-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas", all: true, join: 14},
-    {key: "ny2027", item: "newyearhat", from: "2027-01-01", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14},
+    {key: "ny2027", item: "newyearhat", from: "2026-12-31", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14, proNext: true},
     {key: "val2027", item: "heartboppers", from: "2027-02-14", to: "2027-02-21", wrap: "valentine", hi: "Happy Valentine's Day!", what: "Valentine's Day"},
     {key: "stp2027", item: "leprechaun", from: "2027-03-17", to: "2027-03-24", wrap: "stpat", hi: "Happy St. Patrick's Day!", what: "St. Patrick's Day"},
     {key: "eas2027", item: "chickpin", from: "2027-03-28", to: "2027-04-04", wrap: "easter", hi: "Happy Easter!", what: "Easter"},
@@ -76753,8 +76774,8 @@ var COMP_ACC_MORE = K => {
   // (browser tests see them only when they ask; giftPro is the tests' stand-in for a paid plan)
   const giftOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:gift-test") !== "1"; } catch (e) { return false; } };
   const giftProNow = () => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:gift-pro")) return localStorage.getItem("studyboard:gift-pro") === "1"; } catch (e) {} return paidPro(); };
-  // when this student joined: the account's creation, or (with no account) when the welcome setup was finished
-  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:at")) || 0;
+  // when this student joined: the account's creation, or (with no account) when their first welcome setup was finished
+  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:first")) || Number(localStorage.getItem("sb:onboarded:at")) || 0;
     if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } catch (e) { return ""; } };
   const plusDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   // in its window; or, for a gift with join (Christmas, New Year's), a student who joined within that many days of the holiday
@@ -76798,9 +76819,14 @@ var COMP_ACC_MORE = K => {
       <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="${w.knot}" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
       <circle cx="0" cy="-24" r="5" fill="${w.knot}" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
   }
+  const GIFT_AFTER_SETUP = 5 * 60000;
+  // how long until the first welcome setup (sb:onboarded:first: a replay from Settings doesn't count) is 5 minutes old (0 once it is, or with no setup on record)
+  const setupJustDone = () => { try { const at = Number(localStorage.getItem("sb:onboarded:first")) || 0, left = at ? at + GIFT_AFTER_SETUP - Date.now() : 0; return left > 0 && left <= GIFT_AFTER_SETUP ? left + 500 : 0; } catch (e) { return 0; } };
   function giftSoon(){
     clearTimeout(giftT);
     if (giftOn || giftLater || !giftNow()) return;
+    // a new student: presents wait until 5 minutes after the welcome setup is finished, so they don't arrive with the welcome spin
+    const fresh = setupJustDone(); if (fresh) { giftT = setTimeout(giftSoon, fresh); return; }
     if (revealOn || revealBusy() || document.querySelector(".scr-rw, .cpu") || (window.SBTOUR && SBTOUR.active())) { giftT = setTimeout(giftSoon, 2500); return; }
     showGift(giftNow());
   }
@@ -76837,7 +76863,7 @@ var COMP_ACC_MORE = K => {
       setCfg({gift: {[gf.key]: 1}});
       try { sbHaptic("success", {force: true}); } catch (e) {}
       o.classList.add("cpg-opening");
-      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
+      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpg]"); if (b) close(b.dataset.cpg === "open"); });
     o.addEventListener("keydown", e => {
@@ -76864,6 +76890,7 @@ var COMP_ACC_MORE = K => {
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
       <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
       <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
+      ${a.proNext ? `<p class="cpu-next">${PRO_BADGE}<span>${giftProNow() ? "You'll get a gift every holiday this year." : "This year's other holiday gifts are for Pro."}</span></p>` : ""}
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
