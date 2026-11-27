@@ -2520,6 +2520,12 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the first time, the check of which free AI this computer can run may still be going: wait for it (at most about a second) so
+  // the sheet opens once, final, rather than redrawing its list of AIs a moment after it opens
+  if (typeof DEVAI !== "undefined" && DEVAI.settled && !DEVAI.settledAt && !opts._waited) {
+    let go = false; const open = () => { if (go) return; go = true; aiSetupSheet(fromFeature, Object.assign({}, opts, {_waited: true})); };
+    DEVAI.settled.then(open, open); setTimeout(open, 1000); return;
+  }
   // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
   if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
     const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);

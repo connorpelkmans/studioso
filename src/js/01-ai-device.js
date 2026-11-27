@@ -442,7 +442,10 @@ async function e4bCantHere(){
     return unsure();
   } catch (e) { return unsure(); }
 }
-devProbe().then(() => e4bCantHere()).then(() => { try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+// (DEVAI.settled: the AI Features sheet opened before this finishes waits for it, briefly, so it opens once with the final list
+// instead of redrawing it a moment after opening)
+DEVAI.settled = devProbe().then(() => e4bCantHere()).then(() => { DEVAI.settledAt = Date.now(); try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+DEVAI.settled.catch(() => {}).then(() => { DEVAI.settledAt = DEVAI.settledAt || Date.now(); });
 // How much is downloaded (0 to 1), and whether all of it is
 async function e4bHave(){
   const D = e4bDesk();
@@ -461,7 +464,7 @@ function e4bDownload(){
 
       // the progress itself is painted in place (e4bPaint); the page redraws only when the state changes, so a download in the
       // background never keeps redrawing what's on screen (which restarted the hover animations on deck tiles, every few moments)
-      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b) try { scheduleRender(); } catch (e) {} };
+      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b || p >= 1) try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along

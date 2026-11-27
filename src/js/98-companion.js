@@ -1097,6 +1097,9 @@
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
+    // a sheet open over the page (the Style Shop, Settings): it stays where it stood, behind the sheet's dimmed backdrop like the
+    // page, rather than finding its spot "covered" by the sheet and walking to one beside it (half behind the sheet's edge)
+    if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;

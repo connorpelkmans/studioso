@@ -6788,6 +6788,12 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the first time, the check of which free AI this computer can run may still be going: wait for it (at most about a second) so
+  // the sheet opens once, final, rather than redrawing its list of AIs a moment after it opens
+  if (typeof DEVAI !== "undefined" && DEVAI.settled && !DEVAI.settledAt && !opts._waited) {
+    let go = false; const open = () => { if (go) return; go = true; aiSetupSheet(fromFeature, Object.assign({}, opts, {_waited: true})); };
+    DEVAI.settled.then(open, open); setTimeout(open, 1000); return;
+  }
   // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
   if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
     const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
@@ -7782,7 +7788,10 @@ async function e4bCantHere(){
     return unsure();
   } catch (e) { return unsure(); }
 }
-devProbe().then(() => e4bCantHere()).then(() => { try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+// (DEVAI.settled: the AI Features sheet opened before this finishes waits for it, briefly, so it opens once with the final list
+// instead of redrawing it a moment after opening)
+DEVAI.settled = devProbe().then(() => e4bCantHere()).then(() => { DEVAI.settledAt = Date.now(); try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+DEVAI.settled.catch(() => {}).then(() => { DEVAI.settledAt = DEVAI.settledAt || Date.now(); });
 // How much is downloaded (0 to 1), and whether all of it is
 async function e4bHave(){
   const D = e4bDesk();
@@ -7801,7 +7810,7 @@ function e4bDownload(){
 
       // the progress itself is painted in place (e4bPaint); the page redraws only when the state changes, so a download in the
       // background never keeps redrawing what's on screen (which restarted the hover animations on deck tiles, every few moments)
-      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b) try { scheduleRender(); } catch (e) {} };
+      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b || p >= 1) try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along
@@ -75923,6 +75932,9 @@ var COMP_ACC_MORE = K => {
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
+    // a sheet open over the page (the Style Shop, Settings): it stays where it stood, behind the sheet's dimmed backdrop like the
+    // page, rather than finding its spot "covered" by the sheet and walking to one beside it (half behind the sheet's edge)
+    if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
