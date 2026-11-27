@@ -242,4 +242,7 @@
 .scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
 .btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
 /* the credits pills' words and number sit a touch lower, so they look centred beside the coin (the display font's figures ride high) */
-:is(.scr-live,.scr-pill) > :is(b,.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+:is(.scr-live,.scr-pill) > :is(.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+/* the number and the coin a touch higher than the word, so the three look level */
+:is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
+:is(.scr-live,.scr-pill) > img{position:relative;top:-.06em}

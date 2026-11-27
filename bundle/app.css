@@ -5862,7 +5862,10 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-rw:not(.scr-wh) .scr-acts .scr-go{min-width:0;flex:1.4}
 .btn.scr-ward{flex:1;min-height:48px;font-size:1.05rem;font-weight:700}
 /* the credits pills' words and number sit a touch lower, so they look centred beside the coin (the display font's figures ride high) */
-:is(.scr-live,.scr-pill) > :is(b,.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+:is(.scr-live,.scr-pill) > :is(.scr-live-t,.scr-live-n,span:not([class])){position:relative;top:.08em}
+/* the number and the coin a touch higher than the word, so the three look level */
+:is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
+:is(.scr-live,.scr-pill) > img{position:relative;top:-.06em}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */
@@ -12062,41 +12065,8 @@ button.wu-row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .wu-mv{flex:1 1 0;padding:0 6px}
   .wu-day{padding-inline-start:0}
 }
-/* Cards rising under the pointer, with their text sharp the whole time (decks, quizzes, presentations, Writing, concept maps,
-   groups, courses). They used to slide on transforms: while one moved, the browser drew it as a picture and slid that, so the
-   text went soft until it stopped, and the parts drawn as separate pictures (a deck's front card, a quiz's clipboard) snapped to
-   the pixel grid at different moments, so some text moved more than the rest. Now each moves in the page's layout (margins and
-   offsets) by whole pixels, one pixel at a time: everything on a card moves together and the text is redrawn sharp at every step.
-   Loaded last, so it wins over each card's own hover rules. Blank decorations (the cards fanned behind a deck's front card)
-   still turn as before. */
-html body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card){will-change:auto;translate:none!important;margin-top:0;margin-bottom:0;
-  transition:margin-top .18s steps(2,end),margin-bottom .18s steps(2,end),box-shadow .18s ease,filter .18s ease}
-html body .cm-mapcard:hover{transform:none!important}
-html body .rv-card:hover,html body #view .course-card.c2-card:hover,html body :is(.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card):hover{translate:none!important}
-@media (hover:hover){
-  html:not([data-motion="static"]) body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card):hover{margin-top:-2px;margin-bottom:2px}
-}
-/* a deck's front card (with the deck's name): down a little, by whole pixels, without the slight turn */
-html body .rv-fan .face.rv-f{will-change:auto}
-html body .rv-fan .rv-f1{transform:none!important;margin-top:11px;transition:margin-top .24s steps(4,end),box-shadow .2s ease}
-html body .rv-deck:hover .rv-f1{transform:none!important;margin-top:7px}
-/* a quiz's clipboard (with its first question) lifts without turning; its score stamp stays its size */
-html body .rv-board{will-change:auto;margin-top:0;transition:margin-top .25s steps(5,end)}
-html body .rv-quiz:hover .rv-board{transform:none!important;rotate:-3deg;margin-top:-5px}
-html body .rv-stamp{will-change:auto}
-html body :is(.rv-quiz,.rv-pres):hover .rv-stamp{transform:none!important}
-/* a presentation's screen (with its title) rises by whole pixels */
-html body .rv-pres{will-change:auto}
-html body .rv-pres .pr-scr{will-change:auto;transform:none!important;transition:bottom .3s steps(6,end)}
-html body .rv-pres:hover .pr-scr{transform:none!important;bottom:27px}
-/* a concept map's picture and name stay their size */
-html body .cm-mapcard:hover :is(.cm-peek,.cm-pkname){transform:none!important}
-@media (prefers-reduced-motion:reduce){
-  html body :is(.rv-card,.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card):hover{margin-top:0;margin-bottom:0}
-  html body .rv-deck:hover .rv-f1{margin-top:11px}
-  html body .rv-quiz:hover .rv-board{margin-top:0}
-  html body .rv-pres:hover .pr-scr{bottom:21px}
-}
-html[data-motion="static"] body .rv-deck:hover .rv-f1{margin-top:11px}
-html[data-motion="static"] body .rv-quiz:hover .rv-board{margin-top:0}
-html[data-motion="static"] body .rv-pres:hover .pr-scr{bottom:21px}
+/* Cards rising under the pointer (study groups, courses, Writing, concept maps, decks and quizzes in their older list style):
+   the browser draws each card as one steady picture the whole time, as Review's deck, quiz and presentation cards already are.
+   Before, it only did that while a card was moving, so the text changed sharpness as a card started and stopped, and parts of
+   the card drawn apart from it moved a pixel out of step with the rest. The motion itself is unchanged. */
+html body :is(.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card){will-change:transform,translate;backface-visibility:hidden;-webkit-backface-visibility:hidden}
