@@ -61678,7 +61678,9 @@ var SBSC = (() => {
     try {
       const o = document.createElement("div"); o.className = "scr-found ch-" + c.t + (calm() ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
       if (o.showPopover) o.setAttribute("popover", "manual");
-      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b></span>`;
+      // the very first chest a student finds also says when it opens; after that, the name is enough
+      const first = !sc().chSeen; if (first) setSc({chSeen: 1});
+      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b>${first ? "<small>Opens at the end</small>" : ""}</span>`;
       document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
       placeNote(o);
       requestAnimationFrame(() => o.classList.add("show"));

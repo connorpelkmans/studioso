@@ -149,6 +149,7 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     await p.evaluate(() => localStorage.removeItem("studyboard:chest-test"));
     ok(found && found.t === "rare" && found.c >= 20 && found.c <= 50, "a Rare chest holds 20 to 50 credits: " + JSON.stringify(found));
     await p.waitForSelector(".scr-found.show", {timeout: 3000}).then(() => ok(true, "finding it shows a small note"), () => ok(false, "finding it shows a small note"));
+    ok(/Opens at the end/.test(await p.textContent(".scr-found")), "the first chest ever says it opens at the end");
     ok(await p.evaluate(() => SBSC.pendingChests().length === 1), "it waits, unopened, until the session ends");
     const e0 = await p.evaluate(() => SBSC.earned(true));
     await p.evaluate(() => SBSC.quizDone(4, 5, "chestqz"));
@@ -160,6 +161,12 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(new RegExp("Rare Chest.*\\+" + found.c).test(lines), "then the credits screen has a line for it: " + lines);
     ok(await p.evaluate(e0 => SBSC.earned(true) - e0, e0) === 4 + 5 + found.c && await p.evaluate(() => SBSC.pendingChests().length === 0), "and its credits are added once (4 right + 5 for passing + the chest)");
     await closeReward();
+    await p.evaluate(() => localStorage.setItem("studyboard:chest-test", "common"));
+    await p.evaluate(() => { document.querySelectorAll(".scr-found").forEach(x => x.remove()); SBSC.rollChest("cards"); });
+    await p.evaluate(() => localStorage.removeItem("studyboard:chest-test"));
+    ok(await p.evaluate(() => { const n = document.querySelector(".scr-found"); return !!n && /Common Chest found/.test(n.textContent) && !/Opens at the end/.test(n.textContent); }), "later chests just say what they are");
+    await p.evaluate(() => SBSC.quizDone(1, 1, "chestqz2")); await p.waitForSelector(".scr-ch .scr-go", {timeout: 4000});
+    await p.click(".scr-ch .scr-go"); await p.waitForTimeout(400); await p.click(".scr-ch .scr-go"); await p.waitForSelector(".scr-rw:not(.scr-ch)", {timeout: 4000}); await closeReward();
 
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);
