@@ -439,7 +439,7 @@ legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .swatches input:checked+span{box-shadow:0 0 0 2px var(--ink)}
 .swatches input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .menu-list{display:grid;gap:4px}
-.menu-list button,.menu-list label.mi{display:flex;align-items:center;gap:12px;border:0;background:none;padding:12px 4px;text-align:start;border-bottom:1px solid var(--line);font-size:1rem;cursor:pointer}
+.menu-list button:not(.btn),.menu-list label.mi{display:flex;align-items:center;gap:12px;border:0;background:none;padding:12px 4px;text-align:start;border-bottom:1px solid var(--line);font-size:1rem;cursor:pointer}
 .menu-list .sw{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
@@ -1472,14 +1472,19 @@ body.desk nav.tabs::-webkit-scrollbar{display:none}
 html{transition:none}
 /* AI features */
 .ai-ic{flex:none;vertical-align:-3px;color:#8B5CF6}
-.btn.primary .ai-ic{color:currentColor}
+.btn.primary .ai-ic{color:#8B5CF6}
 .btn.ai-btn{border-color:color-mix(in srgb,#8B5CF6 45%,var(--line));background:color-mix(in srgb,#8B5CF6 9%,var(--surface))}
-/* Every button with the AI mark (the companion's face, or the sparkle) is AI's purple */
-.btn:not(.primary):has(.ai-ic){border-color:color-mix(in srgb,#8B5CF6 45%,var(--line));background:color-mix(in srgb,#8B5CF6 12%,var(--surface));color:color-mix(in srgb,#6D3FD8 70%,var(--ink))}
-.btn:not(.primary):has(.ai-ic):hover{background:color-mix(in srgb,#8B5CF6 20%,var(--surface))}
-html[data-theme=dark] .btn:not(.primary):has(.ai-ic){color:color-mix(in srgb,#C4B0FF 75%,var(--ink));background:color-mix(in srgb,#8B5CF6 18%,var(--surface))}
-.btn.primary:has(.ai-ic){background:#7C4DEB;border-color:#7C4DEB;color:#fff}
-.btn.primary:has(.ai-ic):hover{background:#6D3FD8;border-color:#6D3FD8}
+/* Every button with the AI mark (the companion's face, or the sparkle) looks the same, main action or not: a soft AI purple with
+   purple text (as Photo to Note). A theme's main-button colour, gradient or glow never reaches it */
+.btn:has(.ai-ic){--ai-bd:color-mix(in srgb,#8B5CF6 45%,var(--line));--ai-bg:color-mix(in srgb,#8B5CF6 12%,var(--surface));--ai-bgh:color-mix(in srgb,#8B5CF6 20%,var(--surface));--ai-fg:color-mix(in srgb,#6D3FD8 70%,var(--ink))}
+html[data-theme=dark] .btn:has(.ai-ic){--ai-bg:color-mix(in srgb,#8B5CF6 18%,var(--surface));--ai-bgh:color-mix(in srgb,#8B5CF6 26%,var(--surface));--ai-fg:color-mix(in srgb,#C4B0FF 75%,var(--ink))}
+@media (prefers-color-scheme:dark){html:not([data-theme="light"]) .btn:has(.ai-ic){--ai-bg:color-mix(in srgb,#8B5CF6 18%,var(--surface));--ai-bgh:color-mix(in srgb,#8B5CF6 26%,var(--surface));--ai-fg:color-mix(in srgb,#C4B0FF 75%,var(--ink))}}
+.btn:not(.primary):has(.ai-ic){border-color:var(--ai-bd);background:var(--ai-bg);color:var(--ai-fg)}
+.btn:not(.primary):has(.ai-ic):hover{background:var(--ai-bgh)}
+html .btn.primary:has(.ai-ic){border-color:var(--ai-bd)!important;background:var(--ai-bg)!important;color:var(--ai-fg)!important;text-shadow:none!important;box-shadow:none!important;filter:none!important}
+html .btn.primary:has(.ai-ic):hover{background:var(--ai-bgh)!important;border-color:#8B5CF6!important}
+html .btn.primary:has(.ai-ic)::before,html .btn.primary:has(.ai-ic)::after{content:none!important;display:none!important}
+html .btn.primary:has(.ai-ic):disabled{opacity:.55}
 .btn.ai-btn:hover{border-color:#8B5CF6}
 /* The AI mark sits centred beside the label, a little apart from it (low specificity, so a button's own layout still wins) */
 .btn:where(:has(> .ai-ic):not([hidden])){display:inline-flex;align-items:center;justify-content:center;gap:.3em}
