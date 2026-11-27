@@ -74493,7 +74493,7 @@ var COMP_ACC_MORE = K => {
     {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
-    {id: "plume", name: "Plumed Musketeer", rarity: "exotic", def: "#8E6BE0", art: () =>
+    {id: "plume", name: "Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
       `<path d="M3 -11Q10 -31 28 -27Q21 -25 19 -18.5Q15 -11.5 6.5 -7.5Z" fill="#FF7A9C" ${OUT(2)}/><path d="M7 -10.5Q13 -22 24 -25.5M11 -18l-2.6 -1.4M14.5 -21.5l-2 -2M17 -16.5l-2.2 -.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/>
       <path d="M-11 -1Q-12.5 -13.5 0 -14.5Q12.5 -13.5 11 -1Z" ${WF} ${OUT(2.4)}/><path d="M-22.5 -3.5Q-12 3 0 2Q12 3 22.5 -3.5Q24.5 4.5 0 6.4Q-24.5 4.5 -22.5 -3.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 .4Q-12 4.4 0 4.4Q12 4.4 21 .4Q18 5.4 0 5.8Q-18 5.4 -21 .4Z" fill="${INK}" opacity=".15"/>
       <path d="M-11.2 -5.4Q0 -3.4 11.2 -5.4V-1.8Q0 .2 -11.2 -1.8Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-3.5" r="2.1" fill="#2FB5C9" ${OUT(1.2)}/>`},
@@ -74739,6 +74739,16 @@ var COMP_ACC_MORE = K => {
       return `${[[-11, 6, 2.2], [-5.6, 9.5, 2.6], [5.6, 9.5, 2.6], [11, 6, 2.2]].map(([x, h, w]) => gem(x, h, w, WF)).join("")}${gem(0, 14, 3.4, WF)}<circle cx="0" cy="${f(yA(0) - 6)}" r="1.8" fill="#FF7AC8" ${OUT(.9)}/>
         ${line2("M-16 3Q0 -3 16 3", 2.2, WS("#9AD8FF"))}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
   );
+  // The Christmas gift (98-companion.js): never sold, only found in the present that pops up from Dec 25
+  HEAD.push({id: "santahat", name: "Santa Hat", rarity: "legendary", def: "#D7263D", gift: true, icon: [11, .82], art: () => {
+    // fluff: overlapping puffs drawn twice (an ink outline, then white), so they read as one soft roll
+    const puffs = pts => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFDF8"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${f(x - r * .3)}" cy="${f(y - r * .35)}" r="${f(r * .32)}" fill="#fff"/>`).join("")}`;
+    // a few big puffs, wide apart, so the cotton rolls in long soft arches
+    const band = [[-15, 1, 4], [-10, .4, 4.2], [-5, 0, 4.3], [0, -.1, 4.3], [5, 0, 4.3], [10, .4, 4.2], [15, 1, 4]];
+    return `<path d="M-13.5 -1.5Q-15 -17 -2 -23.5Q10 -28.5 19.5 -19.5Q24.5 -14 23.8 -6L16.8 -6.6Q16.6 -12.6 12.2 -13.4Q14.8 -8 13.8 -1.5Z" ${WF} ${OUT(2.4)}/>
+      <path d="M-8.4 -12.6Q-6.4 -19.6 1 -21.6" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2" stroke-linecap="round"/>
+      ${puffs(band)}${puffs([[20.2, -4.6, 3.6], [23.2, -2.6, 3.2], [19.4, -1.2, 3], [22.2, .4, 2.6]])}
+      ${tw(-18, -16, 2.8, 0)}${tw(6, -31, 2.4, .9)}${tw(27, -14, 2.2, 1.6)}`; }});
   FACE.push(
     // Common
     {id: "ovalglasses", name: "Oval Glasses", rarity: "common", def: "#8B6A4F", art: g =>
@@ -74847,6 +74857,97 @@ var COMP_ACC_MORE = K => {
       return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" ${WF} ${OUT(1.5)}/><path d="${p}Z" fill="#fff" opacity=".25"/><circle r="5.4" ${WF} ${OUT(1.3)}/><circle r="3.9" fill="#2563EB" ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
   ];
   CHEST.forEach(a => { a.slot = "chest"; });
+  /* ---------------- Holiday gifts for 2027 (98-companion.js GIFTS): never sold, each found in its holiday's present ---------------- */
+  const shamrock = (x, y, sz, fill) => `<g transform="translate(${x} ${y})">${[0, 120, 240].map(a => `<g transform="rotate(${a})">${heart(0, -sz * 1.1, sz, fill, .9)}</g>`).join("")}<path d="M0 .6L${f(sz * .6)} ${f(sz * 2)}" stroke="#2F7A44" stroke-width="1.1" stroke-linecap="round"/></g>`;
+  HEAD.push(
+    // New Year's Day: a black party cone with gold Happy New Year, a 2027 band, a gold fringe and a tinsel burst on top
+    {id: "newyearhat", name: "New Year's Hat", rarity: "legendary", def: "#1E1B26", gift: true, icon: [16, .64], art: () => {
+      const CONE = "M-14 3L0 -37L14 3Q0 6 -14 3Z";
+      // the words in a gold hand-lettered script, slanted up like the party hats, kept inside the cone (clipped to it)
+      const script = (t, x, y, sz) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Kalam,Caveat,'Gochi Hand',cursive" font-weight="700" font-size="${sz}" fill="#FFD24A" stroke="#7A5200" stroke-width=".45" paint-order="stroke">${t}</text>`;
+      const words = `<g clip-path="url(#cpaNyCone)" transform="rotate(-8 0 -12)">${script("Happy", 0, -15.6, 4.8)}${script("New Year", .4, -9.4, 4.3)}<path d="M-5.6 -7.6Q.4 -6.2 6.4 -7.8" fill="none" stroke="#FFD24A" stroke-width=".6" stroke-linecap="round"/></g>`;
+      const TOPPER = "burst";
+      const tops = {
+        // tinsel burst: gold and silver strands around a gold bead
+        burst: () => { let a = "", b = ""; for (let i = 0; i < 18; i++) { const r = i * Math.PI / 9 + .1, l = i % 2 ? 5.6 : 7.4, d = `M0 -38L${f(l * Math.cos(r))} ${f(-38 + l * Math.sin(r))}`; a += `<path d="${d}" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>`; b += `<path d="${d}" stroke="${i % 3 ? GOLD : "#E4E8EF"}" stroke-width="1.4" stroke-linecap="round"/>`; } return `${a}${b}<circle cy="-38" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><circle cx="-.8" cy="-38.8" r=".8" fill="#fff"/>`; },
+        // a gold star on the tip
+        star: () => `${star(0, -41, 6.4, GOLD, 1.8)}<path d="M-1.6 -43.4l1 -2" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>`,
+        // a fluffy pom-pom of gold and silver puffs
+        pom: () => { const pts = [[0, -41, 3.2], [-3, -39, 2.6], [3, -39, 2.6], [-2.2, -43.2, 2.4], [2.2, -43.2, 2.4], [0, -37.6, 2.4]];
+          return `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="2.6"/>`).join("")}${pts.map(([x, y, r], k) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${k % 2 ? "#E4E8EF" : GOLD}"/>`).join("")}<circle cx="-1" cy="-42" r=".8" fill="#fff"/>`; },
+        // a little disco ball
+        disco: () => `<circle cy="-41.6" r="5" fill="#C9D0DA" ${OUT(1.6)}/><path d="M-5 -41.6H5M-4.4 -44H4.4M-4.4 -39.2H4.4M0 -46.6V-36.6M-2.8 -46Q-4 -41.6 -2.8 -37.2M2.8 -46Q4 -41.6 2.8 -37.2" stroke="#8E96A6" stroke-width=".6" fill="none"/><path d="M-3 -44.4h2v1.6h-2Z" fill="#fff"/><path d="M1.2 -40.6h1.8v1.6h-1.8Z" fill="#FFF3B0"/><path d="M0 -46.6V-48" stroke="${INK}" stroke-width="1.2"/>`,
+        // curly gold and silver streamers spilling from the tip
+        // corkscrew ribbons hanging down one side of the tip
+        cascade: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
+          return `${c("M0 -37.6Q4 -39 5 -36Q5.6 -33.6 3.6 -34Q2 -34.6 4 -32.4Q6 -30.4 7.4 -31.6", GOLD)}${c("M0 -37.6Q-4 -39.4 -5.2 -36.4Q-5.8 -34 -3.8 -34.4Q-2.2 -35 -4.2 -32.6Q-6.2 -30.6 -7.6 -31.8", "#E4E8EF")}${c("M0 -37.6Q1.6 -41.6 -.4 -43.2Q-2.4 -44.4 -2.6 -42.4", GOLD)}<circle cy="-37.6" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // springy coils standing up from the tip
+        springs: () => { const coil = (a, col) => { let d = "M0 -37"; for (let k = 0; k < 4; k++) d += `q${k % 2 ? -2.2 : 2.2} -1.1 0 -2.2`; return `<g transform="rotate(${a} 0 -37)"><path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.2" stroke-linecap="round"/><circle cy="-46" r="1.2" fill="${col}" ${OUT(.8)}/></g>`; };
+          return `${coil(-38, "#E4E8EF")}${coil(38, "#E4E8EF")}${coil(-12, GOLD)}${coil(14, GOLD)}<circle cy="-37" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // a fountain of thin streamers arcing out and down both sides, each ending in a little curl
+        fountain: () => { const st = (s, h, col) => { const d = `M0 -38Q${f(s * 4)} ${f(-44 - h)} ${f(s * 8)} -38.6q${f(s * 1.4)} 2 0 3q${f(-s * 1.2)} .4 ${f(-s * .8)} -1`; return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.1" stroke-linecap="round"/>`; };
+          return `${st(-1, 2, GOLD)}${st(1, 2, GOLD)}${st(-.7, 5, "#E4E8EF")}${st(.7, 5, "#E4E8EF")}${st(-.3, 7, GOLD)}${st(.3, 7, "#E4E8EF")}<circle cy="-38" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // ribbon loops gathered into a rosette, gold and silver
+        loops: () => { const lp = (a, col) => `<g transform="rotate(${a} 0 -39)"><path d="M0 -39C-2.6 -42 -2 -46.4 0 -46.4C2 -46.4 2.6 -42 0 -39Z" fill="${col}" ${OUT(1.2)}/></g>`;
+          return `${[-80, -40, 0, 40, 80].map((a, k) => lp(a, k % 2 ? "#E4E8EF" : GOLD)).join("")}<circle cy="-39" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        streamers: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
+          return `${c("M0 -37Q-4 -42 -7 -38Q-9 -35 -6 -34Q-3 -34 -5 -37", GOLD)}${c("M0 -37Q4 -43 7.6 -39.4Q9.6 -36.4 6.6 -35.4Q3.6 -35 5.4 -38", "#E4E8EF")}${c("M0 -37Q-1 -43 2 -45Q5 -46 4.6 -43Q4 -41 2 -42.6", GOLD)}<circle cy="-37.4" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; }
+      };
+      return `<clipPath id="cpaNyCone"><path d="${CONE}"/></clipPath><path d="${CONE}" ${WF} ${OUT(2.4)}/><g clip-path="url(#cpaNyCone)"><path d="M-2.6 -31Q-6.4 -20 -10.6 -3L-7.4 -3Q-4.6 -19 -1.4 -30.6Z" fill="#fff" opacity=".13"/><path d="M-2.2 -29.6Q-3.6 -26 -4.8 -21.8" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/></g>
+        ${words}${star(-1.4, -27.4, 1, GOLD)}${star(1.8, -31, .8, "#E4E8EF")}${star(3.4, -23.6, .8, GOLD)}<circle cx="3.6" cy="-19.8" r=".5" fill="#E4E8EF"/>
+        <path d="M-12.6 -4.4Q0 -2.2 12.6 -4.4L14 3Q0 6 -14 3Z" fill="${GOLD}" ${OUT(1.6)}/><path d="M-12.4 -3.2Q0 -1 12.4 -3.2" fill="none" stroke="#FFF3B0" stroke-width=".7"/>${txt("2027", 0, 2.6, 5, INK)}
+        ${tops[TOPPER]()}${tw(-16, -24, 2.6, 0)}${tw(15, -36, 2.4, .9)}`; }},
+    // Valentine's Day: two springy hearts on a headband
+    {id: "heartboppers", name: "Heart Boppers", rarity: "legendary", def: "#FF4F8B", gift: true, icon: [12, .85], art: () => {
+      const spring = `M-6 -9.6Q-9.4 -11 -7.2 -13Q-5 -14.8 -8.6 -16.2Q-11.4 -17.6 -10.6 -19.8`;
+      const side = `${line2(spring, 1.1, "#C9D0DA")}${heart(-10.6, -24.4, 5.2, WF, 1.8)}<path d="M-14 -27.2q1 -1.8 2.8 -1.8" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`;
+      return `${side}<g transform="scale(-1 1)">${side}</g>${line2("M-17 3Q-15 -9.4 0 -10.2Q15 -9.4 17 3", 3, WS("#FF4F8B"))}${tw(-18, -30, 2.6, 0)}${tw(18, -21, 2.4, .9)}`; }},
+    // St. Patrick's Day: a green hat that flares at the top, with a gold buckle and a shamrock
+    {id: "leprechaun", name: "Leprechaun Hat", rarity: "legendary", def: "#2E9E5B", gift: true, icon: [12, .85], art: () =>
+      `<path d="M-10 -1L-12.6 -23Q0 -25.6 12.6 -23L10 -1Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-23" rx="12.6" ry="2.6" ${WF} ${OUT(2)}/><ellipse cx="0" cy="-23" rx="12.6" ry="2.6" fill="#fff" opacity=".14"/>
+      <path d="M-7.6 -19.6V-12" stroke="#fff" stroke-opacity=".28" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-11 -10.4Q0 -8.4 11 -10.4L10.6 -4Q0 -2 -10.6 -4Z" fill="${INK}"/><rect x="-3.6" y="-10.6" width="7.2" height="6.8" rx="1.2" fill="none" stroke="${GOLD}" stroke-width="1.9"/><path d="M0 -9.6V-4.8" stroke="${GOLD}" stroke-width="1.3"/>
+      ${shamrock(7.6, -13.6, 2.2, `fill="#7ED19B"`)}
+      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-16 1.6Q0 4 16 1.6" fill="none" stroke="${INK}" stroke-opacity=".2" stroke-width="1.4"/>
+      ${tw(-18, -20, 2.6, 0)}${tw(17, -29, 2.4, 1)}`},
+    // Independence Day: Uncle Sam's tall striped hat, with a band of stars
+    {id: "unclesam", name: "Uncle Sam Hat", rarity: "legendary", def: "#FFFFFF", gift: true, icon: [13, .78], art: () => {
+      const crown = "M-10 -1L-11.2 -29Q0 -31.4 11.2 -29L10 -1Z";
+      const stripes = [-7.6, -2.6, 2.6, 7.6].map(x => `<path d="M${f(x - 1.3)} -1L${f(x * 1.12 - 1.3)} -30L${f(x * 1.12 + 1.3)} -30L${f(x + 1.3)} -1Z" fill="#E5484D"/>`).join("");
+      return `<clipPath id="cpaSam"><path d="${crown}"/></clipPath><path d="${crown}" ${WF}/><g clip-path="url(#cpaSam)">${stripes}</g><path d="${crown}" fill="none" ${OUT(2.4)}/>
+        <ellipse cx="0" cy="-29" rx="11.2" ry="2.6" ${WF} ${OUT(2)}/><path d="M-7.4 -25V-15" stroke="#fff" stroke-opacity=".4" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-10.8 -11Q0 -9 10.8 -11L10.4 -3.6Q0 -1.6 -10.4 -3.6Z" fill="#2F4A9E" ${OUT(1.6)}/>${[-6.6, -2.2, 2.2, 6.6].map(x => star(x, -6.8 + Math.abs(x) * .05, 1.5, "#fff")).join("")}
+        <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" fill="#2F4A9E" ${OUT(2.4)}/><path d="M-16 1.4Q0 3.8 16 1.4" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
+        ${tw(-19, -22, 2.8, 0)}${tw(18, -33, 2.4, .9)}${tw(20, -10, 2, 1.6)}`; }},
+    // Christmas: reindeer antlers on a headband, with jingle bells
+    {id: "antlers", name: "Reindeer Antlers", rarity: "legendary", def: "#C08A5B", gift: true, icon: [13, .78], art: () => {
+      const side = `${line2("M-7 -8Q-10.4 -15 -12 -21Q-13.6 -26.6 -11.6 -32", 3.2, WS("#C08A5B"))}${line2("M-11.2 -18.4Q-16 -20 -18.6 -25.6", 2.6, WS("#C08A5B"))}${line2("M-12.6 -25.4Q-9.2 -27.6 -8 -31.6", 2.4, WS("#C08A5B"))}${line2("M-13.6 -26Q-17 -28 -17.6 -32", 2.2, WS("#C08A5B"))}`;
+      const bell = x => `<g transform="translate(${x} -6.8)"><path d="M-2.8 2.2Q-3 -2.8 0 -3Q3 -2.8 2.8 2.2Z" fill="${GOLD}" ${OUT(1.3)}/><circle cy="2.4" r=".9" fill="${INK}"/><path d="M-1.4 -1q.6 -.9 1.4 -1" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/></g>`;
+      return `${side}<g transform="scale(-1 1)">${side}</g>${line2("M-17 3Q-15 -9 0 -9.8Q15 -9 17 3", 3, "#7A4E2D")}${bell(-7.4)}${bell(7.4)}${tw(-21, -14, 2.8, 0)}${tw(21, -30, 2.4, .9)}${tw(0, -20, 2, 1.6)}`; }}
+  );
+  FACE.push(
+  );
+  NECK.push(
+    // Halloween: a bow tie that's a little bat
+    {id: "batbowtie", name: "Bat Bow Tie", rarity: "legendary", def: "#3A2A5C", gift: true, icon: [-4, 1.15], art: () => {
+      const wing = `<path d="M-2.6 0Q-8 -8 -16 -6.4Q-15 -2.4 -17 1.6Q-13.6 .4 -12.4 4Q-9.6 1.6 -7.6 5.4Q-5 2 -2.6 3Z" ${WF} ${OUT(2)}/><path d="M-4.4 0Q-9 -4.4 -14 -4.2" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.2" stroke-linecap="round"/>`;
+      return `<g transform="translate(0 3)">${wing}<g transform="scale(-1 1)">${wing}</g><path d="M-2.8 -2L-2.2 -6L-.6 -2.8ZM2.8 -2L2.2 -6L.6 -2.8Z" ${WF} ${OUT(1.3)}/><ellipse cx="0" cy="1" rx="3.8" ry="4.4" ${WF} ${OUT(2)}/>
+        <circle cx="-1.4" cy=".2" r=".95" fill="#FFD35A"/><circle cx="1.4" cy=".2" r=".95" fill="#FFD35A"/><path d="M-1 2.6l.45 1.2l.45 -1.2M.1 2.6l.45 1.2l.45 -1.2" fill="#fff"/>${tw(-19, -6, 2.4, 0)}${tw(19, 6, 2.2, 1)}</g>`; }},
+    // Thanksgiving: a garland of autumn leaves and acorns
+    {id: "leafgarland", name: "Harvest Garland", rarity: "legendary", def: "#E8742A", gift: true, art: hw => {
+      const pts = along(hw, -1.5, 6, Math.max(6, Math.round(hw / 3.6)), .9);
+      const leaf = ([x, y], i) => `<g transform="translate(${x} ${y}) rotate(${f(-x / hw * 35)})"><path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" ${WF} ${OUT(1.3)}/>${i % 3 === 1 ? `<path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" fill="#fff" opacity=".28"/>` : i % 3 === 2 ? `<path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" fill="${INK}" opacity=".18"/>` : ""}<path d="M0 0V8M0 3.4L-1.6 2M0 5.4L1.6 4" stroke="${INK}" stroke-opacity=".35" stroke-width=".8" stroke-linecap="round"/></g>`;
+      const acorn = ([x, y]) => `<g transform="translate(${x} ${f(+y + 1.4)})"><ellipse cy="2.2" rx="1.9" ry="2.3" fill="#C9935A" ${OUT(1)}/><path d="M-2.3 1Q0 -1.6 2.3 1Z" fill="#7A4E2D" ${OUT(1)}/></g>`;
+      const mids = pts.slice(1).map((p, i) => [f((+p[0] + +pts[i][0]) / 2), f((+p[1] + +pts[i][1]) / 2)]).filter((p, i) => i % 2 === 0);
+      return `<path d="${arcP(hw, -1.5, 6, .95)}" fill="none" stroke="#7A4E2D" stroke-width="1.3"/>${pts.map(leaf).join("")}${mids.map(acorn).join("")}${tw(f(-hw - 2), -5, 2.4, 0)}${tw(f(hw + 2), 6, 2.2, 1)}`; }}
+  );
+  CHEST.push(
+    // Easter: a chick peeking out of its egg
+    {id: "chickpin", name: "Hatching Chick Pin", rarity: "legendary", at: "pin", def: "#C9B6F2", gift: true, slot: "chest", art: () =>
+      `<g transform="scale(1.25)"><circle cx="0" cy="-3.4" r="5" fill="#FFD35A" ${OUT(1.5)}/><circle cx="-1.8" cy="-4" r=".85" fill="${INK}"/><circle cx="1.8" cy="-4" r=".85" fill="${INK}"/><path d="M-1 -2.4L0 -1L1 -2.4Z" fill="#F28C28"/><circle cx="-3" cy="-2.4" r=".8" fill="#FF9AB3"/><circle cx="3" cy="-2.4" r=".8" fill="#FF9AB3"/>
+      <path d="M-7 0L-4.6 -2.4L-2.4 0L0 -2.4L2.4 0L4.6 -2.4L7 0Q7.6 9 0 10Q-7.6 9 -7 0Z" ${WF} ${OUT(1.6)}/><circle cx="-3.4" cy="4" r="1" fill="#fff" opacity=".75"/><circle cx="2.6" cy="6.4" r="1.2" fill="#fff" opacity=".75"/><circle cx="3.6" cy="2.4" r=".7" fill="#fff" opacity=".75"/>
+      <path d="M-4.4 -7.2L-3 -10L-1.4 -7.8L0 -10.6L1.6 -7.8L3 -10L4.4 -7.2Q0 -5.6 -4.4 -7.2Z" ${WF} ${OUT(1.2)}/>${tw(-8.6, -8, 2.2, 0)}${tw(8.4, 4, 2, 1)}</g>`}
+  );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
   return HEAD.concat(FACE, NECK, CHEST);
 };
@@ -75023,7 +75124,7 @@ var COMP_ACC_MORE = K => {
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot});
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift});
   });
   // every prop is priced by its rarity, bought with earned credits, never Pro
   ACC.forEach(a => { a.price = PRICE[RARITY.includes(a.rarity) ? a.rarity : "common"]; });
@@ -75227,7 +75328,8 @@ var COMP_ACC_MORE = K => {
   const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
-  const forSale = a => !!a && (!a.festive || inSeason());
+  // a gift (from a holiday present: the Santa Hat and the 2027 holidays') is never sold
+  const forSale = a => !!a && !a.gift && (!a.festive || inSeason());
   const coinHtml = px => SC() ? SC().coin(px) : "";
   const creditsTxt = n => `${(+n || 0).toLocaleString()} ${+n === 1 ? "credit" : "credits"}`;
   const canWear = a => !!a && isEarned(a);
@@ -76619,6 +76721,129 @@ var COMP_ACC_MORE = K => {
     if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
     revealProp(revealQ.shift());
   }
+  /* Holiday presents: on each holiday (or the next time the app is opened, until the window ends), a wrapped present pops up at
+     the first calm moment. Open It lifts the lid and the holiday's accessory (never sold) is inside: it's added to the wardrobe
+     and shown with Put It On. Later keeps it for the next time the app is opened. Each comes once (comp.gift[key]).
+     The Santa Hat (Christmas 2026) and the New Year's Hat (2027) are for everyone; every other holiday's gift is for Pro (a paid plan, a code, a promotion or a
+     grant; not the free weeks of a trial, and none while the paywall is off). The wrapping paper fits the holiday */
+  const GIFTS = [
+    {key: "2026", item: "santahat", from: "2026-12-25", to: "2027-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas", all: true, join: 14},
+    {key: "ny2027", item: "newyearhat", from: "2027-01-01", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14},
+    {key: "val2027", item: "heartboppers", from: "2027-02-14", to: "2027-02-21", wrap: "valentine", hi: "Happy Valentine's Day!", what: "Valentine's Day"},
+    {key: "stp2027", item: "leprechaun", from: "2027-03-17", to: "2027-03-24", wrap: "stpat", hi: "Happy St. Patrick's Day!", what: "St. Patrick's Day"},
+    {key: "eas2027", item: "chickpin", from: "2027-03-28", to: "2027-04-04", wrap: "easter", hi: "Happy Easter!", what: "Easter"},
+    {key: "jul2027", item: "unclesam", from: "2027-07-04", to: "2027-07-11", wrap: "july4", hi: "Happy Fourth of July!", what: "Fourth of July"},
+    {key: "hal2027", item: "batbowtie", from: "2027-10-31", to: "2027-11-07", wrap: "halloween", hi: "Happy Halloween!", what: "Halloween"},
+    {key: "thx2027", item: "leafgarland", from: "2027-11-25", to: "2027-12-02", wrap: "harvest", hi: "Happy Thanksgiving!", what: "Thanksgiving"},
+    {key: "xm2027", item: "antlers", from: "2027-12-25", to: "2028-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas"}
+  ];
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const md = iso => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
+  // how each gift is got, in words, for the Wardrobe and the chat
+  GIFTS.forEach(g => { const a = ACC.find(x => x.id === g.item); if (a) { a.giftOf = g; a.giftNote = `inside the ${g.what} present that pops up between ${md(g.from)} and ${md(g.to)}, ${g.to.slice(0, 4)}${g.all ? "" : " (a Studyboard Pro gift)"}`; } });
+  // Pro, but not a free trial (the free weeks): a paid plan, a code, a promotion or a grant all count
+  const paidPro = () => { try { if (typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || !PLAN.isPro()) return false; const e = PLAN.entitlement(); if (!e) return true;
+    const live = t => !!t && Date.parse(t) > Date.now();
+    const trial = e.plan !== "lifetime" && !(e.plan === "pro" && (!e.pro_until || live(e.pro_until))) && live(e.trial_until);
+    return !trial; } catch (e) { return false; } };
+  // (browser tests see them only when they ask; giftPro is the tests' stand-in for a paid plan)
+  const giftOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:gift-test") !== "1"; } catch (e) { return false; } };
+  const giftProNow = () => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:gift-pro")) return localStorage.getItem("studyboard:gift-pro") === "1"; } catch (e) {} return paidPro(); };
+  // when this student joined: the account's creation, or (with no account) when the welcome setup was finished
+  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:at")) || 0;
+    if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } catch (e) { return ""; } };
+  const plusDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  // in its window; or, for a gift with join (Christmas, New Year's), a student who joined within that many days of the holiday
+  // (before or after) gets it the next time they open the app from the holiday on, even after the window
+  const giftOpen = (g, t) => (t >= g.from && t <= g.to) || (!!g.join && (j => !!j && j >= plusDays(g.from, -g.join) && j <= plusDays(g.from, g.join) && t >= g.from)(joinedISO()));
+  const giftNow = () => { if (giftOff() || !SC()) return null; const t = todayISO(), done = cfg().gift || {};
+    return GIFTS.find(g => giftOpen(g, t) && !done[g.key] && (g.all || giftProNow()) && (a => a && !isEarned(a))(ACC.find(x => x.id === g.item))) || null; };
+  let giftOn = false, giftT = 0, giftLater = false;
+  // the wrapping paper: box, its shade, ribbon and knot colours, and a little motif scattered over it
+  const WRAP = {
+    xmas: {box: "#E5484D", dark: "#B8323F", rib: "#FFD35A", knot: "#F5B700", m: "snow", mc: "#fff"},
+    newyear: {box: "#1E1B26", dark: "#0E0C14", rib: "#F5C542", knot: "#E0A82E", m: "confetti", mc: "#F5C542"},
+    valentine: {box: "#FF8FB1", dark: "#E56A92", rib: "#E5484D", knot: "#B8323F", m: "heart", mc: "#fff"},
+    stpat: {box: "#2E9E5B", dark: "#1F7A44", rib: "#F5C542", knot: "#E0A82E", m: "clover", mc: "#BFF0CF"},
+    easter: {box: "#C9B6F2", dark: "#A892DE", rib: "#7ED9B0", knot: "#4FBF8E", m: "egg", mc: "#FFF3B0"},
+    july4: {box: "#2F4A9E", dark: "#22377A", rib: "#E5484D", knot: "#B8323F", m: "star", mc: "#fff"},
+    halloween: {box: "#F28C28", dark: "#C96A12", rib: "#5B3FA0", knot: "#3F2A78", m: "bat", mc: "#2B2233"},
+    harvest: {box: "#B5652E", dark: "#8A4A1F", rib: "#F5C542", knot: "#E0A82E", m: "leaf", mc: "#FFD08A"}
+  };
+  const MOTIF = {
+    snow: (x, y, c) => `<path d="M${x} ${y - 3.2}V${y + 3.2}M${x - 2.8} ${y - 1.6}L${x + 2.8} ${y + 1.6}M${x - 2.8} ${y + 1.6}L${x + 2.8} ${y - 1.6}" stroke="${c}" stroke-width="1.3" stroke-linecap="round" opacity=".9"/>`,
+    star: (x, y, c) => `<path d="${starPath(x, y, 3.4)}" fill="${c}" opacity=".9"/>`,
+    heart: (x, y, c) => `<path d="M${x} ${y + 2.6}C${x - 4.2} ${y} ${x - 3} ${y - 3} ${x} ${y - 1.1}C${x + 3} ${y - 3} ${x + 4.2} ${y} ${x} ${y + 2.6}Z" fill="${c}" opacity=".9"/>`,
+    clover: (x, y, c) => `<g fill="${c}" opacity=".9"><circle cx="${x}" cy="${y - 1.6}" r="1.6"/><circle cx="${x - 1.6}" cy="${y + .6}" r="1.6"/><circle cx="${x + 1.6}" cy="${y + .6}" r="1.6"/></g><path d="M${x} ${y + 1}l1 2.6" stroke="${c}" stroke-width=".9" opacity=".9"/>`,
+    egg: (x, y, c, k) => `<ellipse cx="${x}" cy="${y}" rx="2.4" ry="3.1" fill="${["#FFF3B0", "#FFB3D1", "#fff", "#BDEFFF"][k % 4]}" opacity=".95"/><path d="M${x - 2.2} ${y}l1.1 -.9l1.1 .9l1.1 -.9l1.1 .9" fill="none" stroke="#A892DE" stroke-width=".7"/>`,
+    bat: (x, y, c) => `<path d="M${x} ${y}q-2 -2 -5 -1q1 1.4 0 2.6q1.6 -.6 2.4 .8q1 -1.2 2.6 -.4q1.6 -.8 2.6 .4q.8 -1.4 2.4 -.8q-1 -1.2 0 -2.6q-3 -1 -5 1z" fill="${c}" opacity=".85"/>`,
+    // gold and silver streamers and dots on black, for New Year's
+    confetti: (x, y, c, k) => `<path d="M${x - 3} ${y + 1}q1.5 -2.4 3 0t3 0" fill="none" stroke="${k % 2 ? "#E4E8EF" : c}" stroke-width="1.2" stroke-linecap="round" transform="rotate(${k % 3 ? -25 : 20} ${x} ${y})"/><circle cx="${x + 2.4}" cy="${y - 2.6}" r=".9" fill="${k % 2 ? c : "#E4E8EF"}"/><circle cx="${x - 2.6}" cy="${y + 2.8}" r=".7" fill="${k % 3 ? "#FF7AC8" : c}"/>`,
+    leaf: (x, y, c, k) => `<path d="M${x} ${y - 3.2}C${x - 3} ${y - 1} ${x - 2.4} ${y + 2.4} ${x} ${y + 3.2}C${x + 2.4} ${y + 2.4} ${x + 3} ${y - 1} ${x} ${y - 3.2}Z" fill="${["#FFD08A", "#F5C542", "#FF9A5A"][k % 3]}" transform="rotate(${k % 2 ? 30 : -30} ${x} ${y})" opacity=".9"/>`
+  };
+  function giftBox(wrap){
+    // the paper: the motif tiled in an even half-drop (two per tile, the second a half step down and across), clipped to the box
+    const w = WRAP[wrap] || WRAP.xmas, mo = MOTIF[w.m], T = 15, pid = "cpgw-" + (WRAP[wrap] ? wrap : "xmas");
+    const tile = `<pattern id="${pid}" patternUnits="userSpaceOnUse" x="-3" y="-2" width="${T}" height="${T}"><rect width="${T}" height="${T}" fill="${w.box}"/>${mo(T / 4, T / 4, w.mc, 0)}${mo(T * 3 / 4, T * 3 / 4, w.mc, 1)}</pattern>`;
+    return `<svg class="cpg-box" viewBox="-50 -62 100 110" aria-hidden="true"><defs>${tile}</defs><ellipse cx="0" cy="44" rx="40" ry="5" fill="#000" opacity=".22"/>
+    <path d="M-34 -8H34V36Q34 42 28 42H-28Q-34 42 -34 36Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-34 -8H34V2Q0 7 -34 2Z" fill="${w.dark}" opacity=".5"/>
+    <path d="M-7 -8H7V42H-7Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/><path d="M-3 -6V40" stroke="#fff" stroke-opacity=".6" stroke-width="1.6"/>
+    <g class="cpg-lid"><path d="M-39 -22H39V-6Q39 -2 35 -2H-35Q-39 -2 -39 -6Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-36 -19H36" stroke="#fff" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M-8 -22H8V-2H-8Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/>
+      <path d="M0 -24Q-18 -46 -26 -34Q-30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/><path d="M0 -24Q18 -46 26 -34Q30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="${w.knot}" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="0" cy="-24" r="5" fill="${w.knot}" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
+  }
+  function giftSoon(){
+    clearTimeout(giftT);
+    if (giftOn || giftLater || !giftNow()) return;
+    if (revealOn || revealBusy() || document.querySelector(".scr-rw, .cpu") || (window.SBTOUR && SBTOUR.active())) { giftT = setTimeout(giftSoon, 2500); return; }
+    showGift(giftNow());
+  }
+  function showGift(gf){
+    giftOn = true;
+    const o = document.createElement("div");
+    o.className = "cpu cpu-legendary cpu-gift" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpgT"); o.setAttribute("aria-describedby", "cpgD");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <button type="button" class="cpu-stage cpg-stage" data-cpg="open" aria-label="Open the present"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}${giftBox(gf.wrap)}</button>
+      <span class="cpu-kick">${esc(gf.hi)}</span><h2 class="cpu-name" id="cpgT">A Gift for You</h2>
+      <p class="cpu-how" id="cpgD">Something to wear is wrapped up inside. Open it to see.</p>${gf.all ? "" : `<span class="cpg-pro">${PRO_BADGE}<span>A thank-you for being Pro</span></span>`}
+      <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    try { sbHaptic("success", {force: true}); } catch (e) {}
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector('.cpu-acts [data-cpg="open"]'); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let done = false;
+    const gone = () => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); giftOn = false; };
+    const close = open => {
+      if (done) return; done = true;
+      if (!open) {
+        // Later: it waits for the next time the app is opened
+        giftLater = true; o.classList.add("cpu-out"); setTimeout(gone, still() ? 0 : 260);
+        try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+        return;
+      }
+      const hat = ACC.find(x => x.id === gf.item);
+      // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
+      try { SC().grant(hat.id); } catch (e) {}
+      setCfg({gift: {[gf.key]: 1}});
+      try { sbHaptic("success", {force: true}); } catch (e) {}
+      o.classList.add("cpg-opening");
+      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpg]"); if (b) close(b.dataset.cpg === "open"); });
+    o.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); close(false); return; }
+      if (e.key === "Tab") { const bs = [...o.querySelectorAll(".cpu-acts [data-cpg]")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); }
+    });
+  }
+  // after the app opens, and whenever it's opened again (back from the background on a phone, a new tab, the next day)
+  setTimeout(giftSoon, 4500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { giftLater = false; clearTimeout(giftT); giftT = setTimeout(giftSoon, 2500); } });
   const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
   function revealProp(a){
     revealOn = true;
@@ -76633,8 +76858,8 @@ var COMP_ACC_MORE = K => {
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Accessory!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
-      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : ""}${esc(how)}</p>
+      <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
@@ -76652,7 +76877,7 @@ var COMP_ACC_MORE = K => {
       // the companion celebrates too
       if (act && cur) {
         hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        if (talkOn()) say(a.gift ? (wear ? `${a.hi || "Thank you!"} How do I look in my ${a.name}?` : `${a.hi || "Ooh!"} The ${a.name} is in my wardrobe whenever you want it.`) : wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
@@ -77507,12 +77732,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
       ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
-      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
+      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id)) && (!a.gift || isEarned(a))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck and chest. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
+      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.filter(a => !a.gift || isEarned(a)).length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
@@ -78012,13 +78237,16 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // null for no such accessory (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
     earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
       if (isEarned(a)) return `You already have the ${a.name}. Open Companion, then Wardrobe, to put it on.`;
+      if (a.gift) return `The ${a.name} isn't sold: it's ${a.giftNote || "a holiday gift"}.`;
       const bal = credits();
       return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
+    // a holiday present's wrapping, drawn (for previews and tests): its SVG
+    giftBox: wrap => giftBox(wrap), gifts: () => GIFTS.map(g => Object.assign({}, g)),
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
     // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
-    accList: () => ACC.map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
+    accList: () => ACC.filter(a => !a.gift).map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
     wearId: id => { try { const a = ACC.find(x => x.id === id), c = current(); if (!a || !c || !canWear(a)) return false; const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} return true; } catch (e) { return false; } },
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
@@ -78046,7 +78274,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
       if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
-      if (!canWear(a)) return `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
+      if (!canWear(a)) return a.gift ? `I don't have the ${a.name} yet. It's ${a.giftNote || "a holiday gift"}.` : `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
@@ -78070,7 +78298,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [`Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
     // Studyboard Credits for the chat ("how many credits do I have")
     credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
