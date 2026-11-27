@@ -628,7 +628,10 @@ function computeFocusNow(){
   let busyAhead = null;
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
-    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    // the most today can hold: the free time left before your end of day, around classes, shifts and events still to come
+    // (a library shift tonight means "Make Today 8h" can't be offered at 3 PM)
+    const freeLeft = av && av.res && isNum(av.res.total) ? av.res.total / 60 : Infinity;
+    const dayLeft = Math.min(Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), leftH, freeLeft), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
     if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
@@ -897,8 +900,11 @@ function planNotes(F, inView, crunchMain){
   const b = F.busyAhead;
   const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+    // days with the same reason say it once: "Monday and Wednesday (Shift at campus library)"
+    const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " and " + l[l.length - 1] : l[0];
+    const same = b.days.length > 1 && b.days[0].what && b.days.every(d => d.what === b.days[0].what);
+    const list = same ? and(b.days.map(name)) + ` (${b.days[0].what})` : and(b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")));
+    return {list: esc(list), many: b.days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
   })() : null;
   // Short of time and busy days ahead both ask for more time today: one row, one button
   if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
