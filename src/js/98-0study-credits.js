@@ -222,15 +222,31 @@ var SBSC = (() => {
     try {
       const o = document.createElement("div"); o.className = "scr-found ch-" + c.t + (calm() ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
       if (o.showPopover) o.setAttribute("popover", "manual");
-      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b><small>Opens at the end</small></span>`;
+      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b></span>`;
       document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      placeNote(o);
       requestAnimationFrame(() => o.classList.add("show"));
       setTimeout(() => { o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, 400); }, 2600);
     } catch (e) {}
     document.querySelectorAll("[data-scr-chests]").forEach(el => { el.innerHTML = chestsHtml(); });
   }
+  // Where the note goes: in a presentation run, centred just under its top bar (the slides fill the middle and the filmstrip the
+  // bottom); in a flashcard session or a quiz, centred on the page's content near the bottom of the screen, above a phone's tab bar
+  function placeNote(o){
+    try {
+      const st = document.getElementById("prStage"), top = st && st.querySelector(".pr-top");
+      if (top) { const r = top.getBoundingClientRect(); o.classList.add("at-top"); o.style.top = Math.round(r.bottom + 10) + "px"; o.style.left = Math.round(innerWidth / 2) + "px"; return; }
+      const v = document.getElementById("view"), vr = v && v.getBoundingClientRect();
+      o.style.left = Math.round(vr && vr.width ? vr.left + vr.width / 2 : innerWidth / 2) + "px";
+      // anything fixed along the bottom (a phone's tab bar): the note sits above it
+      let edge = innerHeight, e = document.elementFromPoint(innerWidth / 2, innerHeight - 20);
+      while (e && e !== document.body && e !== document.documentElement) { const cs = getComputedStyle(e); if (!o.contains(e) && (cs.position === "fixed" || cs.position === "sticky")) { edge = Math.min(edge, e.getBoundingClientRect().top); break; } e = e.parentElement; }
+      // (more room on a phone, where the companion sits up out of the tab bar)
+      o.style.bottom = Math.round(innerHeight - edge + (innerWidth < 640 && edge < innerHeight ? 34 : 14)) + "px";
+    } catch (e) {}
+  }
   // the chests waiting to be opened, as little icons (beside the credits chip while studying)
-  const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest: opens at the end">${chestSvg(c.t, true)}</span>`).join("");
+  const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
   // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
   // coins spill out and its credits count up. Then the next one, or on to the credits screen
   function openChests(list, done){

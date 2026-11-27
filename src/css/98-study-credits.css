@@ -118,10 +118,13 @@
 .scr-chest .ch-glow{opacity:0}
 .scr-chest .ch-lid{transform-box:view-box;transform-origin:60px 50px;transition:transform .5s cubic-bezier(.2,1.6,.4,1)}
 /* found, while studying: a small note at the top that slides in and away by itself */
-.scr-found{position:fixed;inset:auto;margin:0;left:50%;top:calc(env(safe-area-inset-top,0px) + 14px);transform:translate(-50%,-16px);opacity:0;z-index:2147483000;
+.scr-found{position:fixed;inset:auto;margin:0;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translate(-50%,16px);opacity:0;z-index:2147483000;
   display:flex;align-items:center;gap:10px;padding:6px 16px 6px 8px;border-radius:999px;width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;pointer-events:none;
   background:var(--surface);color:var(--ink);border:2px solid var(--ch);box-shadow:0 10px 28px rgba(0,0,0,.2),0 0 22px var(--ch-glow);transition:opacity .25s,transform .4s cubic-bezier(.2,1.5,.4,1)}
 .scr-found.show{opacity:1;transform:translate(-50%,0)}
+/* in a presentation run it comes in from just under the top bar */
+.scr-found.at-top{bottom:auto;transform:translate(-50%,-14px)}
+.scr-found.at-top.show{transform:translate(-50%,0)}
 .scr-found > span:last-child{display:grid;line-height:1.15;text-align:start}
 .scr-found b{font:800 .95rem var(--display)}
 .scr-found small{font-size:.76rem;color:var(--muted)}
