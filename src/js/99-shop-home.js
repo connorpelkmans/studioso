@@ -43,19 +43,21 @@
     if (kind === "cm") return !!CM() && CM().current() === id;
     return false;
   };
+  // "300 Bucks" (Studyboard Bucks, the green bills: what the server calls credits)
+  const BK = n => { try { if (CR() && CR().bucks) return CR().bucks(n); } catch (e) {} return `${n} Bucks`; };
   const price = (kind, id) => { try { return CR() && CR().enabled && CR().enabled() ? CR().priceOf(kind, id) : 0; } catch (e) { return 0; } };
   const yours = (kind, id) => STORE.paywall ? owns(kind, id) : tierOf(kind, id) === "free";
   // The little label on a tile: In Use, Yours, Free, a price, or Pro
   const has = (kind, id) => kind === "cm" ? cmOwns(id) : owns(kind, id);
   function tag(kind, id){
     if (inUse(kind, id)) return `<em class="sbh-tag on">In Use</em>`;
-    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE; }
+    if (kind === "cm") { if (CM() && CM().free(id)) return `<em class="sbh-tag free">Free</em>`; if (STORE.paywall && cmOwns(id)) return `<em class="sbh-tag own">Yours</em>`; if (!STORE.paywall) return PRO_BADGE; const p = price("cm", id); return p ? `<em class="sbh-tag cost">${BK(p)}</em>` : PRO_BADGE; }
     const tier = tierOf(kind, id);
     if (!STORE.paywall) return tier === "pro" ? PRO_BADGE : `<em class="sbh-tag free">Free</em>`;
     if (owns(kind, id) && tier === "pro") return `<em class="sbh-tag own">Yours</em>`;
     if (tier !== "pro") return `<em class="sbh-tag free">Free</em>`;
     const p = price(kind, id);
-    return p ? `<em class="sbh-tag cost">${p} credits</em>` : PRO_BADGE;
+    return p ? `<em class="sbh-tag cost">${BK(p)}</em>` : PRO_BADGE;
   }
 
   /* ---------- Pictures ---------- */
@@ -123,7 +125,7 @@
         <div class="sbh-hero-t"><span class="sbh-eyebrow">Featured Collection</span><b>${esc(s.name)}</b>${what ? `<span>${esc("Comes with " + what)}</span>` : ""}
           ${inside(th)}
           <div class="sbh-hero-acts">${own ? `<button type="button" class="btn sbh-light" data-act="sbh-try" data-kind="skin" data-id="${esc(th)}">Try It On</button>${inUse("skin", th) ? `<span class="sbh-hero-p">In use</span>` : `<button type="button" class="btn sbh-ghost" data-act="shop-use" data-kind="skin" data-id="${esc(th)}">Use It</button>`}`
-            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${p} credits` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
+            : `<button type="button" class="btn sbh-gold" data-act="shop-unlock" data-kind="skin" data-id="${esc(th)}">${p ? `Get It · ${BK(p)}` : "Get It With Pro"}</button>${p && typeof PLAN !== "undefined" && PLAN && !PLAN.isPro() ? `<button type="button" class="btn sbh-pro" data-act="plan-open">Get Pro</button>` : ""}`}</div></div></div>` : "";
     const sk = SKINS.find(x => x.id === cfg().skin) || SKINS[0], cp = curComp();
     const build = `<button type="button" class="sbh-build" data-act="sbh-go" data-id="look">
         <span class="sbh-build-pics" aria-hidden="true"><span class="sbh-mini">${skinPreview(sk, dark())}</span>${cp ? compPic(cp) : ""}</span>
@@ -191,7 +193,7 @@
     }).filter(Boolean);
     // the first two kinds now, the rest just before they scroll into view (as on the Shop page)
     const rows = YROWS.map((f, i) => i < 2 || EAGER ? f() : `<section class="sbh-row sbh-wait" data-wait="y${i}"></section>`).join("");
-    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with credits or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
+    return strip + (rows || `<p class="sbh-note">Nothing bought yet. Free items are always yours, and anything you get with Bucks or Pro shows up here. <button type="button" class="link-btn" data-act="sbh-go" data-id="home">Browse the Shop</button></p>`);
   }
 
   /* ---------- Build Your Look ---------- */
@@ -280,11 +282,11 @@
     if (!need.length) sum = `<p class="sbh-sum ok">Everything here is yours. Wear it whenever you like.</p>`;
     else if (bundle) {
       const apart = col + extras.reduce((n, [, k, id]) => n + price(k, id), 0);
-      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${apart} credits</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${col} credits</b></div>
+      sum = `<div class="sbh-sum">${apart > col ? `<div class="sbh-apart"><span>Bought one by one</span><s>${BK(apart)}</s></div>` : ""}<div class="sbh-col"><span>This look, together</span><b>${BK(col)}</b></div>
         <p class="mini">The ${esc(ths ? ths.name : "")} theme with its whole Collection${extras.length ? `, plus ${names(extras)}` : ""}.${proOnly.length ? ` ${names(proOnly)} ${proOnly.length === 1 ? "comes" : "come"} with Studyboard Pro.` : ""}</p></div>`;
-      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${col} credits</button>`;
+      main = `<button type="button" class="btn primary sbh-buy" data-act="sbh-bundle">Get This Look · ${BK(col)}</button>`;
     } else {
-      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${cost} credits</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
+      sum = `<div class="sbh-sum">${cost ? `<div><span>${need.length === 1 ? "The piece" : `The ${need.length} pieces`} you don't have</span><b>${BK(cost)}</b></div>` : ""}${!cost ? `<p class="mini">${names(need)} ${need.length === 1 ? "comes" : "come"} with Studyboard Pro.</p>` : ""}</div>`;
       const buyable = need.filter(([, k, id]) => price(k, id));
       main = buyable.map(([, k, id]) => `<button type="button" class="btn small" data-act="shop-unlock" data-kind="${k}" data-id="${esc(id)}">Get ${esc(nameOf(k, id))}</button>`).join("");
       if (main) main = `<div class="sbh-getrow">${main}</div>`;
@@ -402,7 +404,7 @@
     if (act === "sbh-wear") { wear(); return true; }
     if (act === "sbh-bundle") {
       if (!LOOK || !CR() || !CR().buyBundle) return true;
-      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with credits."); return true; }
+      if (CR().signedIn && !CR().signedIn()) { toast("Sign in first to buy with Bucks."); return true; }
       const r = rec(LOOK.skin) || {}, mine = (k, id) => (k === "card" && r.card === id) || (k === "pin" && (r.pins || []).includes(id));
       const items = [["card", LOOK.card], ["pin", LOOK.pin], ["cm", LOOK.cm]].filter(([k, id]) => id && !has(k, id) && price(k, id) && !mine(k, id));
       CR().buyBundle(LOOK.skin, items.slice(0, 5), el).then(ok => { if (ok) { wear(); } });
