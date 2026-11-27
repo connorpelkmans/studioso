@@ -118,15 +118,12 @@ fan.alpha_composite(big, (420, 520))
 fan = fan.crop(fan.getbbox())
 fan.resize((256, int(256 * fan.height / fan.width)), Image.LANCZOS).save(f"{DEST}/bucks-stack.webp", quality=86, method=6)
 
-# The Stripe product image (1024 x 1024, the same navy as the Studyboard Credits coin's, concept-1-classic-gold-navy.png):
+# The Stripe product image (1024 x 1024, on the checkout's flat navy):
 # two bills fanned, a soft shadow under them and a sparkle on the corner
 S = 2048
 yy2, xx2 = np.mgrid[0:S, 0:S].astype(np.float32)
-t = np.clip((yy2 * 0.75 + xx2 * 0.25) / S, 0, 1)
-top, mid, bot = np.array([23, 58, 112], np.float32), np.array([18, 49, 98], np.float32), np.array([14, 42, 86], np.float32)
-bg = np.where((t < .5)[..., None], top + (mid - top) * (t * 2)[..., None], mid + (bot - mid) * ((t - .5) * 2)[..., None])
-d = np.sqrt((xx2 - S / 2) ** 2 + (yy2 - S / 2) ** 2) / (S * 0.72)
-bg *= (1 - 0.06 * np.clip(d, 0, 1) ** 2)[..., None]
+# one flat colour, Stripe Checkout's own background (#0F2B58), so the image sits seamlessly on the checkout page
+bg = np.ones((S, S, 3), np.float32) * np.array([15, 43, 88], np.float32)
 canvas = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 bw = int(S * 0.74); bh = int(bw * H / W)
 bill = big.resize((bw, bh), Image.LANCZOS)
