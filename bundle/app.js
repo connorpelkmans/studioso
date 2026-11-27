@@ -62055,11 +62055,13 @@ var SBSC = (() => {
   /* ---------- Each kind of work's ending ---------- */
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
-    if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
-    rollChest("focus");
+    // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
@@ -76336,12 +76338,13 @@ var COMP_ACC_MORE = K => {
     else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
-  /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
+  /* Moods: idle, study (looking down at the work), doze (sleepy characters during focus), nap. No prop in the hands: a companion
+     shows only what it's wearing, now that accessories are bought, so a book it doesn't own never appears */
   function setMood(m){
     mood = m;
     if (!act) return;
     const zzz = m === "doze" || m === "nap";
-    act.prop(m === "study" ? "book" : "");
+    act.prop("");
     act.eyes(zzz ? "sleepy" : "open");
     act.mouth(zzz ? "sleepy" : "neutral");
     act.look(0, m === "study" ? 0.8 : 0);
@@ -87245,7 +87248,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       try { const h = C[f](desc, px); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     if (typeof C.rigSvg === "function" && typeof desc.id === "string") {
-      try { const h = C.rigSvg(desc.id, Object.assign({prop: "book", look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
+      try { const h = C.rigSvg(desc.id, Object.assign({look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     return "";
   }

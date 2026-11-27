@@ -1512,12 +1512,13 @@
     else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
-  /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
+  /* Moods: idle, study (looking down at the work), doze (sleepy characters during focus), nap. No prop in the hands: a companion
+     shows only what it's wearing, now that accessories are bought, so a book it doesn't own never appears */
   function setMood(m){
     mood = m;
     if (!act) return;
     const zzz = m === "doze" || m === "nap";
-    act.prop(m === "study" ? "book" : "");
+    act.prop("");
     act.eyes(zzz ? "sleepy" : "open");
     act.mouth(zzz ? "sleepy" : "neutral");
     act.look(0, m === "study" ? 0.8 : 0);

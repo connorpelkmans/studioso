@@ -595,11 +595,13 @@ var SBSC = (() => {
   /* ---------- Each kind of work's ending ---------- */
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
-    if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
-    rollChest("focus");
+    // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });

@@ -128,6 +128,14 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(f1 === 15 && /Focus Session Done/i.test(await p.textContent(".scr-rw:not(.scr-out) .scr-kick")) && /You focused for 30 minutes/.test(await p.textContent(".scr-rw:not(.scr-out) .scr-lines")), "30 minutes of focus: 15 credits, and the screen says how long you focused on the Focus Session Done screen: " + f1 + " | " + await p.evaluate(() => [...document.querySelectorAll(".scr-rw")].map(x => x.className + ": " + x.innerText.replace(/\s+/g, " ").slice(0, 140)).join(" || ")));
     await closeReward();
 
+    // 9a2. a focus session stopped part way (Reset or Skip): the minutes it logged earn credits, with a screen that says so
+    const f2 = await p.evaluate(() => { const e0 = SBSC.earned(true); window.__sbFire("focus", {type: "end", mode: "focus", minutes: 0}); const S = window.__sbSync; const fd = Object.assign({}, S.state.settings.focusDays); const d = Object.keys(fd).sort().pop() || ""; return e0; });
+    await p.evaluate(() => { const S = window.__sbSync, d = new Date(), k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; S.state.settings = Object.assign({}, S.state.settings, {focusDays: Object.assign({}, S.state.settings.focusDays, {[k]: (Number((S.state.settings.focusDays || {})[k]) || 0) + 8})}); window.__sbFire("focus", {type: "early", mode: "focus", minutes: 8, why: "reset"}); });
+    await p.waitForSelector(".scr-rw:not(.scr-out) .scr-kick", {timeout: 4000}).catch(() => {});
+    const fk = await p.evaluate(e0 => ({k: (document.querySelector(".scr-rw:not(.scr-out) .scr-kick") || {}).textContent || "", n: SBSC.earned(true) - e0}), f2);
+    ok(/Focus Time Counted/.test(fk.k) && fk.n === 4, "a focus session reset part way: its 8 minutes earn 4 credits, with a screen: " + JSON.stringify(fk));
+    await closeReward();
+
     // 9b. a study session: each card once, whatever it was rated (Again brings a card back in the same session; that earns nothing more)
     const c4 = await p.evaluate(() => { const S = window.__sbSync, keep = S.ui.fc; S.ui.fc = {mode: "study"}; const e0 = SBSC.earned(true);
       ["again", "again", "good"].forEach(r => window.__sbFire("fc-rated", {rating: r, cardId: "y1"})); window.__sbFire("fc-rated", {rating: "easy", cardId: "y2"}); window.__sbFire("fc-rated", {rating: "hard", cardId: "y3"});

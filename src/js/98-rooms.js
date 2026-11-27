@@ -263,7 +263,7 @@
       try { const h = C[f](desc, px); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     if (typeof C.rigSvg === "function" && typeof desc.id === "string") {
-      try { const h = C.rigSvg(desc.id, Object.assign({prop: "book", look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
+      try { const h = C.rigSvg(desc.id, Object.assign({look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     return "";
   }
