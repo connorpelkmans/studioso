@@ -6402,8 +6402,6 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 .gi-tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .gi-tab .n{font:700 .72rem var(--body);background:color-mix(in srgb,var(--accent) 16%,var(--surface));color:var(--ink);border-radius:99px;padding:0 7px}
 .gi-tab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-/* the bar's Pass label hangs below it: keep room for it so the legend or the tabs don't run into it */
-.gr-card > .gr-bar{margin-bottom:14px}
 .gr-card > .gi-tabs{margin-top:4px}
 .gi-pan{display:grid;gap:16px}
 .gi-pan > .gr-sub + .gr-sub{padding-top:14px;border-top:1px solid var(--line)}
