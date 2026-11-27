@@ -5749,6 +5749,47 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .scr-lines li > .scr-l-ic{flex:0 0 34px;width:34px;display:block}
 @media (prefers-reduced-motion:reduce){.scr-found.show .scr-found-ic,.scr-ch-stage .scr-chest,.scr-ch-coins img{animation:none!important}.scr-chest .ch-lid{transition:none}}
 .scr-still .scr-ch-stage .scr-chest,.scr-still .scr-ch-coins img,.scr-still.scr-found .scr-found-ic{animation:none!important}
+
+/* ---------- The prize wheel (98-0study-credits.js) ---------- */
+.wh-card{gap:12px}
+.wh-sub{margin:2px 0 0}
+.wh-stage{position:relative;width:min(320px,80vw);aspect-ratio:1;margin:4px auto 0}
+.wh-rot{width:100%;height:100%;will-change:transform}
+.wh-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 18px rgba(0,0,0,.25))}
+.wh-n{font:900 17px var(--display);fill:#7A4A00;paint-order:stroke;stroke:#FFF6D8;stroke-width:3px}
+.wh-n.on-dark{fill:#fff;stroke:rgba(0,0,0,.35)}
+.wh-bulb{fill:#FFE9A8;filter:drop-shadow(0 0 3px #FFD36B)}
+.wh-bulb.b2{fill:#8A7AA8;filter:none}
+@media (prefers-reduced-motion:no-preference){.wh-bulb{animation:wh-blink 1.2s steps(1) infinite}.wh-bulb.b2{animation-delay:.6s}.scr-wh.spinning .wh-bulb{animation-duration:.25s}}
+@keyframes wh-blink{0%{fill:#FFE9A8}50%{fill:#8A7AA8}}
+/* the pointer at the top */
+.wh-ptr{position:absolute;left:50%;top:-6px;transform:translateX(-50%);z-index:2;width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;border-top:32px solid #E5484D;filter:drop-shadow(0 3px 3px rgba(0,0,0,.4));transform-origin:50% 0}
+.scr-wh.spinning .wh-ptr{animation:wh-tick .12s ease-in-out infinite alternate}
+@keyframes wh-tick{from{transform:translateX(-50%) rotate(-6deg)}to{transform:translateX(-50%) rotate(6deg)}}
+.wh-ptr::after{content:"";position:absolute;left:-8px;top:-30px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px #E5484D,0 2px 4px rgba(0,0,0,.3)}
+.wh-result{min-height:0;display:grid;justify-items:center;gap:4px}
+.wh-result:empty{display:none}
+.wh-result > b{font:900 1.35rem var(--display)}
+.wh-won.r-coins .wh-result{display:flex;align-items:center;justify-content:center;gap:8px}
+.wh-won.r-coins .wh-result b{font-size:2rem;color:#A86A00}
+.wh-prize{width:84px;height:84px;border-radius:22px;display:grid;place-items:center;background:color-mix(in srgb,var(--ch) 18%,var(--surface));box-shadow:0 0 0 3px var(--ch),0 0 30px var(--ch-glow);animation:ch-pop .5s cubic-bezier(.2,1.8,.4,1)}
+.wh-prize-ic{width:60px;height:60px;--cp-wear:var(--accent)}
+.wh-prize-ic svg{width:100%;height:100%;overflow:visible}
+.wh-odds{text-align:start;border:1px solid var(--line);border-radius:14px;padding:6px 12px}
+.wh-odds > summary{cursor:pointer;font-weight:700;min-height:36px;display:flex;align-items:center}
+.wh-odds ul{list-style:none;margin:4px 0 6px;padding:0;display:grid;gap:4px}
+.wh-odds li{display:flex;align-items:center;gap:10px;font-size:.9rem}
+.wh-odds li > span:nth-child(2){flex:1;min-width:0}
+.wh-odds li b{font-variant-numeric:tabular-nums}
+.wh-ic{width:28px;height:28px;flex:none;display:grid;place-items:center;--cp-wear:var(--accent)}
+.wh-ic svg,.wh-ic img{width:28px;height:28px;overflow:visible}
+.wh-won .wh-rot{animation:none}
+.scr-wh .scr-acts{gap:10px}
+:root[data-theme="dark"] .wh-won.r-coins .wh-result b{color:#FFD36B}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wh-won.r-coins .wh-result b{color:#FFD36B}}
+/* the plain gold label (Great Grade!, Credits Earned) in dark mode: light gold on a dark gold */
+:root[data-theme="dark"] .scr-kick{color:#FFE29A;background:rgba(246,195,74,.2)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-kick{color:#FFE29A;background:rgba(246,195,74,.2)}}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */

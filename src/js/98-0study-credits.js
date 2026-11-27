@@ -49,10 +49,10 @@ var SBSC = (() => {
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own", "evOld", "cd", "chd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld", "cd", "chd", "wsw"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     // events older than 45 days fold into one total per kind, so the list stays small
     const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
-    Object.keys(ev).forEach(k => { const m = /^(quiz|pres|chest):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
+    Object.keys(ev).forEach(k => { const m = /^(quiz|pres|chest|spin):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
     next.ev = ev; next.evOld = fold;
     // card days older than 45 days fold into one total (already capped)
     const cd = Object.assign({}, next.cd); let cdOld = Number(next.cdOld) || 0;
@@ -126,6 +126,7 @@ var SBSC = (() => {
     by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
     by.pres = evSum("pres");
     by.chest = evSum("chest");
+    by.spin = evSum("spin");
     by.cards = cardsTotal();
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
@@ -291,6 +292,150 @@ var SBSC = (() => {
     const ae = document.activeElement;
     if (studying() || rOpen || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(openLeftovers, 15000); return; }
     reward({kind: "hello", kick: "Chests to Open", title: "Found while you were studying", lines: [], showZero: true});
+  }
+
+  /* ---------- The prize wheel: a spin for an exam grade of 80% or more ----------
+     A mark of 80% or more on an exam (typed in, or from the school site) earns a spin, once per exam,
+     at most SPINS_A_WEEK a week (Monday to Sunday). The wheel has 12 prizes, each slice as big as its chance, so what you see is
+     what you get: 1 Legendary accessory (2%), 2 Exotic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
+     100 (10%), 150 (8%), 200 (6%). The accessories are picked at random from ones the student doesn't own yet (none of a rarity
+     left: that slice is coins instead, half its price). Marks already there when this first runs, and more than 3 arriving at
+     once (a sync catching up), are counted as seen without a spin. A spin waits (sc.wsq) until it's spun. */
+  const WHEEL_ITEMS = [["legendary", 1, 0.02], ["exotic", 2, 0.04], ["rare", 3, 0.06]];
+  const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
+  const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
+  const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
+  const weekKey = () => mondayOf(todayISO());
+  const spinsLeftThisWeek = () => Math.max(0, SPINS_A_WEEK - (Number((sc().wsw || {})[weekKey()]) || 0));
+  const spinQueue = () => (Array.isArray(sc().wsq) ? sc().wsq : []).filter(x => x && x.id);
+  let gradesReady = false;
+  function checkGrades(){
+    if (!gradesReady) return;
+    // exams only (a task of the type Exam)
+    const good = Object.values(state.tasks || {}).filter(t => t && t.id && t.type === "Exam" && (gradePct(t) || 0) >= 80);
+    const seenList = sc().wg;
+    if (!Array.isArray(seenList)) { setSc({wg: good.map(t => t.id).slice(-800)}); return; }
+    const seen = new Set(seenList), fresh = good.filter(t => !seen.has(t.id));
+    if (!fresh.length) return;
+    const ids = seenList.concat(fresh.map(t => t.id)).slice(-800);
+    // more than 3 at once: a sync or an import catching up, not grades just earned
+    if (fresh.length > 3) { setSc({wg: ids}); return; }
+    const wk = weekKey(), used = Number((sc().wsw || {})[wk]) || 0, n = Math.max(0, Math.min(fresh.length, SPINS_A_WEEK - used));
+    const add = fresh.slice(0, n).map(t => ({id: uid(), title: String(t.title || "").slice(0, 80), pct: Math.round(gradePct(t))}));
+    setSc({wg: ids, wsq: spinQueue().concat(add), wsw: {[wk]: used + add.length}});
+    if (add.length) setTimeout(spinSoon, 600);
+  }
+  // the wheel's prizes, freshly picked: [{k: "item"|"coins", r: rarity, id, name, n, p}]
+  function wheelPrizes(){
+    const list = (() => { try { return window.SBCOMP && SBCOMP.accList ? SBCOMP.accList() : []; } catch (e) { return []; } })();
+    const out = [], used = new Set();
+    WHEEL_ITEMS.forEach(([r, count, p]) => {
+      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
+      for (let i = 0; i < count; i++) {
+        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
+        else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
+      }
+    });
+    WHEEL_COINS.forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
+    // items spread between the coins, so the small slices aren't all bunched together
+    const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
+    while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
+    return mixed;
+  }
+  const RCOL = {legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
+  // The wheel: 12 equal slices, so every prize shows (each accessory's own picture on a badge in its rarity's colour, each coin
+  // prize a coin and its number). Which one it lands on follows the odds (the prize list under it says them); the slice sizes don't.
+  function wheelSvg(prizes){
+    const C = 160, R = 140, n = prizes.length, step = 360 / n, id = "wh" + Math.random().toString(36).slice(2, 6);
+    const pt = (deg, r) => [C + r * Math.sin(deg * Math.PI / 180), C - r * Math.cos(deg * Math.PI / 180)];
+    const defs = [`<radialGradient id="${id}c0" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFF8E1"/><stop offset="1" stop-color="#FFE7A8"/></radialGradient>`,
+      `<radialGradient id="${id}c1" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFEDB8"/><stop offset="1" stop-color="#FFD36B"/></radialGradient>`]
+      .concat(Object.entries(RCOL).map(([k, [a, b]]) => `<radialGradient id="${id}${k}" cx="50%" cy="50%" r="60%"><stop offset=".25" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`));
+    let ci = 0;
+    const slices = prizes.map((pz, k) => {
+      const a0 = k * step, a1 = a0 + step, [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R), mid = a0 + step / 2;
+      pz.mid = mid;
+      const fill = pz.r && pz.k === "item" ? `url(#${id}${pz.r})` : pz.r ? `url(#${id}${pz.r})` : `url(#${id}c${(ci++) % 2})`;
+      const path = `<path d="M${C} ${C}L${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z" fill="${fill}" stroke="#2B2233" stroke-width="2.5"/>`;
+      // the slice's prize, drawn upright at the top and turned round to its slice
+      let art;
+      if (pz.k === "item") {
+        const ic = (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "").replace("<svg ", `<svg x="${C - 19}" y="${C - R + 21}" width="38" height="38" `);
+        const ring = {legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
+        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="#F5B700" stroke-width="1.2"/>` : ""}`;
+      } else {
+        art = `<image href="${COIN_SRC}" x="${C - 15}" y="${C - R + 18}" width="30" height="30"/><text x="${C}" y="${C - R + 66}" text-anchor="middle" class="wh-n${pz.r ? " on-dark" : ""}">${pz.n}</text>`;
+      }
+      return path + `<g transform="rotate(${mid.toFixed(2)} ${C} ${C})" style="--cp-wear:#5B7FD6">${art}</g>`;
+    }).join("");
+    // lights round the rim, every other one lit
+    const bulbs = Array.from({length: 24}, (_, k) => { const [bx, by] = pt(k * 15, R + 9); return `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="3.6" class="wh-bulb${k % 2 ? " b2" : ""}"/>`; }).join("");
+    return `<svg class="wh-svg" viewBox="0 0 320 320" aria-hidden="true"><defs>${defs.join("")}<radialGradient id="${id}rim" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#4A3A6A"/><stop offset="1" stop-color="#231B33"/></radialGradient>
+      <radialGradient id="${id}hub" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF4C8"/><stop offset="1" stop-color="#E9A21C"/></radialGradient>
+      <radialGradient id="${id}sh" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="${C}" cy="${C}" r="${R + 16}" fill="url(#${id}rim)"/><circle cx="${C}" cy="${C}" r="${R + 16}" fill="none" stroke="#F2C14E" stroke-width="3"/>${bulbs}
+      ${slices}<circle cx="${C}" cy="${C}" r="${R}" fill="url(#${id}sh)" pointer-events="none"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#2B2233" stroke-width="3"/>
+      <circle cx="${C}" cy="${C}" r="30" fill="url(#${id}hub)" stroke="#2B2233" stroke-width="3"/><image href="${COIN_SRC}" x="${C - 22}" y="${C - 22}" width="44" height="44"/></svg>`;
+  }
+  const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
+  const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
+  const RNAME = {legendary: "Legendary", exotic: "Exotic", rare: "Rare"};
+  function spinSoon(){
+    if (!spinQueue().length || screensOff()) return;
+    const ae = document.activeElement;
+    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(spinSoon, 2500); return; }
+    showWheel(spinQueue()[0]);
+  }
+  function showWheel(sp){
+    rOpen = true;
+    const still = calm(), prizes = wheelPrizes(), o = document.createElement("div");
+    o.className = "scr-rw scr-wh" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrWhT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const list = prizes.slice().sort((a, b) => a.p - b.p);
+    o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
+      <div class="scr-head"><span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p></div>
+      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
+      <div class="wh-result" aria-live="polite"></div>
+      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span><b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
+      <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
+    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
+    let state0 = "ready", won = null;
+    const spin = () => {
+      state0 = "spinning";
+      // the prize, by its chance; then a landing spot inside its slice
+      let r = Math.random(); won = prizes[prizes.length - 1];
+      for (const pz of prizes) { if (r < pz.p) { won = pz; break; } r -= pz.p; }
+      const half = (360 / prizes.length) / 2 * 0.7, land = won.mid + (Math.random() * 2 - 1) * half, turns = still ? 0 : 5;
+      const rot = o.querySelector(".wh-rot"); rot.style.transition = still ? "none" : "transform 4.4s cubic-bezier(.12,.78,.18,1)";
+      rot.style.transform = `rotate(${turns * 360 - land}deg)`;
+      const b = o.querySelector(".wh-go"); b.disabled = true; b.textContent = "Spinning…"; if (!still) o.classList.add("spinning");
+      // the prize is the student's as soon as it's decided (closing the app mid-spin can't lose it)
+      if (won.k === "item") grant(won.id); else { setSc({ev: {[`spin:${todayISO()}:${sp.id}`]: won.n}}); invalidate(); }
+      setSc({wsq: spinQueue().filter(x => x.id !== sp.id)});
+      try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+      setTimeout(landed, still ? 50 : 4500);
+    };
+    const landed = () => {
+      state0 = "done"; o.classList.remove("spinning"); o.classList.add("wh-won", won.k === "item" ? "r-" + won.r : "r-coins");
+      try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+      const res = o.querySelector(".wh-result");
+      res.innerHTML = won.k === "item"
+        ? `<span class="wh-prize ch-${won.r}"><span class="wh-prize-ic">${prizeIcon(won)}</span></span><b>${esc(won.name)}</b><span class="cp-rar cp-rar-${won.r}">${RNAME[won.r]}</span><span class="mini">It's yours to keep.</span>`
+        : `${coin(30)}<b>+${won.n} credits</b>`;
+      const acts = o.querySelector(".scr-acts");
+      acts.innerHTML = won.k === "item" ? `<button type="button" class="btn" data-wh="done">Later</button><button type="button" class="btn primary scr-go" data-wh="wear">Put It On</button>` : `<button type="button" class="btn primary scr-go" data-wh="done">Collect</button>`;
+      setTimeout(() => { const b = acts.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+      seenTotal = totals().earned; paintPills();
+    };
+    const close = wear => {
+      if (wear && won && won.k === "item") { try { if (window.SBCOMP && SBCOMP.wearId) SBCOMP.wearId(won.id); } catch (e) {} }
+      o.classList.add("scr-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; invalidate(); seenTotal = totals().earned; paintPills(); setTimeout(spinSoon, 800); setTimeout(showNext, 300); }, still ? 0 : 220);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-wh]"); if (!b) return; if (b.dataset.wh === "spin" && state0 === "ready") spin(); else if (state0 === "done") close(b.dataset.wh === "wear"); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape" && state0 === "done") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button:not([disabled]),summary")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
   }
 
   /* ---------- The reward screen ----------
@@ -479,6 +624,7 @@ var SBSC = (() => {
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
   function notice(){
+    try { checkGrades(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
     if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
@@ -506,7 +652,9 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000); });
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+    // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
+    setTimeout(() => { gradesReady = true; try { checkGrades(); } catch (e) {} spinSoon(); }, 15000); });
   /* ---------- "+7 credits": a little chip while studying ----------
      Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
      up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
@@ -544,7 +692,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};

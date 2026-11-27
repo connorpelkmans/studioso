@@ -168,6 +168,38 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     await p.evaluate(() => SBSC.quizDone(1, 1, "chestqz2")); await p.waitForSelector(".scr-ch .scr-go", {timeout: 4000});
     await p.click(".scr-ch .scr-go"); await p.waitForTimeout(400); await p.click(".scr-ch .scr-go"); await p.waitForSelector(".scr-rw:not(.scr-ch)", {timeout: 4000}); await closeReward();
 
+    // 9e. the prize wheel: a spin for a grade of 80% or more, once per task, at most 3 a week; grades already there don't count
+    const ws = await p.evaluate(() => { const S = window.__sbSync;
+      const mk = (id, got, type) => { const t = S.clone(S.state.tasks[id]); t.type = type || "Exam"; t.mark = {got, outOf: 100}; return {kind: "task", id, after: t}; };
+      // grades already there the first time it looks earn nothing
+      const keep = S.state.settings.sc.wg; S.state.settings.sc.wg = undefined; S.applyChanges([mk("t1", 95)], null); SBSC.checkGrades();
+      const a = SBSC.spinQueue().length;
+      S.applyChanges([mk("t2", 79)], null); SBSC.checkGrades();               // under 80: nothing
+      S.applyChanges([mk("t4", 97, "Assignment")], null); SBSC.checkGrades(); // not an exam: nothing
+      const b = SBSC.spinQueue().length;
+      S.applyChanges([mk("t3", 86)], null); SBSC.checkGrades();               // a new good grade: a spin
+      const c = SBSC.spinQueue().length;
+      S.applyChanges([mk("t3", 90)], null); SBSC.checkGrades();               // the same task again: no second spin
+      const d = SBSC.spinQueue().length;
+      S.applyChanges([mk("o0", 88)], null); SBSC.checkGrades(); S.applyChanges([mk("o1", 91)], null); SBSC.checkGrades(); S.applyChanges([mk("o2", 99)], null); SBSC.checkGrades();
+      const e = SBSC.spinQueue().length;                                      // the weekly limit: 3
+      S.applyChanges(["o3", "o4", "o5", "o6"].map(id => mk(id, 90)), null); SBSC.checkGrades();
+      return [a, b, c, d, e, SBSC.spinQueue().length, SBSC.spinsLeftThisWeek()]; });
+    ok(ws.join() === "0,0,1,1,3,3,0", "spins: exams only, none for grades already there or under 80%, one per exam, at most 3 a week: " + ws.join());
+    // spinning: the prize is the student's, and the queue goes down
+    const e1 = await p.evaluate(() => SBSC.earned(true));
+    await p.evaluate(() => SBSC.spinSoon()); await p.waitForSelector(".scr-wh .wh-go", {timeout: 6000});
+    ok(/Great Exam Grade/i.test(await p.textContent(".scr-wh .scr-kick")) && (await p.locator(".wh-svg > path").count()) === 12 && (await p.locator(".wh-svg .wh-badge").count()) === 6, "a good exam grade opens the wheel: 12 prizes, the 6 accessories drawn on it");
+    const odds = await p.evaluate(() => [...document.querySelectorAll(".wh-odds li b")].map(x => parseFloat(x.textContent)).reduce((a, b) => a + b, 0));
+    ok(Math.round(odds) === 100, "the prize odds add up to 100%: " + odds);
+    await p.click(".wh-go"); await p.waitForSelector(".scr-wh.wh-won", {timeout: 8000}); await p.waitForTimeout(300);
+    const won = await p.evaluate(() => document.querySelector(".wh-result").innerText.replace(/\s+/g, " "));
+    const gotC = await p.evaluate(e1 => SBSC.earned(true) - e1, e1);
+    ok(/credits/.test(won) ? gotC > 0 && new RegExp("\\+" + gotC + " credits").test(won) : /yours to keep/.test(won), "the prize is the student's: " + won + " (credits added: " + gotC + ")");
+    ok(await p.evaluate(() => SBSC.spinQueue().length) === 2, "and that spin is used");
+    await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
+    await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);
     const before = await p.evaluate(() => SBSC.earned(true));
