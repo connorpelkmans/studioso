@@ -163,18 +163,18 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       return customer!;
     };
 
-    // Credits: a one-time payment for a pack. The pack's credits and Stripe price come from studyboard_credit_packs
+    // Studyboard Bucks (stored as credits): a one-time payment for a pack. The pack's credits and Stripe price come from studyboard_credit_packs
     if (packId) {
-      if (cfgVal("item_purchases") !== true) return json({ error: "plan_unavailable", message: "Credits aren't available yet." }, 400, cors);
+      if (cfgVal("item_purchases") !== true) return json({ error: "plan_unavailable", message: "Studyboard Bucks aren't available yet." }, 400, cors);
       const pack = ((await (await rest(`studyboard_credit_packs?pack_id=eq.${packId}&active=eq.true&select=pack_id,credits,stripe_price_id`)).json()) as any[])[0];
-      if (!pack || !PRICE_ID.test(String(pack.stripe_price_id || ""))) return json({ error: "plan_unavailable", message: "That credit pack isn't available. Choose another one." }, 400, cors);
+      if (!pack || !PRICE_ID.test(String(pack.stripe_price_id || ""))) return json({ error: "plan_unavailable", message: "That Bucks pack isn't available. Choose another one." }, 400, cors);
       const meta = { uid, kind: "credits", pack: pack.pack_id };
       const session = await stripe(d, "checkout/sessions", {
         mode: "payment",
         customer: await customerFor(),
         client_reference_id: uid,
         metadata: meta,
-        payment_intent_data: { metadata: meta, description: `Studyboard: ${pack.credits} credits` },
+        payment_intent_data: { metadata: meta, description: `Studyboard: ${pack.credits} Studyboard Bucks` },
         line_items: { 0: { price: pack.stripe_price_id, quantity: 1 } },
         success_url: safeReturn(body.success_url, origins, "/success.html", local, `?session_id={CHECKOUT_SESSION_ID}&kind=credits${src}`),
         cancel_url: safeReturn(body.cancel_url, origins, "/cancel.html", local, src ? "?src=app" : ""),
