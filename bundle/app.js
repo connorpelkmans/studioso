@@ -8669,7 +8669,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}${(x.flags || []).includes("week") && x.due ? `<span class="qa-past qa-wk mini">No day was given, so it's set to the Monday. Check the date.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -8700,7 +8700,7 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); const wk = w && w.querySelector(".qa-wk"); if (wk) { wk.remove(); it.flags = (it.flags || []).filter(f => f !== "week"); } }
   else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;
@@ -8943,6 +8943,9 @@ const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || [])
 const enoughToday = (t, x) => {
   if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
+  // the plan already counts time worked today (less left on the task, less of today left), so when today's time covers all
+  // that's left, the plan means "finish it today": 30m logged on an overdue 1h task leaves 30m today, not "enough"
+  if (target > 0 && x.R > 0 && x.alloc + 0.125 >= x.R) return false;
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */
@@ -13417,6 +13420,8 @@ function atRisk(t){
   if (t.status === "done" || !t.due) return false;
   const fx = FOCUS && FOCUS.info[t.id];
   if (fx && fx.behind >= 0.5 && fx.dl >= 0) return true;
+  // Today's Plan knows the work left and the time before it's due: a 15 minute email due tomorrow, with hours free, isn't at risk
+  if (fx && !MILESTONE(t.type) && !fx.dead) return fx.dl >= 0 && fx.own >= 1;
   const d = dayDiff(todayISO(), t.due);
   if (MILESTONE(t.type)) return d >= 0 && d <= 3 && progress(t).frac < 0.5;
   return d >= 0 && d <= 2 && progress(t).frac < 0.5 && (t.status === "todo" || hoursLeft(t) > 2);
@@ -14415,7 +14420,10 @@ function computeFocusNow(){
   let busyAhead = null;
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
-    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    // the most today can hold: the free time left before your end of day, around classes, shifts and events still to come
+    // (a library shift tonight means "Make Today 8h" can't be offered at 3 PM)
+    const freeLeft = av && av.res && isNum(av.res.total) ? av.res.total / 60 : Infinity;
+    const dayLeft = Math.min(Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), leftH, freeLeft), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
     if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
@@ -14683,8 +14691,11 @@ function planNotes(F, inView, crunchMain){
   const b = F.busyAhead;
   const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+    // days with the same reason say it once: "Monday and Wednesday (Shift at campus library)"
+    const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " and " + l[l.length - 1] : l[0];
+    const same = b.days.length > 1 && b.days[0].what && b.days.every(d => d.what === b.days[0].what);
+    const list = same ? and(b.days.map(name)) + ` (${b.days[0].what})` : and(b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")));
+    return {list: esc(list), many: b.days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
   })() : null;
   // Short of time and busy days ahead both ask for more time today: one row, one button
   if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
@@ -15781,6 +15792,14 @@ const AVAIL = (() => {
       while (cur < w.e && ti < left.length) {
         const t = left[ti], room = w.e - cur;
         if (room < Math.min(minSlot, t.left)) break;
+        // A short task isn't cut into a scrap under half an hour (25m before a shift, the rest after it): a later task that fits
+        // the gap whole goes there instead, else the gap stays free and the task starts in the next window
+        if (t.left > room && room < 30 && t.left <= 90 && t.left === Math.round(tasks.find(x => x.id === t.id).min)) {
+          const j = left.findIndex((u, i) => i > ti && u.left > 0 && u.left <= room && u.left >= Math.min(minSlot, u.left));
+          if (j < 0) break;
+          const u = left[j]; left.splice(j, 1); left.splice(ti, 0, u);
+          continue;
+        }
         const len = Math.min(t.left, maxS, room);
         slots.push({id: t.id, s: cur, e: cur + len, min: len});
         t.left -= len; cur += len;
@@ -38233,7 +38252,9 @@ const CAP = (() => {
       if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
       if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
+    // "next week" with no day: the Monday it starts (the earliest it could be), flagged so the date is checked before it's added
+    take(/\bnext\s+week\b/i, () => { out.due = weekdayDate(today, 1, "next"); out.flags.push("week"); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -38242,6 +38263,10 @@ const CAP = (() => {
 
   /* courses */
   const alnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Everyday names for a subject: "orgo" for Organic Chemistry, "english" for ENGL, "chemistry" for CHEM (l: the code's letters, n: the name)
+  const NICK = [[/^(orgo|ochem)$/, (l, n) => /organic/.test(n)], [/^english$/, (l, n) => /^eng/.test(l) || /english/.test(n)], [/^chemistry$/, l => /^chem/.test(l)], [/^biology$/, l => /^bio/.test(l)],
+    [/^psychology$/, l => /^psy/.test(l)], [/^physics$/, l => /^phys/.test(l)], [/^(economics|econ)$/, l => /^ec/.test(l)], [/^history$/, l => /^hist/.test(l)], [/^(math|maths)$/, l => /^math/.test(l)],
+    [/^spanish$/, l => /^span/.test(l)], [/^french$/, l => /^fr/.test(l)], [/^(stats|statistics)$/, l => /^stat/.test(l)], [/^(philosophy|philo)$/, l => /^phil/.test(l)], [/^sociology$/, l => /^soc/.test(l)]];
   // Finds the course a sentence mentions
   function matchCourse(text, courses){
     const low = String(text || "").toLowerCase(), words = low.match(/[a-z]+|\d+/g) || [];
@@ -38259,6 +38284,7 @@ const CAP = (() => {
         const nameW = String(c.name || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !["intro", "introduction", "principles", "fundamentals", "with", "and", "topics", "advanced", "general"].includes(w));
         const w = words.find(x => x.length >= 4 && nameW.some(n => n.startsWith(x) || x.startsWith(n))); if (w) { s = 2; used = [w]; }
       }
+      if (s < 2.6) { const nm = String(c.name || "").toLowerCase(), w = words.find(x => NICK.some(([re, ok]) => re.test(x) && ok(letters, nm))); if (w) { s = 2.6; used = [w]; } }
       if (s >= 2) scored.push({course: c, score: s, used});
     });
     if (!scored.length) return null;
@@ -38450,7 +38476,8 @@ const CAP = (() => {
       else {
         d.courseId = cm.course.id;
         const tok = cm.used.join("[\\s\\-]*"), codey = cm.used.some(u => /\d/.test(u));
-        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$`, "i"), " ");
+        // a course word leaves the title at its start or end, or right after "read", "study" or "review" ("read psych ch 14" is Read Chapter 14)
+        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$|(?<=^\\s*(?:read|study|review)\\s+)${tok}\\b`, "i"), " ");
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
@@ -38847,7 +38874,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : d.flags && d.flags.includes("week") && d.due ? `<p class="mini cap-warn">No day was given, so it's set to the Monday. Check the date.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -38900,7 +38927,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${Number(d.weight) > 0 ? " · " + Number(d.weight) + "%" : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 
@@ -49733,7 +49760,8 @@ function fromPlan(p){
     rows.push({id: t.id, title: t.title || "", due: t.due, dl: x.dl, R: x.R, L: x.L, A: x.A, noEst: own && !!(window.SBEST && SBEST.needs(t))});
   });
   const today = p.today, offToday = dayIsOff(today);
-  const avTot = p.av && p.av.active && p.av.res ? (p.av.res.total || 0) / 60 : Infinity;
+  // the free time left today around classes, shifts and events (also when Availability isn't set up: the strip shows the same)
+  const avTot = p.av && p.av.res && isNum(p.av.res.total) ? (p.av.res.total || 0) / 60 : Infinity;
   const roomToday = offToday ? 0 : Math.max(0, Math.min(p.leftH, avTot, 16 - p.doneToday) - p.th);
   const offDays = [];
   for (let i = 0; i <= CUSH.WINDOW; i++) { const d = addDays(today, i); if (dayIsOff(d)) offDays.push({date: d, i, h: p.dh}); }
@@ -96268,6 +96296,14 @@ function autoLighter(S){
     });
   } catch (e) { console.warn("breakdown lighter days", e); }
 }
+// Move to Lighter Day's choice for one milestone: the lightest day within 3 days that keeps the order, or null
+function lighterFor(S, m){
+  const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
+  const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+  const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+  const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+  return BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -96282,7 +96318,8 @@ function draw(){
   list.innerHTML = S.ms.map((m, i) => {
     if (m.locked) return `<li class="bd-m is-done"><span class="bd-n" aria-hidden="true">${CHECK}</span><div class="bd-f"><span class="bd-t">${esc(m.title)}</span><span class="mini">Done · ${esc(fmtShort(m.due))} · ${esc(hm(m.hours))}</span></div></li>`;
     const k = open.indexOf(m);
-    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button></p>` : "";
+    // the button only shows when there is a lighter day to move to (in finals weeks every day can be full)
+    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.${lighterFor(S, m) ? "" : " The days around it are just as full."}</span>${lighterFor(S, m) ? ` <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button>` : ""}</p>` : "";
     const past = m.due < today && !S.allowPast ? `<p class="bd-w" role="status">This date is in the past.</p>` : m.due > S.due ? `<p class="bd-w" role="status">This is after the due date.</p>` : "";
     const uns = m.unsupported && m.unsupported.length ? `<p class="mini bd-u">The AI's wording mentioned ${esc(m.unsupported.slice(0, 2).join(", "))}, which isn't in your text, so it was left out.</p>` : "";
     return `<li class="bd-m" data-i="${i}"><span class="bd-n">${k + 1}</span><div class="bd-f">
@@ -96341,11 +96378,7 @@ function onList(e){
       draw(); const nb = dlg.querySelector(`[data-a="${a}"][data-i="${j}"]`); if (nb && !nb.disabled) nb.focus(); return;
     }
     if (a === "lighter") {
-      const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
-      const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
-      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
-      const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
-      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+      const d = lighterFor(S, m);
       if (!d) { toast("No lighter day nearby that keeps the order"); return; }
       m.due = d; toast(`Moved to ${fmtShort(d)}`); draw(); return;
     }
@@ -96713,7 +96746,13 @@ hook("changed", changes => {
         const mem = bdMem(); mem.asked = mem.asked || {};
         if (!mem.asked[a.id]) {
           mem.asked[a.id] = Date.now(); const ks = Object.keys(mem.asked); if (ks.length > 150) ks.sort((x, y) => mem.asked[x] - mem.asked[y]).slice(0, ks.length - 150).forEach(k => delete mem.asked[k]); bdMemSet(mem);
-          setTimeout(() => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return; toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); }, 3200);
+          // it waits for a toast with a button still showing ("Added … Undo"), so the offer never takes the Undo away
+          let tries = 0;
+          const offer = () => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return;
+            let busy = false; try { busy = toastEl().classList.contains("show") && !!(toastUndoFn || toastExtraFn); } catch (e) {}
+            if (busy && ++tries < 8) { setTimeout(offer, 1500); return; }
+            toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); };
+          setTimeout(offer, 3200);
         }
       }
     });

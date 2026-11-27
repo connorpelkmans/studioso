@@ -67,7 +67,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     ok(!(await page.evaluate(() => document.querySelector("#capDlg").open)) && (await tasks(page)).length === 1, "Esc cancels without adding");
 
     // ambiguous -> confirm sheet, one Enter
-    await page.keyboard.press("c"); await page.keyboard.type("finish paper next week"); await page.keyboard.press("Shift+Enter"); await page.keyboard.type("bio quiz fri 2pm"); await page.keyboard.press("Enter");
+    await page.keyboard.press("c"); await page.keyboard.type("finish paper"); await page.keyboard.press("Shift+Enter"); await page.keyboard.type("bio quiz fri 2pm"); await page.keyboard.press("Enter");
     await page.waitForSelector(".qc-row");
     ok((await page.$$(".qc-row")).length === 2 && (await page.$$(".cap-miss")).length === 1, "ambiguous input opens the confirm sheet, missing due date highlighted");
     await page.setViewportSize({width: 390, height: 780}); await page.screenshot({path: path.join(SHOTS, "confirm-390.png")});

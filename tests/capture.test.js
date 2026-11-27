@@ -230,4 +230,13 @@ t("time estimates said many ways never stay in the title", () => {
     .forEach(([s, h, title]) => { const d = CAP.parseLine(s, c); assert.strictEqual(d.hours, h, s); assert.strictEqual(d.title, title, s); });
   assert.strictEqual(CAP.parseLine("office hours thu", c).hours, null, "office hours isn't a time estimate");
 });
+t("everyday subject names, next week, and the course word after read", () => {
+  const cs = [{id: "o", code: "CHEM 2310", name: "Organic Chemistry I"}, {id: "e", code: "ENGL 2050", name: "Academic Writing"}, {id: "p", code: "PSYC 1010", name: "Intro to Psychology"}];
+  const c = {today: "2026-11-27", courses: cs};
+  const a = CAP.parseLine("orgo problem set 8 due thu 5pm", c); assert.strictEqual(a.courseId, "o"); assert.strictEqual(a.title, "Problem Set 8");
+  const b = CAP.parseLine("english essay outline due dec 3 worth 10%", c); assert.strictEqual(b.courseId, "e"); assert.strictEqual(b.title, "Essay Outline"); assert.strictEqual(b.weight, 10);
+  const q = CAP.parseLine("psych quiz 6 next week", c); assert.strictEqual(q.due, "2026-11-30", "next week is its Monday"); assert.ok(q.flags.includes("week") && !q.confident, "and is checked before it's added"); assert.strictEqual(q.title, "Quiz 6");
+  assert.strictEqual(CAP.parseLine("read psych ch 14 pp. 45-80 by wed", c).title, "Read Chapter 14");
+  assert.strictEqual(CAP.parseLine("study for orgo final 3h", c).title, "Study for Orgo Final", "a course word inside the title stays");
+});
 console.log(n + " capture tests passed");

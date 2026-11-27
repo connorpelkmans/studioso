@@ -262,7 +262,8 @@ const AI_STAGES = {kind: "paper", stages: [
     {
       const ctx = await mkCtx(); const page = await open(ctx);
       await page.evaluate(d => { const t = newTask({title: "Term paper on tides", courseId: "c1", type: "Assignment", due: d, hours: 10}); window.__tid = t.id; applyChanges([{kind: "task", id: t.id, after: t}], "Task added"); }, addD(12));
-      await page.waitForTimeout(3800);
+      // it waits for the "Task added" toast with Undo to go first, so it never takes the Undo away
+      for (let i = 0; i < 30 && !/looks big/.test(await toastOf(page)); i++) await page.waitForTimeout(500);
       ok(/looks big/.test(await toastOf(page)), "creating a big task with a faraway due date shows the gentle prompt");
       await page.waitForTimeout(9500);
       await page.evaluate(() => { const t = state.tasks[window.__tid]; applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), {priority: "high"})}], "x"); });
