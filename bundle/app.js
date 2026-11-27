@@ -6441,6 +6441,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -6518,7 +6520,7 @@ function viewAiQuiz(){
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
   // Studyboard Credits so far: one per right answer (passing adds more at the end)
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; if (!SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId))) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
@@ -23208,7 +23210,7 @@ function viewStudy(){
   // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
   const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
   // Studyboard Credits this session has earned so far (98-0study-credits.js): one a card, each card once
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; const left = SBSC.cardsLeftToday(); return SBSC.liveHtml(SBSC.earned(true) - f.cr0, left ? (left <= 30 ? `${left} more count today` : "1 a card") : "150 a day reached"); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; return SBSC.liveHtml(SBSC.earned(true) - f.cr0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${crLive}${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -23371,6 +23373,8 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (r && r.correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
@@ -23420,7 +23424,7 @@ function viewQuiz(){
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   // Studyboard Credits so far: one per right answer (passing adds more at the end); the same quiz key finishQuiz uses
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); if (!SBSC.quizTriesLeft(key)) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); return SBSC.liveHtml(SBSC.quizTriesLeft(key) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
@@ -24423,7 +24427,7 @@ let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
   const l = SBSC.focusLive(); pomoCrN = l.n;
-  return SBSC.liveHtml(l.n, l.full ? "3 hours counted today" : "1 a minute");
+  return SBSC.liveHtml(l.n);
 }
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
@@ -61455,7 +61459,7 @@ var SBSTATS = (() => {
    They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
-     - Focus time       1 per minute             (at most 3 hours a day count)
+     - Focus time       1 per 2 minutes          (at most 3 hours a day count)
      - Flashcards       1 per card reviewed      active recall (at most 150 a day count)
      - Practice quizzes 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; 3 tries a quiz a day
      - Tasks            by type: Exam 40, Project 30, Quiz 20, Assignment and Lab 12, Reading and Study 6, Other 4;
@@ -61463,8 +61467,8 @@ var SBSTATS = (() => {
      - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
    How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
-   study day (a 25-minute focus session 25, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
-   75 credits. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   study day (a 25-minute focus session 12, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
+   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
    The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
@@ -61487,7 +61491,7 @@ var SBSC = (() => {
   const PRES_SLIDE = 3, PRES_WHOLE = 20, PRES_MASTER = 30, PRES_RUNS_A_DAY = 2;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
-    ["focus", "Focus Time", "1 credit for every minute on the focus timer (up to 3 hours a day)"],
+    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
     ["cards", "Flashcards", "1 credit for every card you review (up to 150 a day)"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +5 for passing (70% or more), +5 more for a perfect score"],
     ["task", "Tasks", "By how big the task is: an exam 40, a project 30, a quiz 20, an assignment or lab 12, a reading 6 (up to 8 tasks a day)"],
@@ -61501,10 +61505,10 @@ var SBSC = (() => {
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own", "evOld", "cd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld", "cd", "chd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     // events older than 45 days fold into one total per kind, so the list stays small
     const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
-    Object.keys(ev).forEach(k => { const m = /^(quiz|pres):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
+    Object.keys(ev).forEach(k => { const m = /^(quiz|pres|chest):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
     next.ev = ev; next.evOld = fold;
     // card days older than 45 days fold into one total (already capped)
     const cd = Object.assign({}, next.cd); let cdOld = Number(next.cdOld) || 0;
@@ -61528,7 +61532,7 @@ var SBSC = (() => {
       if (typeof SBSTATS === "undefined") return 0;
       const days = Object.values(SBSTATS.focusDays()).map(m => Number(m) || 0), logged = days.reduce((n, m) => n + m, 0);
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
-      return capped + extra;
+      return (capped + extra) / 2;
     });
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
@@ -61564,7 +61568,7 @@ var SBSC = (() => {
   // Each card counts once per study session, however it was rated: a card marked Again comes back in the same session, and
   // seeing it again earns nothing more (so credits follow how many cards were gone through, never the ratings)
   const sessSeen = () => { try { const f = ui.fc; if (!f || f.mode !== "study") return null; return f.crSeen = f.crSeen || {}; } catch (e) { return null; } };
-  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; } cardRated(1); });
+  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; if (m[id] === 1) rollChest("cards"); } cardRated(1); });
   hook("fc-unrated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id && m[id]) { m[id]--; if (m[id] > 0) return; } cardRated(-1); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
   window.addEventListener("pagehide", flushCards);
@@ -61577,6 +61581,7 @@ var SBSC = (() => {
     DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
     by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
     by.pres = evSum("pres");
+    by.chest = evSum("chest");
     by.cards = cardsTotal();
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
@@ -61615,6 +61620,117 @@ var SBSC = (() => {
     return true;
   }
 
+  /* ---------- Chests ----------
+     Now and then finishing a piece of work turns up a chest: a flashcard gone through (each card once a session), a quiz question
+     answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
+     credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
+     How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
+     a Rare every 4 days, an Exotic every 2 weeks and a Legendary about every 2 months. */
+  const CHEST = {
+    common: {name: "Common", min: 5, max: 20, p: 0.70},
+    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
+    exotic: {name: "Exotic", min: 50, max: 100, p: 0.065},
+    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+  };
+  const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
+  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
+  function rollChest(kind){
+    try {
+      // tests can make every roll find one (window.__SB_TEST only)
+      // in browser tests nothing is left to luck: no chests unless a test asks for one (window.__SB_TEST only)
+      let chance = CHEST_CHANCE[kind] || 0; try { if (window.__SB_TEST) chance = localStorage.getItem("studyboard:chest-test") ? 1 : 0; } catch (e) {}
+      if (Math.random() >= chance) return null;
+      const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
+      let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
+      const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
+      setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});
+      if (kind !== "focus") foundNote(c);
+      fire("chest-found", c);
+      return c;
+    } catch (e) { return null; }
+  }
+  const takeChests = () => { const l = pending(); if (l.length) setSc({chq: []}); return l; };
+  // the chest, drawn: a wooden chest with metal bands and a rim in its rarity's colour (lid apart, so it can open)
+  function chestSvg(t, small){
+    const rim = RIM[t] || RIM.common, id = "ch" + Math.random().toString(36).slice(2, 7);
+    return `<svg class="scr-chest${small ? " sm" : ""}" viewBox="0 0 120 112" aria-hidden="true"><defs>
+      <linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B5763A"/><stop offset="1" stop-color="#7A4A1E"/></linearGradient>
+      <linearGradient id="${id}l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C98A48"/><stop offset="1" stop-color="#94592A"/></linearGradient></defs>
+      ${small ? "" : `<ellipse cx="60" cy="104" rx="46" ry="6" fill="rgba(0,0,0,.18)"/>`}
+      <g class="ch-glow"><ellipse cx="60" cy="50" rx="40" ry="12" fill="${rim}" opacity=".9"/><ellipse cx="60" cy="50" rx="30" ry="7" fill="#fff" opacity=".85"/></g>
+      <g class="ch-base"><rect x="14" y="50" width="92" height="50" rx="6" fill="url(#${id}w)" stroke="#2B2233" stroke-width="3"/>
+        <path d="M18 66h84M18 82h84" stroke="#5A3412" stroke-opacity=".45" stroke-width="2"/>
+        <rect x="24" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/><rect x="86" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="14" y="50" width="92" height="7" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="51" y="54" width="18" height="20" rx="3.5" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/><circle cx="60" cy="62" r="2.6" fill="#2B2233"/><path d="M60 63v5" stroke="#2B2233" stroke-width="2.4" stroke-linecap="round"/></g>
+      <g class="ch-lid"><path d="M14 50V34Q14 12 60 12Q106 12 106 34V50Z" fill="url(#${id}l)" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M24 50V27Q24 17 34 15.5V50ZM86 50V15.5Q96 17 96 27V50Z" fill="${rim}" stroke="#2B2233" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M14 44h92" stroke="#2B2233" stroke-width="2.5"/><path d="M30 24Q60 16 90 24" stroke="#fff" stroke-opacity=".35" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="51" y="40" width="18" height="12" rx="3" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/></g></svg>`;
+  }
+  // Found: a small note near the top that goes by itself (nothing to tap, nothing in the way)
+  function foundNote(c){
+    if (screensOff()) return;
+    try {
+      const o = document.createElement("div"); o.className = "scr-found ch-" + c.t + (calm() ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
+      if (o.showPopover) o.setAttribute("popover", "manual");
+      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b><small>Opens at the end</small></span>`;
+      document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      requestAnimationFrame(() => o.classList.add("show"));
+      setTimeout(() => { o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, 400); }, 2600);
+    } catch (e) {}
+    document.querySelectorAll("[data-scr-chests]").forEach(el => { el.innerHTML = chestsHtml(); });
+  }
+  // the chests waiting to be opened, as little icons (beside the credits chip while studying)
+  const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest: opens at the end">${chestSvg(c.t, true)}</span>`).join("");
+  // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
+  // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  function openChests(list, done){
+    const still = calm(), o = document.createElement("div");
+    o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    let i = 0, opened = false;
+    const draw = () => {
+      const c = list[i]; opened = false;
+      o.className = `scr-rw scr-ch ch-${c.t}` + (still ? " scr-still" : "");
+      o.innerHTML = `<div class="scr-dim"></div><div class="scr-ch-box">
+        <span class="scr-kick ch-kick">${list.length > 1 ? `Chest ${i + 1} of ${list.length}` : "You found a chest!"}</span>
+        <h2 id="scrChT">${CHEST[c.t].name} Chest</h2>
+        <button type="button" class="scr-ch-stage" data-ch="open" aria-label="Open the ${CHEST[c.t].name} chest"><span class="scr-ch-rays"></span>${chestSvg(c.t)}<span class="scr-ch-coins" aria-hidden="true"></span></button>
+        <p class="scr-ch-amt" aria-live="polite"><span class="scr-ch-hint">Tap to open</span></p>
+        <div class="scr-acts"><button type="button" class="btn primary scr-go" data-ch="open">Open</button></div></div>`;
+      setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    };
+    const open = () => {
+      if (opened) { i++; if (i < list.length) draw(); else close(); return; }
+      opened = true; const c = list[i];
+      o.classList.add("is-open");
+      try { if (typeof sbHaptic === "function") sbHaptic(c.t === "common" ? "tap" : "success", {force: true}); } catch (e) {}
+      const coins = o.querySelector(".scr-ch-coins");
+      if (coins && !still) coins.innerHTML = Array.from({length: c.t === "legendary" ? 14 : c.t === "exotic" ? 11 : c.t === "rare" ? 8 : 6}, (_, k) => `<img src="${COIN_SRC}" alt="" style="--x:${Math.round((k % 2 ? 1 : -1) * (14 + (k * 37) % 90))}px;--y:${-70 - (k * 53) % 80}px;--d:${(k * 0.045).toFixed(2)}s">`).join("");
+      const amt = o.querySelector(".scr-ch-amt");
+      amt.innerHTML = `${coin(26)}<b>+<span data-n>${still ? c.c : 0}</span></b><span>credits</span>`;
+      setTimeout(() => countUp(amt.querySelector("[data-n]"), 0, c.c, Math.min(1200, 400 + c.c * 6)), still ? 0 : 380);
+      const b = o.querySelector(".scr-go"); if (b) b.textContent = i + 1 < list.length ? "Next Chest" : "Collect";
+    };
+    const close = () => { o.classList.add("scr-out"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); done(); }, still ? 0 : 220); };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-ch]"); if (b) { if (b.classList.contains("scr-ch-stage") && opened) return; open(); } });
+    o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); while (i < list.length - 1) i++; opened = true; open(); } if (e.key === "Tab") e.preventDefault(); });
+    draw();
+  }
+  // chests left from a session that ended without its screen (closed early): opened the next time things are calm
+  function openLeftovers(){
+    if (!pending().length) return;
+    const ae = document.activeElement;
+    if (studying() || rOpen || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(openLeftovers, 15000); return; }
+    reward({kind: "hello", kick: "Chests to Open", title: "Found while you were studying", lines: [], showZero: true});
+  }
+
   /* ---------- The reward screen ----------
      At the end of a focus session, a flashcard session, a quiz, a presentation run and a finished task: the credits it earned,
      counting up in a shower of coins, line by line (what earned what), the balance going up, and a bar filling toward the next
@@ -61626,17 +61742,31 @@ var SBSC = (() => {
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
+  // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    const ch = spec.compact ? [] : takeChests();
+    if (!ch.length) { rewardNow(spec, []); return; }
+    // the coins are added as the chests are opened (or at once, where the screens aren't shown)
+    const credit = () => { setSc({ev: Object.fromEntries(ch.map(c => [`chest:${todayISO()}:${c.id}`, c.c]))}); invalidate(); };
+    if (screensOff() || document.hidden) { credit(); rewardNow(spec, ch); return; }
+    // while chests are being opened nothing else counts or shows (the session's own credits belong on the screen that follows)
+    rOpen = true;
+    openChests(ch, () => { rOpen = false; credit(); rewardNow(spec, ch); });
+  }
+  function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
     const gained = Math.max(0, now - before);
     seenTotal = now; lastBy = Object.assign({}, totals().by);
     keepHigh();
-    const lines = (spec.lines || []).filter(l => l && (l.n || l.s));
-    const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
+    const chestLines = (ch || []).map(c => ({t: `${CHEST[c.t].name} Chest`, n: c.c, s: "Found while you studied", chest: c.t}));
+    const chestSum = chestLines.reduce((a, l) => a + l.n, 0);
+    const lines = (spec.lines || []).filter(l => l && (l.n != null || l.s));
     // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
-    if (lines.length === 1 && lines[0].n != null) lines[0].n = gained;
-    else if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, gained - chestSum);
+    lines.push(...chestLines);
+    const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
+    if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     if (!gained && !spec.showZero) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
@@ -61685,7 +61815,7 @@ var SBSC = (() => {
       <div class="scr-big" aria-live="polite"><span class="scr-big-coin"><img src="${COIN_SRC}" alt="" width="84" height="84"><i class="scr-shine"></i></span>
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
-      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"><span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       ${goalHtml(r)}
       <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
@@ -61734,10 +61864,11 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
+    rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
       reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every minute"}]});
+        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
@@ -61746,7 +61877,7 @@ var SBSC = (() => {
     flushCards();
     const today = dayCards(todayISO());
     reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
-      lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : `1 credit for every card (${today.toLocaleString()} of ${CARDS_A_DAY} today)`}]});
+      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
@@ -61754,7 +61885,7 @@ var SBSC = (() => {
     const day = todayISO(), id = String(key || "quiz").replace(/:/g, "_"), ev = sc().ev || {};
     const tries = Object.keys(ev).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length;
     const pass = total >= 3 && right / total >= 0.7, perfect = pass && right >= total;
-    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} right`, n: right, s: "1 credit for each right answer"}].concat(pass ? [{t: "Passed", n: QUIZ_PASS, s: "70% or more"}] : [], perfect ? [{t: "Perfect score!", n: QUIZ_PERFECT}] : []);
+    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} answers right`, n: right}].concat(pass ? [{t: "For passing", n: QUIZ_PASS}] : [], perfect ? [{t: "For a perfect score!", n: QUIZ_PERFECT}] : []);
     const pts = lines.reduce((a, l) => a + l.n, 0);
     // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
     if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
@@ -61773,8 +61904,8 @@ var SBSC = (() => {
       const ok = idx.filter(k => { const t = Number(run.times[k]) || 0, b = Number((run.budgets || [])[k]) || 0; return b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000); }).length;
       const tgt = (Number(run.target) || 0) * 1000, whole = !run.sec && tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
       const first = whole && !ev[`pres:master:${pid}`] && !Object.keys(ev).some(k => k === `pres:${pid}:master`);
-      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `${ok} of ${idx.length} slide${idx.length === 1 ? "" : "s"} on time`, n: ok * PRES_SLIDE, s: `${PRES_SLIDE} credits a slide`}]
-        .concat(whole ? [{t: "Whole talk on target", n: PRES_WHOLE, s: "Within your time goal"}] : [], first ? [{t: "Mastered!", n: PRES_MASTER, s: "The first time on target"}] : []);
+      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `You practiced ${idx.length} slide${idx.length === 1 ? "" : "s"}, ${ok} on time`, n: ok * PRES_SLIDE}]
+        .concat(whole ? [{t: "For finishing the whole talk on target", n: PRES_WHOLE}] : [], first ? [{t: "Mastered! The first time on target", n: PRES_MASTER}] : []);
       const add = {}, pts = lines.reduce((a, l) => a + l.n, 0);
       if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
       if (first) add[`pres:master:${pid}`] = PRES_MASTER;
@@ -61813,19 +61944,19 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
-  /* ---------- "+7 credits so far": a little chip while studying ----------
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000); });
+  /* ---------- "+7 credits": a little chip while studying ----------
      Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
      up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
   function liveHtml(n, note, id){
     n = Math.max(0, Math.round(Number(n) || 0));
-    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"} so far</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}</span>`;
+    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"}</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}<span class="scr-live-ch" data-scr-chests>${chestsHtml()}</span></span>`;
   }
-  // focus: the minutes of this session so far, as far as today's 3 hours allow
+  // focus: a credit for every 2 minutes of this session so far, as far as today's 3 hours allow
   function focusLive(){
     const el = typeof pomoElapsedMin === "function" ? Math.floor(pomoElapsedMin()) : 0;
     const today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-    return {n: Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)), full: today >= FOCUS_MIN_A_DAY};
+    return {n: Math.floor(Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)) / 2), full: today >= FOCUS_MIN_A_DAY};
   }
   // flashcards: how many more cards count today
   const cardsLeftToday = () => Math.max(0, CARDS_A_DAY - dayCards(todayISO()));
@@ -61848,10 +61979,10 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {balance, earned, spent, owns, buy, grant, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -77180,7 +77311,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
       <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
       <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
-      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 25 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 12 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
       ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
     if (!dlg.open) try { dlg.showModal(); } catch (e) {}
@@ -78931,7 +79062,7 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per focus minute up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per 2 focus minutes up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
@@ -127389,7 +127520,7 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
       const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
       const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
-      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n, left ? (S.sec ? `${SBSC.PRES_SLIDE()} a slide on time` : `+${SBSC.PRES_WHOLE()} if the whole talk is on target`) : "2 runs counted today"); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
     }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
@@ -127465,7 +127596,10 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     if (S.follow) { if (i !== S.i) liveCmd(S, i > S.i ? "next" : "prev"); return; }
     const lo = S.sec ? S.sec[0] : 0, hi = S.sec ? S.sec[1] : S.d.n - 1;
     i = clamp(i, lo, hi); if (i === S.i) return;
-    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t}); S.open = {i, a: t}; }
+    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t});
+      // a slide practiced (the first time it's left in this run) can turn up a chest (98-0study-credits.js)
+      if (S.open && !S.follow && typeof SBSC !== "undefined" && SBSC) { S.crCh = S.crCh || {}; if (!S.crCh[S.open.i] && S.open.i !== i) { S.crCh[S.open.i] = 1; SBSC.rollChest("pres"); } }
+      S.open = {i, a: t}; }
     vStop(S);
     S.i = i; S.k = atEnd ? stepsOf(S.p, S.d, i) : 0; drawCur(); paint();
     if (S.started && !atEnd) mediaCalls(S, 0);

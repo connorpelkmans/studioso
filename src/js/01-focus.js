@@ -212,7 +212,7 @@ let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
   const l = SBSC.focusLive(); pomoCrN = l.n;
-  return SBSC.liveHtml(l.n, l.full ? "3 hours counted today" : "1 a minute");
+  return SBSC.liveHtml(l.n);
 }
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");

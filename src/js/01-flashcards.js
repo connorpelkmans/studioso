@@ -796,7 +796,7 @@ function viewStudy(){
   // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
   const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
   // Studyboard Credits this session has earned so far (98-0study-credits.js): one a card, each card once
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; const left = SBSC.cardsLeftToday(); return SBSC.liveHtml(SBSC.earned(true) - f.cr0, left ? (left <= 30 ? `${left} more count today` : "1 a card") : "150 a day reached"); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; return SBSC.liveHtml(SBSC.earned(true) - f.cr0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${crLive}${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -959,6 +959,8 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (r && r.correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
@@ -1008,7 +1010,7 @@ function viewQuiz(){
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   // Studyboard Credits so far: one per right answer (passing adds more at the end); the same quiz key finishQuiz uses
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); if (!SBSC.quizTriesLeft(key)) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); return SBSC.liveHtml(SBSC.quizTriesLeft(key) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card" style="--c:${esc(colorOf(d ? d.courseId : ""))}">

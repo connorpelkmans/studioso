@@ -2173,6 +2173,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -2250,7 +2252,7 @@ function viewAiQuiz(){
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
   // Studyboard Credits so far: one per right answer (passing adds more at the end)
-  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; if (!SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId))) return SBSC.liveHtml(0, "earned 3 times today"); return SBSC.liveHtml(f.ans.filter(x => x && x.correct).length, `+${SBSC.QUIZ_PASS()} if you pass`); } catch (e) { return ""; } })();
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
   return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
