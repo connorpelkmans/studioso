@@ -74853,7 +74853,7 @@ var COMP_ACC_MORE = K => {
       // the words in a gold hand-lettered script, slanted up like the party hats, kept inside the cone (clipped to it)
       const script = (t, x, y, sz) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Kalam,Caveat,'Gochi Hand',cursive" font-weight="700" font-size="${sz}" fill="#FFD24A" stroke="#7A5200" stroke-width=".45" paint-order="stroke">${t}</text>`;
       const words = `<g clip-path="url(#cpaNyCone)" transform="rotate(-8 0 -12)">${script("Happy", 0, -15.6, 4.8)}${script("New Year", .4, -9.4, 4.3)}<path d="M-5.6 -7.6Q.4 -6.2 6.4 -7.8" fill="none" stroke="#FFD24A" stroke-width=".6" stroke-linecap="round"/></g>`;
-      const TOPPER = "burst";
+      const TOPPER = "streamers";
       const tops = {
         // tinsel burst: gold and silver strands around a gold bead
         burst: () => { let a = "", b = ""; for (let i = 0; i < 18; i++) { const r = i * Math.PI / 9 + .1, l = i % 2 ? 5.6 : 7.4, d = `M0 -38L${f(l * Math.cos(r))} ${f(-38 + l * Math.sin(r))}`; a += `<path d="${d}" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>`; b += `<path d="${d}" stroke="${i % 3 ? GOLD : "#E4E8EF"}" stroke-width="1.4" stroke-linecap="round"/>`; } return `${a}${b}<circle cy="-38" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><circle cx="-.8" cy="-38.8" r=".8" fill="#fff"/>`; },
@@ -74865,11 +74865,23 @@ var COMP_ACC_MORE = K => {
         // a little disco ball
         disco: () => `<circle cy="-41.6" r="5" fill="#C9D0DA" ${OUT(1.6)}/><path d="M-5 -41.6H5M-4.4 -44H4.4M-4.4 -39.2H4.4M0 -46.6V-36.6M-2.8 -46Q-4 -41.6 -2.8 -37.2M2.8 -46Q4 -41.6 2.8 -37.2" stroke="#8E96A6" stroke-width=".6" fill="none"/><path d="M-3 -44.4h2v1.6h-2Z" fill="#fff"/><path d="M1.2 -40.6h1.8v1.6h-1.8Z" fill="#FFF3B0"/><path d="M0 -46.6V-48" stroke="${INK}" stroke-width="1.2"/>`,
         // curly gold and silver streamers spilling from the tip
+        // corkscrew ribbons hanging down one side of the tip
+        cascade: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
+          return `${c("M0 -37.6Q4 -39 5 -36Q5.6 -33.6 3.6 -34Q2 -34.6 4 -32.4Q6 -30.4 7.4 -31.6", GOLD)}${c("M0 -37.6Q-4 -39.4 -5.2 -36.4Q-5.8 -34 -3.8 -34.4Q-2.2 -35 -4.2 -32.6Q-6.2 -30.6 -7.6 -31.8", "#E4E8EF")}${c("M0 -37.6Q1.6 -41.6 -.4 -43.2Q-2.4 -44.4 -2.6 -42.4", GOLD)}<circle cy="-37.6" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // springy coils standing up from the tip
+        springs: () => { const coil = (a, col) => { let d = "M0 -37"; for (let k = 0; k < 4; k++) d += `q${k % 2 ? -2.2 : 2.2} -1.1 0 -2.2`; return `<g transform="rotate(${a} 0 -37)"><path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.2" stroke-linecap="round"/><circle cy="-46" r="1.2" fill="${col}" ${OUT(.8)}/></g>`; };
+          return `${coil(-38, "#E4E8EF")}${coil(38, "#E4E8EF")}${coil(-12, GOLD)}${coil(14, GOLD)}<circle cy="-37" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // a fountain of thin streamers arcing out and down both sides, each ending in a little curl
+        fountain: () => { const st = (s, h, col) => { const d = `M0 -38Q${f(s * 4)} ${f(-44 - h)} ${f(s * 8)} -38.6q${f(s * 1.4)} 2 0 3q${f(-s * 1.2)} .4 ${f(-s * .8)} -1`; return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.1" stroke-linecap="round"/>`; };
+          return `${st(-1, 2, GOLD)}${st(1, 2, GOLD)}${st(-.7, 5, "#E4E8EF")}${st(.7, 5, "#E4E8EF")}${st(-.3, 7, GOLD)}${st(.3, 7, "#E4E8EF")}<circle cy="-38" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // ribbon loops gathered into a rosette, gold and silver
+        loops: () => { const lp = (a, col) => `<g transform="rotate(${a} 0 -39)"><path d="M0 -39C-2.6 -42 -2 -46.4 0 -46.4C2 -46.4 2.6 -42 0 -39Z" fill="${col}" ${OUT(1.2)}/></g>`;
+          return `${[-80, -40, 0, 40, 80].map((a, k) => lp(a, k % 2 ? "#E4E8EF" : GOLD)).join("")}<circle cy="-39" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
         streamers: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
           return `${c("M0 -37Q-4 -42 -7 -38Q-9 -35 -6 -34Q-3 -34 -5 -37", GOLD)}${c("M0 -37Q4 -43 7.6 -39.4Q9.6 -36.4 6.6 -35.4Q3.6 -35 5.4 -38", "#E4E8EF")}${c("M0 -37Q-1 -43 2 -45Q5 -46 4.6 -43Q4 -41 2 -42.6", GOLD)}<circle cy="-37.4" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; }
       };
-      return `<clipPath id="cpaNyCone"><path d="${CONE}"/></clipPath><path d="${CONE}" ${WF} ${OUT(2.4)}/><path d="M-3.4 -28L-9.6 -8" stroke="#fff" stroke-opacity=".2" stroke-width="1.8" stroke-linecap="round"/>
-        ${words}${star(-1.4, -27.4, 1, GOLD)}${star(1.8, -31, .8, "#E4E8EF")}${star(3.4, -23.6, .8, GOLD)}<circle cx="-3" cy="-22.2" r=".5" fill="#E4E8EF"/>
+      return `<clipPath id="cpaNyCone"><path d="${CONE}"/></clipPath><path d="${CONE}" ${WF} ${OUT(2.4)}/><g clip-path="url(#cpaNyCone)"><path d="M-2.6 -31Q-6.4 -20 -10.6 -3L-7.4 -3Q-4.6 -19 -1.4 -30.6Z" fill="#fff" opacity=".13"/><path d="M-2.2 -29.6Q-3.6 -26 -4.8 -21.8" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/></g>
+        ${words}${star(-1.4, -27.4, 1, GOLD)}${star(1.8, -31, .8, "#E4E8EF")}${star(3.4, -23.6, .8, GOLD)}<circle cx="3.6" cy="-19.8" r=".5" fill="#E4E8EF"/>
         <path d="M-12.6 -4.4Q0 -2.2 12.6 -4.4L14 3Q0 6 -14 3Z" fill="${GOLD}" ${OUT(1.6)}/><path d="M-12.4 -3.2Q0 -1 12.4 -3.2" fill="none" stroke="#FFF3B0" stroke-width=".7"/>${txt("2027", 0, 2.6, 5, INK)}
         ${tops[TOPPER]()}${tw(-16, -24, 2.6, 0)}${tw(15, -36, 2.4, .9)}`; }},
     // Valentine's Day: two springy hearts on a headband
