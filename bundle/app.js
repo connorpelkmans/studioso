@@ -58817,7 +58817,7 @@ var SBSTATS = (() => {
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
      - Focus time       1 per minute             (at most 3 hours a day count)
-     - Flashcards       1 per card reviewed      active recall
+     - Flashcards       1 per card reviewed      active recall (at most 150 a day count)
      - Practice quizzes 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; 3 tries a quiz a day
      - Tasks            by type: Exam 40, Project 30, Quiz 20, Assignment and Lab 12, Reading and Study 6, Other 4;
                         a step of a broken-down task 3 (at most 8 tasks a day count, so splitting work up doesn't pay)
@@ -58849,22 +58849,28 @@ var SBSC = (() => {
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
     ["focus", "Focus Time", "1 credit for every minute on the focus timer (up to 3 hours a day)"],
-    ["cards", "Flashcards", "1 credit for every card you review"],
+    ["cards", "Flashcards", "1 credit for every card you review (up to 150 a day)"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +5 for passing (70% or more), +5 more for a perfect score"],
     ["task", "Tasks", "By how big the task is: an exam 40, a project 30, a quiz 20, an assignment or lab 12, a reading 6 (up to 8 tasks a day)"],
     ["pres", "Presentations", `${PRES_SLIDE} for each slide inside its time, +${PRES_WHOLE} when the whole talk is on target, +${PRES_MASTER} more the first time`]
   ];
   // Worked out from saved work (focus minutes, cards reviewed, finished tasks); quizzes and presentation runs are written down as they end
-  const DERIVED = ["focus", "cards", "task"];
+  const DERIVED = ["focus", "task"];
+  // Flashcards: each review counted on the day it happens (sc.cd {day: reviews}), at most CARDS_A_DAY a day
+  const CARDS_A_DAY = 150;
 
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own", "evOld"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld", "cd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     // events older than 45 days fold into one total per kind, so the list stays small
     const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
     Object.keys(ev).forEach(k => { const m = /^(quiz|pres):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
     next.ev = ev; next.evOld = fold;
+    // card days older than 45 days fold into one total (already capped)
+    const cd = Object.assign({}, next.cd); let cdOld = Number(next.cdOld) || 0;
+    Object.keys(cd).forEach(d => { if (d < old) { cdOld += Math.min(CARDS_A_DAY, Number(cd[d]) || 0); delete cd[d]; } });
+    next.cd = cd; next.cdOld = cdOld;
     state.settings = Object.assign({}, state.settings, {sc: next});
     saveSettings();
   }
@@ -58877,7 +58883,7 @@ var SBSC = (() => {
   // quizzes taken before they were written down one by one (each deck keeps only its last 20 results, so they're counted once, at the start)
   const savedQuizPts = () => { let n = 0; tr(() => Object.values(state.decks || {}).forEach(d => (d.quizzes || []).forEach(r => { n += quizPts(Number(r && r.score) || 0, Number(r && r.total) || 0); }))); return n; };
   function current(){
-    const out = {focus: 0, cards: 0, task: 0};
+    const out = {focus: 0, task: 0};
     // focus: each day's minutes up to FOCUS_MIN_A_DAY (minutes only kept on tasks, from before days were logged, count as they are)
     out.focus = tr(() => {
       if (typeof SBSTATS === "undefined") return 0;
@@ -58885,7 +58891,6 @@ var SBSC = (() => {
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
       return capped + extra;
     });
-    tr(() => Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { out.cards += Number(c && c.seen) || 0; })));
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
       const per = {};
@@ -58894,6 +58899,33 @@ var SBSC = (() => {
     });
     return out;
   }
+  // Card reviews: those from before they were counted by day are counted once (sc.cbase, every card's lifetime reviews then);
+  // since then each review is added to its day as it's rated (in memory first, saved every few cards and at the session's end)
+  const seenSum = () => { let n = 0; tr(() => Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { n += Number(c && c.seen) || 0; }))); return n; };
+  const pend = {};
+  const dayCards = d => Math.max(0, (Number((sc().cd || {})[d]) || 0) + (pend[d] || 0));
+  function cardsTotal(){
+    const base = sc().cbase != null ? Number(sc().cbase) || 0 : Math.max(Number((sc().hw || {}).cards) || 0, seenSum());
+    const days = new Set(Object.keys(sc().cd || {}).concat(Object.keys(pend)));
+    let n = Number(sc().cdOld) || 0; days.forEach(d => { n += Math.min(CARDS_A_DAY, dayCards(d)); });
+    return base + n;
+  }
+  let pendN = 0;
+  function flushCards(){
+    const keys = Object.keys(pend); if (!keys.length) return;
+    const up = {}; keys.forEach(d => { up[d] = dayCards(d); delete pend[d]; }); pendN = 0;
+    setSc({cd: up}); invalidate();
+  }
+  function cardRated(k){
+    // the first review counted this way: everything before it (this one's already in its card's count) is the base
+    if (sc().cbase == null) setSc({cbase: Math.max(Number((sc().hw || {}).cards) || 0, seenSum() - (k > 0 ? 1 : 0))});
+    const d = todayISO(); pend[d] = (pend[d] || 0) + k; invalidate();
+    if (++pendN >= 15) flushCards();
+  }
+  hook("fc-rated", () => cardRated(1));
+  hook("fc-unrated", () => cardRated(-1));
+  document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
+  window.addEventListener("pagehide", flushCards);
   const evSum = kind => Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (k.indexOf(kind + ":") === 0 ? Number(v) || 0 : 0), 0) + (Number((sc().evOld || {})[kind]) || 0);
   // Each kind's total: what's saved now, or the most it has ever been (so deleting old work never takes credits away)
   let cache = null, cacheAt = 0;
@@ -58903,6 +58935,7 @@ var SBSC = (() => {
     DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
     by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
     by.pres = evSum("pres");
+    by.cards = cardsTotal();
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
     return cache;
@@ -58919,6 +58952,7 @@ var SBSC = (() => {
     DERIVED.forEach(k => { const v = Math.floor(t.cur[k] * 10) / 10; if (v > (Number(hw[k]) || 0)) up[k] = v; });
     const patch = Object.keys(up).length ? {hw: up} : {};
     if (sc().qbase == null) patch.qbase = Math.max(Number(hw.quiz) || 0, savedQuizPts());
+    if (sc().cbase == null) patch.cbase = Math.max(Number(hw.cards) || 0, seenSum());
     if (!Object.keys(patch).length) return;
     hwAt = Date.now(); setSc(patch);
   }
@@ -59065,7 +59099,10 @@ var SBSC = (() => {
   // Flashcards: at the Session Done screen (01-flashcards.js)
   function cardsDone(n){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
-    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: "1 credit for every card"}]});
+    flushCards();
+    const today = dayCards(todayISO());
+    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
+      lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : `1 credit for every card (${today.toLocaleString()} of ${CARDS_A_DAY} today)`}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
@@ -76176,7 +76213,7 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per focus minute up to 3 hours a day, 1 per flashcard reviewed, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per focus minute up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:

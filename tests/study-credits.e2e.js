@@ -125,6 +125,15 @@ const WANT = {focus: 260, cards: 100, quiz: 29, task: 93};
     ok(f1 === 30 && /Focus Session Done/i.test(await p.textContent(".scr-rw .scr-kick")), "30 minutes of focus: 30 credits on the Focus Session Done screen: " + f1);
     await closeReward();
 
+    // 9b. flashcards: 1 a card, at most 150 a day
+    const c1 = await p.evaluate(() => { const e0 = SBSC.earned(true); for (let i = 0; i < 160; i++) window.__sbFire("fc-rated", {rating: "good"}); return SBSC.earned(true) - e0; });
+    ok(c1 === 150, "160 cards reviewed today earn 150 (the daily limit): " + c1);
+    await p.evaluate(() => SBSC.cardsDone(160)); await p.waitForSelector(".scr-rw");
+    ok(/Only 150 cards a day earn credits/.test(await p.textContent(".scr-rw")), "the session screen says the daily limit was reached");
+    await closeReward();
+    const c2 = await p.evaluate(() => { const S = window.__sbSync; return {cd: S.state.settings.sc.cd, base: S.state.settings.sc.cbase}; });
+    ok(Object.values(c2.cd || {})[0] === 160 && c2.base === 100, "today's reviews are saved by day, and reviews from before are counted once: " + JSON.stringify(c2));
+
     // 10. finishing a task: the small card with +12 (an assignment)
     await p.waitForTimeout(1500);
     const before = await p.evaluate(() => SBSC.earned(true));
