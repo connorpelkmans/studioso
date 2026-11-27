@@ -47660,7 +47660,7 @@ function cleanFile(r) {
 
   const LS = "studyboard:" + P.id;
   const bsDesk = () => !!lmsBridge();
-  const DEF = {host: "", feed: "", mode: "", auto: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
+  const DEF = {host: "", feed: "", mode: "", auto: true, phoneAlerts: true, markDone: true, grades: true, news: true, aiNews: true, addGraded: true, pastDays: 14,
     map: {}, courses: {}, log: [], newsItems: [], finals: {}, suggest: [], scanned: [], last: 0, lastSrc: "", name: "", gone: [], dropped: [], merges: {}, apiOnly: [], mergedDrops: [], wrongCourse: {}, goneCourses: {}};
   const BULK_LS = LS + ":bulk", NEWS_KEEP = 20, NEWS_SNIP = 280;
   let bulkMem = null;
@@ -48853,6 +48853,12 @@ function cleanFile(r) {
     refreshSheet();
     return running;
   }
+  // The iPhone app's background checks and notifications for this site follow Sync Automatically and the notification switch
+  function phonePrefs(){
+    const c = cfg(), br = lmsBridge();
+    if (!lmsOnPhone() || !br || !br.prefs || c.mode !== "api" || !connected(c)) return;
+    br.prefs(P.id, {auto: !!c.auto, alerts: c.phoneAlerts !== false}).catch(() => {});
+  }
   function autoTick(why){
     const c = cfg();
     if (!connected(c) || !c.auto || inPreview() || !navigator.onLine) return;
@@ -49012,12 +49018,13 @@ function cleanFile(r) {
         ${cs.length ? `<h3 class="fsec">Courses</h3><p class="mini" style="margin:0">Where each ${P.name} course goes in Studyboard.</p><div class="bs-map">${cs.map(([ou, bc]) => `<label class="bs-maprow"><span><b>${esc(bc.code || bc.name)}</b><span class="mini">${esc(bc.code ? courseName(bc.name, bc.code) : "")}</span></span><select data-bs-map="${esc(ou)}" aria-label="Studyboard course for ${esc(bc.name || bc.code)}">${courseOpts(c.map[ou], ou)}</select></label>`).join("")}</div>` : ""}
         <h3 class="fsec">Options</h3>
         <div class="menu-list bs-opts">
-          ${[["auto", "Sync Automatically", bsDesk() && !lmsOnPhone() ? "About every 10 minutes while Studyboard is open or running in the background" : "When you open Studyboard, and about every 10 minutes while it stays open"],
+          ${[["auto", "Sync Automatically", bsDesk() && !lmsOnPhone() ? "About every 10 minutes while Studyboard is open or running in the background" : lmsOnPhone() && c.mode === "api" ? "When you open Studyboard, about every 10 minutes while it stays open, and a few times a day in the background" : "When you open Studyboard, and about every 10 minutes while it stays open"],
+             ["phoneAlerts", "Notify Me About New Work and Grades", `Checked in the background a few times a day. Also tells you if ${P.name} signs you out.`],
              ["markDone", "Mark Tasks Done When Submitted", `When ${P.name} shows your submission. Only once, so you can undo it.`],
              ["grades", "Bring In Grades", "Marks and weights go to Grades. Marks you typed yourself are never replaced."],
              ["addGraded", "Add Graded Items I Don't Have as Tasks", "Like participation marks, so your course grade adds up"],
              ["news", "Bring In Announcements", "Shown on each course page"],
-             ["aiNews", "Find Dates in Announcements with AI", aiReady() ? "Uses your free AI. You review every change before it's added." : "Set up AI in Settings to use this"]].filter(([k]) => !P.feedOnly || k === "auto").map(([k, t, s]) => `<label class="mi-check gs-opt"><input type="checkbox" data-bs-opt="${k}" ${c[k] ? "checked" : ""}><span>${t}<span class="sub">${s}</span></span></label>`).join("")}
+             ["aiNews", "Find Dates in Announcements with AI", aiReady() ? "Uses your free AI. You review every change before it's added." : "Set up AI in Settings to use this"]].filter(([k]) => (!P.feedOnly || k === "auto") && (k !== "phoneAlerts" || (lmsOnPhone() && c.mode === "api"))).map(([k, t, s]) => `<label class="mi-check gs-opt"><input type="checkbox" data-bs-opt="${k}" ${c[k] ? "checked" : ""}><span>${t}<span class="sub">${s}</span></span></label>`).join("")}
           <div class="cap-row"><label for="bsPast" style="flex:1;font-weight:600">Include Past Due Dates<span class="sub">How far back to bring in work you haven't finished</span></label><select id="bsPast">${[[0, "None"], [7, "1 Week"], [14, "2 Weeks"], [30, "1 Month"], [120, "Whole Term"]].map(([v, l]) => `<option value="${v}" ${Number(c.pastDays) === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         </div>
         <h3 class="fsec">Connection</h3>
@@ -49030,7 +49037,7 @@ function cleanFile(r) {
         ${(c.dropped || []).length ? `<p class="mini" style="margin:8px 0 0">${(c.dropped || []).length === 1 ? "1 item you deleted is" : (c.dropped || []).length + " items you deleted are"} kept off, so syncing doesn't bring ${(c.dropped || []).length === 1 ? "it" : "them"} back. <button type="button" class="link-btn" data-act="${A}-undrop">Bring Them Back</button></p>` : ""}
       </div>
       <div class="sheet-foot"><button type="button" class="btn danger" data-act="${A}-disconnect">Disconnect</button><button type="button" class="btn" data-act="${A}-fresh">Start Fresh</button><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
-    dlg.querySelectorAll("[data-bs-opt]").forEach(i => i.addEventListener("change", () => { save({[i.dataset.bsOpt]: i.checked}); if (i.dataset.bsOpt === "aiNews" && i.checked && !aiReady()) toast("Set up AI in Settings first, then this will work"); }));
+    dlg.querySelectorAll("[data-bs-opt]").forEach(i => i.addEventListener("change", () => { save({[i.dataset.bsOpt]: i.checked}); phonePrefs(); if (i.dataset.bsOpt === "aiNews" && i.checked && !aiReady()) toast("Set up AI in Settings first, then this will work"); }));
     dlg.querySelectorAll("[data-bs-map]").forEach(s => s.addEventListener("change", () => {
       const g = Object.assign({}, cfg().goneCourses), wasGone = !!g[s.dataset.bsMap] || cfg().map[s.dataset.bsMap] === "skip"; delete g[s.dataset.bsMap];
       // a course you'd deleted and now want again: say so, so Recently Deleted doesn't keep it off
@@ -49710,7 +49717,7 @@ function cleanFile(r) {
     if (moved) save({dropped: d});
   });
 
-  return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, isRunning: () => !!running, courseCard, staffHtml, local,
+  return {P, cfg, save, connected, consented, askConsent, statusLine, shortStatus, bsSheet, connectSheet, syncNow, canSync: () => !!howNow(), autoTick, phonePrefs, isRunning: () => !!running, courseCard, staffHtml, local,
     fromApi: P.fromApi, fromFeed, plan, applyPlan, cleanTitle, titleKey, codeOf, mapping, reviewSheet, scanNews, doLogin, feedConnect, importGrab, setLocal,
     lastRead: () => bulk().lastRead || null, linkTask, courseDeleted, repoint, startFresh, freshPlan, drop: (key, why) => { const c = cfg(); if (!(c.dropped || []).includes(key)) save({dropped: (c.dropped || []).concat(key).slice(-400)}); if (why === "merge" && !(c.mergedDrops || []).includes(key)) save({mergedDrops: (cfg().mergedDrops || []).concat(key).slice(-200)}); }};
   }
@@ -50007,12 +50014,26 @@ function cleanFile(r) {
     try {
       for (const L of ALL()) {
         const c = L.cfg(); if (c.mode !== "api" || !L.connected() || L.isRunning()) continue;
+        L.phonePrefs();
         const r = await br.ping(L.P.id, c.host).catch(() => null);
         if (!r) continue;
         if (r.needLogin && !L.local().needLogin && !L.isRunning()) { L.setLocal({needLogin: true}); scheduleRender(); }
         else if (r.ok && !r.busy && L.local().needLogin && !L.isRunning()) { L.setLocal({needLogin: false}); scheduleRender(); }
       }
     } finally { pinging = false; }
+  }
+  // The iPhone app (ios-wrapper/native/SchoolSafari/StudyboardSchoolBackground.swift): a full sync of every school site while the app
+  // is in the background (the same as Sync Now, quietly), and Sign In Again from a notification that a site signed the student out
+  if (lmsOnPhone()) {
+    window.__sbSchoolSync = async () => {
+      for (const L of ALL()) {
+        const c = L.cfg();
+        if (c.mode !== "api" || !c.auto || !L.connected() || L.isRunning() || !L.consented()) continue;
+        try { await L.syncNow({quiet: true}); } catch (e) {}
+      }
+      return true;
+    };
+    window.__sbSchoolRelog = id => { const L = ALL().find(x => x.P.id === id); if (!L || !L.connected()) return false; relogGo(L); return true; };
   }
   if (lmsBridge()) {
     setTimeout(keepAlive, 30000);
