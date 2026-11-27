@@ -45,8 +45,10 @@ const txt = async loc => ((await loc.textContent()) || "").replace(/\s+/g, " ");
       if (await page.locator("#view .bn-more[aria-expanded=false]").count()) { await page.click("#view .bn-more"); await page.waitForTimeout(300); }
       const dg = page.locator("#view .gi-dg");
       ok(await dg.count() === 1, tag("Today shows This Week in Grades when marks came in"));
-      const dgT = await txt(dg);
-      ok(/4 new marks/.test(dgT) && /Lab 3 \(CHM110\): 78%, course \+0\.8/.test(dgT) && /Coming up: Research Project/.test(dgT), tag("it lists the week's marks, what they did, and what's next: " + dgT.slice(0, 160)));
+      const dgT = (await dg.innerText()).replace(/\s+/g, " ");
+      ok(/4 new marks/.test(dgT) && /Coming Up Research Project/i.test(dgT) && /Biggest Move CHM110 \+0\.8/i.test(dgT) && /Your Pattern: Starting Early/.test(dgT), tag("it has the week's marks, the biggest move, what's next and a pattern: " + dgT.slice(0, 160)));
+      const row = (await page.locator("#view .gi-dg-rows li:not(.gi-dg-cols)").first().innerText()).replace(/\s+/g, " ");
+      ok(await page.locator("#view .gi-dg-rows li:not(.gi-dg-cols)").count() === 4 && /Lab 3 CHM110 78% \+0\.8/.test(row), tag("one row per new mark, with what it did to the course: " + row));
       await page.click('#view .gi-dg [data-act="dg-hide"]'); await page.waitForTimeout(250);
       ok(await page.locator("#view .gi-dg").count() === 0, tag("Done for This Week hides it"));
 

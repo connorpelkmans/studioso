@@ -198,15 +198,23 @@
     const m = M(), D = digest(all); if (!D.marks.length && !D.next) return "";
     if (onBoard && !D.marks.length) return "";
     const sg = v => (v > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(v)));
-    const lines = [];
-    D.marks.slice(0, 4).forEach(x => lines.push(tr("dg.mark", "{title} ({c}): {mark}{d}", {title: x.t.title, c: courseLabel(x.gr.c), mark: P(x.pct), d: x.d != null && Math.abs(x.d) >= 0.05 ? tr("dg.moved", ", course {d}", {d: sg(x.d)}) : ""})));
-    if (D.marks.length > 4) lines.push(trn("dg.more", D.marks.length - 4, "and {n} more mark|and {n} more marks"));
-    const mv = D.moved.filter(x => Math.abs(x.d) >= 0.3);
-    if (mv.length) lines.push(tr("dg.mv", "Biggest move: {c}, {d} to {now}.", {c: courseLabel(mv[0].gr.c), d: sg(mv[0].d), now: P(mv[0].now)}));
-    if (D.next) lines.push(tr("dg.next", "Coming up: {title} ({c}), worth {w}, due {due}.", {title: D.next.t.title, c: courseLabel(D.next.gr.c), w: m.fmtW(D.next.w), due: fmtShort(D.next.t.due)}));
-    const H = habitsOf(all).list[0], ht = H ? habitText(H, all) : null; if (ht) lines.push(ht.say);
-    const head = trn("dg.head", D.marks.length, "This Week in Grades: {n} new mark|This Week in Grades: {n} new marks");
-    return `<section class="gi-card gi-dg" aria-labelledby="giDgH"><h3 id="giDgH">${esc(D.marks.length ? head : tr("dg.head0", "This Week in Grades"))}</h3><ul class="gi-dg-list">${lines.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+    const today = todayISO(), range = tr("dg.range", "{a} to {b}", {a: fmtShort(addDays(today, -6)), b: fmtShort(today)});
+    // New marks: one row each, course colour, the mark, and what it did to the course
+    const chip = d => d == null || Math.abs(d) < 0.05 ? `<span class="gi-dg-d same">${esc(tr("dg.same", "no change"))}</span>` : `<span class="gi-dg-d ${d > 0 ? "up" : "down"}" title="${esc(tr("dg.dTip", "What it did to the course grade"))}">${esc(sg(d))}</span>`;
+    const rows = D.marks.slice(0, 5).map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gi-dg-t"><b>${esc(x.t.title)}</b><span class="mini">${esc(courseLabel(x.gr.c))}</span></span><span class="gi-dg-m">${esc(P(x.pct))}</span>${chip(x.d)}</li>`).join("");
+    const more = D.marks.length > 5 ? `<p class="mini gi-dg-more">${esc(trn("dg.more", D.marks.length - 5, "and {n} more mark|and {n} more marks"))}</p>` : "";
+    const marks = D.marks.length ? `<div class="gi-dg-sec"><h4>${esc(tr("dg.newH", "New Marks"))}</h4><ul class="gi-dg-rows"><li class="gi-dg-cols" aria-hidden="true"><span></span><span>${esc(tr("dg.colMark", "Mark"))}</span><span>${esc(tr("dg.colCourse", "Course"))}</span></li>${rows}</ul>${more}</div>` : "";
+    // Two tiles: the course that moved most, and the biggest graded item next week
+    const mv = D.moved.filter(x => Math.abs(x.d) >= 0.3)[0], tiles = [];
+    if (mv) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(mv.gr.c.color)}"><span class="k">${esc(tr("dg.mvH", "Biggest Move"))}</span><b>${esc(courseLabel(mv.gr.c))} <span class="gi-dg-d ${mv.d > 0 ? "up" : "down"}">${esc(sg(mv.d))}</span></b><span class="mini">${esc(tr("dg.mvS", "now {now}", {now: P(mv.now)}))}</span></div>`);
+    if (D.next) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(D.next.gr.c.color)}"><span class="k">${esc(tr("dg.nextH", "Coming Up"))}</span><b>${esc(D.next.t.title)}</b><span class="mini">${esc(tr("dg.nextS", "{c} · worth {w} · due {due}", {c: courseLabel(D.next.gr.c), w: m.fmtW(D.next.w), due: fmtShort(D.next.t.due)}))}</span></div>`);
+    const tl = tiles.length ? `<div class="gi-dg-tiles">${tiles.join("")}</div>` : "";
+    // One study pattern, as a tip
+    const H = habitsOf(all).list[0], ht = H ? habitText(H, all) : null;
+    const tip = ht ? `<div class="gi-dg-tip"><span class="gi-dg-tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg></span><span><b>${esc(tr("dg.tipH", "Your Pattern: {t}", {t: ht.title}))}</b><span>${esc(ht.say)}</span></span></div>` : "";
+    const count = D.marks.length ? trn("dg.count", D.marks.length, "{n} new mark|{n} new marks") : "";
+    return `<section class="gi-card gi-dg" aria-labelledby="giDgH"><div class="gi-dg-head"><h3 id="giDgH">${esc(tr("dg.head0", "This Week in Grades"))}</h3><span class="mini">${esc(range)}${count ? " · " + esc(count) : ""}</span></div>
+      ${marks}${tl}${tip}
       ${onBoard ? `<div class="gi-dg-acts"><button type="button" class="btn small primary" data-act="dg-open">${esc(tr("dg.open", "Open Grades"))}</button><button type="button" class="btn small" data-act="dg-hide">${esc(tr("dg.hide", "Done for This Week"))}</button></div>` : ""}</section>`;
   }
   const dgHidden = () => { try { return localStorage.getItem(DG_KEY) === mondayOf(todayISO()); } catch (e) { return false; } };
