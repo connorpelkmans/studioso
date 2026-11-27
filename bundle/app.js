@@ -93407,9 +93407,15 @@ const EXAMPREP = (() => {
     (m.objectives || []).forEach(n => put(n, "learning objective"));
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
-    String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
     // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
     const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    // Nor is a word about the exam itself ("Cumulative.", "Closed book"), or a sentence naming chapters (already listed above)
+    const ABOUT = /^(non-?)?(cumulative|comprehensive|open[- ]?book|closed[- ]?book|open[- ]?notes?|closed[- ]?notes?|in[- ]?class|in[- ]?person|online|take[- ]?home|multiple[- ]choice|no calculators?|calculators? allowed|(\d+\s*)?(min(ute)?s?|hours?|hrs?|questions?|pages?)( long)?)$/i;
+    // the exam's notes, one sentence or line at a time ("Cumulative. Ch. 1-11. Bring model kit." is three)
+    // (a full stop after a short form such as "Ch." or "Dr." doesn't end a sentence)
+    String(m.examNotes || "").replace(/\b(ch|chs|chap|pp|pg|vs|dr|prof|fig|eq|sec|no|approx|e\.g|i\.e)\.(?=\s)/gi, "$1\u0001").split(/\n|;|•|\.\s+(?=[A-Z])/)
+      .map(s => s.replace(/\u0001/g, ".").replace(/^[\s\-*\d.)]+/, "").replace(/[.!]+$/, "").trim())
+      .filter(s => s.length > 2 && s.length < 70 && !chaptersIn(s).length && !REMIND.test(s) && !ABOUT.test(s)).forEach(n => put(n, "exam notes"));
     const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
     const notes = (m.notes || []).filter(studyNote);
     // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
@@ -96866,7 +96872,9 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     draw();
     return true;
   }
-  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(t.text)}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
+  // a formula is read as words ("p K sub a"), as Learn does, not as its typed source
+  const spoken = x => { try { return typeof mathSpeech === "function" ? mathSpeech(x) : String(x || ""); } catch (e) { return String(x || ""); } };
+  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(spoken(t.text))}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
   function draw(){
     openSheet(`<div class="sheet mt-sheet${still() ? " mt-still" : ""}" data-mt-play>${head("Match")}<div class="sheet-body">
       <div class="mt-bar"><span class="mt-name">${esc(R.src.name || "Deck")}</span><span class="mt-clock"><span id="mtTime" role="timer" aria-label="Time in seconds">0.0</span><span class="mt-pen" id="mtPen" aria-hidden="true">+1s</span></span></div>
