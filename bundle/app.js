@@ -23203,6 +23203,8 @@ function viewStudy(){
   if (!c) { f.i++; return viewStudy(); }
   const RD = f.flipped ? rateDues(d, c) : null;
   const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
+  // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
+  const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
   return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
@@ -23213,13 +23215,12 @@ function viewStudy(){
         <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
-    ${fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`)}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
       <button class="rate-btn again" data-act="fc-rate" data-id="again"><b>Again</b><span>${lbl("again")}</span></button>
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${buddy}${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>${buddy}`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -61690,20 +61691,20 @@ var SBSC = (() => {
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-scr]"); if (b) close(b.dataset.scr === "wardrobe"); else if (e.target.classList && e.target.classList.contains("scr-dim")) close(false); });
     o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
   }
-  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner)
+  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner); it shows only
+  // what was earned, not what it's saving toward
   function showCompact(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-mini scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    const g = r.tgt, p0 = g ? Math.min(1, r.bal0 / g.price) : 0, p1 = g ? Math.min(1, r.bal / g.price) : 0;
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-      ${g ? `<span class="scr-mini-goal"><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span><span class="mini">${r.bal >= g.price ? `${esc(g.name)}: ready to buy!` : `${(g.price - r.bal).toLocaleString()} to ${esc(g.name)}`}</span></span>` : ""}</span>`;
+</span>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
-    setTimeout(() => { countUp(o.querySelector("[data-n]"), 0, r.gained, 600); const b = o.querySelector(".scr-goal-bar i"); if (b) b.style.width = Math.round(p1 * 100) + "%"; }, still ? 0 : 250);
+    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
@@ -61784,7 +61785,8 @@ var SBSC = (() => {
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
       return;
     }
-    reward({kind: "hello", compact: true, kick: "Credits Earned", title: "From your studying", lines: [{t: "Studying", n: gained}]});
+    // credits with no one piece of work behind them (counted quietly): the balance just goes up
+    seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
