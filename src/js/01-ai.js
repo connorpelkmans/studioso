@@ -2444,11 +2444,11 @@ function aiUseCard(){
    opens to say which model runs it, where what you send goes, and how it does in each part of Studyboard's 1,100-conversation
    chat test (cats: one number per AI_CATS entry, filled in from the test's results; until then the line says they're coming).
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
-const AI_CATS = ["Planner actions", "Questions about their notes", "Knowledge and maths", "Planner questions and study help", "Study material and the app", "Chatting with the companion"];
+const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
   {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 65, cats: null},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 80, cats: null},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: null}];
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
