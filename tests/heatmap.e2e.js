@@ -33,6 +33,9 @@ const EMPTY = {v: 2, updated: 1, files: [], notes: [], events: [], decks: [], ta
       const {ctx, page} = await open(w, h, mob, seed(), true);
       /* Insights */
       await act(page, "pro-ins-open"); await page.waitForSelector(".pro-ins-body .hm-card", {timeout: 5000});
+      // every weekday row is the same height: the Mon/Wed/Fri labels used to make their rows taller than the ~7px desktop cells
+      const rowH = await page.evaluate(() => [...document.querySelectorAll(".hm-card .hm-wd:not(.hm-corner)")].map(e => e.getBoundingClientRect().height));
+      ok(rowH.length === 7 && Math.max(...rowH) - Math.min(...rowH) < 0.6, `${w}px: all 7 weekday rows are the same height (labels don't stretch theirs): ` + rowH.map(x => x.toFixed(1)).join(","));
       const ins = await page.evaluate(() => {
         const body = document.querySelector(".pro-ins-body"), card = body.querySelector(".hm-card"), kids = [...body.children];
         const sc = card.querySelector(".hm-scroll"), r = card.getBoundingClientRect();
