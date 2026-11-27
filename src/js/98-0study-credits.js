@@ -425,7 +425,7 @@ var SBSC = (() => {
     const list = prizes.slice().sort((a, b) => a.p - b.p), x2 = proNow(), X2 = `<span class="wh-x2">(x2) <span class="pro-badge">PRO</span></span>`;
     o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
       <div class="scr-head">${sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
-      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-rot">${wheelSvg(prizes)}</div></div>
+      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-clip"><div class="wh-rot">${wheelSvg(prizes)}</div></div></div>
       <div class="wh-result" aria-live="polite"></div>
       ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
@@ -494,17 +494,20 @@ var SBSC = (() => {
   function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
-    const gained = Math.max(0, now - before);
+    let gained = Math.max(0, now - before);
     seenTotal = now; lastBy = Object.assign({}, totals().by);
     keepHigh();
     const chestLines = (ch || []).map(c => ({t: `${CHEST[c.t].name} Chest`, n: c.c, s: "Found while you studied", chest: c.t}));
     const chestSum = chestLines.reduce((a, l) => a + l.n, 0);
     const lines = (spec.lines || []).filter(l => l && (l.n != null || l.s));
-    // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
-    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, gained - chestSum);
+    // A single line shows what really counted: daily limits can make it less; it's never more than the work itself can earn (a
+    // "fill" line, focus minutes or cards, takes what was added up to that most)
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, Math.min(lines[0].fill || lines[0].n, gained - chestSum));
     lines.push(...chestLines);
     const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
-    if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    // Credits that arrived some other way since the last count (another device, work counted after the app opened) were already
+    // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
+    if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     if (!gained && !spec.showZero) return;
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
@@ -606,7 +609,7 @@ var SBSC = (() => {
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
       reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
+        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
@@ -615,7 +618,7 @@ var SBSC = (() => {
     flushCards();
     const today = dayCards(todayISO());
     reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
-      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
+      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, fill: n + 1, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){

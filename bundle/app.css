@@ -5815,6 +5815,17 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .wh-x2-line{margin:6px 0 2px;display:flex;align-items:center;justify-content:center;gap:6px;font:700 .88rem var(--display);color:var(--ink)}
 :root[data-theme="dark"] .wh-x2{color:#FF8FB0}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .wh-x2{color:#FF8FB0}}
+/* the wheel's Spin: brighter than the other gold buttons, with a soft shine */
+.scr-wh .scr-go.wh-go{background:linear-gradient(180deg,#FFF27A 0%,#FFD21F 45%,#FFA800 100%)!important;color:#3A2200!important;font-weight:900;letter-spacing:.02em;
+  box-shadow:0 0 0 2px #FFE45C inset,0 0 18px rgba(255,214,31,.65),0 8px 24px rgba(255,168,0,.5);text-shadow:0 1px 0 rgba(255,255,255,.55)}
+.scr-wh .scr-go.wh-go:hover:not(:disabled){filter:brightness(1.06) saturate(1.1)}
+.scr-wh .scr-go.wh-go:disabled{filter:saturate(.85);opacity:.9}
+/* the turning wheel stays inside its circle (a turned square's corners would stick out, making the card scroll on and off),
+   and the wheel's card never shows a scroll bar (it still scrolls when the prize list is open on a small screen) */
+.wh-clip{position:absolute;inset:0;border-radius:50%;overflow:hidden;contain:paint}
+.wh-card{scrollbar-width:none;overflow-x:hidden}
+.wh-card::-webkit-scrollbar{display:none;width:0;height:0}
+.scr-wh{overflow:hidden}
 /* ===== module: 98-photo.css ===== */
 /* ===== Your Photo themes ===== */
 /* The photo sits behind the page (left of the desktop sidebar) as one fixed */

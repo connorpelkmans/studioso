@@ -124,7 +124,7 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
 
     // 9. a focus session: its own screen
     const f1 = await p.evaluate(() => { const e0 = SBSC.earned(true); window.__sbFire("focus", {type: "end", mode: "focus", minutes: 30}); return new Promise(r => setTimeout(() => r(SBSC.earned(true) - e0), 300)); });
-    ok(f1 === 15 && /Focus Session Done/i.test(await p.textContent(".scr-rw .scr-kick")) && /You focused for 30 minutes/.test(await p.textContent(".scr-rw .scr-lines")), "30 minutes of focus: 15 credits, and the screen says how long you focused on the Focus Session Done screen: " + f1);
+    ok(f1 === 15 && /Focus Session Done/i.test(await p.textContent(".scr-rw:not(.scr-out) .scr-kick")) && /You focused for 30 minutes/.test(await p.textContent(".scr-rw:not(.scr-out) .scr-lines")), "30 minutes of focus: 15 credits, and the screen says how long you focused on the Focus Session Done screen: " + f1 + " | " + await p.evaluate(() => [...document.querySelectorAll(".scr-rw")].map(x => x.className + ": " + x.innerText.replace(/\s+/g, " ").slice(0, 140)).join(" || ")));
     await closeReward();
 
     // 9b. a study session: each card once, whatever it was rated (Again brings a card back in the same session; that earns nothing more)
@@ -199,6 +199,15 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(await p.evaluate(() => SBSC.spinQueue().length) === 2, "and that spin is used");
     await p.click(".scr-wh .scr-acts [data-wh]"); await p.waitForTimeout(400);
     await p.evaluate(() => { window.__sbSync.state.settings.sc.wsq = []; });
+    // 9g. credits already counted (here from another device, after the last count) are never shown again as earned now
+    await p.evaluate(() => { const sc = window.__sbSync.state.settings.sc; sc.ev = Object.assign({}, sc.ev, {"chest:2000-01-01:synced": 7}); sc.chq = [{id: "lo1", t: "common", c: 10}]; SBSC.openLeftovers(); });
+    await p.waitForSelector(".scr-ch .scr-go", {timeout: 6000});
+    await p.click(".scr-ch .scr-go"); await p.waitForTimeout(400); await p.click(".scr-ch .scr-go");
+    await p.waitForSelector(".scr-rw:not(.scr-ch) .scr-lines", {timeout: 6000}); await p.waitForTimeout(300);
+    const lo = await p.evaluate(() => document.querySelector(".scr-rw:not(.scr-ch):not(.scr-out)").innerText.replace(/\s+/g, " "));
+    ok(!/Other studying/.test(lo) && /\+10\b/.test(lo) && !/\+17\b/.test(lo), "credits already counted aren't shown again as earned: " + lo.slice(0, 160));
+    await closeReward();
+
     // 9f. Pro: a free spin every week, on top of the exam spins; the Wardrobe says so to free students, with Get Pro
     const pr = await p.evaluate(() => { const out = [];
       SBSC.planTest({paywall: true, pro: false});
