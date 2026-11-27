@@ -143,12 +143,12 @@ for im, x, y in ((back, bx, by), (front, fx, fy)):
     sh, dx, dy = shadow(im, 0, 0, 40, 0.7)
     canvas.alpha_composite(sh, (x + 18, y + 40))
     canvas.alpha_composite(im, (x, y))
-# a sparkle on the front bill's top right corner, as on the coin
+# a glint on the front bill, near its top right corner, as on the coin
 cv = np.asarray(canvas).astype(np.float32)
-sx, sy, sz = fx + front.width * 0.93, fy + front.height * 0.1, S * 0.05
+sx, sy, sz = fx + front.width * 0.82, fy + front.height * 0.22, S * 0.07
 dx_, dy_ = np.abs(xx2 - sx), np.abs(yy2 - sy)
 star = np.clip(1 - (np.sqrt(dx_) * np.sqrt(dy_)) / (sz * 0.18), 0, 1) * np.exp(-(dx_ + dy_) / sz)
 core = np.exp(-((dx_ ** 2 + dy_ ** 2) / (2 * (sz * 0.08) ** 2)))
-a = np.clip(star * 1.4 + core, 0, 1) * 0.9
+a = np.clip(star * 1.6 + core * 1.3, 0, 1)
 cv[..., :3] = cv[..., :3] * (1 - a[..., None]) + np.array([235, 255, 225], np.float32) * a[..., None]
 Image.fromarray(np.clip(cv, 0, 255).astype(np.uint8), "RGBA").convert("RGB").resize((1024, 1024), Image.LANCZOS).save(f"{DEST}/bucks-product-1024.png", optimize=True)
