@@ -3112,6 +3112,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const bal = credits();
       return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
+    // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
+    propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },

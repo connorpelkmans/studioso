@@ -30,31 +30,42 @@ var SBSC = (() => {
   /* ---------- What each kind of work earns ---------- */
   const TASK_PTS = {Exam: 30, Project: 20, Quiz: 12, Assignment: 10, Lab: 10, Reading: 5, Study: 5, Other: 3};
   const TASK_STEP = 2, TASKS_A_DAY = 8, FOCUS_MIN_A_DAY = 180;
-  const PRES_RUN = 10, PRES_RUNS_A_DAY = 2, PRES_MASTER = 40;
+  // Quizzes: 1 per right answer, +3 for passing (70%+ of 3 or more questions), +3 more for a perfect score; up to 3 tries of a quiz a day
+  const QUIZ_PASS = 3, QUIZ_PERFECT = 3, QUIZ_TRIES_A_DAY = 3;
+  // Presentations: 2 for each slide inside its time, +15 when the whole run lands on target, +25 more the first time it does; 2 runs a day each
+  const PRES_SLIDE = 2, PRES_WHOLE = 15, PRES_MASTER = 25, PRES_RUNS_A_DAY = 2;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
     ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
     ["cards", "Flashcards", "1 credit for every 5 cards you review"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +3 for passing (70% or more), +3 more for a perfect score"],
     ["task", "Tasks", "By how big the task is: an exam 30, a project 20, a quiz 12, an assignment or lab 10, a reading 5 (up to 8 tasks a day)"],
-    ["pres", "Presentations", `${PRES_RUN} for each full practice run (2 a day per presentation), +${PRES_MASTER} the first time you finish on target`]
+    ["pres", "Presentations", `${PRES_SLIDE} for each slide inside its time, +${PRES_WHOLE} when the whole talk is on target, +${PRES_MASTER} more the first time`]
   ];
-  const DERIVED = ["focus", "cards", "quiz", "task"];
+  // Worked out from saved work (focus minutes, cards reviewed, finished tasks); quizzes and presentation runs are written down as they end
+  const DERIVED = ["focus", "cards", "task"];
 
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    // events older than 45 days fold into one total per kind, so the list stays small
+    const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
+    Object.keys(ev).forEach(k => { const m = /^(quiz|pres):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
+    next.ev = ev; next.evOld = fold;
     state.settings = Object.assign({}, state.settings, {sc: next});
     saveSettings();
   }
   const dayOf = ms => { const d = new Date(Number(ms) || 0); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
   const tr = (f, dflt = 0) => { try { return f(); } catch (e) { return dflt; } };
+  const taskPts = t => t.breakdownOf ? TASK_STEP : TASK_PTS[t.type] || TASK_PTS.Other;
 
   // What's saved now, per kind (in credits, before rounding)
-  const quizPts = r => { const t = Number(r && r.total) || 0, s = Number(r && r.score) || 0; if (t < 3 || s / t < 0.7) return 0; return s + 3 + (s >= t ? 3 : 0); };
+  const quizPts = (right, total) => (total >= 3 && right / total >= 0.7 ? QUIZ_PASS + (right >= total ? QUIZ_PERFECT : 0) : 0) + Math.max(0, right);
+  // quizzes taken before they were written down one by one (each deck keeps only its last 20 results, so they're counted once, at the start)
+  const savedQuizPts = () => { let n = 0; tr(() => Object.values(state.decks || {}).forEach(d => (d.quizzes || []).forEach(r => { n += quizPts(Number(r && r.score) || 0, Number(r && r.total) || 0); }))); return n; };
   function current(){
-    const out = {focus: 0, cards: 0, quiz: 0, task: 0};
+    const out = {focus: 0, cards: 0, task: 0};
     // focus: each day's minutes up to FOCUS_MIN_A_DAY (minutes only kept on tasks, from before days were logged, count as they are)
     out.focus = tr(() => {
       if (typeof SBSTATS === "undefined") return 0;
@@ -62,29 +73,24 @@ var SBSC = (() => {
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
       return (capped + extra) / 2;
     });
-    tr(() => Object.values(state.decks || {}).forEach(d => {
-      (d.cards || []).forEach(c => { out.cards += (Number(c && c.seen) || 0) / 5; });
-      (d.quizzes || []).concat(...(d.aiQuizzes || []).map(q => (q && q.results) || [])).forEach(r => { out.quiz += quizPts(r); });
-    }));
+    tr(() => Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { out.cards += (Number(c && c.seen) || 0) / 5; })));
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
       const per = {};
-      Object.values(state.tasks || {}).forEach(t => {
-        if (!t || t.status !== "done") return;
-        const pts = t.breakdownOf ? TASK_STEP : TASK_PTS[t.type] || TASK_PTS.Other;
-        (per[t.doneAt ? dayOf(t.doneAt) : "?"] = per[t.doneAt ? dayOf(t.doneAt) : "?"] || []).push(pts);
-      });
+      Object.values(state.tasks || {}).forEach(t => { if (!t || t.status !== "done") return; const k = t.doneAt ? dayOf(t.doneAt) : "?"; (per[k] = per[k] || []).push(taskPts(t)); });
       Object.values(per).forEach(l => { out.task += l.sort((a, b) => b - a).slice(0, TASKS_A_DAY).reduce((n, x) => n + x, 0); });
     });
     return out;
   }
+  const evSum = kind => Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (k.indexOf(kind + ":") === 0 ? Number(v) || 0 : 0), 0) + (Number((sc().evOld || {})[kind]) || 0);
   // Each kind's total: what's saved now, or the most it has ever been (so deleting old work never takes credits away)
   let cache = null, cacheAt = 0;
   function totals(){
     const now = Date.now(); if (cache && now - cacheAt < 1500) return cache;
     const cur = current(), hw = sc().hw || {}, by = {};
     DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
-    by.pres = Object.entries(sc().ev || {}).reduce((n, [k, v]) => n + (/^pres:/.test(k) ? Number(v) || 0 : 0), 0);
+    by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
+    by.pres = evSum("pres");
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
     return cache;
@@ -99,8 +105,10 @@ var SBSC = (() => {
     if (!force && Date.now() - hwAt < 60000) return;
     const t = totals(), hw = sc().hw || {}, up = {};
     DERIVED.forEach(k => { const v = Math.floor(t.cur[k] * 10) / 10; if (v > (Number(hw[k]) || 0)) up[k] = v; });
-    if (!Object.keys(up).length) return;
-    hwAt = Date.now(); setSc({hw: up});
+    const patch = Object.keys(up).length ? {hw: up} : {};
+    if (sc().qbase == null) patch.qbase = Math.max(Number(hw.quiz) || 0, savedQuizPts());
+    if (!Object.keys(patch).length) return;
+    hwAt = Date.now(); setSc(patch);
   }
 
   /* ---------- Spending ---------- */
@@ -117,74 +125,203 @@ var SBSC = (() => {
     return true;
   }
 
-  /* ---------- Presentations: each run's credits written down once ---------- */
+  /* ---------- The reward screen ----------
+     At the end of a focus session, a flashcard session, a quiz, a presentation run and a finished task: the credits it earned,
+     counting up in a shower of coins, line by line (what earned what), the balance going up, and a bar filling toward the next
+     accessory (with Get It when it's within reach). A finished task gets a smaller card that goes away by itself. */
+  let seenTotal = null, lastBy = null, doneSeen = null;
+  const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
+  const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
+  const rq = []; let rOpen = false;
+  // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
+  const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
+  // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
+  function reward(spec){
+    invalidate();
+    const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
+    const gained = Math.max(0, now - before);
+    seenTotal = now; lastBy = Object.assign({}, totals().by);
+    keepHigh();
+    const lines = (spec.lines || []).filter(l => l && (l.n || l.s));
+    const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
+    // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = gained;
+    else if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
+    if (!gained && !spec.showZero) return;
+    if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
+    const bal = balance();
+    // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
+    let welcome = 0;
+    if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    showNext();
+  }
+  // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
+  const screensOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:rewards-test") !== "1"; } catch (e) { return false; } };
+  function showNext(){
+    if (screensOff()) { rq.length = 0; return; }
+    if (rOpen || !rq.length) return;
+    if (document.hidden) { document.addEventListener("visibilitychange", function once(){ if (!document.hidden) { document.removeEventListener("visibilitychange", once); showNext(); } }); return; }
+    const r = rq.shift(); rOpen = true;
+    try { (r.compact ? showCompact : showBig)(r); } catch (e) { console.warn("reward", e); rOpen = false; }
+  }
+  const countUp = (el, from, to, ms, done) => {
+    if (!el) return; if (calm() || to === from) { el.textContent = to.toLocaleString(); if (done) done(); return; }
+    const t0 = performance.now();
+    const step = now => { if (!el.isConnected) return; const f = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - f, 3); el.textContent = Math.round(from + (to - from) * e).toLocaleString(); if (f < 1) requestAnimationFrame(step); else if (done) done(); };
+    requestAnimationFrame(step);
+  };
+  const ICON = {focus: '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/>', cards: '<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>',
+    quiz: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V15"/><circle cx="12" cy="18.5" r=".6"/><circle cx="12" cy="12" r="9.5"/>', task: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    pres: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>', hello: '<path d="M12 3l2.6 5.6L20 9.4l-4 4.1.9 5.8L12 16.6 7.1 19.3l.9-5.8-4-4.1 5.4-.8z"/>'};
+  const icon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.hello}</svg>`;
+  const goalHtml = r => {
+    const g = r.tgt; if (!g) return "";
+    const p0 = Math.min(1, r.bal0 / g.price), p1 = Math.min(1, r.bal / g.price), ready = r.bal >= g.price;
+    return `<div class="scr-goal${ready ? " ready" : ""}" data-p0="${p0}" data-p1="${p1}">
+      <span class="scr-goal-ic cp-r-${esc(g.rarity || "common")}" aria-hidden="true">${g.icon || ""}</span>
+      <span class="scr-goal-t"><b>${esc(g.name)}</b><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span>
+        <span class="mini">${ready ? "You can buy it now!" : `${(g.price - r.bal).toLocaleString()} more credits`}</span></span>
+      ${ready ? `<button type="button" class="btn small scr-goal-go" data-scr="wardrobe">Get It</button>` : ""}</div>`;
+  };
+  function showBig(r){
+    const still = calm(), o = document.createElement("div");
+    o.className = "scr-rw scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrRwT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const rain = still ? "" : Array.from({length: 16}, (_, i) => `<img class="scr-drop" src="${COIN_SRC}" alt="" style="left:${(i * 61 + 7) % 100}%;animation-delay:${(i * 0.137 % 1.1).toFixed(2)}s;width:${18 + (i * 7) % 16}px">`).join("");
+    o.innerHTML = `<div class="scr-dim"></div><div class="scr-rain" aria-hidden="true">${rain}</div><div class="scr-card">
+      <div class="scr-head"><span class="scr-kick">${icon(r.kind)}${esc(r.kick || "Nice Work!")}</span><h2 id="scrRwT">${esc(r.title || "")}</h2></div>
+      <div class="scr-big" aria-live="polite"><span class="scr-big-coin"><img src="${COIN_SRC}" alt="" width="84" height="84"><i class="scr-shine"></i></span>
+        <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
+      ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
+      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"><span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
+      ${goalHtml(r)}
+      <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
+    const tickAt = 0.55 + r.lines.length * 0.28;
+    setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
+    setTimeout(() => { countUp(balEl, r.bal0, r.bal, 900); const gb = o.querySelector(".scr-goal-bar i"), g = o.querySelector(".scr-goal"); if (gb && g) gb.style.width = Math.round(Number(g.dataset.p1) * 100) + "%"; if (g && g.classList.contains("ready")) setTimeout(() => g.classList.add("pop"), 700); }, still ? 0 : tickAt * 1000 + 200);
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
+    let closed = false;
+    const close = go => {
+      if (closed) return; closed = true; o.classList.add("scr-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 250); if (go) openWardrobe(); }, still ? 0 : 240);
+      try { if (!go && back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-scr]"); if (b) close(b.dataset.scr === "wardrobe"); else if (e.target.classList && e.target.classList.contains("scr-dim")) close(false); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
+  }
+  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner)
+  function showCompact(r){
+    const still = calm(), o = document.createElement("div");
+    o.className = "scr-mini scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const g = r.tgt, p0 = g ? Math.min(1, r.bal0 / g.price) : 0, p1 = g ? Math.min(1, r.bal / g.price) : 0;
+    o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
+      <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
+      ${g ? `<span class="scr-mini-goal"><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span><span class="mini">${r.bal >= g.price ? `${esc(g.name)}: ready to buy!` : `${(g.price - r.bal).toLocaleString()} to ${esc(g.name)}`}</span></span>` : ""}</span>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    requestAnimationFrame(() => o.classList.add("show"));
+    try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
+    setTimeout(() => { countUp(o.querySelector("[data-n]"), 0, r.gained, 600); const b = o.querySelector(".scr-goal-bar i"); if (b) b.style.width = Math.round(p1 * 100) + "%"; }, still ? 0 : 250);
+    let closed = false;
+    const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
+    o.addEventListener("click", close);
+    setTimeout(close, 3600);
+  }
+  function openWardrobe(){
+    try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
+  }
+
+  /* ---------- Each kind of work's ending ---------- */
+  // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
+  hook("focus", e => {
+    if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
+    setTimeout(() => {
+      const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
+      reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every 2 minutes"}]});
+    }, 60);
+  });
+  // Flashcards: at the Session Done screen (01-flashcards.js)
+  function cardsDone(n){
+    n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
+    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: "1 credit for every 5 cards"}]});
+  }
+  // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
+  function quizDone(right, total, key){
+    right = Math.max(0, Math.round(Number(right) || 0)); total = Math.max(0, Math.round(Number(total) || 0)); if (!total) return;
+    const day = todayISO(), id = String(key || "quiz").replace(/:/g, "_"), ev = sc().ev || {};
+    const tries = Object.keys(ev).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length;
+    const pass = total >= 3 && right / total >= 0.7, perfect = pass && right >= total;
+    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} right`, n: right, s: "1 credit for each right answer"}].concat(pass ? [{t: "Passed", n: QUIZ_PASS, s: "70% or more"}] : [], perfect ? [{t: "Perfect score!", n: QUIZ_PERFECT}] : []);
+    const pts = lines.reduce((a, l) => a + l.n, 0);
+    // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
+    if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
+    if (pts) { setSc({ev: {[`quiz:${day}:${id}:${uid()}`]: pts}}); invalidate(); }
+    reward({kind: "quiz", kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
+      lines: tries >= QUIZ_TRIES_A_DAY ? [{t: "No credits this time", n: 0, s: `This quiz has earned credits ${QUIZ_TRIES_A_DAY} times today. Try another, or come back tomorrow.`}] : lines, showZero: true});
+  }
+  // Presentations: each slide inside its time, and the whole talk on target (99-present.js, on a finished run)
   hook("pr-finish", (p, run) => {
     try {
-      if (!p || !run || run.sec || run.early || !run.id) return;
-      const ev = sc().ev || {}, today = todayISO(), pid = String(p.id || "");
-      const runsToday = Object.keys(ev).filter(k => k.indexOf(`pres:${pid}:run:${today}:`) === 0).length;
-      const add = {};
-      if (runsToday < PRES_RUNS_A_DAY) add[`pres:${pid}:run:${today}:${run.id}`] = PRES_RUN;
-      // on target: within 10 seconds over its time goal, and not rushed (at least three quarters of it)
-      const tgt = (Number(run.target) || 0) * 1000, onTarget = tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
-      if (onTarget && !ev[`pres:${pid}:master`]) add[`pres:${pid}:master`] = PRES_MASTER;
-      if (!Object.keys(add).length) return;
-      setSc({ev: add}); invalidate();
-      const n = Object.values(add).reduce((a, b) => a + b, 0);
-      if (seenTotal != null) { seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); }
-      pop(n, add[`pres:${pid}:master`] ? "Presentation mastered" : "Practice run");
+      if (!p || !run || run.early || !run.id || !Array.isArray(run.times)) return;
+      const ev = sc().ev || {}, day = todayISO(), pid = String(p.id || "").replace(/:/g, "_");
+      const runsToday = Object.keys(ev).filter(k => k.indexOf(`pres:${day}:${pid}:`) === 0).length;
+      const idx = run.sec ? Array.from({length: run.sec[1] - run.sec[0] + 1}, (_, k) => run.sec[0] + k) : run.times.map((_, k) => k);
+      // a slide is inside its time when it ran no more than a little over (99-present.js's own "ok": 17% or 3 seconds)
+      const ok = idx.filter(k => { const t = Number(run.times[k]) || 0, b = Number((run.budgets || [])[k]) || 0; return b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000); }).length;
+      const tgt = (Number(run.target) || 0) * 1000, whole = !run.sec && tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
+      const first = whole && !ev[`pres:master:${pid}`] && !Object.keys(ev).some(k => k === `pres:${pid}:master`);
+      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `${ok} of ${idx.length} slide${idx.length === 1 ? "" : "s"} on time`, n: ok * PRES_SLIDE, s: `${PRES_SLIDE} credits a slide`}]
+        .concat(whole ? [{t: "Whole talk on target", n: PRES_WHOLE, s: "Within your time goal"}] : [], first ? [{t: "Mastered!", n: PRES_MASTER, s: "The first time on target"}] : []);
+      const add = {}, pts = lines.reduce((a, l) => a + l.n, 0);
+      if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
+      if (first) add[`pres:master:${pid}`] = PRES_MASTER;
+      if (Object.keys(add).length) { setSc({ev: add}); invalidate(); }
+      reward({kind: "pres", kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
+        lines: runsToday >= PRES_RUNS_A_DAY ? [{t: "No credits this time", n: 0, s: `This presentation has earned credits ${PRES_RUNS_A_DAY} times today. Come back tomorrow!`}] : lines, showZero: true});
     } catch (e) { console.warn("study credits: presentation", e); }
   });
-
-  /* ---------- "+12 Credits": a little coin that pops in when you've earned some ---------- */
-  // Credits earned are noticed when the app draws (a moment after, so a flashcard session shows them once, at its end)
-  let seenTotal = null, popT = 0, popEl = null;
-  const NAMES = {focus: "Focus time", cards: "Flashcards", quiz: "Quiz passed", task: "Task done", pres: "Presentation"};
-  function pop(n, why){
-    n = Math.round(n); if (n < 1) return;
-    try {
-      // a manual popover, so it shows over an open sheet too (sheets are in the top layer)
-      if (!popEl || !popEl.isConnected) { popEl = document.createElement("div"); popEl.className = "scr-pop"; popEl.setAttribute("role", "status"); popEl.setAttribute("aria-live", "polite"); if (popEl.showPopover) popEl.setAttribute("popover", "manual"); document.body.appendChild(popEl); }
-      popEl.innerHTML = `${coin(26)}<span><b>+${n.toLocaleString()} Credit${n === 1 ? "" : "s"}</b>${why ? `<small>${esc(why)}</small>` : ""}</span>`;
-      try { if (popEl.showPopover) { if (popEl.matches(":popover-open")) popEl.hidePopover(); popEl.showPopover(); } } catch (e) {}
-      popEl.classList.remove("show"); void popEl.offsetWidth; popEl.classList.add("show");
-      clearTimeout(popEl._t); popEl._t = setTimeout(() => { popEl.classList.remove("show"); setTimeout(() => { try { if (!popEl.classList.contains("show") && popEl.matches(":popover-open")) popEl.hidePopover(); } catch (e) {} }, 400); }, 3200);
-    } catch (e) {}
-    paintPills();
-  }
-  let lastBy = null;
+  // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
+  const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
   function notice(){
     invalidate();
-    const t = totals();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); return; }
+    const t = totals(), done = doneNow();
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
+    doneSeen = done;
     if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
-    // which kind of work it came from (the one that grew the most)
-    let why = "", most = 0; Object.keys(t.by).forEach(k => { const d = t.by[k] - ((lastBy || {})[k] || 0); if (d > most) { most = d; why = NAMES[k]; } });
-    const gained = t.earned - seenTotal; seenTotal = t.earned; lastBy = Object.assign({}, t.by);
-    // a big jump at once is work arriving from another device (or a backup), not something just done: no pop
-    if (gained <= 250) pop(gained, why);
-    keepHigh();
+    const gained = t.earned - seenTotal;
+    // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (fresh.length) {
+      const top = fresh.slice(0, 3);
+      reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
+        lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
+      return;
+    }
+    reward({kind: "hello", compact: true, kick: "Credits Earned", title: "From your studying", lines: [{t: "Studying", n: gained}]});
   }
-  // mid-way through a flashcard session or a presentation run: wait (the session's end shows what it earned)
-  const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && f.mode === "study" && Array.isArray(f.q) && !!f.q[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
+  // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
+  const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
+  let noticeT = 0;
   function noticeSoon(){
-    clearTimeout(popT);
-    popT = setTimeout(() => { if (studying() || document.hidden) { noticeSoon(); return; } notice(); }, 1800);
+    clearTimeout(noticeT);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
-  hook("stats-focus", noticeSoon);
-  hook("good-moment", noticeSoon);
-  // the first count after start-up (and after the account's data arrives) is quiet: only new work pops
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); keepHigh(); }, 3000); setTimeout(intro, 20000); });
-  // Once per account: what's been earned so far, from studying before credits existed (after start-up's sync has settled)
-  function intro(){
-    try {
-      if (sc().intro || document.hidden) return;
-      invalidate(); const n = balance();
-      setSc({intro: 1});
-      if (n > 0) pop(n, "Earned by your studying so far. Spend them in your companion's Wardrobe.");
-    } catch (e) {}
-  }
+  // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
+  // A little "+12 Credits" pop (kept for other parts of the app)
+  function pop(n, why){ n = Math.round(n); if (n < 1) return; rq.push({kind: "hello", compact: true, kick: "Credits Earned", title: why || "", lines: [], gained: n, bal: balance(), bal0: balance() - n, day: todayN(), tgt: target()}); showNext(); }
 
   // Anywhere showing the balance (.scr-bal) is kept current
   function paintPills(){
@@ -199,26 +336,8 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 40 credits: a Common in about 3 days, a Legendary in about a month.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  if (!document.getElementById("scr-css")) { const st = document.createElement("style"); st.id = "scr-css";
-    st.textContent = `.scr-coin{flex:none;vertical-align:-.2em;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
-.scr-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px 4px 6px;border-radius:999px;border:1px solid color-mix(in srgb,#E2A82A 45%,var(--line));background:color-mix(in srgb,#F6C34A 14%,var(--surface));color:var(--ink);font:700 .9rem var(--display);white-space:nowrap}
-.scr-pill > span{font-weight:600;opacity:.85}
-.scr-pop{position:fixed;z-index:2147483000;inset:auto;margin:0;overflow:visible;right:16px;top:calc(env(safe-area-inset-top,0px) + 14px);display:flex;align-items:center;gap:10px;padding:8px 16px 8px 10px;border-radius:999px;background:var(--surface,#fff);color:var(--ink,#222);border:1px solid color-mix(in srgb,#E2A82A 55%,transparent);box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:min(360px,calc(100vw - 32px));box-sizing:border-box;opacity:0;transform:translateY(-12px) scale(.96);pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,1.4,.4,1)}
-.scr-pop.show{opacity:1;transform:none}
-.scr-pop span{display:grid;line-height:1.15}
-.scr-pop b{font:800 1rem var(--display);color:#8A5A00}
-.scr-pop small{font-size:.78rem;color:var(--muted,#666)}
-:root[data-theme="dark"] .scr-pop b,.dark .scr-pop b{color:#FFD36B}
-@media (prefers-reduced-motion:reduce){.scr-pop{transition:opacity .2s}}
-.scr-how-day{margin:0 0 8px}
-.scr-how{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.scr-how li{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.scr-how-n{flex:1;display:grid;gap:2px;min-width:0}
-.scr-how-v{display:inline-flex;align-items:center;gap:5px;font:800 .95rem var(--display);font-variant-numeric:tabular-nums}`;
-    document.head.appendChild(st); }
-
   return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
-    kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop,
+    kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
 })();

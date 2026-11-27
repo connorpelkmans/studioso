@@ -94,3 +94,7 @@
 /* the session summary sits in the middle of the page, its heading over it */
 .done-card.sd{margin-inline:auto}
 .view-head.sd-head{justify-content:center;text-align:center;max-width:760px;margin-inline:auto}
+/* dark mode from the system setting (no data-theme set) */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .sd-credits b{color:#FFD36B}
+}

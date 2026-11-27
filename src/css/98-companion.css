@@ -344,3 +344,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .cpu.cpu-still *,.cpu.cpu-still{animation:none!important}
 .cpu.cpu-still .cpu-spark{opacity:.8;transform:none}
 @media (prefers-reduced-motion:reduce){.cpu *,.cpu{animation:none!important}.cpu .cpu-spark{opacity:.8}}
+/* dark mode from the system setting (no data-theme set) */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+}
