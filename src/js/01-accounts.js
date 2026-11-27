@@ -1162,7 +1162,7 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>What are you studying?</h3>
-    <p>Let's plan your semester, or give me your notes and get flashcards in about a minute. No account needed.</p>
+    <p>Let's plan your semester. No account needed.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next</li>

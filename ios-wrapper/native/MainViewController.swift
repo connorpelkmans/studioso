@@ -294,9 +294,10 @@ enum StudyboardBackgroundRefresh {
     private static var registered = false
 
     static func register() {
-        // a reminder's Mark Done or Snooze can start the app in the background: its handler has to be there before launch ends
-        MainViewController.installNotifActions()
         guard !registered else { return }
+        // a reminder's Mark Done or Snooze can start the app in the background: its handler has to be there before launch ends
+        // (after the guard, so a line another change adds above it merges without a conflict; register() runs once at launch)
+        MainViewController.installNotifActions()
         registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
             guard let task = task as? BGAppRefreshTask else { task.setTaskCompleted(success: false); return }
             handle(task)

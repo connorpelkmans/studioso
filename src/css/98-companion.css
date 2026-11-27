@@ -1,8 +1,8 @@
 /* ===== module: 98-companion.css ===== */
 /* Study Companions */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .3s cubic-bezier(.2,.8,.3,1)}
-/* Stepping aside for a toast: it hops up above the message (it used to fade out, so it vanished whenever one showed) */
+.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .45s cubic-bezier(.45,0,.25,1)}
+/* Stepping aside for a toast: a short step or a hop up, and back again, eased in and out (98-companion.js duck) */
 .cp-front .cp.cp-duck{translate:var(--cp-dx,0px) var(--cp-lift,0px)}
 .cp-front .cp-hit.cp-hit-off{pointer-events:none}
 @media (prefers-reduced-motion:reduce){.cp-front .cp{transition:opacity .2s ease}}

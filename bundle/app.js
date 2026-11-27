@@ -3497,7 +3497,7 @@ function sbWelcomeHtml(){
   return `<div class="sb-welc">
     <div class="sb-welc-m" aria-hidden="true">${mochi}</div>
     <h3>Hi! I'm Mochi.<br>What are you studying?</h3>
-    <p>Let's plan your semester, or give me your notes and get flashcards in about a minute. No account needed.</p>
+    <p>Let's plan your semester. No account needed.</p>
     <ul>
       <li>${ic('<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z"/>')}Add courses and deadlines in minutes</li>
       <li>${ic('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/>')}See exactly what to do next</li>
@@ -73747,8 +73747,10 @@ var COMP_EXTRA = [];
     // The safety checks wait until scrolling stops, so they never cost a frame mid-scroll
     clearTimeout(scrollT); scrollT = setTimeout(() => { placeSoon(200); guardSoon("scroll", 0); }, 160);
   }, {passive: true, capture: true});
-  // A toast that overlaps it: it steps sideways, left or right (whichever is the shorter step that stays on screen and clear of
-  // the Add Task button), and only hops up over it where neither side has room
+  // A toast that overlaps it: it takes the smallest way out of the toast's way: a short step left or right (on screen, and clear
+  // of the Add Task button and the tab bar or sidebar), or a hop straight up over it. A sideways step is never longer than about
+  // one and a half of its own widths, so it never crosses the screen (it used to slide right across a wide toast to the far side).
+  // When the toast goes it glides back to its own spot.
   function duck(){
     if (!box) return;
     const t = document.getElementById("toast"), on = !!(t && t.classList.contains("show"));
@@ -73764,22 +73766,18 @@ var COMP_EXTRA = [];
         const W = document.documentElement.clientWidth || innerWidth, rect = el => el && el.getClientRects().length ? el.getBoundingClientRect() : null;
         const walls = [rect(document.getElementById("fab")), rect(document.querySelector("nav.tabs"))].filter(r => r && r.width && r.height);
         const clear = d => b.left + d >= 6 && b.right + d <= W - 6 && !walls.some(r => b.left + d < r.right && b.right + d > r.left && b.top < r.bottom && b.bottom > r.top);
-        const opts = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(clear).sort((x, y) => Math.abs(x) - Math.abs(y));
-        if (opts.length) dx = opts[0]; else lift = Math.ceil(b.bottom - a.top + 8);
+        const cap = Math.max(120, (b.right - b.left) * 1.5);
+        const side = [Math.ceil(a.right - b.left + 10), -Math.ceil(b.right - a.left + 10)].filter(d => Math.abs(d) <= cap && clear(d));
+        const up = Math.ceil(b.bottom - a.top + 8), upOk = b.top - up >= 6;
+        const best = side.sort((x, y) => Math.abs(x) - Math.abs(y))[0];
+        if (best != null && (!upOk || Math.abs(best) <= up)) dx = best; else lift = up;
       }
     }
     // (the companion's layer can be zoomed, so the step is set in its own pixels)
     const z = zf();
     if (hit) { box.style.setProperty("--cp-dx", (dx / z).toFixed(1) + "px"); box.style.setProperty("--cp-lift", (-lift / z).toFixed(1) + "px"); box.dataset.dx = String(dx); box.dataset.lift = String(lift); }
-    // when the toast goes, it stays where it stepped to (its step becomes its place) and carries on as usual from there
-    if (!hit && box.classList.contains("cp-duck")) {
-      const z = zf(), dx0 = Number(box.dataset.dx || 0) / z, dy0 = -Number(box.dataset.lift || 0) / z;
-      const l = parseFloat(box.style.left) + dx0, tp = parseFloat(box.style.top) + dy0;
-      box.style.transition = "none"; box.classList.remove("cp-duck", "cp-h-fab");
-      if (Number.isFinite(l) && Number.isFinite(tp)) { box.style.left = l.toFixed(1) + "px"; box.style.top = tp.toFixed(1) + "px"; box.dataset.x = String(Math.round(l)); box.dataset.y = String(Math.round(tp)); }
-      void box.offsetWidth; box.style.transition = "";
-      return;
-    }
+    // when the toast goes it glides back to its own spot (the step is undone; its place never changed)
+    if (!hit && box.classList.contains("cp-duck")) { box.classList.remove("cp-duck"); box.dataset.dx = "0"; box.dataset.lift = "0"; return; }
     box.classList.toggle("cp-duck", hit);
     // when it's moved to a new place (it finds its own spot clear of a toast too), the step is worked out again from there
     if (box !== duckSeen) { duckSeen = box; let at = ""; new MutationObserver(() => { const k = box && box.style.left + "," + box.style.top; if (k !== at) { at = k; requestAnimationFrame(duck); } }).observe(box, {attributes: true, attributeFilter: ["style"]}); }
