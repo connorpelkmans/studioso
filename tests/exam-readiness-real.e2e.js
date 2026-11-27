@@ -14,7 +14,7 @@ const day = k => { const d = new Date(); d.setDate(d.getDate() + k); return iso(
 const card = (id, front, back, o) => Object.assign({id, front, back, box: 0, due: "", seen: 0, right: 0, wrong: 0}, o || {});
 const sess = (id, ex, topicId, k, o) => Object.assign({id, title: "Study " + id, type: "Study", courseId: "", start: day(k), due: day(k), hours: 0.5, status: "todo", prepFor: ex, kind: "learn", topicId}, o || {});
 const SEED = () => ({v: 2, updated: 1, files: [], notes: [], events: [],
-  courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}, {id: "c2", name: "History", code: "HIS 7", color: "#C2412D"}],
+  courses: [{id: "c1", name: "Biology", code: "BIO 110", color: "#3B6FE0"}, {id: "c2", name: "History", code: "HIS 7", color: "#C2412D"}, {id: "c3", name: "Microeconomics", code: "ECON 102", color: "#2F9E5F"}],
   tasks: [
     // 1 and 2: a plan made without named topics, as the planner makes one for an exam with no topics
     {id: "exA", title: "Phylogeny Exam", type: "Exam", courseId: "c1", due: day(8), start: day(8), status: "todo", pct: 0,
@@ -26,13 +26,16 @@ const SEED = () => ({v: 2, updated: 1, files: [], notes: [], events: [],
     {id: "exC", title: "Cells Midterm", type: "Exam", courseId: "c1", due: day(6), start: day(6), status: "todo", pct: 0,
       prep: {v: 1, topics: [{id: "tc", name: "Cell parts", conf: "ok", weight: null, done: false, edited: true, links: [{k: "deck", id: "dC", title: "Cell parts", deckId: "", cardIds: null, total: 8}]}],
         intensity: 90, style: [], styleText: "", rest: false, light: true, start: "", ai: false, examDue: day(6), createdAt: 1, updatedAt: 1}, planTopics: [{name: "Cell parts", conf: "ok"}]},
-    sess("c1s", "exC", "tc", 1, {courseId: "c1", kind: "cards"})],
+    sess("c1s", "exC", "tc", 1, {courseId: "c1", kind: "cards"}),
+    // 6: a course exam with no plan, and a deck made without a course (as most real decks are)
+    {id: "exD", title: "Econ Midterm", type: "Exam", courseId: "c3", due: day(9), start: day(9), status: "todo", pct: 0}],
   decks: [
     {id: "dQ", name: "Social studies review: Renaissance and Reformation", courseId: "c2", created: 1, quizOnly: true, cards: [],
       aiQuizzes: [{id: "q1", title: "Renaissance and Reformation review", created: 1, questions: [{stem: "Who painted the Mona Lisa?"}], results: [{at: Date.now() - 3600e3, score: 8, total: 10}]}], quizzes: []},
     {id: "dC", name: "Cell parts", courseId: "c1", created: 1, cards: Array.from({length: 8}, (_, i) => card("k" + i, "Organelle " + i, "Does job " + i,
       // high boxes, but last reviewed two months ago: known then, mostly forgotten now
-      {box: 4, seen: 3, right: 3, last: day(-60), due: day(-46)}))}],
+      {box: 4, seen: 3, right: 3, last: day(-60), due: day(-46)}))},
+    {id: "dE", name: "ECON 102 Exam Review: Supply and Demand", courseId: "", created: 1, cards: Array.from({length: 10}, (_, i) => card("e" + i, "Econ term " + i, "Meaning " + i, {box: 3, seen: 2, right: 2, last: day(0), due: day(7)}))}],
   settings: {capacity: 15, sc: {intro: 1}}});
 
 const MIME = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".png": "image/png", ".webp": "image/webp"};
@@ -68,6 +71,36 @@ const server = http.createServer((req, res) => { const f = path.join(root, decod
     // 3. an exam with no course: the Renaissance quiz in the History quizzes counts
     const b = await S(() => SBSC.xr("exB"));
     ok(b && b.measured === 80 && b.parts.quiz === 80 && b.parts.how === "topics", "an exam with no course finds the practice quiz on its topics: " + JSON.stringify(b && {m: b.measured, how: b.parts.how}));
+
+    // 6. a deck with no course never counts for a course's exam by itself; you link it, or some of its cards, by hand
+    const d0 = await S(() => SBSC.xr("exD"));
+    ok(d0 && d0.measured == null, "a deck with no course doesn't count for a course's exam on its own: " + JSON.stringify(d0 && d0.parts));
+    // from the card: Edit Card lists the upcoming exams under Counts Toward
+    await S(() => { const X = window.__sbSync; X.ui.tab = "flashcards"; X.ui.deckId = "dE"; X.render(); });
+    await p.waitForTimeout(300);
+    await S(() => { const b = document.createElement("button"); b.dataset.act = "fc-card"; b.dataset.id = "e0"; document.body.appendChild(b); b.click(); b.remove(); });
+    await p.waitForSelector('dialog[open] input[name="xrFor"][value="exD"]', {timeout: 4000});
+    await p.check('dialog[open] input[name="xrFor"][value="exD"]'); await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(400);
+    const t1 = await S(() => { const t = window.__sbSync.state.tasks.exD; return {d: t.readyDecks, c: t.readyCards}; });
+    ok(JSON.stringify(t1) === JSON.stringify({d: ["dE"], c: {dE: ["e0"]}}), "ticking an exam on a card makes just that card count for it: " + JSON.stringify(t1));
+    // from the deck: Edit Deck ticks the whole deck
+    await S(() => { const b = document.createElement("button"); b.dataset.act = "fc-edit"; b.dataset.id = "dE"; document.body.appendChild(b); b.click(); b.remove(); });
+    await p.waitForSelector('dialog[open] input[name="xrFor"][value="exD"]', {timeout: 4000});
+    const partTxt = await S(() => document.querySelector('dialog[open] input[name="xrFor"][value="exD"]').closest("label").innerText);
+    ok(!(await p.isChecked('dialog[open] input[name="xrFor"][value="exD"]')) && /1 of 10 cards count/.test(partTxt), "the deck's sheet says 1 of its 10 cards counts: " + partTxt.replace(/\s+/g, " "));
+    await p.check('dialog[open] input[name="xrFor"][value="exD"]');
+    await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(400);
+    const d1 = await S(() => { const t = window.__sbSync.state.tasks.exD; return {d: t.readyDecks, c: t.readyCards || null, x: SBSC.xr("exD")}; });
+    ok(JSON.stringify(d1.d) === '["dE"]' && d1.c == null && d1.x.measured != null && d1.x.parts.cardsAll === 10 && d1.x.parts.how === "linked", "ticking the exam on the deck links all of it, and readiness is measured from it: " + JSON.stringify({d: d1.d, c: d1.c, m: d1.x.measured, n: d1.x.parts.cardsAll}));
+    // from the exam: Which Flashcards and Quizzes Count? narrows a picked deck to chosen cards
+    await S(() => { const b = document.createElement("button"); b.dataset.act = "xr-decks"; b.dataset.id = "exD"; document.body.appendChild(b); b.click(); b.remove(); });
+    await p.waitForSelector('dialog[open] [data-xrc="dE"] summary', {timeout: 4000});
+    await p.click('dialog[open] [data-xrc="dE"] summary');
+    for (const id of ["e1", "e2", "e3"]) await p.uncheck(`dialog[open] input[name="c:dE"][value="${id}"]`);
+    const lbl = await p.textContent('dialog[open] [data-xrc="dE"] summary .mini');
+    await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(400);
+    const d2 = await S(() => { const t = window.__sbSync.state.tasks.exD; return {c: t.readyCards, x: SBSC.xr("exD")}; });
+    ok(lbl === "7 of 10 cards" && d2.c && d2.c.dE.length === 7 && !d2.c.dE.includes("e1") && d2.x.parts.cardsAll === 7, "the exam's sheet narrows a deck to the cards picked: " + JSON.stringify({lbl, n: d2.c && d2.c.dE.length, all: d2.x.parts.cardsAll}));
 
     // 4. the linked deck: boxes say 80%, but those cards were last seen two months ago
     const c = await S(() => { const t = window.__sbSync.state.tasks.exC; return SBPREP.pct(t); });

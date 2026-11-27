@@ -274,6 +274,13 @@ function normTask(t){
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  // the cards picked from a picked deck (deck id → card ids); a deck with no entry counts in full
+  if (t.readyCards != null) {
+    if (t.readyCards && typeof t.readyCards === "object" && !Array.isArray(t.readyCards)) {
+      const o = {}; Object.keys(t.readyCards).slice(0, 30).forEach(k => { const v = t.readyCards[k]; if (k.length <= 80 && Array.isArray(v)) o[k] = v.filter(x => typeof x === "string" && x.length <= 80).slice(0, 1000); });
+      if (Object.keys(o).length) t.readyCards = o; else delete t.readyCards;
+    } else delete t.readyCards;
+  }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};

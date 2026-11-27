@@ -272,3 +272,11 @@
 .scr-mini-rd svg{flex:none;width:13px;height:13px}
 :root[data-theme="dark"] .scr-ready-h,:root[data-theme="dark"] .scr-mini-rd{color:#6FE0AE}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-ready-h,:root:not([data-theme="light"]) .scr-mini-rd{color:#6FE0AE}}
+/* Which flashcards count: a picked deck's cards, to narrow it (under its row) */
+.xr-cards{margin:-2px 0 6px 30px}
+.xr-cards>summary{cursor:pointer;font-size:.85rem;font-weight:700;color:var(--accent);min-height:28px;display:flex;align-items:center;gap:6px}
+.xr-cards>summary .mini{font-weight:500;color:var(--muted)}
+.xr-cards-in{display:grid;gap:2px;max-height:240px;overflow:auto;padding:4px 0 2px}
+.xr-cards-in .mi-check{font-size:.88rem}
+.xr-for{border:0;padding:0;margin:0;display:grid;gap:4px}
+.xr-for legend{padding:0;margin-bottom:4px}

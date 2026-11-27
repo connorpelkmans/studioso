@@ -154,6 +154,61 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
+// A picked deck's cards, to narrow it to some of them (after its row, shown with CSS beside it)
+function xrCardsPick(t, d){
+  const rc = t.readyCards && Array.isArray(t.readyCards[d.id]) ? new Set(t.readyCards[d.id]) : null, live = d.cards.filter(x => !x.draft);
+  const on = rc ? live.filter(x => rc.has(x.id)).length : live.length;
+  return `<details class="xr-cards" data-xrc="${esc(d.id)}"><summary>Choose Cards <span class="mini">${on === live.length ? "all cards" : `${on} of ${live.length} cards`}</span></summary><div class="xr-cards-in">${live.map(x =>
+    `<label class="mi-check"><input type="checkbox" name="c:${esc(d.id)}" value="${esc(x.id)}"${!rc || rc.has(x.id) ? " checked" : ""}> <span>${esc(String(x.front || "").slice(0, 90))}</span></label>`).join("")}</div></details>`;
+}
+/* Linking from the flashcards side (the Edit Card and Edit Deck sheets): which upcoming exams a card or deck counts toward.
+   An exam still on Automatic switches to the decks you pick, starting from what Automatic used, so its readiness doesn't drop. */
+const upcomingExams = courseId => { const today = todayISO(); return Object.values(state.tasks || {}).filter(t => isExam(t) && t.status !== "done" && t.due && t.due >= today)
+  .sort((a, b) => ((b.courseId === courseId) - (a.courseId === courseId)) || a.due.localeCompare(b.due)).slice(0, 12); };
+function manualOf(t){
+  if ((t.readyDecks || []).length) return {decks: t.readyDecks.slice(), cards: Object.assign({}, t.readyCards || {})};
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: [], readyCards: null})), by = {};
+  const owner = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { owner[c.id] = d.id; }));
+  (ev.cards || []).forEach(c => { const did = owner[c.id]; if (did) (by[did] = by[did] || []).push(c.id); });
+  const cards = {}; Object.keys(by).forEach(did => { const d = state.decks[did], live = d ? d.cards.filter(x => !x.draft).length : 0; if (by[did].length < live) cards[did] = by[did]; });
+  return {decks: Object.keys(by), cards};
+}
+const autoHas = (t, deckId, cardId) => { if ((t.readyDecks || []).length) return false; const ev = examEvidence(t); return cardId ? (ev.cards || []).some(c => c.id === cardId) : (ev.decks || []).some(d => d.id === deckId) || (ev.cards || []).some(c => (state.decks[deckId] || {cards: []}).cards.includes(c)); };
+// "manual", "auto" or "" (a card, or a deck when cardId is empty)
+function countsFor(t, deckId, cardId){
+  if ((t.readyDecks || []).length) {
+    if (!t.readyDecks.includes(deckId)) return "";
+    const ids = t.readyCards && Array.isArray(t.readyCards[deckId]) ? t.readyCards[deckId] : null;
+    if (!cardId) return ids ? "some" : "manual";
+    return !ids || ids.includes(cardId) ? "manual" : "";
+  }
+  return autoHas(t, deckId, cardId) ? "auto" : "";
+}
+// the change to an exam that makes a card (or, with no cardId, a whole deck) count toward it or not
+function linkChange(examId, deckId, cardId, on){
+  const t = state.tasks[examId], d = state.decks[deckId]; if (!t || !d) return null;
+  const m = manualOf(t), has = m.decks.includes(deckId), live = d.cards.filter(x => !x.draft).map(x => x.id);
+  if (!cardId) { if (on) { if (!has) m.decks.push(deckId); delete m.cards[deckId]; } else { m.decks = m.decks.filter(x => x !== deckId); delete m.cards[deckId]; } }
+  else if (on) { if (!has) { m.decks.push(deckId); m.cards[deckId] = [cardId]; } else if (m.cards[deckId] && !m.cards[deckId].includes(cardId)) { m.cards[deckId] = m.cards[deckId].concat(cardId); if (m.cards[deckId].length >= live.length) delete m.cards[deckId]; } }
+  else if (has) { const cur = m.cards[deckId] || live; m.cards[deckId] = cur.filter(x => x !== cardId); if (!m.cards[deckId].length) { delete m.cards[deckId]; m.decks = m.decks.filter(x => x !== deckId); } }
+  const n = clone(t); if (m.decks.length) n.readyDecks = m.decks.slice(0, 30); else delete n.readyDecks;
+  const rc = {}; Object.keys(m.cards).forEach(k => { if (m.decks.includes(k)) rc[k] = m.cards[k]; }); if (m.decks.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
+  return {kind: "task", id: examId, after: n};
+}
+// the "Counts Toward" list for the Edit Card and Edit Deck sheets (empty with no upcoming exams)
+function countsHtml(d, cardId){
+  const xs = upcomingExams(d.courseId); if (!xs.length) return "";
+  return `<fieldset class="f xr-for"><legend class="lh">Counts Toward <span class="hint">the exams whose readiness ${cardId ? "this card" : "this deck"} counts for</span></legend>${xs.map(t => { const s = countsFor(t, d.id, cardId), c = courseOf(t.courseId), on = !!s && s !== "some";
+    // a deck with only some of its cards picked: unticked, with how many (ticking it makes the whole deck count)
+    const some = s === "some" ? (n => ` · ${n} of ${d.cards.filter(x => !x.draft).length} cards count`)((t.readyCards[d.id] || []).length) : "";
+    return `<label class="mi-check"><input type="checkbox" name="xrFor" value="${esc(t.id)}" data-was="${on ? 1 : 0}"${on ? " checked" : ""}> <span>${esc(t.title)} <span class="mini">${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}${s === "auto" ? " · picked automatically" : ""}${some}</span></span></label>`; }).join("")}</fieldset>`;
+}
+// the changes from that list, as the sheet is saved
+function countsChanges(form, deckId, cardId){
+  const out = []; form.querySelectorAll('input[name="xrFor"]').forEach(i => { const was = i.dataset.was === "1"; if (i.checked !== was) { const c = linkChange(i.value, deckId, cardId, i.checked); if (c) out.push(c); } });
+  return out;
+}
+window.SBXR = {countsHtml, countsChanges, countsFor, linkChange, upcomingExams};
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
    school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
 function decksSheet(id){
@@ -169,20 +224,29 @@ function decksSheet(id){
       <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>${!isQuizHolder(d) && d.cards.some(x => !x.draft) ? xrCardsPick(t, d) : ""}`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;
     const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
     if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    // the cards picked in each deck (all of them: the deck counts in full)
+    const rc = {}; ids.forEach(did => { const d = state.decks[did]; if (!d || isQuizHolder(d)) return; const live = d.cards.filter(x => !x.draft).map(x => x.id), on = fd.getAll("c:" + did).map(String).filter(x => live.includes(x));
+      if (dlg.querySelector(`[data-xrc="${CSS.escape(did)}"]`) && on.length < live.length) rc[did] = on; });
     const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    if (ids.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
     dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
     return false;
   });
   // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
   const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
   dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
-  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true;
+    const pk = i.closest("[data-xrc]");
+    if (pk && i.checked) { const di = box.querySelector(`input[name="d"][value="${CSS.escape(pk.dataset.xrc)}"]`); if (di) di.checked = true; }
+    if (pk) { const all = pk.querySelectorAll('input[type="checkbox"]'), on = [...all].filter(x => x.checked).length, s2 = pk.querySelector("summary .mini"); if (s2) s2.textContent = on === all.length ? "all cards" : `${on} of ${all.length} cards`; }
+    sync(); }));
   sync();
 }
 // Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
