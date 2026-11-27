@@ -207,11 +207,20 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), under the dial while a focus session is going
+let pomoCrN = -1;
+function pomoCreditsHtml(){
+  if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
+  const l = SBSC.focusLive(); pomoCrN = l.n;
+  return SBSC.liveHtml(l.n);
+}
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
+  // the credits chip changes once a minute (a little bump when it does)
+  try { const box = document.querySelector("[data-pomo-cr]"); if (box && typeof SBSC !== "undefined" && SBSC) { const was = pomoCrN, html = pomoCreditsHtml(); if (pomoCrN !== was || !box.innerHTML !== !html) { box.innerHTML = html; const c = box.firstElementChild; if (c && was >= 0 && pomoCrN > was) c.classList.add("bump"); } } } catch (e) {}
   const ring = $("#pomoRing"); if (ring) ring.style.strokeDashoffset = String(ring.dataset.c * (1 - frac));
   setTitle();
 }
@@ -376,6 +385,7 @@ function renderPomo(){
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
         <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
+      <div class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
         <button class="btn pomo-rd" data-act="pomo-reset" title="Reset" ${pomo.running || pomo.left > 0 ? "" : "disabled"}>${POMO_IC.reset}<span class="sr">Reset</span></button>

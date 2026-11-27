@@ -3040,7 +3040,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
         <div class="cpt3-mini sm-skip" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
-        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
+        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}<span class="mini cpt-meta" title="${esc(meta)}">${esc(meta || "Not wearing anything")}</span></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
     const tabs = `<div class="cpt3-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"]].concat(me ? [["wardrobe", "Wardrobe"]] : []).map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
     const pane = tab === "chat" ? chatHtml() : tab === "history" ? historyHtml() : `<section class="cpt3-ward">${SBCOMP.wardrobe()}</section>`;
@@ -3162,6 +3162,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
 .cpt-id h2{margin:0;font:800 1.85rem/1.15 var(--display)}
 .cpt-id p{margin:0}
+/* always one line, so putting something on (or taking it off) never moves the Wardrobe below */
+.cpt-id .cpt-meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
 .cpt-dress{min-height:46px;padding:11px 20px;font-size:1rem}

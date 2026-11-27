@@ -23,7 +23,8 @@
   // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
   // quizzes, tasks and presentations, each by how hard it is. The price is set by the prop's rarity (PRICE). Once bought, a prop is kept for
   // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
-  // Props earned the old way (cfg().earned, before credits) stay yours.
+  // Credits are the only way to get one: props once unlocked by study milestones (cfg().earned, which older versions of the app
+  // still write) don't count, so an out-of-date device can't hand out free props. Past studying earned credits to buy them back.
   const ACC = [
     {id: "scarf", rarity: "common", name: "Cozy Scarf"},
     {id: "hat", rarity: "common", name: "Tiny Hat"},
@@ -371,8 +372,7 @@
   /* Getting props: bought with Studyboard Credits */
   const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
   const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
-  const wasEarned = a => !!(cfg().earned || {})[a.id];
-  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
   const forSale = a => !!a && (!a.festive || inSeason());
@@ -2343,6 +2343,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
+  // Props unlocked by study milestones (cfg().earned) before credits stay yours: they become owned for good (sc.own, at no cost).
+  // Unlocks after credits went in (the wardrobe expansion and credits reached main on Nov 27, 06:47 UTC, but some devices and
+  // sites kept running the old milestone code) were a mistake and are taken back, as is any of the newer props it unlocked
+  // (none of those existed before). Whatever a taken-back prop was worn on comes off. Runs a little after start-up and after
+  // each sync, since an out-of-date device can still write new unlocks.
+  const CREDITS_FROM = Date.UTC(2026, 10, 27, 6, 47, 0);
+  const ORIGINAL = ["scarf", "hat", "bowtie", "glasses", "medal", "cape", "star", "beanie", "cap", "crown"];
+  function revokeUnbought(){
+    try {
+      const c = cfg(), earned = c.earned; if (!earned || typeof earned !== "object" || !SC()) return;
+      const keep = Object.keys(earned).filter(id => { const v = Number(earned[id]) || 0; return ORIGINAL.includes(id) && ACC.some(a => a.id === id) && (v === 1 || (v > 1 && v < CREDITS_FROM)); });
+      keep.forEach(id => SC().grant(id));
+      const wear = {};
+      Object.entries(c.wear || {}).forEach(([cid, list]) => { wear[cid] = wornList(list).filter(id => canWear(ACC.find(x => x.id === id))); });
+      const next = Object.assign({}, c, {wear}); delete next.earned;
+      state.settings = Object.assign({}, state.settings, {comp: next}); saveSettings();
+      curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+    } catch (e) { console.warn("companion: revoke", e); }
+  }
+  hook("boot", () => setTimeout(revokeUnbought, 4000));
+  hook("render", () => { if (cfg().earned) setTimeout(revokeUnbought, 2000); });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
   hook("plan-changed", () => { curSig = ""; refresh(0); });
   hook("stats-focus", () => later(checkUnlocks, 2500));
@@ -2628,6 +2649,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
       <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
@@ -2641,9 +2663,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${smartRow()}`;
   }
   /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
-  let buyBack = "";
+  let buyBack = "", buyKeep = null;
+  dlg.addEventListener("close", () => { const k = buyKeep; buyKeep = null; if (!k || !k.se) return;
+    // focus goes back to the tapped tile without scrolling (with it focused, the app's own refocus after a sheet leaves it be)
+    const put = () => { k.se.scrollTop = k.top; };
+    try { if (k.el && k.el.isConnected && k.el.focus) k.el.focus({preventScroll: true}); } catch (e) {}
+    put(); requestAnimationFrame(put); setTimeout(put, 60); setTimeout(put, 160); });
   function buyProp(a){
     if (!a) return;
+    // opened from the page (the Companion tab's Wardrobe): closing the sheet puts the page back exactly where it was (the browser
+    // would otherwise scroll the tapped tile into view as it gets focus back)
+    if (!dlg.open) { const se = document.scrollingElement; buyKeep = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
     if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
     stopPreviews();
     const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
@@ -2653,7 +2683,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
       <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
       <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
-      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 25 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 12 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
       ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
     if (!dlg.open) try { dlg.showModal(); } catch (e) {}
@@ -2742,6 +2772,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 
   hook("act", (a, el) => {
     if (a === "comp-open") { openPicker(); return true; }
+    if (a === "wh-pro-spin") { if (SC() && SC().spinPro) SC().spinPro(() => { try { refreshPicker(); } catch (e) {} try { render(); } catch (e) {} }); return true; }
     if (a === "comp-change") { openChange(); return true; }
     if (a === "comp-theme") {
       const k = el.dataset.skin, slot = Number(el.dataset.slot) || 0, pickC = REG[k] && REG[k].list[slot];
@@ -3124,6 +3155,9 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     accessoryNames: () => ACC.map(x => x.name),
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
+    // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
+    accList: () => ACC.map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
+    wearId: id => { try { const a = ACC.find(x => x.id === id), c = current(); if (!a || !c || !canWear(a)) return false; const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} return true; } catch (e) { return false; } },
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },

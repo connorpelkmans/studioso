@@ -81,7 +81,7 @@ var COMP_ACC_MORE = K => {
     {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
-    {id: "plume", name: "Plumed Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
+    {id: "plume", name: "Plumed Musketeer", rarity: "exotic", def: "#8E6BE0", art: () =>
       `<path d="M3 -11Q10 -31 28 -27Q21 -25 19 -18.5Q15 -11.5 6.5 -7.5Z" fill="#FF7A9C" ${OUT(2)}/><path d="M7 -10.5Q13 -22 24 -25.5M11 -18l-2.6 -1.4M14.5 -21.5l-2 -2M17 -16.5l-2.2 -.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/>
       <path d="M-11 -1Q-12.5 -13.5 0 -14.5Q12.5 -13.5 11 -1Z" ${WF} ${OUT(2.4)}/><path d="M-22.5 -3.5Q-12 3 0 2Q12 3 22.5 -3.5Q24.5 4.5 0 6.4Q-24.5 4.5 -22.5 -3.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 .4Q-12 4.4 0 4.4Q12 4.4 21 .4Q18 5.4 0 5.8Q-18 5.4 -21 .4Z" fill="${INK}" opacity=".15"/>
       <path d="M-11.2 -5.4Q0 -3.4 11.2 -5.4V-1.8Q0 .2 -11.2 -1.8Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-3.5" r="2.1" fill="#2FB5C9" ${OUT(1.2)}/>`},
