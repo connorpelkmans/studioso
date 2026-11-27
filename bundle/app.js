@@ -74853,7 +74853,7 @@ var COMP_ACC_MORE = K => {
       // the words in a gold hand-lettered script, slanted up like the party hats, kept inside the cone (clipped to it)
       const script = (t, x, y, sz) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Kalam,Caveat,'Gochi Hand',cursive" font-weight="700" font-size="${sz}" fill="#FFD24A" stroke="#7A5200" stroke-width=".45" paint-order="stroke">${t}</text>`;
       const words = `<g clip-path="url(#cpaNyCone)" transform="rotate(-8 0 -12)">${script("Happy", 0, -15.6, 4.8)}${script("New Year", .4, -9.4, 4.3)}<path d="M-5.6 -7.6Q.4 -6.2 6.4 -7.8" fill="none" stroke="#FFD24A" stroke-width=".6" stroke-linecap="round"/></g>`;
-      const TOPPER = "streamers";
+      const TOPPER = "burst";
       const tops = {
         // tinsel burst: gold and silver strands around a gold bead
         burst: () => { let a = "", b = ""; for (let i = 0; i < 18; i++) { const r = i * Math.PI / 9 + .1, l = i % 2 ? 5.6 : 7.4, d = `M0 -38L${f(l * Math.cos(r))} ${f(-38 + l * Math.sin(r))}`; a += `<path d="${d}" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>`; b += `<path d="${d}" stroke="${i % 3 ? GOLD : "#E4E8EF"}" stroke-width="1.4" stroke-linecap="round"/>`; } return `${a}${b}<circle cy="-38" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><circle cx="-.8" cy="-38.8" r=".8" fill="#fff"/>`; },
