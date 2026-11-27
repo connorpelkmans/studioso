@@ -2469,7 +2469,7 @@ function aiTiersCard(){
     const byCat = `<div class="ai-tier-fact"><b>By Kind of Question</b>${cats}</div>`;
     if (t.id === "8") return fact("Model", `${esc(aiLevel8Model())}. Chrome uses its built-in AI, Edge uses its own, and other browsers use Google's Gemma 4 E2B.`) + PRIVATE
       + fact("Setup", "Nothing to set up in Chrome or Edge, which download their own AI. Gemma 4 E2B is a one-time download of about 2.8 GB, then it also works offline.") + byCat;
-    if (t.id === "16") return fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
+    if (t.id === "16") return (na16 ? fact("On This Device", esc(DEVAI.e4bNoWhy || "This device can't run it.") + (DEVAI.e4bNoKind === "mobile" ? " Studyboard AI Pro works on any device." : " The 8GB AI may run here instead, and Studyboard AI Pro works on any device.")) : "") + fact("Model", "Google's Gemma 4 E4B, a stronger model for laptops with more memory.") + PRIVATE
       + fact("Setup", "A one-time download of about 3.3 GB, then it also works offline. It needs 16 GB of memory and a graphics chip that supports WebGPU.") + byCat;
     return fact("Model", "Claude, by Anthropic. It reads long files, photos and PDFs, and can search the web.")
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
@@ -2477,8 +2477,11 @@ function aiTiersCard(){
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
       + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
-  return `<div class="ai-tiers" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
-    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
+  // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
+  // is never marked); the reason goes in its details
+  const na16 = typeof DEVAI !== "undefined" && DEVAI.e4bNo === true && now !== "16";
+  return `<div class="ai-tiers" id="aiTiersLive" role="group" aria-labelledby="aiTiersH"><p class="ai-tiers-h" id="aiTiersH">How Much Each AI Can Answer</p>
+    ${AI_LEVELS.map(t => `<details class="ai-tier${t.id === now ? " on" : ""}${t.id === "pro" ? " pro" : ""}"><summary><div class="ai-tier-top"><b>${t.name}</b>${t.id === "pro" ? `<span class="pro-badge">PRO</span>` : ""}${t.id === "16" && na16 ? `<span class="ai-tier-na">Unavailable on Your Device</span>` : ""}${t.id === now ? `<span class="ai-tier-chip">In Use</span>` : ""}<span class="ai-tier-pct">${t.pct}%</span><svg class="ai-tier-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></div>
       <div class="ai-tier-bar" role="img" aria-label="${t.pct}% of common student questions"><i style="width:${t.pct}%"></i></div><span class="mini ai-tier-where">${t.where}</span></summary>
       <div class="ai-tier-more">${more(t)}</div></details>`).join("")}
     <p class="mini ai-tiers-foot">Share of common student questions each one answers correctly. Tap one for more.</p></div>`;

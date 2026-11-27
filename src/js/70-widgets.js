@@ -131,12 +131,15 @@
       focus = {mode: pomo.mode === "focus" ? "focus" : "break", running: !!pomo.running, endsAt: pomo.running ? Number(pomo.endAt) || 0 : 0,
         left: pomo.running ? 0 : Math.round((Number(pomo.left) || 0) / 1000), task: t ? cut(t.title, 60) : ""};
     } } catch (e) {}
+    // Time Cushion: minutes to spare (or short, below 0) at the tightest deadline in the next 14 days
+    let cushion = {mins: 0, by: "", state: "none"};
+    try { const c = window.SBCUSH && SBCUSH.now(); if (c && c.state !== "none") cushion = {mins: Math.round(Number(c.mins) || 0), by: c.by || "", state: c.state}; } catch (e) {}
     const th = d.theme || {};
     return {v: 1, day: today, at: Date.now(), dateLabel: cut(d.dateLabel, 40),
       next: d.next ? {id: cut(d.next.id, 80), title: cut(d.next.title, 90), course: cut(d.next.course, 24), color: hex(d.next.color, "#8A94A6"), why: cut(d.next.why, 60), mins: Math.round(Math.max(5, Math.min(180, Number(d.next.mins) || 25))),
         due: (byId(d.next.id) || {}).due || "", time: (byId(d.next.id) || {}).time || ""} : null,
       // (whole numbers: the widget reads these as Int, and a fraction would make it refuse the whole day)
-      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days,
+      tasks, more: Math.max(0, Math.round(Number(d.more) || 0)), cards: Math.max(0, Math.round(Number(d.cards) || 0)), dayOff: !!dayIsOff(today), exam, focus, days, cushion,
       theme: {accent: hex(th.accent, "#2C55D6"), accentInk: hex(th.accentInk, "#FFFFFF"), late: hex(th.late, "#C8352E")}, plan: planSlots()};
   }
   let phoneSent = "";

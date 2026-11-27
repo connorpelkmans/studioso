@@ -1,0 +1,60 @@
+/* ===== module: 99-focus-sprout.css: Focus Sprout, the Focus Garden and Block Distracting Apps (01-focus-sprout.js) ===== */
+.sp-plant{--pot:#C8734A;--sp-leaf:var(--leaf,#2E9D5B);--sp-leaf-d:color-mix(in srgb,var(--sp-leaf) 68%,#0B2A1C);--sp-dry:#C2A675;--sp-dry-d:#9C8052;display:block;overflow:visible}
+.sp-plant .sp-pot{fill:var(--pot)}
+.sp-plant .sp-rim{fill:color-mix(in srgb,var(--pot) 84%,#fff)}
+.sp-plant .sp-shade{fill:#000;opacity:.13}
+.sp-plant .sp-hi{fill:#fff;opacity:.4}
+.sp-plant .sp-soil{fill:#5B4030}
+.sp-plant .sp-seed{fill:#B98250}
+.sp-plant .sp-leaf{fill:var(--sp-leaf)}
+.sp-plant .sp-rib{fill:none;stroke:var(--sp-leaf-d);stroke-width:.7;stroke-linecap:round;opacity:.5}
+.sp-plant .sp-stem{fill:none;stroke:var(--sp-leaf-d);stroke-width:1.8;stroke-linecap:round}
+.sp-plant .sp-bud{fill:color-mix(in srgb,var(--pot) 55%,var(--sp-leaf))}
+.sp-plant .sp-petal{fill:color-mix(in srgb,var(--pot) 48%,#fff);stroke:color-mix(in srgb,var(--pot) 70%,#fff);stroke-width:.5}
+.sp-plant .sp-eye{fill:#F4C53D;stroke:#D9A21E;stroke-width:.5}
+.sp-plant .sp-leaf.dry{fill:var(--sp-dry)}
+.sp-plant .sp-stem.dry{stroke:var(--sp-dry-d)}
+.sp-plant .sp-leaf.dry + .sp-rib{stroke:var(--sp-dry-d)}
+.sp-plant.s-w .sp-pot{fill:color-mix(in srgb,var(--pot) 62%,#8C8378)}
+.sp-plant.s-w .sp-rim{fill:color-mix(in srgb,var(--pot) 52%,#B4ADA4)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .sp-plant{--sp-dry:#A8916A;--sp-dry-d:#86704C}:root:not([data-theme="light"]) .sp-plant .sp-soil{fill:#7A5A43}}
+:root[data-theme="dark"] .sp-plant{--sp-dry:#A8916A;--sp-dry-d:#86704C}
+:root[data-theme="dark"] .sp-plant .sp-soil{fill:#7A5A43}
+
+/* In the timer's dial, above the time */
+.sp-dial{display:block;width:56px;height:67px;margin:-12px 0 4px}
+.pomo-dial .sp-dial svg.sp-plant{width:100%;height:100%;transform:none}
+.sp-new{transform-box:fill-box;transform-origin:50% 100%;animation:spGrow .7s cubic-bezier(.3,1.35,.5,1)}
+@keyframes spGrow{from{transform:scale(.88) translateY(2px);opacity:.55}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sp-new{animation:none}}
+.sp-note{margin:0 auto;max-width:36ch;text-align:center;font-size:.9rem;line-height:1.4;color:var(--ink);background:color-mix(in srgb,var(--leaf,#1E9E74) 12%,var(--surface));border:1px solid color-mix(in srgb,var(--leaf,#1E9E74) 26%,transparent);border-radius:12px;padding:8px 14px}
+.sp-note[hidden]{display:none}
+
+/* The week's shelf */
+.sp-garden{display:grid;gap:6px;padding:12px 14px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.sg-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px}
+.sg-head h3{margin:0;font:700 .98rem var(--display);color:var(--ink)}
+.sg-sum{font-size:.85rem;color:var(--muted)}
+.sg-shelf{--plank:color-mix(in srgb,#A87B50 72%,var(--surface));display:grid;grid-template-columns:repeat(7,minmax(0,1fr));position:relative;padding-top:2px}
+.sg-shelf::before{content:"";position:absolute;left:0;right:0;top:46px;height:6px;border-radius:3px;background:var(--plank);box-shadow:0 3px 0 -1px color-mix(in srgb,var(--plank) 60%,#000 25%)}
+.sg-day{display:grid;justify-items:center;gap:12px;min-width:0;position:relative}
+.sg-pots{display:flex;align-items:flex-end;justify-content:center;height:44px;position:relative;z-index:1}
+.sg-p{width:30px;height:36px;flex:none;margin-bottom:-1px}
+.sg-day.sg-two .sg-p{margin:0 -3px -1px}
+.sg-day.sg-many .sg-p{width:24px;height:29px;margin:0 -4px -1px}
+.sg-day.sg-many .sg-p:nth-child(2){position:relative;z-index:1;width:27px;height:32px}
+.sg-more{position:absolute;top:-4px;right:0;font:700 .7rem/1 var(--display);color:var(--muted);background:var(--soft);border-radius:999px;padding:2px 5px}
+.sg-lbl{font-size:.75rem;font-weight:600;color:var(--muted);line-height:1}
+.sg-day.sg-today .sg-lbl{color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px;text-decoration-color:var(--leaf,#1E9E74)}
+.pro-card.sp-garden{gap:8px}
+
+/* The alarm at the end of a session */
+.alarm-ring.sp-ring{background:color-mix(in srgb,var(--leaf,#1E9E74) 14%,var(--surface))}
+.alarm-ring .sp-alarm{width:46px;height:55px}
+.alarm-card p.sp-alarm-line{color:var(--ink);font-size:.95rem}
+
+/* Timer Settings */
+.sp-set,.fg-row{display:grid;gap:2px}
+.sp-set .mini,.fg-row .mini{margin:0 0 0 30px}
+.fg-slot:empty{display:none}
+.sp-plant .sp-seed.dry{fill:var(--sp-dry-d)}

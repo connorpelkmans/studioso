@@ -576,6 +576,8 @@ function viewCourseDetail(c){
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
+    ${typeof SBHEAT !== "undefined" ? SBHEAT.courseHtml(c) : ""}
+    ${coursePaceHtml(c)}
     ${courseTeamHtml(c, "")}
     ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
@@ -604,6 +606,26 @@ function courseGradeSide(c){
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${(n => n ? `<p class="mini w-est" style="margin:-4px 0 10px" title="${esc(WEIGHT_GUESS_TIP)}">Uses ${n === 1 ? "1 estimated weight" : n + " estimated weights"}. Check them in Grades.</p>` : "")(courseTasks(c).filter(weightGuessed).length)}${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
+// Reading pace on a course page: one field, shown once the course has a reading with pages (or a pace was set)
+function coursePaceHtml(c){
+  const own = Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!own && !courseTasks(c).some(t => Number(t.pages) >= 1)) return "";
+  const P = window.SBACC && SBACC.paceFor ? SBACC.paceFor(c.id) : {mpp: own || PACE_DEFAULT, n: 0, set: own};
+  const note = P.n ? `Learned from ${P.n} finished reading${P.n === 1 ? "" : "s"}${own ? " since you set it" : ""}. Readings with pages use it for their time.`
+    : own ? "Your setting. Readings with pages use it for their time, and your focus time on them fine-tunes it." : "Readings with pages use it for their time. It learns from your focus time on finished readings.";
+  return `<section class="c2-card2 c2-box c2-pace" aria-label="Reading pace">
+    <label class="c2-pace-row" for="cPace"><span class="c2-pace-l">Reading pace:</span><input type="number" id="cPace" data-pace="${esc(c.id)}" min="0.5" max="20" step="any" inputmode="decimal" value="${esc(fmtPace(P.mpp))}" aria-describedby="cPaceNote"><span>min a page</span></label>
+    <p class="mini" id="cPaceNote">${esc(note)}</p></section>`;
+}
+// A new pace is the course's own from now on (earlier readings stop counting; later ones keep fine-tuning it). Undo puts the old one back
+document.addEventListener("change", e => {
+  const el = e.target; if (!el || !el.dataset || !el.dataset.pace) return;
+  const c = state.courses[el.dataset.pace]; if (!c) return;
+  const v = Math.round(Number(el.value) * 10) / 10;
+  if (!(v >= 0.5 && v <= 20)) { toast("Pick a pace from 0.5 to 20 minutes a page"); el.value = fmtPace(readPace(c.id)); return; }
+  if (v === readPace(c.id) && Number(c.readPace) > 0) return;
+  applyChanges([{kind: "course", id: c.id, after: Object.assign(clone(c), {readPace: v, readPaceAt: Date.now()})}], `Reading pace: ${fmtPace(v)} min a page`);
+});
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
@@ -945,6 +967,72 @@ const AVAIL = (() => {
     return {slots, unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
   }
 
+  /* Pinned study blocks (Today's Plan: drag a block, or Move To…). A pin is {date, s, e}: minutes from the plan day's midnight, the
+     same as slots (past 1440 for a late end of day). {s: 0, e: 0} is the "not on this day" pin that Move To… Tomorrow leaves. */
+  // Overlapping or touching intervals as one, sorted
+  function mergeIv(iv){
+    const out = [];
+    iv.slice().sort((a, b) => a.s - b.s || a.e - b.e).forEach(x => { const l = out[out.length - 1]; if (l && x.s <= l.e) l.e = Math.max(l.e, x.e); else out.push({s: x.s, e: x.e}); });
+    return out;
+  }
+  // One task's pins for a date: off says it was moved off that day; iv are its pinned times, merged, with the ones already over left out
+  function pinsOn(pins, date, nowMin){
+    const on = (Array.isArray(pins) ? pins : []).filter(p => p && p.date === date && Number.isFinite(p.s) && Number.isFinite(p.e));
+    const off = on.some(p => p.s === 0 && p.e === 0);
+    const iv = off ? [] : mergeIv(on.filter(p => p.e > p.s && (nowMin == null || p.e > nowMin)));
+    return {off, iv};
+  }
+  // Free windows with intervals taken out (a pinned block plus the usual break on each side)
+  function carve(windows, iv, pad){
+    pad = pad || 0;
+    const cut = mergeIv((iv || []).map(x => ({s: x.s - pad, e: x.e + pad})));
+    const out = [];
+    (windows || []).forEach(w => {
+      let parts = [[w.s, w.e]];
+      cut.forEach(c => { parts = parts.flatMap(([a, b]) => c.e <= a || c.s >= b ? [[a, b]] : [[a, Math.min(b, c.s)], [Math.max(a, c.e), b]].filter(([x, y]) => y - x >= 5)); });
+      parts.forEach(([a, b]) => out.push(Object.assign({}, w, {s: a, e: b, min: b - a})));
+    });
+    return out;
+  }
+  // place() with pins: each pinned block keeps its time, and the rest of the work goes into the free time around the pins.
+  // tasks: [{id, min, pins: [{s, e}], off}]. A task pinned for longer than its share keeps the whole pin; one moved off the day gets nothing.
+  function placePinned(windows, tasks, o){
+    o = o || {};
+    const cfg = normCfg(o.cfg), brk = o.breakMin != null ? o.breakMin : cfg.breakMin;
+    const pinned = [], rest = [];
+    (tasks || []).forEach(t => {
+      if (t.off) return;
+      const iv = mergeIv(t.pins || []);
+      iv.forEach(x => pinned.push({id: t.id, s: x.s, e: x.e, min: x.e - x.s, pin: true}));
+      const left = Math.round(t.min) - iv.reduce((n, x) => n + x.e - x.s, 0);
+      if (left > 0) rest.push({id: t.id, min: left});
+    });
+    const pl = place(carve(windows, pinned, brk), rest, o);
+    const slots = pinned.concat(pl.slots).sort((a, b) => a.s - b.s || a.e - b.e);
+    const n = {}, k = {}; slots.forEach(s => { n[s.id] = (n[s.id] || 0) + 1; });
+    slots.forEach(s => { k[s.id] = (k[s.id] || 0) + 1; s.part = k[s.id]; s.of = n[s.id]; });
+    return {slots, unplaced: pl.unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
+  }
+  // Where a block of len minutes wanted at s can go: the nearest start (5-minute steps) between lo and hi that overlaps nothing fixed.
+  // fixed: [{s, e, title}] (classes, events, availability blocks, other pins). hit is the fixed thing the wanted time ran into.
+  // null when no free time that long is left.
+  function snap(s, len, fixed, lo, hi){
+    const f = mergeIv((fixed || []).filter(x => x.e > x.s));
+    const want = Math.round(s / 5) * 5;
+    const hit = (fixed || []).filter(x => x.e > x.s && x.s < want + len && x.e > want).sort((a, b) => a.s - b.s)[0] || null;
+    let best = null; let cur = lo;
+    f.concat([{s: hi, e: hi}]).forEach(x => {
+      const g0 = Math.ceil(cur / 5) * 5, g1 = Math.min(x.s, hi);
+      if (g1 - g0 >= len) {
+        const at = Math.min(Math.max(want, g0), Math.floor((g1 - len) / 5) * 5);
+        if (!best || Math.abs(at - want) < Math.abs(best.s - want)) best = {s: at, e: at + len};
+      }
+      cur = Math.max(cur, x.e);
+    });
+    if (!best) return null;
+    return {s: best.s, e: best.e, moved: best.s !== want, hit: best.s !== want ? hit : null};
+  }
+
   const defFmt = m => { const h = Math.floor(m / 60) % 24, mm = m % 60, ap = h >= 12 ? "PM" : "AM"; return `${h % 12 || 12}${mm ? ":" + p2(mm) : ""} ${ap}`; };
   const rangeTxt = (w, f) => `${f(w.s)}–${f(w.e)}`;
   function explain(res, opts){
@@ -1030,7 +1118,7 @@ const AVAIL = (() => {
     return {type, title: w === "shifts" ? "Shift" : w.charAt(0).toUpperCase() + w.slice(1), days: [...days].sort((x, y) => x - y), start: time.start, end: time.end};
   }
 
-  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
+  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, mergeIv, pinsOn, carve, placePinned, snap, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
 })();
 /* AVAIL-END */
 
@@ -1193,14 +1281,30 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
-  const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
+  // Blocks the student pinned for today (dragged, or Move To…) keep their time, and the rest is planned around them.
+  // A pin that now overlaps something fixed (a class added since) moves to the nearest free time.
+  const pinsBy = {}, pinDate = av.sd ? av.sd.date : today, xsHosts = new Set(ranked.filter(x => x.t.xs).map(x => x.t.xs.id));
+  ranked.forEach(x => {
+    const p = planPinsFor(x, pinDate, nowMin, xsHosts); if (!p) return;
+    p.iv = p.iv.map(v => res.busy.some(m => m.kind !== "done" && m.s < v.e && m.e > v.s) ? AVAIL.snap(v.s, v.e - v.s, res.busy, Math.max(res.lo, res.ws), res.we) : v).filter(Boolean);
+    pinsBy[x.t.id] = p;
+  });
+  const live = ranked.filter(x => (x.alloc > 0 || pinsBy[x.t.id]) && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
   // What Do This Next would choose goes first, so the timeline and the card agree
   const fresh0 = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id)), li = lead ? fresh0.findIndex(x => x.t.id === lead) : -1;
   const fresh = li > 0 ? [fresh0[li]].concat(fresh0.slice(0, li), fresh0.slice(li + 1)) : fresh0;
-  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
-  const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
+  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60), pins: pinsBy[x.t.id] ? pinsBy[x.t.id].iv : [], off: !!(pinsBy[x.t.id] && pinsBy[x.t.id].off)}));
+  const pl = AVAIL.placePinned(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
+  // A pinned task gets its pinned time today even past its usual share; one moved to tomorrow gets none today
+  ranked.forEach(x => {
+    const p = pinsBy[x.t.id]; if (!p || isEnough(x)) return;
+    if (p.off) { x.alloc = 0; x.pinOff = true; return; }
+    const placed = (by[x.t.id] || []).reduce((t, s) => t + s.min, 0);
+    if (placed > x.alloc * 60 + 1) x.alloc = placed / 60;
+    x.pinned = true;
+  });
   if (av.active) ranked.forEach(x => {
     if (!(x.alloc > 0)) return;
     if (isEnough(x)) { x.alloc = 0; return; }
@@ -1217,6 +1321,21 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   return {res, active: av.active, line: AVAIL.explain(res, {nowMin, fmt: availMin}), note, slots: pl.slots, by, planned, show: av.active || has};
 }
 const availSlotText = list => list.map(s => availRange(s.s, s.e)).join(", then ");
+// Where a plan item's pins are kept: on the task itself, or for "Study for <exam>" on the exam (the study item is made by the planner).
+// Group tasks and fixed items (an in-person exam) can't be pinned.
+function planPinHost(t){
+  if (!t || t.gt) return null;
+  const h = state.tasks[t.xs ? t.xs.id : t.id];
+  return h && h.status !== "done" ? h : null;
+}
+// xsHosts: the exams whose "Study for" item is in the plan; the exam's own (fixed) row doesn't use the pins then
+function planPinsFor(x, date, nowMin, xsHosts){
+  if (!x || x.fixed || x.dead) return null;
+  const h = planPinHost(x.t); if (!h || !Array.isArray(h.pins) || !h.pins.length) return null;
+  if (!x.t.xs && xsHosts && xsHosts.has(h.id)) return null;
+  const p = AVAIL.pinsOn(h.pins, date, nowMin);
+  return p.off || p.iv.length ? p : null;
+}
 
 /* -- Today's Plan */
 function availStripHtml(F){
