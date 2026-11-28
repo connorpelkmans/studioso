@@ -41372,8 +41372,9 @@ hook("boot", boot);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
   // A new group starts with the core of its kind turned on. The rest waits in Edit > Features.
-  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: tasks, files and chat.
-  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: ["meetings", "findtime", "boards"]};
+  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: tasks, files, chat and Find a Time
+  // (on Overview while Meetings is off).
+  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: ["meetings", "boards"]};
   const defaultHidden = (kind, course) => GDEF_OFF[kind === "project" ? "project" : "study"].filter(k => !(k === "deadlines" && course));
   // A week after a lean new group gets its second member, the owner's next action there shows what else it can turn on (once)
   const LEANK = () => "studyboard:grpLean:" + myId();
@@ -44722,12 +44723,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   /* Where it all shows */
   function gxPane(g, k){
     const proj0 = isProj(g);
-    const ftSec = (k === "meetings" || (!proj0 && k === "sessions")) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
+    const ftSec = (k === "meetings" || (!proj0 && k === "sessions") || (proj0 && k === "overview" && !featOn(g, "meetings"))) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
     // Group Uploads work in every group project: each file counts in its uploader's own storage
     if (!gxOn(g)) return k === "members" ? `<div id="gxPro">${gxProBox(g)}</div>` : proj0 && k === "files" ? (featOn(g, "uploads") ? gxUploadsHtml(g) : "") : ftSec;
     const proj = isProj(g);
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
-    if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
+    if (proj && k === "overview") return ftSec + `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
     if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));

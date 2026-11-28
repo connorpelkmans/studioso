@@ -457,7 +457,8 @@ async function createProject(browser){
   await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
   eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").kind), "project", "creating a group project saves it as a project");
   eq(await tabs(page), ["Overview", "Tasks", "Chat", "Files", "Members"], "and opens with the core project tabs: " + (await tabs(page)).join());
-  eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").hidden_features), ["meetings", "findtime", "boards"], "meetings, Find a Time and whiteboards start off");
+  eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").hidden_features), ["meetings", "boards"], "meetings and whiteboards start off");
+  ok(await page.isVisible('#grpPane-overview [data-act="gx-ft"]'), "Find a Time starts on, on Overview while Meetings is off");
   await page.waitForSelector("dialog .mc-grid", {timeout: 8000});
   ok(/Pick Your Color/.test(await page.textContent("dialog .sheet-head")), "making a project asks for your colour");
   await page.click('dialog [data-mc="#8E4EC6"]'); await page.waitForTimeout(500);
