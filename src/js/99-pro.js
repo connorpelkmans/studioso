@@ -135,22 +135,26 @@ var SBPRO = null;
     const sec = (title, body) => `<section class="pro-card"><h3>${esc(title)}</h3>${body}</section>`;
     const study = I.courses.length ? I.courses.slice(0, 8).map(x => `<div class="pro-cr"><span class="pro-cn"><i style="background:${esc(colorOf(x.c.id))}"></i>${esc(courseLabel(x.c))}</span><span class="pro-bar" aria-hidden="true"><i style="width:${x.min > 0 ? Math.max(2, Math.round(x.min / I.maxMin * 100)) : 0}%;background:${esc(colorOf(x.c.id))}"></i></span><span class="pro-cv">${esc(mins(x.min))}</span><span class="pro-cg${x.tr && x.tr.dir === "down" ? " down" : ""}">${esc(gradeTxt(x.tr))}</span></div>`).join("")
       + (I.studySay ? `<p class="pro-say">${esc(I.studySay)}</p>` : I.courses.every(x => !(x.min > 0)) ? `<p class="mini">No Focus time logged yet.</p>` : "") : empty;
-    const heat = I.logN >= 5 ? `<div class="pro-heat" role="img" aria-label="${esc(I.bestSay)}"><span></span>${["M", "T", "W", "T", "F", "S", "S"].map(d => `<span class="ph-d">${d}</span>`).join("")}${PARTS.map((p, i) => `<span class="ph-l">${p[1]}</span>${I.grid[i].map(v => `<span class="ph-c" style="--a:${v ? Math.round(20 + v / I.gridMax * 80) : 0}%"></span>`).join("")}`).join("")}</div><p class="pro-say">${esc(I.bestSay)}</p>`
+    const heatTxt = I.logN >= 5 ? `<div class="pro-heat" role="img" aria-label="${esc(I.bestSay)}"><span></span>${["M", "T", "W", "T", "F", "S", "S"].map(d => `<span class="ph-d">${d}</span>`).join("")}${PARTS.map((p, i) => `<span class="ph-l">${p[1]}</span>${I.grid[i].map(v => `<span class="ph-c" style="--a:${v ? Math.round(20 + v / I.gridMax * 80) : 0}%"></span>`).join("")}`).join("")}</div><p class="pro-say">${esc(I.bestSay)}</p>`
       : `<p class="mini">After five Focus timer sessions, this shows when in the day your sessions last longest.</p>`;
     const prep = I.prep ? `<div class="pro-row2"><b>${esc(I.prep.ex.title)}</b><span class="mini">${esc(fmtShort(I.prep.ex.due))} · ${I.prep.done} of ${I.prep.total} sessions done</span></div><span class="pro-bar wide" aria-hidden="true"><i style="width:${Math.round(I.prep.done / I.prep.total * 100)}%"></i></span><p class="pro-say">${esc(I.prep.dueSoFar ? `${I.prep.doneSoFar} of the ${I.prep.dueSoFar} sessions planned so far are done.` : "The first session is still ahead.")}${I.prep.weak.length ? esc(` ${I.prep.weak.slice(0, 2).join(" and ")} ${I.prep.weak.length === 1 ? "is" : "are"} still marked Shaky.`) : ""}</p>`
       : `<p class="mini">Make an exam prep plan (open an exam, then Plan My Prep) to see how it's going here.</p>`;
     const early = I.early ? `<div class="pro-early"><b>${esc(SBI18N.fmtN(Math.round(Math.abs(I.early.avg) * 10) / 10))}</b><span>${esc(I.early.avg >= 0 ? "days early, on average, when you finish an assignment." : "days late, on average, when you finish an assignment.")}${I.early.late ? esc(` ${plural(I.early.late, "was", "were")} late.`) : ""}</span></div>`
       : `<p class="mini">Shows up once you've finished a few assignments with due dates.</p>`;
+    // the week's Focus Garden (free, 01-focus-sprout.js) follows the first card
+    const garden = I.kind === "week" && typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml("ins") : "";
+    // the Study Heatmap (free, 99-heatmap.js) sits right after it, in both periods
+    const heat = typeof SBHEAT !== "undefined" ? SBHEAT.insightsHtml() : "";
     if (preview) {
       // free plan: the first card is real, from the student's own planner; the others say what they'd show, with nothing made up
       const lockSec = (title, what) => `<section class="pro-card pro-lockcard"><h3>${esc(title)} ${PRO_BADGE}</h3><p class="mini">${esc(what)}</p></section>`;
-      return sec("Study Time and Grades", study)
+      return sec("Study Time and Grades", study) + garden + heat
         + lockSec("When You Focus Best", "Which part of the day your Focus sessions last longest, day by day.")
         + lockSec("Exam Prep Follow-Through", "How many of your exam prep sessions you've done so far, and the topics still marked shaky.")
         + lockSec("Finishing Early", "How many days before the due date you usually finish, and anything that slipped past it.")
         + `<button type="button" class="btn pro-ins-go" data-act="pro-ins-pro">See Every Insight With Pro</button>`;
     }
-    return sec("Study Time and Grades", study) + sec("When You Focus Best", heat) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
+    return sec("Study Time and Grades", study) + garden + heat + sec("When You Focus Best", heatTxt) + sec("Exam Prep Follow-Through", prep) + sec("Finishing Early", early);
   }
   let INS = {kind: "week"};
   const INS_WHY = "Insights are part of Studyboard Pro: how your study time, focus and prep line up with your grades.";
@@ -161,6 +165,7 @@ var SBPRO = null;
     const draw = () => {
       const I = compute(INS.kind), b = dlg.querySelector(".pro-ins-body"); if (!b) return;
       b.innerHTML = `<div class="segb" role="group" aria-label="Period"><button type="button" data-act="pro-ins-kind" data-id="week" aria-pressed="${INS.kind === "week"}">This Week</button><button type="button" data-act="pro-ins-kind" data-id="term" aria-pressed="${INS.kind === "term"}">This Term</button></div>${insightsBody(I, preview)}<p class="mini">Worked out on this device from your own planner. Nothing is sent anywhere.</p>`;
+      if (typeof SBHEAT !== "undefined") SBHEAT.mount(b);
     };
     if (!(dlg.open && dlg.querySelector(".pro-ins-body"))) openSheet(`<div class="sheet pro-sheet">${head("Insights")}<div class="sheet-body pro-ins-body"></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">Done</button></div></div>`);
     draw();
@@ -272,7 +277,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI", where: "Settings, AI", act: "ai-setup", free: "Your Own Key", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (62 to 76%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -3436,13 +3441,13 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   /*LECTURE-END*/
   const SR = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
   const canRecord = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof window.MediaRecorder === "function");
-  // Which AI listens: Studyboard AI (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
+  // Which AI listens: Studyboard AI Pro (Whisper), or the student's own Gemini or OpenAI key. Claude can't take audio.
   const audioProv = () => { try { const c = aiCfg(), k = c.keys || {};
     if (c.provider === "studyboard" && aiProAudio()) return "studyboard";
     if ((c.provider === "gemini" || c.provider === "openai") && c.key) return c.provider;
     return k.gemini ? "gemini" : k.openai ? "openai" : ""; } catch (e) { return ""; } };
   const canHear = () => !!audioProv();
-  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard AI"})[audioProv()] || "AI";
+  const hearWho = () => ({gemini: "Google Gemini", openai: "OpenAI", studyboard: "Studyboard AI Pro"})[audioProv()] || "AI";
   const aiCapsHere = () => !!DESK || !SR();
   const capsKind = () => aiCapsHere() ? (canHear() ? "ai" : "") : "browser";
   let REC = null;
@@ -4250,7 +4255,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
         R.localCopy = true; save({keep: false}); return true;
       }
       case "lec-full-connect": { const tx = $("#lecText"); if (REC && tx) REC.text = tx.value; draftSoon(); if (dlg.open) dlg.close(); setTimeout(() => window.SBCLOUD && SBCLOUD.open(), 0); toast("Your recording is kept as a draft in the course's Lectures."); return true; }
-      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 10 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
+      case "lec-full-more": if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet("Pro has 5 GB of file storage for lecture recordings, or save them to Google Drive or OneDrive."); return true;
       case "lec-file": if (dlg.open) dlg.close(); setTimeout(() => transcriptSheet(id), 0); return true;
       case "lec-file-note": {
         const f = state.files[id]; if (!f || !f.tr) return true;

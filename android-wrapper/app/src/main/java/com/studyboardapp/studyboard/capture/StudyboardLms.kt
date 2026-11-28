@@ -1,4 +1,4 @@
-// UNTESTED: written without a compiler, emulator or device
+// Compiles (debug build, 26 Nov 2026). UNTESTED on an emulator or device, and against a real school sign-in
 package com.studyboardapp.studyboard.capture
 
 import android.annotation.SuppressLint

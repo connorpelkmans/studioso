@@ -246,7 +246,8 @@ function qzSheet(qz){
   let opts = Array.isArray(q.options) ? q.options.map((o, i) => [String(o), i]) : [];
   if (opts.length > 1 && (q.correct || []).includes(opts[0][1])) opts = opts.slice(1).concat(opts.slice(0, 1));
   const lines = q.type === "short" || !opts.length ? `<i class="rv-ln"></i><i class="rv-ln"></i>` : opts.slice(0, 3).map(([o]) => `<span class="rv-opt"><i></i>${esc(o.replace(/\s+/g, " ").slice(0, 60))}</span>`).join("");
-  return `<span class="rv-sheet"><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
+  // the quiz's name heads the sheet, above its first question
+  return `<span class="rv-sheet"><span class="rv-qt"><span class="rv-title">${esc(qz.title || "Practice Quiz")}</span></span><span class="rv-qn">Question 1 of ${n}</span><span class="rv-q">${esc(String(q.stem || "").replace(/\s+/g, " ").slice(0, 110))}</span>${lines}</span>`;
 }
 function viewQuizzes(){
   if (ui.qzOpen) { const f = qzFind(ui.qzOpen); if (f && !f.qz.archived) return viewQuizDetail(f.d, f.qz); ui.qzOpen = null; }
@@ -262,7 +263,7 @@ function viewQuizzes(){
         <span class="rv-stamp${best == null ? " new" : ""}" aria-hidden="true">${best == null ? "New" : best + "%"}</span>
         <span class="rv-count">${qz.kind === "case" ? "Case Study" : `${n} question${n === 1 ? "" : "s"}`}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="qz-open" data-id="${key}"><b class="rv-title" title="${nm}">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
       <div class="rv-row"><span class="mini rv-sub">${meta}</span>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="qz-share" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}" aria-label="Share ${nm}" title="Share">${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="qz-archive" data-id="${key}" title="Put this quiz away" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="ai-quiz-start" data-deck="${esc(d.id)}" data-id="${esc(qz.id)}">${best == null ? "Start" : "Retake"}</button></div></div></div></article>`; }).join("");
   return `<div class="view-head" data-qz-list><h2>Quizzes</h2>${window.SBSHARE ? SBSHARE.libBtn("quizzes") : ""}<button class="btn small sm-btn" data-act="grp-share-any" data-kind="quiz" aria-label="Share With a Group" title="Share quizzes with a study group: everyone takes them in their own app and sees the best scores">${QZ_GROUP_IC}<span class="sm-lbl">Share With a Group</span></button>${qzArchBtn()}${trashBtn("quiz") || `<button class="btn small trash-btn" data-act="trash-open" data-kind="quiz" aria-label="Recently Deleted" title="Recently Deleted"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</div>
@@ -339,17 +340,16 @@ function viewFlashcards(){
   const ds = decksShown().filter(d => ui.filter === "all" || d.courseId === ui.filter).filter(d => fcMatches(d, ui.q));
   const tiles = ds.map(d => {
     const st = deckStats(d), c = courseOf(d.courseId), tone = st.ready >= 70 ? "hi" : st.ready >= 35 ? "mid" : "lo";
-    const cs = cardStyleOf(d), first = d.cards.find(x => !x.draft && String(x.front || "").trim()), nm = esc(d.name);
-    const term = first ? esc(String(first.front).replace(/\s+/g, " ").trim().slice(0, 90)) : "";
+    const cs = cardStyleOf(d), nm = esc(d.name);
     return `<article class="rv-card rv-deck" data-rv="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <button class="rv-peek rv-fan cs-${esc(cs)}" data-act="fc-open" data-id="${esc(d.id)}" aria-label="Open ${nm}">
         <span class="face rv-f rv-f3" aria-hidden="true"></span><span class="face rv-f rv-f2" aria-hidden="true"></span>
-        <span class="face rv-f rv-f1" aria-hidden="true">${term ? `<span class="face-text">${term}</span>` : `<span class="face-text rv-blank">${st.total ? "" : "No cards yet"}</span>`}</span>
+        <span class="face rv-f rv-f1" aria-hidden="true"><span class="face-text rv-title" title="${nm}">${nm}</span></span>
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${st.total} card${st.total === 1 ? "" : "s"}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="fc-open" data-id="${esc(d.id)}"><b class="rv-title" title="${nm}">${nm}</b>${window.SBEXAM ? SBEXAM.deckTag(d) : ""}</button>
-        <div class="rv-row"><div class="rv-sub"><span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
+      <div class="rv-foot rv-foot-bar">
+        <div class="rv-row"><div class="rv-sub">${window.SBEXAM ? SBEXAM.deckTag(d) : ""}<span class="mini rv-due">${st.due || st.fresh ? `<b>${st.due} due</b> · ${st.fresh} new` : st.total ? "All caught up" : "No cards yet"}</span>
         <span class="mastery ${tone}" role="img" aria-label="${st.ready}% prepared" title="${st.ready}% prepared. It rises as you review and rate cards well, and falls when you skip reviews or mark cards as not known."><i style="width:${st.ready}%"></i></span></div>
       <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="fc-share" data-id="${esc(d.id)}" aria-label="Share ${nm}" title="Share" ${st.total ? "" : "disabled"}>${RV_SHARE}</button><button class="icon-btn rv-ib rv-arch" data-act="fc-archive" data-id="${esc(d.id)}" title="Put this deck away when you're done studying it" aria-label="Archive ${nm}">${ARCHIVE.replace('width="26" height="26"', 'width="18" height="18"')}</button><button class="btn small primary rv-go" data-act="fc-study" data-id="${esc(d.id)}" aria-description="${RV_HOW}" ${st.total ? "" : "disabled"}>Study</button></div></div></div>
     </article>`;
@@ -359,6 +359,40 @@ function viewFlashcards(){
     ${reviewHeroHtml()}${chipsHtml()}${ui.q.trim() ? `<div class="search-note">Showing decks that match “${esc(ui.q.trim())}”. <button class="link-btn" data-act="search-clear">Clear Search</button></div>` : ""}
     ${ds.length ? `<div class="deck-grid rv-grid">${tiles}</div>` : `<div class="empty${decksArr().length ? "" : " sb-es"}" style="margin-top:14px">${decksArr().length ? "" : emptyArt()}<strong>${deckListArr().length ? "No Decks Match" : "No Decks Yet"}</strong>${decksArr().length ? "Try another course or search." : "Add cards or paste a list, then study them." + (inPreview() ? "" : " Or upload slides and let " + esc(aiWho("AI")) + " make them.")}<br><div class="row-actions" style="justify-content:center;margin-top:10px"><button class="btn primary" data-act="fc-new">New Deck</button>${inPreview() || decksArr().length ? "" : `<button class="btn ai-btn" data-act="fc-ai">${AI_ICON} Create with ${esc(aiWho("AI"))}</button>`}</div></div>`}`;
 }
+/* Titles on the Review cards' covers (a deck's front card, a quiz's sheet, a presentation's screen, a paper's page) shrink to fit their
+   three lines rather than being cut off: after each render, each one too long for its box gets the largest size that fits (down to 55%;
+   past that the "…" stays, for a title that long) */
+const RV_FIT = ".rv-fan .rv-f1 .rv-title, .rv-sheet .rv-qt>span, .rv-pres .pr-pane b, .wsr-page .wsr-t";
+function rvFit(root){
+  const fits = el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  (root || document).querySelectorAll(RV_FIT).forEach(el => {
+    // A title is fitted again only when its card's size or its text changed: other redraws around it (a pop-up opening,
+    // the page's scrollbar going away) used to reset it and sometimes leave it at full size, so titles jumped behind pop-ups
+    const box = el.parentElement, key = box ? `${box.clientWidth}x${box.clientHeight}|${el.textContent}` : "";
+    if (!box || !box.clientWidth || !box.clientHeight) return;   // not laid out right now: leave it as it is
+    if (el.dataset.fit === key) return;
+    el.dataset.fit = key;
+    el.style.fontSize = "";
+    if (!el.clientHeight || fits(el)) return;
+    const max = parseFloat(getComputedStyle(el).fontSize) || 14; let lo = max * 0.55, hi = max;
+    el.style.fontSize = lo + "px"; if (!fits(el)) return;
+    for (let i = 0; i < 7; i++) { const mid = (lo + hi) / 2; el.style.fontSize = mid + "px"; if (fits(el)) lo = mid; else hi = mid; }
+    el.style.fontSize = lo.toFixed(2) + "px";
+  });
+}
+(() => {
+  if (typeof MutationObserver !== "function" || typeof document === "undefined") return;
+  let q = 0; const go = () => { if (q) return; q = requestAnimationFrame(() => { q = 0; if (document.querySelector(RV_FIT)) rvFit(); }); };
+  // New titles are sized at once, in the observer's own step, which runs before the browser paints. Waiting a frame let a redraw
+  // made inside an animation frame (the scene themes redraw often) paint every long title at full size for one frame before it
+  // shrank: the titles flickered and spilled out of their cards. Only additions that hold a title are measured.
+  const holds = n => n.nodeType === 1 && (n.matches(RV_FIT) || !!n.querySelector(RV_FIT));
+  const start = () => { new MutationObserver(ms => { if (ms.some(m => [...m.addedNodes].some(holds))) rvFit(); }).observe(document.body, {childList: true, subtree: true}); go(); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  addEventListener("resize", go);
+  // once the fonts arrive, text has new widths in the same boxes: fit everything again
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { document.querySelectorAll(RV_FIT).forEach(el => { delete el.dataset.fit; }); go(); });
+})();
 /* Your own order for decks and quizzes: drag a tile (from anywhere on it; on touch, press and hold), or press Alt + Left or Right Arrow */
 const RV_TILE = ".rv-grid > .rv-card[data-rv], [data-rv-kind] > [data-rv]", RV_HOW = "Drag to reorder, or press Alt + Left or Right Arrow";
 // The decks in the order the list shows them: yours once you've moved one, else the exam's course first
@@ -527,7 +561,7 @@ function viewDeck(d){
   return `<button class="back" data-act="fc-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>All Decks</button>
     <div class="deck-head g2-head dk2" data-fc-deck="${esc(d.id)}" style="--c:${esc(colorOf(d.courseId))}">
       <div class="g2-band"><span class="g2-kick">${esc(c ? courseLabel(c) : "General")} · Flashcards</span>
-        <div class="row-actions"><button class="btn primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button><button class="btn" data-act="fc-quiz" data-id="${esc(d.id)}" ${st.total >= 2 ? "" : "disabled"}>Make a Quiz</button>${window.SBMATCH ? SBMATCH.deckBtn(d) : ""}<button class="btn" data-act="fc-bulk" data-id="${esc(d.id)}">Paste Cards</button>${window.SBPRO && SBPRO.deckBtns ? SBPRO.deckBtns(d) : ""}<button class="btn" data-act="fc-edit" data-id="${esc(d.id)}">Edit Deck</button></div></div>
+        <div class="row-actions"><button class="btn primary" data-act="fc-study" data-id="${esc(d.id)}" ${st.total ? "" : "disabled"}>Study</button>${window.SBLEARN ? SBLEARN.deckBtn(d) : ""}<button class="btn" data-act="fc-quiz" data-id="${esc(d.id)}" ${st.total >= 2 ? "" : "disabled"}>Make a Quiz</button>${window.SBMATCH ? SBMATCH.deckBtn(d) : ""}<button class="btn" data-act="fc-bulk" data-id="${esc(d.id)}">Paste Cards</button>${window.SBPRO && SBPRO.deckBtns ? SBPRO.deckBtns(d) : ""}<button class="btn" data-act="fc-edit" data-id="${esc(d.id)}">Edit Deck</button></div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>
         <div class="g2-txt"><h2>${esc(d.name)}</h2>
           <div class="deck-stats"><span><b>${st.total}</b> cards</span><span class="${st.due ? "due" : ""}"><b>${st.due}</b> due</span><span><b>${st.fresh}</b> new</span><span class="${st.mastered ? "ok" : ""}"><b>${st.mastered}</b> mastered</span>${st.last ? `<span>Last quiz <b>${st.last.score}/${st.last.total}</b></span>` : ""}</div></div></div>
@@ -681,7 +715,7 @@ function startStudy(deckIds, onlyIds){
   const ex = [...new Set(q.slice(0, STUDY_MAX).map(x => (state.decks[x.deckId] || {}).courseId))].map(cid => fcExams()[cid]).filter(e => e && e.days <= EXAM_SOON).sort((a, b) => a.days - b.days)[0];
   if (ex && deckIds.length > 1) note = (note ? note + " " : "") + `Cards for ${ex.title} (${ex.days === 1 ? "tomorrow" : "in " + ex.days + " days"}) come up most, mixed in with the rest.`;
   q = q.slice(0, STUDY_MAX).map(x => ({deckId: x.deckId, cardId: x.cardId}));
-  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds)};
+  ui.tab = "flashcards"; ui.fc = {mode: "study", deckIds, q, i: 0, flipped: false, again: 0, hard: 0, good: 0, easy: 0, repeats: {}, note, hist: [], run: 0, best: 0, missed: {}, hints: {}, hinted: 0, m0: masteredIn(deckIds), cr0: typeof SBSC !== "undefined" && SBSC ? SBSC.earned(true) : 0};
   fcDropToast(); render(); window.scrollTo(0, 0);
 }
 const nextDue = (box, rating) => rating === "again" ? todayISO() : addDays(todayISO(), rating === "hard" ? 1 : BOX_DAYS[Math.min(5, box)]);
@@ -750,6 +784,8 @@ function viewStudy(){
     // cards studied, and the extra looks at ones missed (a card marked Again comes back in the same session)
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
+    // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
@@ -937,6 +973,8 @@ function finishQuiz(){
   if (tot > 0 && sc / tot >= 0.8) { try { celebrate("check"); } catch (e) {} }
   sbHaptic(tot > 0 && sc / tot >= 0.8 ? "success" : "tap");
   if (quizPasses(sc, tot)) { earnBump("q"); fire("good-moment", "quiz"); }
+  // the credits it earned, on their own screen (98-0study-credits.js)
+  setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.quizDone(sc, tot, "deck-" + Object.keys(byDeck).sort().join("+")); } catch (e) {} }, 350);
 }
 function viewQuiz(){
   const f = ui.fc, q = f.qs[f.i], a = f.ans[f.i];

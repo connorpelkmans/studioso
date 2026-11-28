@@ -207,6 +207,23 @@ function quietSave(ch){ if (!ch) return; REMOTE = true; try { applyChanges([ch],
 
 /* For 99-concept-map.js: undo and redo item by item */
 const GM = window.SBCMAPG = {
+  // Sending a map to friends: its ideas, links, places and styles only (like a group's copy), plus its name and course
+  friendPayload: (cid, mid) => {
+    const sp = sharePlan(cid, mid); if (!sp) return null;
+    const ops = CMG.steps({}, sp.plan.rec).after, c = sp.c;
+    const data = {v: 1, type: "map", name: cut(sp.rec.name || "Concept Map", 80), ops, course: c && !c.gen ? {code: cut(c.code || "", 40), name: cut(c.name || "", 120)} : null};
+    if (/^[\w-]{1,40}$/.test(String(sp.rec.pack || ""))) data.pack = sp.rec.pack;
+    return {title: data.name, info: `${(sp.plan.rec.add || []).length + 1} ideas`, data, priv: sp.plan.priv, pics: sp.plan.pics};
+  },
+  // ...and a friend's map back into a map of your own (everything checked the way a group's changes are)
+  friendRec: p => {
+    if (!p || typeof p !== "object" || !Array.isArray(p.ops)) return null;
+    let ok = []; for (let i = 0; i < Math.min(p.ops.length, 4000); i += 200) ok = ok.concat(CMG.clean(p.ops.slice(i, i + 200)));
+    const rec = CMG.apply({}, ok);
+    rec.name = cut(String(p.name || "Concept Map"), 80);
+    if (/^[\w-]{1,40}$/.test(String(p.pack || ""))) rec.pack = p.pack;
+    return rec;
+  },
   snap: o => { const r = recOf(o); return live(r) ? clone(r) : null; },
   steps: (a, b) => CMG.steps(a, b),
   change: (o, ops) => { const r = recOf(o); if (!live(r) || !ops || !ops.length) return null; return courseWith(o.id, ms => ms.map(m => m.id === r.id ? CMG.apply(m, ops) : m)); },
@@ -454,7 +471,8 @@ hook("cm-tools", o => chipHtml(o));
 hook("cm-more", o => {
   const it = (cm, label) => `<button type="button" role="menuitem" class="cm-mi" data-cm="${cm}">${label}</button>`;
   if (!o || o.kind !== "course") return "";
-  return liveOf(o) ? it("g-who", "Who Has This Map") + (G() && G().openBoards ? it("g-go", "Go to the Group") : "") : it("g-share", "Share With a Group…");
+  return (liveOf(o) ? it("g-who", "Who Has This Map") + (G() && G().openBoards ? it("g-go", "Go to the Group") : "") : it("g-share", "Share With a Group…"))
+    + (window.SBFSHARE ? it("f-send", "Send to Friends…") : "");
 });
 // a box someone else just changed: outlined in their colour, with their name, for a few seconds
 const PEER_MS = 6000;
@@ -491,6 +509,7 @@ const PRIVATE = new Set(["mat", "at", "atpdf", "atlec", "evp", "matchall"]);
 hook("cm-act", (a, o, btn) => {
   const M = B.state(), g = liveOf(o);
   if (a === "g-share") { shareSheet(o); return true; }
+  if (a === "f-send") { if (window.SBFSHARE) SBFSHARE.send("map", o.id + ":" + (o.map || "main")); return true; }
   if (a === "g-who") { if (!g) return true; M.gWho = !M.gWho; M.sel = ""; M.selE = ""; M.looks = false; access(g.bid, true).then(() => { if (G() && G().loadMembers) return G().loadMembers(g.gid); }).then(repaint).catch(() => {}); B.redraw(); return true; }
   if (a === "g-who-x") { M.gWho = false; B.redraw(); return true; }
   if (a === "g-go") { if (g && G() && G().openBoards) { if (dlg.open) dlg.close(); G().openBoards(g.gid); } return true; }

@@ -68,7 +68,7 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
       const req = route.request(), body = JSON.parse(req.postData() || "{}"); ctx.claude.push({body, headers: req.headers()});
       const sys = String(body.system || "");
       let content;
-      // Claude answers with structured outputs (JSON text), the way Studyboard AI's rules ask for it
+      // Claude answers with structured outputs (JSON text), the way Studyboard AI Pro's rules ask for it
       if (/count_tokens/.test(req.url())) { route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({input_tokens: 2000})}); return; }
       if (/write excellent flashcards/.test(sys)) content = [{type: "text", text: JSON.stringify(/Active transport/.test(JSON.stringify(body.messages)) ? PAGE_CARDS : CARDS)}];
       else if ((body.tools || []).some(t => t.type === "web_fetch_20250910")) content = [{type: "server_tool_use", id: "s1", name: "web_fetch", input: {url: "https://www.khanacademy.org/science/biology/membranes/active-transport"}},
@@ -238,6 +238,26 @@ const gem = (text, extra) => ({status: 200, contentType: "application/json", bod
     f = await fits(pp); ok(f.dlg <= 1 && f.page <= 0, "at 390px the sheet with a link and an error fits: " + JSON.stringify(f));
     ok(pp.errs.length === 0, "no console errors (phone): " + pp.errs.join(" | "));
     await pp.context().close();
+
+    /* A YouTube video shared to Studyboard opens Make Flashcards with AI with its link in; its pasted transcript is tidied */
+    const ps = await mkPage({phone: true});
+    const tasksBefore = (await S(ps)).tasks.length;
+    await ps.evaluate(() => window.SBCAPTURE.handleUrl("./?share=1&title=" + encodeURIComponent("Osmosis in 5 Minutes") + "&text=" + encodeURIComponent("https://youtu.be/dQw4w9WgXcQ?si=xyz")));
+    await ps.waitForFunction(() => { const i = document.getElementById("aiLink"); return i && i.value && !document.getElementById("aiYtTrBox").hidden; }, null, {timeout: 8000});
+    ok(await ps.evaluate(() => document.getElementById("aiLink").value) === "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "a shared YouTube link opens Make Flashcards with AI with the video's link in");
+    ok(await ps.evaluate(() => document.getElementById("aiLinkD").open && !!document.querySelector(".cl-how .cl-pic")) && (await S(ps)).tasks.length === tasksBefore, "with the how-to and its picture, and no task made from the share");
+    await ps.locator(".cl-how").screenshot({path: path.join(require("os").tmpdir(), "cl-how-light.png")}).catch(() => {});
+    await ps.focus("#aiYtTr");
+    await ps.evaluate(() => { const t = document.getElementById("aiYtTr"); t.value = "Transcript\n0:00\nhi I'm Hank\n0:03\n[Music]\ntoday: osmosis\n0:06\nwater moves toward salt"; t.dispatchEvent(new InputEvent("input", {bubbles: true, inputType: "insertFromPaste"})); });
+    ok(await ps.evaluate(() => document.getElementById("aiYtTr").value) === "hi I'm Hank today: osmosis water moves toward salt", "a pasted transcript loses its timestamps, tags and line breaks");
+    ok(/3 timestamps taken out/.test(await ps.textContent("#aiYtTrNote")), "and it says what was taken out: " + await ps.textContent("#aiYtTrNote"));
+    const fs2 = await fits(ps); ok(fs2.dlg <= 1 && fs2.page <= 0, "at 390px the how-to fits: " + JSON.stringify(fs2));
+    // a shared task that mentions a video stays a task
+    await ps.evaluate(() => { const d = window.__sbSync.dlg; if (d.open) d.close(); });
+    const rTask = await ps.evaluate(() => window.SBCAPTURE.handleUrl("./?share=1&text=" + encodeURIComponent("Bio lab report due Friday at 5pm, read chapter 4 first and finish the worksheet questions 1 through 12 before the lab session starts, see https://youtu.be/dQw4w9WgXcQ for the demo"), {quiet: true}));
+    ok(rTask && rTask.action !== "video" && !(await ps.evaluate(() => window.__sbSync.dlg.open && !!document.getElementById("aiLink"))), "a shared task that mentions a video is left to task capture, not turned into flashcards: " + JSON.stringify(rTask));
+    ok(ps.errs.length === 0, "no console errors (share): " + ps.errs.join(" | "));
+    await ps.emulateMedia({colorScheme: "dark"}); await ps.context().close();
   } finally { await browser.close(); server.close(); }
   console.log(`cards-from-link.e2e.js: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });

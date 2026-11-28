@@ -6,8 +6,9 @@ type Deps = { env: Env; fetch: typeof fetch; now: () => number; log: (...a: unkn
 const RATE_MAX = 10, RATE_WINDOW = 3600;
 // "plus" is Studyboard Plus: Pro without Studyboard AI, $2.99 a month (its price id: the STRIPE_PRICE_PLUS secret, or
 // studyboard_config.stripe_prices.plus_monthly; shown once studyboard_config.plus_plan is true)
-const PLANS = ["monthly", "semester", "yearly", "plus"] as const;
-const PRICE_ENV: Record<string, string> = { monthly: "STRIPE_PRICE_MONTHLY", semester: "STRIPE_PRICE_SEMESTER", yearly: "STRIPE_PRICE_YEARLY", plus: "STRIPE_PRICE_PLUS" };
+// "quarterly" renews every 3 months (STRIPE_PRICE_QUARTERLY); it replaced the 4-month semester plan, which is no longer sold
+const PLANS = ["monthly", "quarterly", "yearly", "plus"] as const;
+const PRICE_ENV: Record<string, string> = { monthly: "STRIPE_PRICE_MONTHLY", quarterly: "STRIPE_PRICE_QUARTERLY", yearly: "STRIPE_PRICE_YEARLY", plus: "STRIPE_PRICE_PLUS" };
 const PACK_ID = /^[a-z0-9_]{1,40}$/;
 const PRICE_ID = /^price_[A-Za-z0-9]+$/;
 const APP_ORIGINS = ["app://studioso", "capacitor://localhost", "https://localhost"];
@@ -119,13 +120,15 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
     const rl = await (await rest("rpc/studyboard_plan_rate_hit", { method: "POST", body: JSON.stringify({ p_key: `checkout:${uid}`, p_max: RATE_MAX, p_window: RATE_WINDOW }) })).json();
     if (rl !== true) return json({ error: "rate_limited", message: "Too many tries. Please wait a little and try again." }, 429, cors, { "Retry-After": "900" });
 
-    // Only a plan name ("monthly", "semester", "yearly" or "plus") or a credit pack id is taken from the browser; prices come from the server
+    // Only a plan name ("monthly", "quarterly", "yearly" or "plus") or a credit pack id is taken from the browser; prices come from the server
     const text = await req.text();
     if (text.length > 4096) return json({ error: "bad request" }, 400, cors);
     const body = (() => { try { return JSON.parse(text || "{}"); } catch (_e) { return null; } })();
     const packId: string | null = body && typeof body.pack === "string" && PACK_ID.test(body.pack) ? body.pack : null;
+    // An app from before the change still asks for "semester": its screen showed the old price, so it isn't charged the new one
+    if (!packId && body?.plan === "semester") return json({ error: "plan_unavailable", message: "The semester plan is now a quarterly plan. Update Studyboard to see it, or choose monthly or yearly." }, 400, cors);
     const plan: Plan | null = !packId && body && PLANS.includes(body.plan) ? body.plan : null;
-    if (!plan && !packId) return json({ error: "bad request", message: "Choose monthly, semester or yearly." }, 400, cors);
+    if (!plan && !packId) return json({ error: "bad request", message: "Choose monthly, quarterly or yearly." }, 400, cors);
     if (!d.env("STRIPE_SECRET_KEY")) throw new Error("checkout is not configured");
 
     // Allowed return sites, and the switches and price ids kept in the database
@@ -138,7 +141,7 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
         if (!PRICE_ID.test(price)) price = String((cfgVal("stripe_prices") as any)?.plus_monthly || "");
         if (cfgVal("plus_plan") !== true || !PRICE_ID.test(price)) return json({ error: "plan_unavailable", message: "Studyboard Plus isn't available yet. Choose a Pro plan." }, 400, cors);
       }
-      if (plan === "semester" && !PRICE_ID.test(price)) return json({ error: "plan_unavailable", message: "The semester plan isn't available yet. Choose monthly or yearly." }, 400, cors);
+      if (plan === "quarterly" && !PRICE_ID.test(price)) return json({ error: "plan_unavailable", message: "The quarterly plan isn't available yet. Choose monthly or yearly." }, 400, cors);
       if (!PRICE_ID.test(price)) throw new Error("checkout is not configured");
     }
     const siteUrl = String(cfgVal("site_url") || "");
@@ -160,18 +163,18 @@ export async function handle(req: Request, d: Deps): Promise<Response> {
       return customer!;
     };
 
-    // Credits: a one-time payment for a pack. The pack's credits and Stripe price come from studyboard_credit_packs
+    // Studyboard Bucks (stored as credits): a one-time payment for a pack. The pack's credits and Stripe price come from studyboard_credit_packs
     if (packId) {
-      if (cfgVal("item_purchases") !== true) return json({ error: "plan_unavailable", message: "Credits aren't available yet." }, 400, cors);
+      if (cfgVal("item_purchases") !== true) return json({ error: "plan_unavailable", message: "Studyboard Bucks aren't available yet." }, 400, cors);
       const pack = ((await (await rest(`studyboard_credit_packs?pack_id=eq.${packId}&active=eq.true&select=pack_id,credits,stripe_price_id`)).json()) as any[])[0];
-      if (!pack || !PRICE_ID.test(String(pack.stripe_price_id || ""))) return json({ error: "plan_unavailable", message: "That credit pack isn't available. Choose another one." }, 400, cors);
+      if (!pack || !PRICE_ID.test(String(pack.stripe_price_id || ""))) return json({ error: "plan_unavailable", message: "That Bucks pack isn't available. Choose another one." }, 400, cors);
       const meta = { uid, kind: "credits", pack: pack.pack_id };
       const session = await stripe(d, "checkout/sessions", {
         mode: "payment",
         customer: await customerFor(),
         client_reference_id: uid,
         metadata: meta,
-        payment_intent_data: { metadata: meta, description: `Studyboard: ${pack.credits} credits` },
+        payment_intent_data: { metadata: meta, description: `Studyboard: ${pack.credits} Studyboard Bucks` },
         line_items: { 0: { price: pack.stripe_price_id, quantity: 1 } },
         success_url: safeReturn(body.success_url, origins, "/success.html", local, `?session_id={CHECKOUT_SESSION_ID}&kind=credits${src}`),
         cancel_url: safeReturn(body.cancel_url, origins, "/cancel.html", local, src ? "?src=app" : ""),

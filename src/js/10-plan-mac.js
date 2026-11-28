@@ -12,12 +12,12 @@
   const rcHead = {Authorization: "Bearer " + MAC_RC_KEY, "X-Platform": "macos", "Content-Type": "application/json"};
   const result = (action, status, message) => { try { window.dispatchEvent(new CustomEvent("studyboard:purchase-result", {detail: {action, status, message: message || ""}})); } catch (e) {} };
   const NOT_HERE = "Studyboard Pro isn't available in your country yet. Everything else in Studyboard works as usual.";
-  // The product for monthly / yearly / semester, from RevenueCat's current offering (the same packages as iPhone)
+  // The product for monthly / quarterly / yearly, from RevenueCat's current offering (the same packages as iPhone)
   async function productFor(uid, period){
     const r = await fetch(`${RC}/subscribers/${encodeURIComponent(uid)}/offerings`, {headers: rcHead});
     if (!r.ok) throw new Error("offerings " + r.status);
     const j = await r.json(), cur = (j.offerings || []).find(o => o.identifier === j.current_offering_id) || (j.offerings || [])[0];
-    const want = period === "yearly" ? "$rc_annual" : period === "semester" ? "semester" : "$rc_monthly";
+    const want = period === "yearly" ? "$rc_annual" : period === "quarterly" ? "$rc_three_month" : "$rc_monthly";
     const pkg = cur && (cur.packages || []).find(p => p.identifier === want);
     return pkg && pkg.platform_product_identifier || "";
   }

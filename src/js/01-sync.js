@@ -71,7 +71,23 @@ function queueWrite(kind, id, data){
   if (!e.running) runQueue(key, e);
 }
 // One item over the server's size limit for a single item: named, and said at most once in 10 minutes per item
-let syncFullAt = 0;
+let syncFullAt = 0, syncReserveAt = 0;
+const SYNC_FULL = ["quota_exceeded", "quota_or_state", "reserve_full"];
+// Recently Deleted that the server has no room for (full, or inside the reserve kept for the planner): kept on this device
+// only, quietly, like entries too big to sync. Deleting still works; only the undo copy stays local.
+function syncTrashLocal(key){
+  if (key.indexOf("trash:") !== 0) return false;
+  const e = state.trash && state.trash[key.slice(6)];
+  if (e && !e.local) { e.local = true; try { trashSaveLocal(); } catch(x) {} }
+  return true;
+}
+// A note (or other item) with pictures saved inside it, refused because the account is inside the reserve: said at most every 5 minutes
+function syncReserveWarn(key, data){
+  if (Date.now() - syncReserveAt < 5 * 60000) return;
+  syncReserveAt = Date.now();
+  let name = ""; try { name = SyncMerge.titleOf(key.slice(0, key.indexOf(":")), data) || ""; } catch(e) {}
+  toast(`${name ? `"${String(name).slice(0, 60)}"` : "An item"} has pictures that can't sync now: the rest of your synced space is kept for tasks, notes and courses. It's still saved on this device. Move the pictures into Files, or delete some pictures or other old items.`, null, null, {error: true});
+}
 const syncBigAt = new Map();
 function syncBigWarn(key, data){
   if (Date.now() - (syncBigAt.get(key) || 0) < 10 * 60000) return;
@@ -112,13 +128,17 @@ async function runQueue(key, e){
         syncError = true; console.warn("Save failed", code, err && err.message);
         // tried again later from the offline outbox (which merges with what the server has now); where there is no outbox, a save that
         // failed only because the server was out of reach is sent again as it was
-        if (code !== "quota_exceeded" && code !== "quota_or_state" && code !== "schema" && code !== "item_too_big") {
+        const trashKept = job.data !== null && SYNC_FULL.includes(code) && syncTrashLocal(key);
+        if (trashKept) outboxDone(key, job.data);
+        if (!SYNC_FULL.includes(code) && code !== "schema" && code !== "item_too_big") {
           if ((inPreview() || !sbConfig()) && (code === "unavailable" || code === "resource_exhausted")) syncLater.set(key, {ref: e.ref, data: job.data});
           syncRetryLater();
         }
-        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded") SBERR.flow("sync", err, {tags: {code}}); }
+        if (window.SBERR) { SBERR.crumb("sync", "fail"); if (code !== "quota_exceeded" && code !== "reserve_full") SBERR.flow("sync", err, {tags: {code}}); }
 
-        if (code === "item_too_big") syncBigWarn(key, job.data);
+        if (trashKept) { syncError = syncLater.size > 0; }
+        else if (code === "item_too_big") syncBigWarn(key, job.data);
+        else if (code === "reserve_full") syncReserveWarn(key, job.data);
         else if ((code === "quota_exceeded" || code === "quota_or_state") && Date.now() - syncFullAt > 5 * 60000) { syncFullAt = Date.now(); reviewQuiet(3); toast("Online storage is full, so recent changes can't sync. They are still saved on this device. Delete old items or export a backup.", null, null, {error: true}); }
         if (code === "schema" && !window.__schemaWarned) { window.__schemaWarned = true; toast(SB_HOSTED ? "Flashcards are saved on this device but can't sync yet. They'll sync once Studyboard's server is updated." : "Flashcards are saved on this device but can't sync yet. Run the flashcards update SQL from the setup guide, then reload."); }
       }
@@ -273,7 +293,11 @@ async function flushOutbox(){
       const sentData = o[k]; sentBy[k] = sentData; delete o[k]; sent++;
       if (res && res.merge) { merged.push([k, sentData, res]); }
     }
-    catch(e) { failed = true; const c = e && e.code; if (c === "unavailable" || c === "resource_exhausted" || !c) break; }
+    catch(e) {
+      const c = e && e.code;
+      if (o[k] !== null && SYNC_FULL.includes(c) && syncTrashLocal(k)) { sentBy[k] = o[k]; delete o[k]; continue; }   // kept on this device, not retried
+      failed = true; if (c === "unavailable" || c === "resource_exhausted" || !c) break;
+    }
   }
   try {
     const cur = outboxGet();

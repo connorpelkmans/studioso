@@ -47,7 +47,7 @@
   for (var j = 0; j < app.length; j++) {
     try { var u = new URL(cfg.APP_URL); if (u.protocol === "https:" && !/YOUR-APP/.test(u.hostname)) app[j].setAttribute("href", u.href); } catch (e) { }
   }
-  // The thank-you page after buying Studyboard Credits (create-checkout adds kind=credits)
+  // The thank-you page after buying Studyboard Bucks (create-checkout adds kind=credits, the server's name for them)
   try {
     if (new URLSearchParams(location.search).get("kind") === "credits" && document.getElementById("credits-done")) {
       document.getElementById("credits-done").hidden = false;

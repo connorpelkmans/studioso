@@ -325,7 +325,7 @@
         },
         mouth: {x: 60, y: 63, w: 3.4},
         cheeks: {lx: 35, rx: 85, y: 62, w: 5, h: 3, color: "#FF8DB0"},
-        anchors: {top: [60, 27.5, 0.78, 0], neck: [60, 83, 1.05, 0, 55, 92], chest: [60, 87.5, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
+        anchors: {top: [60, 36.5, 0.74, 0], neck: [60, 83, 1.05, 0, 55, 92], chest: [60, 87.5, 0.6], back: [88, 84, 0.9], hands: [60, 96, 0.85]},
         lines: {
           tap: ["Ribbit! So happy to see you!", "You're doing amazing today!", "Look at you, hopping along!", "Big hops of cheer for you!", "You've got this, friend!", "You make my lily pad bounce!", "Best company on the pond!"],
           pet: ["Ribbit! That's so nice!", "Hehe! I'm all hoppy now!"],

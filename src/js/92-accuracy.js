@@ -191,7 +191,33 @@ const ACC = (() => {
   }
   // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
   const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
+  /* Reading pace: minutes a page, from finished readings that have pages */
+  const PACE_LIM = [0.5, 20];
+  // One finished reading -> {mpp, at} or null: the time you said it took, else its focus time (10 minutes or more)
+  function pageSample(t){
+    if (!t || t.status !== "done" || !(Number(t.pages) >= 1) || isMs(t.type) || t.prepFor) return null;
+    const meas = Number(t.focusMin) || 0, act = Number(t.actualMin) || 0;
+    const mins = act > 0 && act >= meas ? act : meas >= 10 ? meas : 0;
+    if (!mins) return null;
+    const mpp = mins / Number(t.pages);
+    // a timer left running, or pages only skimmed: not a pace
+    if (mpp < PACE_LIM[0] || mpp > PACE_LIM[1]) return null;
+    return {mpp, at: Number(t.doneAt) || Number(t.created) || 0};
+  }
+  // A course's readings, oldest first ("" is the readings with no course; null is all of them)
+  const pageSamples = (tasks, course) => (tasks || []).filter(t => t && (course == null || (t.courseId || "") === course)).map(pageSample).filter(Boolean).sort((a, b) => a.at - b.at);
+  // Smoothed: each reading moves the pace 30% of the way toward its own, starting from the student's setting (else 3 min a page).
+  // Once two readings count, one more than 2.5 times slower or faster than the pace so far is an outlier and is set aside.
+  // since: only readings finished after the student last set the pace by hand. -> {mpp, n, skipped}
+  function pace(S, prior, since){
+    let p = Number(prior) > 0 ? Number(prior) : 3, n = 0, skipped = 0;
+    (S || []).filter(x => !(since > 0) || x.at >= since).forEach(x => {
+      if (n >= 2 && (x.mpp > p * 2.5 || x.mpp < p / 2.5)) { skipped++; return; }
+      p += 0.3 * (x.mpp - p); n++;
+    });
+    return {mpp: Math.round(p * 10) / 10, n, skipped};
+  }
+  return {pageSample, pageSamples, pace, entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -239,6 +265,14 @@ function explain(t){
   return i.r > 1
     ? tr("acc.over", "You usually take about {x}x your estimate on {what}.", {x: i.r.toFixed(1), what: whatOf(t, i)})
     : tr("acc.under", "You usually finish {what} in about {x}x your estimate.", {x: i.r.toFixed(1), what: whatOf(t, i)});
+}
+
+// A course's reading pace: {mpp minutes a page, n readings it learned from, skipped outliers, set: the student's own number (0 if none)}
+function paceFor(cid){
+  const c = cid ? courseOf(cid) : null, own = c && Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!on()) return {mpp: own || 3, n: 0, skipped: 0, set: own};
+  const M = memo(), key = "p|" + (cid || "");
+  return M.ratios[key] || (M.ratios[key] = Object.assign(ACC.pace(ACC.pageSamples(allTasks(), cid || ""), own || 3, own ? Number(c.readPaceAt) || 0 : 0), {set: own}));
 }
 
 /* SBTIME: read-only tracked time */
@@ -649,7 +683,7 @@ hook("boot", () => {
 hook("focus", e => {
   if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, paceFor, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
 return api;
 })();
