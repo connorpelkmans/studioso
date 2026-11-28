@@ -75385,6 +75385,123 @@ var COMP_ACC_MORE = K => {
       <path d="M-7 0L-4.6 -2.4L-2.4 0L0 -2.4L2.4 0L4.6 -2.4L7 0Q7.6 9 0 10Q-7.6 9 -7 0Z" ${WF} ${OUT(1.6)}/><circle cx="-3.4" cy="4" r="1" fill="#fff" opacity=".75"/><circle cx="2.6" cy="6.4" r="1.2" fill="#fff" opacity=".75"/><circle cx="3.6" cy="2.4" r=".7" fill="#fff" opacity=".75"/>
       <path d="M-4.4 -7.2L-3 -10L-1.4 -7.8L0 -10.6L1.6 -7.8L3 -10L4.4 -7.2Q0 -5.6 -4.4 -7.2Z" ${WF} ${OUT(1.2)}/>${tw(-8.6, -8, 2.2, 0)}${tw(8.4, 4, 2, 1)}</g>`}
   );
+  /* ---------------- Animated ones: something on them moves (98-companion.css, .cpa-*), and holds still with reduced motion ----------------
+     A moving part sits in a <g> of its own with no transform attribute (a CSS animation would replace it) */
+  const A = (k, inner, st) => `<g class="cpa cpa-${k}"${st ? ` style="${st}"` : ""}>${inner}</g>`;
+  const puffs2 = (pts, fill) => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" ${fill}/>`).join("")}`;
+  HEAD.push(
+    // Rare: two glowing balls on springs that wobble
+    {id: "antennae", name: "Bopper Antennae", rarity: "rare", def: "#9BE15D", anim: true, icon: [12, .85], art: () => {
+      const side = (k, d) => A("wobble", `${line2("M-6 -9.6Q-9.4 -11 -7.2 -13Q-5 -14.8 -8.6 -16.2Q-11.4 -17.6 -10.6 -19.8", 1.1, "#C9D0DA")}<circle cx="-10.6" cy="-23.6" r="5.4" ${WF} opacity=".3"/><circle cx="-10.6" cy="-23.6" r="3.6" ${WF} ${OUT(1.6)}/><circle cx="-11.8" cy="-24.8" r="1.1" fill="#fff"/>`, `animation-delay:${d}s`);
+      return `${side(0, 0)}<g transform="scale(-1 1)">${side(0, -.8)}</g>${line2("M-17 3Q-15 -9.4 0 -10.2Q15 -9.4 17 3", 3, "#3A3450")}`; }},
+    // Epic: a little storm cloud overhead, raining, with now and then a flash of lightning
+    {id: "stormcloud", name: "Storm Cloud", rarity: "exotic", def: "#9AA3B5", anim: true, icon: [11, .9], art: () => {
+      const drops = [[-8, 0], [-2.6, .35], [3, .7], [8.4, .2], [0, .9]].map(([x, d]) => A("drop", `<path d="M${x} -11.4q-1.3 2 0 3q1.3 -1 0 -3Z" fill="#5A95FF"/>`, `animation-delay:${d}s`)).join("");
+      return `${drops}${A("bob", `${A("flash", `<path d="M1 -14L-3.4 -6.6H0L-2 0L4 -8.6H.6L2.4 -14Z" fill="#FFD35A" ${OUT(1)}/>`)}${puffs2([[-9, -16, 5], [-2, -21, 6.6], [6, -19.6, 5.6], [11, -15, 4.2], [0, -14, 6]], WF)}<path d="M-13 -13Q0 -9.4 14 -13" fill="none" stroke="${INK}" stroke-opacity=".18" stroke-width="2.4" stroke-linecap="round"/><circle cx="-4" cy="-23" r="1.8" fill="#fff" opacity=".55"/>`)}`; }},
+    // Epic: a gold crown with a flame flickering on each point
+    {id: "flamecrown", name: "Flame Crown", rarity: "exotic", def: "#F5C542", anim: true, icon: [12, .85], art: () => {
+      const flame = (x, y, s, d) => `<g transform="translate(${x} ${y}) scale(${s})">${A("flicker", `<path d="M0 0C-3.4 -1 -3.6 -5 -1.2 -8.4C-1 -6 .4 -5.4 .6 -7.4C2.8 -5.4 3.6 -1.4 0 0Z" fill="#FF7A2F" ${OUT(1)}/><path d="M0 -.6C-1.6 -1.2 -1.6 -3.2 -.4 -4.8C.2 -3.6 1.6 -3 1.4 -2C1.4 -1.2 .8 -.6 0 -.6Z" fill="#FFE07A"/>`, `animation-delay:${d}s`)}</g>`;
+      return `${flame(-16, -10.6, 1, 0)}${flame(0, -13.6, 1.2, -.2)}${flame(16, -10.6, 1, -.35)}<path d="M-14 3L-16 -10L-8 -4L0 -13L8 -4L16 -10L14 3Z" ${WF} ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="6.6" rx="3" fill="${GOLD_D}" ${OUT(2)}/>${[-7, 0, 7].map((x, i) => `<circle cx="${x}" cy="2.3" r="1.5" fill="${["#E5484D", "#5A95FF", "#4CB782"][i]}"/>`).join("")}<path d="M-9 -2.4L-11.6 -7.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>`; }},
+    // Legendary: three tiny planets circling the head on a glowing ring
+    {id: "orbithalo", name: "Orbit Halo", rarity: "legendary", def: "#9AD8FF", anim: true, icon: [12, .9], art: () => {
+      const T = [5.6, 4.2, 7.2], P = [["#5A95FF", 2.4, 0], ["#FF9A3C", 2.8, 1], ["#E5484D", 1.8, 0]];
+      // an orbit: a sideways swing and an up-and-down swing a quarter-turn apart make a flat circle
+      const planet = (k) => { const [c, r, ring] = P[k], h = T[k] / 2, d0 = -T[k] * k / 3;
+        return A("orbx", A("orby", `<circle cx="0" cy="-16" r="${r}" fill="${c}" ${OUT(1)}/>${ring ? `<ellipse cx="0" cy="-16" rx="${r * 1.8}" ry="${r * .55}" fill="none" stroke="#FFE07A" stroke-width=".9"/>` : ""}<circle cx="${-r * .35}" cy="${-16 - r * .35}" r="${r * .3}" fill="#fff" opacity=".7"/>`, `--ry:4.6px;animation-duration:${h}s;animation-delay:${d0 - h / 2}s`), `--rx:16.5px;animation-duration:${h}s;animation-delay:${d0}s`); };
+      return `<ellipse cx="0" cy="-16" rx="16.5" ry="4.6" fill="none" ${WS("#9AD8FF")} stroke-opacity=".35" stroke-width="4"/><ellipse cx="0" cy="-16" rx="16.5" ry="4.6" fill="none" ${WS("#9AD8FF")} stroke-width="1.2"/>${[0, 1, 2].map(planet).join("")}${tw(-19, -24, 2.8, 0)}${tw(19, -9, 2.4, .9)}${tw(4, -27, 2, 1.7)}`; }}
+  );
+  FACE.push(
+    // Rare: little lights chasing round the frames
+    {id: "ledglasses", name: "LED Glasses", rarity: "rare", def: "#2B2233", anim: true, art: g => {
+      const C = ["#FF5C8A", "#FFD35A", "#4CD7A0", "#5A95FF", "#B57BFF", "#FF9A3C"];
+      return `${bridge(g, 2.2, 1.8, WS("#2B2233"))}${temples(g, 1.6, WS("#2B2233"))}${pair(g, R => `<circle r="${f(R)}" fill="#fff" fill-opacity=".14" stroke="${INK}" stroke-width="4.6"/><circle r="${f(R)}" fill="none" ${WS("#2B2233")} stroke-width="2.6"/>${C.map((c, i) => { const a = i * Math.PI / 3 - Math.PI / 2; return A("led", `<circle cx="${f(R * Math.cos(a))}" cy="${f(R * Math.sin(a))}" r="1.05" fill="${c}"/>`, `animation-delay:${(-i * .2).toFixed(1)}s`); }).join("")}${shine(R * .8)}`)}`; }},
+    // Epic: heart lenses that beat
+    {id: "hearteyes", name: "Heart-Eyes Specs", rarity: "exotic", def: "#FF4F8B", anim: true, art: g => {
+      const s = g.R * 1.05, h = `M0 ${f(s * .9)}C${f(-s * 1.45)} ${f(s * .05)} ${f(-s * 1.05)} ${f(-s * 1.05)} 0 ${f(-s * .38)}C${f(s * 1.05)} ${f(-s * 1.05)} ${f(s * 1.45)} ${f(s * .05)} 0 ${f(s * .9)}Z`;
+      return `${bridge(g, 2.6, 1.8)}${temples(g)}${[[g.lx, 0], [g.rx, -.15]].map(([x, d]) => `<g transform="translate(${x} ${g.y})">${A("beat", `<path d="${h}" ${WF} fill-opacity=".92" ${OUT(2.2)}/><path d="M${f(-s * .7)} ${f(-s * .32)}q${f(s * .2)} ${f(-s * .38)} ${f(s * .5)} ${f(-s * .3)}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>`, `animation-delay:${d}s`)}</g>`).join("")}`; }},
+    // Epic: snow globes for lenses, with snow falling inside
+    {id: "snowglobe", name: "Snow Globe Specs", rarity: "exotic", def: "#8FD3FF", anim: true, art: g => {
+      const flakes = R => [[-.45, 0], [.1, .6], [.5, 1.2], [-.1, 1.8], [.3, .3], [-.55, 1.4]].map(([x, d]) => A("snow", `<circle cx="${f(x * R)}" cy="${f(-R * .25)}" r=".8" fill="#fff"/>`, `--sy:${f(R * .9)}px;animation-delay:${-d}s`)).join("");
+      return `<clipPath id="cpaGlobe"><circle r="${f(g.R * .95)}"/></clipPath>${bridge(g, 2.4, 1.8, "#C9D0DA")}${temples(g, 1.6, "#C9D0DA")}${pair(g, R => `<circle r="${f(R)}" ${WF} fill-opacity=".45"/><g clip-path="url(#cpaGlobe)">${flakes(R)}<path d="M${f(-R)} ${f(R * .55)}Q0 ${f(R * .25)} ${f(R)} ${f(R * .55)}V${f(R)}H${f(-R)}Z" fill="#fff"/></g><circle r="${f(R)}" fill="none" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R)}" fill="none" stroke="#E4E8EF" stroke-width="2.2"/>${shine(R)}`)}`; }},
+    // Legendary: a dark visor with a red light sweeping side to side
+    {id: "laservisor", name: "Laser Visor", rarity: "legendary", def: "#1E1B26", anim: true, art: g => {
+      const x0 = g.lx - g.R - Math.min(3.5, g.ext), x1 = g.rx + g.R + Math.min(3.5, g.ext), h = g.R * .8, d = rr(x0, g.y - h, x1 - x0, h * 2, h * .9), sx = f((x1 - x0) / 2 - h);
+      return `<clipPath id="cpaVisor"><path d="${d}"/></clipPath><path d="${d}" ${WF} ${OUT(2.4)}/><g clip-path="url(#cpaVisor)">${[-.4, 0, .4].map(k => `<path d="M${f(x0)} ${f(g.y + k * h)}H${f(x1)}" stroke="#fff" stroke-opacity=".07" stroke-width=".6"/>`).join("")}
+        ${A("scan", `<ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * 1.6)}" ry="${f(h * .9)}" fill="#FF2E4D" opacity=".28"/><ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * .8)}" ry="${f(h * .45)}" fill="#FF2E4D" opacity=".75"/><ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * .35)}" ry="${f(h * .22)}" fill="#FFD2D8"/>`, `--sx:${sx}px`)}</g>
+        <path d="M${f(x0 + 3)} ${f(g.y - h * .55)}H${f(x1 - 3)}" stroke="#fff" stroke-opacity=".3" stroke-width="1" stroke-linecap="round"/>${tw(x0 - 1.5, g.y - h * 1.6, 2.6, 0)}${tw(x1 + 1.5, g.y + h * 1.4, 2.2, 1)}`; }}
+  );
+  NECK.push(
+    // Rare: a scarf whose tails flutter in the breeze
+    {id: "breezyscarf", name: "Breezy Scarf", rarity: "rare", def: "#FF9A3C", pat: true, anim: true, art: hw => {
+      const e = f(hw + 4), k = f(hw * .45 - 9.5);
+      return `<path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${WF} ${OUT(2.4)}/><path d="M${f(-hw + 2)} -1.5Q0 5 ${f(hw - 2)} -1.5" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2.2" stroke-linecap="round"/>
+        <g transform="translate(${k} 0)">${A("flutter", `<path d="M7 3Q16 2 22 6Q26 9 30 7Q27 12 21 11Q15 10 8 8Z" ${WF} ${OUT(2.2)}/><path d="M6 6Q14 9 18 15Q21 19 25 19Q21 23 16 19Q11 15 5 10Z" ${WF} ${OUT(2.2)}/><path d="M25 8.6l2.6 1.4M27.6 7.6l2.2 .4M22 18.6l1.6 2.4M24.4 18.4l2.6 1" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/>`)}<circle cx="7" cy="4.6" r="4.2" ${WF} ${OUT(2.2)}/></g>`; }},
+    // Epic: fireflies on a string that glow on and off, two drifting nearby
+    {id: "fireflies", name: "Firefly Necklace", rarity: "exotic", def: "#D9FF6B", anim: true, art: hw => {
+      const pts = along(hw, -2, 6.5, Math.max(6, Math.round(hw / 3.6)), .88);
+      const fly = (x, y, d) => `<circle cx="${x}" cy="${y}" r="2.2" fill="#3A5A3E" ${OUT(1)}/>${A("glow", `<circle cx="${x}" cy="${y}" r="4.6" ${WF} opacity=".45"/><circle cx="${x}" cy="${y}" r="2.2" ${WF}/>`, `animation-delay:${d}s`)}<ellipse cx="${f(+x - 1)}" cy="${f(+y - 1.6)}" rx="1.2" ry=".7" fill="#fff" opacity=".7"/><circle cx="${f(+x + 1)}" cy="${f(+y - 1.2)}" r=".7" fill="${INK}"/>`;
+      return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#3A5A3E" stroke-width="1"/>${pts.map(([x, y], i) => fly(x, +y + 1.6, (-i * .37 % 1.8).toFixed(2))).join("")}${A("bob", fly(f(hw + 4), -8, -.6))}${A("bob", fly(f(-hw - 5), 2, -1.2), "animation-delay:-1.1s")}`; }},
+    // Legendary: a scarf in moving northern lights
+    {id: "aurorascarf", name: "Aurora Scarf", rarity: "legendary", def: "#4CFFB0", anim: true, art: hw => {
+      const k = f(hw * .45 - 9.5), e = f(hw + 4), band = `M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z`, tail = `M${f(+k + 6)} 4L${f(+k + 9)} 21L${f(+k + 18)} 19.5L${f(+k + 13)} 3Z`;
+      return `<defs><linearGradient id="cpaAur" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="6" spreadMethod="reflect"><stop offset="0" style="stop-color:var(--cp-wear,#4CFFB0)"/><stop offset=".5" stop-color="#4FD6FF"/><stop offset="1" stop-color="#C77BFF"/></linearGradient><clipPath id="cpaAurC"><path d="${band}"/><path d="${tail}"/></clipPath></defs>
+        <path d="${band}" fill="#2A1F5C"/><path d="${tail}" fill="#2A1F5C"/><g clip-path="url(#cpaAurC)">${A("flow", `<rect x="${f(-hw - 60)}" y="-8" width="${f(hw * 2 + 120)}" height="34" fill="url(#cpaAur)"/>`)}</g>
+        <path d="${band}" fill="none" ${OUT(2.4)}/><path d="${tail}" fill="none" ${OUT(2.4)}/><path d="M${f(-hw + 2)} -1.5Q0 5 ${f(hw - 2)} -1.5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="${f(+k + 9.5)}" cy="4" r="4.4" fill="#2A1F5C" ${OUT(2.4)}/><circle cx="${f(+k + 9.5)}" cy="4" r="2.2" ${WF}/>${tw(f(-hw - 3), -6, 2.8, 0)}${tw(f(+k + 20), 22, 2.6, 1)}${tw(f(hw * .2), 11, 2, 1.7)}`; }}
+  );
+  CHEST.push(
+    // Rare: a little clock with its second hand going round
+    {id: "clockpin", name: "Clock Pin", rarity: "rare", at: "pin", slot: "chest", def: "#5A95FF", anim: true, art: () =>
+      `<circle r="8" ${WF} ${OUT(1.8)}/><circle r="6.2" fill="#FFF8F0" ${OUT(1)}/>${[0, 1, 2, 3].map(i => { const a = i * Math.PI / 2; return `<path d="M${f(5 * Math.cos(a))} ${f(5 * Math.sin(a))}L${f(5.8 * Math.cos(a))} ${f(5.8 * Math.sin(a))}" stroke="${INK}" stroke-width=".9" stroke-linecap="round"/>`; }).join("")}
+      <path d="M0 0L-2.4 -2.6" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/>${A("spin", `<circle r="6.2" fill="none"/><path d="M0 1.4V-5" stroke="#E5484D" stroke-width=".8" stroke-linecap="round"/>`, "animation-duration:6s")}<circle r="1" fill="${INK}"/><rect x="-1.6" y="-10.6" width="3.2" height="2.6" rx=".8" ${WF} ${OUT(1)}/>`},
+    // Epic: a heart that beats over a heart-monitor line
+    {id: "heartbeat", name: "Heartbeat Pin", rarity: "exotic", at: "pin", slot: "chest", def: "#E5484D", anim: true, art: () =>
+      `${A("beat", `${heart(0, -1.2, 6, WF, 1.8)}<path d="M-4 -4.6q1.2 -1.8 3 -1.4" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`)}
+      <path d="M-11 7.6H-4.6L-3 4.4L-1 10.6L1.2 3.4L2.8 7.6H11" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${A("ecg", `<path d="M-11 7.6H-4.6L-3 4.4L-1 10.6L1.2 3.4L2.8 7.6H11" fill="none" stroke="#4CFFB0" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>`)}`},
+    // Legendary: a gold brooch holding a slowly turning spiral galaxy
+    {id: "galaxybrooch", name: "Galaxy Brooch", rarity: "legendary", at: "mid", slot: "chest", def: "#2A1F5C", anim: true, art: () => {
+      let arms = ""; for (let a2 = 0; a2 < 2; a2++) for (let i = 0; i < 9; i++) { const t = i / 8, r = 1.2 + t * 4.6, a = a2 * Math.PI + t * 3.4; arms += `<circle cx="${f(r * Math.cos(a))}" cy="${f(r * Math.sin(a))}" r="${f(.85 - t * .4)}" fill="${["#fff", "#FF9AD5", "#9AD8FF"][i % 3]}" opacity="${f(1 - t * .45)}"/>`; }
+      return `<circle r="9.4" fill="${GOLD}" ${OUT(1.6)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<circle cx="${f(9.4 * Math.cos(a))}" cy="${f(9.4 * Math.sin(a))}" r=".9" fill="#FFF3B0"/>`; }).join("")}<circle r="7" ${WF} ${OUT(1)}/>
+        ${A("spin", `<circle r="6.4" fill="none"/><circle r="2.4" fill="#FFE7F4" opacity=".5"/>${arms}<circle r="1.2" fill="#fff"/>`, "animation-duration:14s")}<path d="M-4.6 -4.2a6.4 6.4 0 0 1 3.4 -2.2" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="1" stroke-linecap="round"/>${tw(-11, -9, 2.8, 0)}${tw(11, 7, 2.4, 1)}`; }}
+  );
+  /* ---------------- More animated Legendaries: the ones students ask for ---------------- */
+  HEAD.push(
+    // a gaming headset whose cups and mic glow through the colours, like an RGB setup
+    {id: "rgbheadset", name: "RGB Gaming Headset", rarity: "legendary", def: "#2B2233", anim: true, icon: [6, 1], art: () => {
+      const cup = s => `<g transform="scale(${s} 1)"><rect x="-21" y="-6" width="8.6" height="13" rx="3.6" ${WF} ${OUT(2)}/>${A("rgb", `<rect x="-20.2" y="-4" width="2.2" height="9" rx="1.1"/>`)}${A("rgb", `<rect x="-21.6" y="-5" width="10" height="11" rx="4" fill="none" stroke-width="3" opacity=".35"/>`, "animation-name:cpa-rgbs")}</g>`;
+      return `${line2("M-17 -2Q-17 -22 0 -22Q17 -22 17 -2", 3.2, WS("#2B2233"))}${A("rgb", `<path d="M-9 -20.4Q0 -23 9 -20.4" fill="none" stroke-width="1.4" stroke-linecap="round" style="fill:none"/>`, "animation-name:cpa-rgbs")}
+        ${cup(1)}${cup(-1)}${line2("M-18 5Q-16 12 -8 12.6", 1.6, "#3A3450")}<circle cx="-7" cy="12.6" r="2.2" fill="#3A3450" ${OUT(1.2)}/>${A("rgb", `<circle cx="-7" cy="12.6" r=".9"/>`)}${tw(-23, -16, 2.6, 0)}${tw(22, -22, 2.2, 1)}`; }},
+    // sparkly cat ears that twitch now and then
+    {id: "kittyears", name: "Kitty Ears", rarity: "legendary", def: "#2B2233", anim: true, icon: [12, .9], art: () => {
+      const ear = (s, d) => `<g transform="scale(${s} 1)">${A("twitch", `<path d="M-15 -2L-13 -22L-3 -8Z" ${WF} ${OUT(2.2)}/><path d="M-12.4 -6L-11.6 -17L-6.2 -8.6Z" fill="#FF9AB8"/>${[[-11, -14], [-8.6, -10], [-12.4, -9]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".55" fill="#fff"/>`).join("")}`, `animation-delay:${d}s`)}</g>`;
+      return `${ear(1, 0)}${ear(-1, -1.7)}${line2("M-16.5 3Q0 -6 16.5 3", 2.6, WS("#2B2233"))}${tw(-19, -24, 2.6, 0)}${tw(18, -26, 2.4, .8)}${tw(0, -14, 2, 1.6)}`; }}
+  );
+  FACE.push(
+    // shades with a rainbow shimmer sweeping across the lenses
+    {id: "holoshades", name: "Hologram Shades", rarity: "legendary", def: "#C0C6D4", anim: true, art: g => {
+      const lens = R => `M${f(-R * 1.1)} ${f(-R * .7)}H${f(R * 1.05)}Q${f(R * 1.15)} ${f(R * .4)} ${f(R * .4)} ${f(R * .9)}Q${f(-R * .4)} ${f(R * 1.1)} ${f(-R * .95)} ${f(R * .5)}Q${f(-R * 1.2)} ${f(-R * .1)} ${f(-R * 1.1)} ${f(-R * .7)}Z`;
+      return `<defs><linearGradient id="cpaHolo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="8" spreadMethod="reflect"><stop offset="0" stop-color="#FF7AC8"/><stop offset=".33" stop-color="#7CF5FF"/><stop offset=".66" stop-color="#B7FF7A"/><stop offset="1" stop-color="#B57BFF"/></linearGradient><clipPath id="cpaHoloC"><path d="${lens(g.R)}"/></clipPath></defs>
+        ${bridge(g, 2.4, 1.6, WS("#C0C6D4"))}${temples(g, 1.4, WS("#C0C6D4"))}${pair(g, R => `<path d="${lens(R)}" fill="#3A3450"/><g clip-path="url(#cpaHoloC)">${A("flow", `<rect x="${f(-R * 6)}" y="${f(-R * 2)}" width="${f(R * 12)}" height="${f(R * 4)}" fill="url(#cpaHolo)" opacity=".85"/>`)}</g><path d="${lens(R)}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#C0C6D4")} stroke-width="1.8" stroke-linejoin="round"/>${shine(R)}`)}
+        ${tw(g.lx - g.R * 1.6, g.y - g.R * 1.3, 2.6, 0)}${tw(g.rx + g.R * 1.6, g.y + g.R, 2.2, 1)}`; }}
+  );
+  NECK.push(
+    // a gold chain with a diamond pendant and a glint running across it
+    {id: "diamondchain", name: "Diamond Chain", rarity: "legendary", def: "#F5C542", anim: true, art: hw => {
+      const links = along(hw, -2, 7.5, Math.max(10, Math.round(hw / 1.8)), .9);
+      const gem = `M0 6.6L5 10.6L0 19.4L-5 10.6Z`;
+      return `${links.map(([x, y], i) => `<ellipse cx="${x}" cy="${y}" rx="1.5" ry="1" transform="rotate(${i % 2 ? 40 : -40} ${x} ${y})" fill="none" stroke="${INK}" stroke-width="2.4"/><ellipse cx="${x}" cy="${y}" rx="1.5" ry="1" transform="rotate(${i % 2 ? 40 : -40} ${x} ${y})" fill="none" ${WS("#F5C542")} stroke-width="1.1"/>`).join("")}
+        <circle cx="0" cy="13" r="10" fill="#BDEFFF" opacity=".25"/><rect x="-2" y="4.2" width="4" height="2.8" rx=".8" ${WF} ${OUT(1)}/><path d="${gem}" fill="#DFF6FF" ${OUT(1.6)}/><path d="M-5 10.6H5M0 6.6L-2 10.6L0 19.4L2 10.6Z" fill="none" stroke="#8FD3FF" stroke-width=".8"/><path d="M0 6.6L2 10.6H5Z" fill="#fff" opacity=".7"/>
+        <clipPath id="cpaGemC"><path d="${gem}"/></clipPath><g clip-path="url(#cpaGemC)">${A("glint", `<path d="M-8 20L-4 6H-1.6L-5.6 20Z" fill="#fff" opacity=".9"/>`)}</g>
+        ${tw(-7.4, 7, 2.6, 0)}${tw(7.6, 17, 2.4, .9)}${tw(f(hw * .7), -5, 2, 1.6)}`; }}
+  );
+  CHEST.push(
+    // a boombox whose speakers pulse to a beat, with notes floating up
+    {id: "boombox", name: "Boombox Pin", rarity: "legendary", at: "mid", slot: "chest", def: "#E5484D", anim: true, art: () => {
+      const spk = (x, d) => `<circle cx="${x}" cy="2" r="3.6" fill="#2B2233" ${OUT(1)}/>${A("beat", `<circle cx="${x}" cy="2" r="2.4" fill="#5B5670"/><circle cx="${x}" cy="2" r=".9" fill="#C9D0DA"/>`, `animation-duration:.55s;animation-delay:${d}s`)}`;
+      const note = (x, d, c) => A("note", `<path d="M${x} -7V-13L${x + 4} -14V-8" fill="none" stroke="${c}" stroke-width="1.1"/><circle cx="${x - 1}" cy="-7" r="1.3" fill="${c}"/><circle cx="${x + 3}" cy="-8" r="1.3" fill="${c}"/>`, `animation-delay:${d}s`);
+      return `${note(-8, 0, "#FF7AC8")}${note(4, -.9, "#7CF5FF")}${note(-1, -1.6, "#FFD35A")}<path d="M-5 -5.6Q0 -9.6 5 -5.6" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="M-5 -5.6Q0 -9.6 5 -5.6" fill="none" stroke="#C9D0DA" stroke-width="1.2" stroke-linecap="round"/>
+        <rect x="-11" y="-5" width="22" height="13" rx="3" ${WF} ${OUT(1.8)}/><rect x="-3.4" y="-3.4" width="6.8" height="3" rx=".8" fill="#9AD8FF" ${OUT(.8)}/>${spk(-6.4, 0)}${spk(6.4, -.27)}<path d="M-2 4h4" stroke="#fff" stroke-opacity=".6" stroke-width="1" stroke-linecap="round"/>${tw(-13, -8, 2.4, 0)}${tw(13, 6, 2.2, 1)}`; }}
+  );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
   return HEAD.concat(FACE, NECK, CHEST);
 };
