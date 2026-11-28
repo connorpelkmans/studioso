@@ -295,7 +295,7 @@ async function studyGroup(browser, w){
   await act(page, "grp-back"); await page.waitForSelector("[data-grp-list]", {state: "attached"}); await act(page, "grp-new"); await sheet(page, ".gk-kind-note");
   ok(/Add questions and answers/.test(await txt(page, "dialog .gk-kind-note:not([hidden])")) && await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Study,Chat,Sessions,Members", tag + " the study preview lists the tabs it starts with");
   await page.click('dialog .grp-kind [data-kind="project"]');
-  ok(await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Overview,Tasks,Chat,Files,Members" && /Create Project/.test(await txt(page, "#grpSave")), tag + " the project preview lists its tabs");
+  ok(await page.$$eval("dialog .gk-kind-note:not([hidden]) .gk-kind-tabs span", e => e.map(x => x.innerText).join()) === "Overview,Tasks,Chat,Files,Meetings,Shared,Members" && /Create Project/.test(await txt(page, "#grpSave")), tag + " the project preview lists its tabs");
   await page.screenshot({path: path.join(shots, `gk-create-${w}.png`)});
   ok(errs.length === 0, tag + " no page errors " + errs.join(" | "));
   await ctx.close();
@@ -456,9 +456,9 @@ async function createProject(browser){
   await page.fill('dialog input[name="name"]', "History Paper"); await page.fill('dialog input[name="due"]', await page.evaluate(() => window.__day(20)));
   await page.click("dialog #grpSave"); await page.waitForSelector("#grpDetail", {timeout: 8000}); await page.waitForTimeout(800);
   eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").kind), "project", "creating a group project saves it as a project");
-  eq(await tabs(page), ["Overview", "Tasks", "Chat", "Files", "Members"], "and opens with the core project tabs: " + (await tabs(page)).join());
-  eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").hidden_features), ["meetings", "boards"], "meetings and whiteboards start off");
-  ok(await page.isVisible('#grpPane-overview [data-act="gx-ft"]'), "Find a Time starts on, on Overview while Meetings is off");
+  eq(await tabs(page), ["Overview", "Tasks", "Chat", "Files", "Meetings", "Shared", "Members"], "and opens with every project tab: " + (await tabs(page)).join());
+  eq(await page.evaluate(() => window.__DB.study_groups.find(g => g.name === "History Paper").hidden_features || []), [], "every free project feature starts on");
+  ok(await page.locator('#grpPane-meetings [data-act="gx-ft"]').count() === 1 && await page.locator('#grpPane-overview [data-act="gx-ft"]').count() === 0, "Find a Time is in Meetings");
   await page.waitForSelector("dialog .mc-grid", {timeout: 8000});
   ok(/Pick Your Color/.test(await page.textContent("dialog .sheet-head")), "making a project asks for your colour");
   await page.click('dialog [data-mc="#8E4EC6"]'); await page.waitForTimeout(500);

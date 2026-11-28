@@ -1223,9 +1223,9 @@
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
   // A new group starts with the core of its kind turned on. The rest waits in Edit > Features.
-  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: tasks, files, chat and Find a Time
-  // (on Overview while Meetings is off).
-  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: ["meetings", "boards"]};
+  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: everything free is on
+  // (if Meetings is turned off, Find a Time moves to Overview).
+  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: []};
   const defaultHidden = (kind, course) => GDEF_OFF[kind === "project" ? "project" : "study"].filter(k => !(k === "deadlines" && course));
   // A week after a lean new group gets its second member, the owner's next action there shows what else it can turn on (once)
   const LEANK = () => "studyboard:grpLean:" + myId();
@@ -3378,7 +3378,7 @@
   // What each kind of group comes with, shown when you choose one so the difference is clear
   const KIND_INFO = {
     study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and practice quizzes so everyone can study them", "Propose study sessions and see who is coming, or study together right now", "Chat with the group", "Your course's deadlines, when the group is for a course"], more: "Add questions and answers, whiteboards and more any time in Edit."},
-    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and a team chat"], more: "Add meetings, whiteboards and more any time in Edit."}
+    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and a team chat", "Meetings with notes, and Find a Time to pick a time that works for everyone", "Shared whiteboards, concept maps and presentations"], more: "Turn off anything your team doesn't need any time in Edit."}
   };
   const kindPreview = k => `<div class="gk-kind-note grp-kind-note" data-for="${k}"${k === "study" ? "" : " hidden"}><p class="gk-kind-lead">${esc(KIND_INFO[k].lead)}</p>
       <div class="gk-kind-tabs" aria-label="Tabs you start with">${GK.tabsFor(k).filter(([t]) => !GDEF_OFF[k].includes(t) && !PROSEC.has(t)).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
