@@ -75482,13 +75482,12 @@ var COMP_ACC_MORE = K => {
       const brim = "M-19.2 .2Q-20 -4.4 -14.4 -3.6Q0 -1 14.4 -3.6Q20 -4.4 19.2 .2Q18 4.8 0 5.2Q-18 4.8 -19.2 .2Z";
       const foil = clip => `<g clip-path="url(#${clip})">${A("flow", `<rect x="-80" y="-40" width="160" height="52" fill="url(#cpaHt)"/>`, "animation-duration:6s")}</g>`;
       return `<defs><linearGradient id="cpaHt" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="36" y2="20.78" spreadMethod="repeat">${HOLO.map((c, k) => `<stop offset="${k / 5}" stop-color="${c}"/>`).join("")}</linearGradient>
-        <linearGradient id="cpaHtGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE68A"/><stop offset=".5" stop-color="#F2C23A"/><stop offset="1" stop-color="#D49A1E"/></linearGradient>
+        <linearGradient id="cpaHtGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7D45A"/><stop offset=".5" stop-color="#EDB92E"/><stop offset="1" stop-color="#C98E16"/></linearGradient>
         <clipPath id="cpaHtC"><path d="${crown}"/></clipPath><clipPath id="cpaHtT"><path d="${top}"/></clipPath><clipPath id="cpaHtB"><path d="${brim}"/></clipPath></defs>
         <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtC")}<g clip-path="url(#cpaHtC)">${A("sweep", `<path d="M-3 -36L4 -36L-6 8L-13 8Z" fill="#fff" opacity=".8"/><path d="M6 -36L8 -36L-2 8L-4 8Z" fill="#fff" opacity=".55"/>`, "--sw:18px")}</g><path d="${crown}" fill="none" ${OUT(2.6)}/>
         <path d="M-7 -22.6V-13" stroke="#fff" stroke-opacity=".8" stroke-width="2.2" stroke-linecap="round"/>
         <path d="${top}" fill="#EBDDFF" ${OUT(2.2)}/>${foil("cpaHtT")}<path d="${top}" fill="#fff" opacity=".35"/><path d="${top}" fill="none" ${OUT(2.2)}/>
-        <path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M-10.2 -9.4Q0 -7.3 10.2 -9.4" fill="none" stroke="#FFF7D6" stroke-width=".9" stroke-linecap="round"/>
-        <path d="M0 -11.8L3.1 -7.4L0 -3L-3.1 -7.4Z" fill="#E9F6FF" ${OUT(1.3)}/><path d="M0 -11.8L1 -7.4L0 -3M-3.1 -7.4H3.1" stroke="#8FC4FF" stroke-width=".55" fill="none"/>${A("glint", `<path d="M0 -11.8L3.1 -7.4L0 -3L-3.1 -7.4Z" fill="#fff"/>`, "animation-delay:-1.4s")}
+        <path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M0 -12.6L3.6 -8.4L0 -2.4L-3.6 -8.4Z" fill="none" ${OUT(1.4)}/><path d="M0 -12.6L-3.6 -8.4H0Z" fill="#FFFFFF"/><path d="M0 -12.6L3.6 -8.4H0Z" fill="#CDE6FF"/><path d="M-3.6 -8.4H0V-2.4Z" fill="#A6D0FF"/><path d="M3.6 -8.4H0V-2.4Z" fill="#6FA8EE"/>${A("glint", `<path d="M0 -12.6L3.6 -8.4L0 -2.4L-3.6 -8.4Z" fill="#fff" opacity=".9"/>`, "animation-delay:-1.4s")}<path d="M-1.6 -10.4L-.9 -9.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>
         <path d="${brim}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtB")}<path d="${brim}" fill="none" ${OUT(2.6)}/><path d="M-16.4 -2Q-8 .6 0 .9" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1" stroke-linecap="round"/>
         ${tw(-17, -22, 2.8, 0)}${tw(16, -31, 2.2, .9)}${tw(20, -12, 1.8, 1.7)}`; }},
     L({id: "lavacrown", name: "Lava Crown", def: "#2A2026", icon: [12, .85], art: () => {
