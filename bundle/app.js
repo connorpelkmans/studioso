@@ -43707,7 +43707,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
       case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
-          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          ${window.SBFSHARE && SBFSHARE.menuOpt ? SBFSHARE.menuOpt() : ""}<button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
         </div></div></div>`); return true;
@@ -45430,7 +45430,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (r && r.error) { const err = new Error(missing(r.error) ? srvSetup("Sending to friends", "friend-shares.sql") : words(r.error)); err.setup = missing(r.error); throw err; }
     return r ? r.data : null;
   }
-  const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0};
+  const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0, rows: []};
 
   /* What goes */
   function payloadOf(kind, ref){
@@ -45495,6 +45495,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     S.busy = true;
     try {
       const rows = await rpc("my_friend_shares");
+      S.rows = Array.isArray(rows) ? rows.filter(r => r && r.id) : []; paintDot();
       const todo = FS.fresh(rows, S.seen);
       if (todo.length) offer(todo);
     } catch (e) { if (e.setup) S.setup = true; }
@@ -45512,13 +45513,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const where = r.kind === "map" ? "your concept maps" : r.kind === "quiz" ? "your quizzes" : "your flashcards";
     openSheet(`<div class="sheet fs-sheet fs-in">${head(FS.line(r))}<div class="sheet-body">
       <div class="fs-card">${pic}<div class="fs-who"><b>${esc(r.title)}</b><span class="mini">${esc(r.info || FS.WHAT[r.kind])}${r.from_username ? ` · from @${esc(r.from_username)}` : ""}</span></div></div>
-      <p class="mini" style="margin:0">Add puts your own copy in ${where}. If you don't answer now, it waits for 30 days.</p></div>
+      <p class="mini" style="margin:0">Add puts your own copy in ${where}. Tap Later and it waits for 30 days in Flashcards › ${narrow() ? "Import" : "Share or Import"} › Sent to You.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" id="fsNo">No Thanks</button><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" id="fsYes">Add</button></div></div>`);
     const done = () => { if (rest && rest.length) setTimeout(() => offer(rest), 350); };
     const go = add => async e => {
       e.currentTarget.disabled = true;
       try {
         const res = await rpc("take_friend_share", {p_id: r.id, p_add: add});
+        S.rows = S.rows.filter(x => x.id !== r.id); paintDot();
         if (dlg.open) dlg.close();
         if (add) take(r, res); else toast("Okay, not added.");
       } catch (err) { if (dlg.open) dlg.close(); toast(err.message, null, null, {error: true}); }
@@ -45526,6 +45528,36 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     };
     $("#fsYes").addEventListener("click", go(true)); $("#fsNo").addEventListener("click", go(false));
     dlg.addEventListener("close", function once(){ dlg.removeEventListener("close", once); }, {once: true});
+  }
+  /* Sent to You: everything friends have sent that's still waiting (put off with Later, or missed), in Flashcards › Share or
+     Import, with a count on that button */
+  const narrow = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  const ago = t => { const d = Math.max(0, Date.now() - new Date(t).getTime()), m = Math.round(d / 60000), h = Math.round(d / 3600000), n = Math.round(d / 86400000); return !t || !isFinite(d) ? "" : m < 60 ? (m <= 1 ? "just now" : m + " min ago") : h < 24 ? h + (h === 1 ? " hour ago" : " hours ago") : n === 1 ? "yesterday" : n + " days ago"; };
+  function paintDot(){
+    const n = S.rows.length;
+    document.querySelectorAll('[data-act="grp-share-menu"]').forEach(b => {
+      let d = b.querySelector(".fs-dot");
+      if (!n) { if (d) d.remove(); return; }
+      if (!d) { d = document.createElement("span"); d.className = "fs-dot"; b.appendChild(d); }
+      d.textContent = n > 9 ? "9+" : String(n); d.setAttribute("aria-label", `${n} sent to you`);
+    });
+  }
+  function menuOpt(){
+    if (!live() || S.setup) return "";
+    const n = S.rows.length;
+    return `<button type="button" class="sm-opt fs-inbox-opt" data-act="fs-inbox"><b>Sent to You${n ? ` <span class="fs-n">${n}</span>` : ""}</b><span class="mini">${n ? `${FS.plural(n, "thing")} from friends waiting for you` : "Decks, quizzes and maps your friends send you"}</span></button>`;
+  }
+  async function inbox(){
+    openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
+    try { const rows = await rpc("my_friend_shares"); S.rows = Array.isArray(rows) ? rows.filter(r => r && r.id) : []; paintDot(); }
+    catch (e) { if (dlg.open && dlg.querySelector(".fs-sheet")) openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(e.message)}</p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`); return; }
+    if (!dlg.open || !dlg.querySelector(".fs-sheet")) return;
+    const g = G(), pic = r => { try { return g && g.avatar ? g.avatar("", r.from_user, r.from_name, r.from_face || "") : ""; } catch (e) { return ""; } };
+    const list = S.rows.map(r => `<li><button type="button" class="fs-pick fs-open" data-id="${esc(r.id)}">${pic(r)}<span class="fs-who"><b>${esc(r.title || FS.WHAT[r.kind] || "Shared")}</b><span class="mini">${esc([r.kind === "quiz" ? "Quiz" : r.kind === "map" ? "Concept map" : "Deck", r.info, "from " + (r.from_name || "a friend"), ago(r.created_at)].filter(Boolean).join(" · "))}</span></span><span class="fs-go" aria-hidden="true">›</span></button></li>`).join("");
+    openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body">
+      ${list ? `<p class="mini" style="margin:0">Tap one to add it or say no thanks. Each waits for 30 days.</p><ul class="fs-list">${list}</ul>` : `<p style="margin:0">Nothing waiting. When a friend sends you a deck, quiz or concept map, it shows up here until you add it.</p>`}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+    dlg.querySelectorAll(".fs-open").forEach(b => b.addEventListener("click", () => { const r = S.rows.find(x => x.id === b.dataset.id); if (r) { S.seen.add(r.id); sheet(r, []); } }));
   }
   // Their copy, made yours
   function take(r, res){
@@ -45567,11 +45599,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - S.at > 15000) check(); });
   setInterval(() => { if (!document.hidden && (S.uid !== ((me() || {}).id || "") || Date.now() - S.at > 60000)) check(); }, 20000);
   hook("act", (act, el) => {
+    if (act === "fs-inbox") { inbox(); return true; }
     if (act !== "fs-send") return false;
     send(el.dataset.kind, el.dataset.ref || el.dataset.id || "");
     return true;
   });
-  window.SBFSHARE = {send, check, T: {FS, payloadOf}};
+  // the count on Share or Import comes back after the Flashcards page is drawn again
+  hook("render", () => { if (S.rows.length) requestAnimationFrame(paintDot); });
+  window.SBFSHARE = {send, check, inbox, menuOpt, waiting: () => S.rows.length, T: {FS, payloadOf}};
 })();
 /* ===== module: 97-sharing.js ===== */
 /* Public share links and the Course Library */

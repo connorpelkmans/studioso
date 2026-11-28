@@ -129,7 +129,7 @@ async function main(browser, w){
     await page.evaluate(() => { const d = document.querySelector("dialog#dlg[open]"); if (d) d.close(); }); await page.click("#toast >> text=View"); await page.waitForSelector("#frdSheet .frd-row");
     ok(/Sam/.test(await txt(page, "#frdSheet")), tag + " View opens the request");
     await page.reload(); await page.waitForTimeout(3000);
-    ok(!/friend request/.test(await txt(page, "#toast")), tag + " a request is only announced once");
+    ok(!/friend request/.test(await txt(page, "#toast.show")), tag + " a request is only announced once: " + await page.evaluate(() => { const t = document.getElementById("toast"); return t.className + " / " + t.textContent + " / " + localStorage.getItem("studyboard:friendReqSeen:u1"); }));
     await page.evaluate(() => { const d = document.querySelector("dialog#dlg[open]"); if (d) d.close(); SBFRIENDS.open(); }); await page.waitForSelector("#frdSheet .frd-row");
     await page.click('[data-act="frd-accept"]'); await page.waitForTimeout(600);
     ok(await page.evaluate(() => !document.querySelector('nav.tabs [data-tab="groups"] .grp-dot')), tag + " once it's answered the Groups icon has no count");
