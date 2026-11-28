@@ -114,7 +114,12 @@ async function makePdf(pages){
       const L2 = await page.evaluate(() => { const r = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const q = e.getBoundingClientRect(); return {t: Math.round(q.top), b: Math.round(q.bottom), l: Math.round(q.left), r: Math.round(q.right)}; };
         return {modes: r(".pdr-modes"), ask: r('[data-act="pde-ask"]'), study: r('[data-act="pde-st"]'), dl: r('[data-act="pde-dl"]'), save: r(".pdr-save"), badge: r(".pdr-save .pdr-badge")}; });
       const row = (a, b) => !!a && !!b && Math.abs((a.t + a.b) / 2 - (b.t + b.b) / 2) < 6;
-      ok(row(L2.modes, L2.ask) && row(L2.modes, L2.study), `${PW}px iPhone with edits: Ask This PDF and Study sit on the Read / Mark Up / Edit row: ` + JSON.stringify({modes: L2.modes, ask: L2.ask, study: L2.study}));
+      // (on a phone Ask and Study are Read's: in Edit the row is the editing tools', so they show again back in Read)
+      ok(!L2.ask && !L2.study, `${PW}px iPhone while editing: Ask This PDF and Study step aside for the editing tools: ` + JSON.stringify({ask: L2.ask, study: L2.study}));
+      await page.click('.pdr-mode[data-id="read"]'); await page.waitForTimeout(400);
+      const L3 = await page.evaluate(() => { const r = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length) return null; const q = e.getBoundingClientRect(); return {t: Math.round(q.top), b: Math.round(q.bottom), l: Math.round(q.left), r: Math.round(q.right)}; };
+        return {modes: r(".pdr-modes"), ask: r('[data-act="pde-ask"]'), study: r('[data-act="pde-st"]')}; });
+      ok(row(L3.modes, L3.ask) && row(L3.modes, L3.study) && L3.ask.l > L3.modes.r && L3.study.r <= PW, `${PW}px iPhone with edits, in Read: Ask This PDF and Study sit on the Read / Mark Up / Edit row: ` + JSON.stringify(L3));
       ok(!L2.badge && row(L2.dl, L2.save) && L2.save.t < L2.modes.b + 60, `${PW}px iPhone: Save is just its icon (no count) and sits with Download on the page row: ` + JSON.stringify({dl: L2.dl, save: L2.save}));
       if (PW === 393) await T.shot("3-iphone-bars");
       await T.ctx.close();
@@ -151,8 +156,10 @@ async function makePdf(pages){
         if (typing) {
           await page.evaluate(() => { const d = document.documentElement; d.style.setProperty("--vv-h", "480px"); d.style.setProperty("--kb-h", "364px"); d.classList.add("kb-open"); });
           await page.waitForTimeout(500);
-          const kb = await page.evaluate(() => { const vis = s => { const e = document.querySelector(s); return !!e && e.getBoundingClientRect().height > 0; }, ed = document.querySelector(".pde-e.editing").getBoundingClientRect(), pages = document.querySelector("#pdrPages").getBoundingClientRect(), dl = document.getElementById("dlg").getBoundingClientRect();
-            return {head: vis(".pdr-sheet > .sheet-head"), bar: vis(".pdr-bar"), tools: vis(".pde-bar .pde-tools"), sub: vis(".pde-sub"), dlgBottom: Math.round(dl.bottom), pagesH: Math.round(pages.height), edTop: Math.round(ed.top), edBottom: Math.round(ed.bottom)}; });
+          // (the title and reader bars fold away above the top and fade, and the reader makes room for the keyboard at its bottom)
+          await page.waitForTimeout(400);
+          const kb = await page.evaluate(() => { const vis = s => { const e = document.querySelector(s); if (!e) return false; const r = e.getBoundingClientRect(); return r.height > 0 && r.bottom > 1 && Number(getComputedStyle(e).opacity) > 0.05; }, ed = document.querySelector(".pde-e.editing").getBoundingClientRect(), pages = document.querySelector("#pdrPages").getBoundingClientRect(), sh = document.querySelector(".pdr-sheet"), sb = sh.getBoundingClientRect();
+            return {head: vis(".pdr-sheet > .sheet-head"), bar: vis(".pdr-bar"), tools: vis(".pde-bar .pde-tools"), sub: vis(".pde-sub"), dlgBottom: Math.round(sb.bottom - parseFloat(getComputedStyle(sh).paddingBottom)), pagesH: Math.round(pages.height), edTop: Math.round(ed.top), edBottom: Math.round(ed.bottom)}; });
           ok(!kb.head && !kb.bar && !kb.tools && kb.sub && kb.dlgBottom <= 482, "keyboard up while typing: just the text style row, and the reader ends at the keyboard: " + JSON.stringify(kb));
           ok(kb.pagesH >= 300 && kb.edTop >= 0 && kb.edTop < 480, "the page keeps most of the space and the line being typed is in view above the keyboard: " + JSON.stringify(kb));
           await T.shot("4b-phone-typing-keyboard");
@@ -183,7 +190,8 @@ async function makePdf(pages){
       await page.evaluate(() => { const S = window.__sbProStudy.pde(); S.sel = null; }); await T.tool("find");
       const chk = await page.evaluate(() => document.querySelector(".pde-find .pde-chk").getBoundingClientRect().height);
       ok(chk >= 40, "Match case and Whole words are big enough to tap");
-      // More: every tool has its own icon
+      // More: every tool has its own icon (once the earlier tools' messages have gone: one at the top covers the menu's top row)
+      await page.waitForFunction(() => !document.querySelector("#toast.show"), null, {timeout: 10000}).catch(() => {});
       await page.click('[data-act="pde-more"]'); await page.waitForSelector(".pde-more-wrap .pde-menu");
       const icons = await page.evaluate(() => [...document.querySelectorAll(".pde-tools > .pde-tool, .pde-menu .pde-mi")].map(b => (b.querySelector("svg, img") || {}).outerHTML));
       ok(new Set(icons).size === icons.length, "every edit tool has its own icon (" + icons.length + " tools)");

@@ -50,7 +50,7 @@ function fake(o){
   { const R = await open({status: "available"});
     await sheet(R.p); await R.p.waitForSelector("#dlg[open] #aiGo"); await R.p.waitForTimeout(500);
     const bar = await R.p.evaluate(() => { const b = document.querySelector("#dlg[open] .ai-model-bar"); return {text: b ? b.innerText : "", select: !!(b && b.querySelector("select"))}; });
-    ok(/Free AI, runs on your computer: Chrome's built-in AI/.test(bar.text) && !bar.select, "the Model row names the AI on this computer, with no empty menu: " + bar.text.replace(/\n/g, " "));
+    ok(/Free AI, runs on your computer: Studyboard AI 8GB/.test(bar.text) && !bar.select, "the Model row names the AI on this computer, with no empty menu: " + bar.text.replace(/\n/g, " "));
     const warm = await R.p.evaluate(() => window.__log.creates.filter(c => /^You make flashcards/.test(c.system)).length);
     ok(warm === 1, "opening the sheet gets the model ready with the card instructions, before Create is pressed");
     const est0 = await R.p.evaluate(() => { const e = document.querySelector("#aiEst"); return e && !e.hidden ? e.textContent : ""; });

@@ -207,7 +207,7 @@ function SEED(){
     await act(p3, "fc-open", "d1"); await p3.waitForTimeout(300);
     ok(await p3.locator('[data-act="pro-cf-open"]').count() === 0 && /^Scheduling$/.test(((await p3.locator('[data-act="pro-dk-stats"]').allTextContents())[0] || "").trim()), "free: the deck page has Scheduling (free) but no Stats or Image Cards (Pro)");
     await act(p3, "pro-dk-stats", "d1"); await p3.waitForTimeout(300);
-    ok(await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="smart"][aria-pressed="true"]').count() === 1 && await p3.locator(".pro-dk-body .dk-heat").count() === 0, "free: Smart scheduling is on by default, and deck stats stay Pro");
+    ok(await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"][aria-pressed="true"]').count() === 1 && await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="smart"] .pro-badge').count() === 1 && await p3.locator(".pro-dk-body .dk-heat").count() === 0, "free: Classic scheduling, Smart marked PRO (Smart Flashcards is Pro), and deck stats stay Pro");
     await p3.evaluate(() => document.querySelector('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"]').click()); await p3.waitForTimeout(300);
     ok(await p3.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2") || "{}")) && await p3.locator('.pro-dk-body [data-act="pro-dk-sched"][data-id="classic"][aria-pressed="true"]').count() === 1, "free: a deck can be switched to Classic");
     await p3.keyboard.press("Escape"); await p3.waitForTimeout(200);

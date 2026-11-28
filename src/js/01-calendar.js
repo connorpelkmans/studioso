@@ -999,7 +999,10 @@ function qodPop(html, cls){
   requestAnimationFrame(() => w.classList.add("in"));
   const b = w.querySelector("[data-qod-close]"); if (b) b.focus();
 }
+// The daily quote pop-up is switched off for now (the code stays). Set to true to bring back the pop-up and its Settings rows.
+const DAILY_QUOTE_ON = false;
 function dailyQuote(force){
+  if (!force && !DAILY_QUOTE_ON) return;
   if (!force && styleCfg().quotes === false) return;
   if (!force && navigator.webdriver && !window.__qodTest) return;
   const d = todayISO();
@@ -1253,7 +1256,8 @@ function viewSchedule(){
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
     flush();
     const blocks = items.map(it => {
-      const pos = `top:${top(it.s)}px;height:${Math.max(22, top(it.e) - top(it.s) - 2)}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
+      const bh = Math.max(22, top(it.e) - top(it.s) - 2), slim = bh >= 38 && bh <= 46 ? " sch-slim" : bh < 38 ? " sch-tiny" : "";
+      const pos = `top:${top(it.s)}px;height:${bh}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
       if (it.mk) return `<button class="sch-b sch-exam sch-mk" style="top:${Math.min(top(it.s), H - 24)}px;height:22px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px);--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" title="${esc(it.t.title)}, due ${esc(fmtTime(it.t.time))}"><span><b>${esc(fmtTime(it.t.time))}</b> Due: ${esc(it.t.title)}</span></button>`;
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
@@ -1261,7 +1265,7 @@ function viewSchedule(){
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
       const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}${slim}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
         : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);

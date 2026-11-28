@@ -399,8 +399,13 @@
     if (gb) gb.insertAdjacentHTML("afterend", html); else if (wi) wi.insertAdjacentHTML("beforebegin", html); else if (marked) marked.insertAdjacentHTML("beforebegin", html); else card.insertAdjacentHTML("beforeend", html);
   });
   addSection("row", (gr, row) => {
-    const e = edgeOf(gr), main = row.querySelector(".gp-main .gp-who .mini");
-    if (e && main && !row.querySelector(".gi-edge-chip")) main.insertAdjacentHTML("beforeend", ` · <span class="gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+    // in the course's dropdown, under Where You Stand (90-grades.js), not on the row itself
+    const e = edgeOf(gr), st = row.querySelector(".gp-drop .gp-stand"), chips = st && st.querySelector(".gp-stand-chips");
+    if (e && chips && !row.querySelector(".gi-edge-chip")) {
+      chips.insertAdjacentHTML("beforeend", `<span class="gp-sc gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+      st.insertAdjacentHTML("beforeend", `<p class="gp-stand-why mini">${esc(edgeLong(gr, e))}</p>`);
+      st.hidden = false;
+    }
   });
   addSection("page", all => {
     const lt = lateTotal(all); if (lt.n < 1 || lt.pts < 0.05) return "";

@@ -5,7 +5,7 @@ const fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const src = fs.readFileSync(path.join(__dirname, "..", "tools", "capture-store-screens.js"), "utf8");
-const {SEED} = new Function(src.slice(src.indexOf("const NOW"), src.indexOf("// file name, theme")) + "\nreturn {SEED, NOW};")();
+const {SEED} = new Function(src.slice(src.indexOf("const NOW"), src.indexOf("const SHOTS = [")) + "\nreturn {SEED, NOW};")();
 const TABS = ["board", "schedule", "timeline", "crunch", "flashcards", "notes", "courses", "files", "groups"];
 (async () => {
   const browser = await chromium.launch({executablePath}), errs = [];

@@ -100,11 +100,11 @@ const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|qui
 // answer that's waiting on the download doesn't just look slow
 function devDlPill(p){
   let el = document.getElementById("devDlPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  // pillSet (01-helpers.js): a model that's already there (done at once) shows nothing, rather than a pill that flashes up and goes
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${devBrowser()} is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
@@ -723,11 +723,10 @@ function aiReadyWhich(){
 // A pill at the bottom with the progress, like Chrome's own
 function aiReadyPill(p, label){
   let el = document.getElementById("aiReadyPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "aiReadyPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${label} is getting ready in the background${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Keep going, nothing waits on it.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function aiReadyStart(w){
   if (w.kind === "e4b") { e4bAgree(true); return; }

@@ -688,7 +688,7 @@ function noteHtml(n){
     ${noteStickersHtml(n, editing)}
     ${c ? `<span class="note-tag" style="--c:${esc(c.color)};--ci:${esc(noteTagInk(c.color, noteColor(n.color)))}">${esc(courseLabel(c))}</span>` : ""}
     ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
-    ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
+    ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}<span class="ntt-t">${esc(tk.title)}</span></button>` : ""}
     ${body}
     ${!editing && n.photos && window.SBPRO && SBPRO.notePhotos ? SBPRO.notePhotos(n) : ""}
     ${!editing && n.ink && window.SBINK ? SBINK.noteThumb(n) : ""}

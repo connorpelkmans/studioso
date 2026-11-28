@@ -115,7 +115,7 @@ const STUB = () => {
     await page.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "invite-friends"; document.body.appendChild(b); b.click(); b.remove(); });
     await page.waitForSelector("dialog[open] #invShare");
     const t = (await page.textContent("dialog[open] .inv-sheet")).replace(/\s+/g, " ");
-    ok(/2 of 3/.test(t) && /1 friend joined/.test(t) && /earned 1 free month/.test(t) && /AI and extra storage aren't included/.test(t), "the sheet shows progress, who's waiting, what's earned and what the month includes");
+    ok(/2 of 3/.test(t) && /1 friend joined/.test(t) && /earned 1 free month/.test(t) && /Studyboard AI Pro and extra storage aren't included/.test(t), "the sheet shows progress, who's waiting, what's earned and what the month includes");
     ok(/\?ref=MAYA2345$/.test(await page.inputValue("#invLink")), "with your link: " + await page.inputValue("#invLink"));
     ok(await page.evaluate(() => document.querySelectorAll(".inv-dot.on").length === 2), "two of the three dots filled");
     ok(await page.evaluate(() => SBINVITE.myCode() === "MAYA2345"), "your code is remembered, so group and deck invite links carry it");

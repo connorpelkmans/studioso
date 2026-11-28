@@ -8,7 +8,7 @@ const KEY = "appl_TestKey1234567890";
 // the page with the Mac key filled in (as scripts/apple-setup.js --revenuecat does)
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname); if (p === "/") p = "/index.html";
-  if (p === "/index.html") { res.writeHead(200, {"content-type": "text/html"}); const src = require("../scripts/app-files").source().replace('const MAC_RC_KEY = "appl_REPLACE_WITH_REVENUECAT_PUBLIC_KEY"', `const MAC_RC_KEY = "${KEY}"`); res.end(require("../scripts/csp").apply(src)); return; }
+  if (p === "/index.html") { res.writeHead(200, {"content-type": "text/html"}); const src = require("../scripts/app-files").source().replace(/const MAC_RC_KEY = "appl_[A-Za-z0-9_]+"/, `const MAC_RC_KEY = "${KEY}"`); res.end(require("../scripts/csp").apply(src)); return; }
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   res.writeHead(200, {"content-type": MIME[path.extname(f)] || "application/octet-stream"}); fs.createReadStream(f).pipe(res);
 });

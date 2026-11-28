@@ -143,7 +143,7 @@ const SEED = {v: 2, updated: 1, tasks: [{id: "t1", title: "Bio Exam", courseId: 
     await p.goto(`http://127.0.0.1:${port}/index.html`); await p.waitForFunction(() => window.__sbSync, null, {timeout: 20000});
     await p.waitForSelector("dialog[open] .sb-welc", {timeout: 15000});
     const welc = (await text(p, "dialog[open] .sb-welc")).replace(/\s+/g, " ");
-    ok(/What are you studying/.test(welc) && /Make Flashcards From My Notes/.test(welc) && /Plan My Semester/.test(welc) && /Sign Up/.test(welc), tag + "the welcome leads with flashcards, the account is optional: " + welc.slice(0, 120));
+    ok(/What are you studying/.test(welc) && /Make Flashcards From My Notes/.test(welc) && /Plan My Semester/.test(welc) && /No account needed/.test(welc) && /I Already Have an Account/.test(welc) && !/Sign Up/.test(welc), tag + "the welcome offers the semester plan and flashcards, with no account needed (making one is offered later, not here): " + welc.slice(0, 120));
     await p.screenshot({path: path.join(SHOTS, `rewards-welcome-${w < 600 ? "phone" : "desk"}.png`)});
     await p.click("dialog[open] .sb-welc-cards"); await p.waitForTimeout(900);
     ok(await p.evaluate(() => window.__sbSync.ui.tab === "flashcards" && !document.querySelector("dialog[open]")), tag + "the flashcards button goes straight to Flashcards, no setup steps");

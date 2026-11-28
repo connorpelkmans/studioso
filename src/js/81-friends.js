@@ -108,7 +108,7 @@
         S.rows = Array.isArray(rows) ? rows : []; S.lists = FRIENDS.split(S.rows); S.err = ""; S.setup = false; S.at = Date.now();
       } catch (e) { S.err = e.message; S.setup = !!e.setup; S.at = Date.now(); if (!S.rows) S.rows = []; }
       finally { S.loading = null; }
-      drawSheet(); refreshPage();
+      drawSheet(); refreshPage(); announce();
       return S.rows;
     })();
     return S.loading;
@@ -127,6 +127,27 @@
     swap(document.querySelector(".frd-head-btn"), groupsHead());
     swap(document.querySelector(".frd-card"), groupsTop());
   }
+
+  /* A new friend request: a message on screen (with a button that opens it) and a count on the Groups icon.
+     Which requests you've already been told about is kept per account on this device, so each one is announced once. */
+  const SEENK = () => "studyboard:friendReqSeen:" + ((me() || {}).id || "");
+  function announce(){
+    try { if (window.SBGROUPS && SBGROUPS.navBadge) SBGROUPS.navBadge(); } catch (e) {}
+    if (!live() || !S.rows || S.err) return;
+    let seen; try { seen = JSON.parse(localStorage.getItem(SEENK()) || "null"); } catch (e) { seen = null; }
+    const ids = S.lists.incoming.map(r => r.user_id), fresh = S.lists.incoming.filter(r => !(seen || []).includes(r.user_id));
+    try { localStorage.setItem(SEENK(), JSON.stringify(ids.slice(-200))); } catch (e) {}
+    // (the very first check on a device with no record only remembers what's there, unless the requests are recent)
+    const show = seen ? fresh : fresh.filter(r => r.since && Date.now() - new Date(r.since).getTime() < 3 * 86400e3);
+    if (!show.length || sheetOpen()) return;
+    const nm = show[0].display_name || (show[0].username ? "@" + show[0].username : "Someone");
+    const msg = show.length === 1 ? `${nm} sent you a friend request` : `${nm} and ${show.length - 1} other${show.length === 2 ? "" : "s"} sent you friend requests`;
+    toast(msg, null, {label: "View", fn: () => openFriends()});
+    try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+  }
+  // Checked in the background every couple of minutes while Studyboard is open and signed in (and when it comes back to the front)
+  setInterval(() => { if (live() && !document.hidden) load(false); }, 120e3);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && live() && Date.now() - S.at > 30e3) load(true); });
 
   /* Drawing */
   const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
@@ -305,7 +326,7 @@
   hook("render", tab => {
     const u = me() && me().id;
     if (u !== S.uid && !u) reset();
-    if (live() && tab === "groups") load(false);
+    if (live() && (tab === "groups" || !S.rows)) load(false);
     checkLink();
   });
   hook("boot", () => {
@@ -320,8 +341,18 @@
     } catch (e) {}
     setTimeout(checkLink, 1200);
   });
+  // A friend's ⋯ menu opens under its button, or above it when the sheet has no room below (the last friend in the list)
+  document.addEventListener("toggle", e => {
+    const d = e.target; if (!d || !d.classList || !d.classList.contains("frd-more")) return;
+    d.classList.remove("frd-up"); if (!d.open) return;
+    document.querySelectorAll("details.frd-more[open]").forEach(x => { if (x !== d) x.open = false; });
+    const m = d.querySelector(".grp-menu"), b = d.querySelector("summary"), sc = d.closest(".sheet-body") || d.closest("dialog"); if (!m || !b) return;
+    const r = b.getBoundingClientRect(), mh = m.getBoundingClientRect().height, W = sc ? sc.getBoundingClientRect() : {top: 0, bottom: innerHeight};
+    if (r.bottom + 4 + mh > Math.min(W.bottom, innerHeight) - 4 && r.top - 4 - mh >= Math.max(W.top, 0) + 4) d.classList.add("frd-up");
+  }, true);
+  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest("details.frd-more"))) document.querySelectorAll("details.frd-more[open]").forEach(x => { x.open = false; }); }, true);
   // A link waiting for sign-in, or for another sheet to close
   setInterval(() => { if (takeLink()) checkLink(); }, 3000);
 
-  window.SBFRIENDS = {open: openFriends, load, T: {FRIENDS}};
+  window.SBFRIENDS = {open: openFriends, load, waiting: () => (live() && S.lists ? S.lists.incoming.length : 0), T: {FRIENDS}};
 })();

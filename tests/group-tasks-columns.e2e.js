@@ -86,7 +86,7 @@ async function phone(browser, dark){
   const g = await layout(page, "#grpPT .kb", ":scope > .kb-col");
   await page.screenshot({path: path.join(shots, `group-tasks-columns-${dark ? "dark" : "light"}.png`)});
   ok(g.cols.length === 3, tag + " three columns");
-  ok(/^To Do\s*3$/.test(g.cols[0].head) && /^In Progress\s*1$/.test(g.cols[1].head) && /^Done\s*1$/.test(g.cols[2].head), tag + " headers with counts: " + g.cols.map(c => c.head).join(" | "));
+  ok(/^To Do\s*3$/.test(g.cols[0].head) && /^In Progress\s*1$/.test(g.cols[1].head) && /^Complete\s*1$/.test(g.cols[2].head), tag + " headers with counts: " + g.cols.map(c => c.head).join(" | "));
   ok(g.cols.every(c => Math.abs(c.y - g.cols[0].y) < 1), tag + " the columns share one top edge (side by side, not stacked): " + g.cols.map(c => c.y).join(", "));
   ok(g.cols[0].x < g.cols[1].x && g.cols[1].x < g.cols[2].x, tag + " each column sits to the right of the one before: " + g.cols.map(c => c.x).join(", "));
   ok(g.cols[1].x - g.cols[0].x - g.cols[0].w > 0, tag + " columns don't overlap");

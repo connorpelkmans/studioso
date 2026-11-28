@@ -92,7 +92,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       ok(/Add Quiz/.test(await page.textContent("#fab")), "Quizzes has + Add Quiz at the bottom right");
       ok(await page.locator(':is(.view-head,.pg-head,.pg-rwrap,.cf-acts) [data-act="qz-arch-open"]').count() === 1 && await page.locator(':is(.view-head,.pg-head,.pg-rwrap,.cf-acts) [data-act="trash-open"][data-kind="quiz"]').count() === 1, "Quizzes has Archived and Recently Deleted at the top, like Flashcards");
       ok(await page.locator('.rv-quiz .x-btn').count() === 0 && await page.locator('.rv-quiz [data-act="qz-archive"]').count() === 1, "a quiz card has Archive, not an x");
-      await page.click(".rv-quiz .rv-info"); await page.waitForSelector(".qzd-q");
+      await page.click('.rv-quiz .rv-peek[data-act="qz-open"]'); await page.waitForSelector(".qzd-q");
       ok(await page.locator(".qzd-q").count() >= 2 && /Cell Quiz/.test(await page.textContent(".deck-head h2")), "tapping a quiz shows its questions: " + await page.locator(".qzd-q").count());
       await page.click('[data-act="qz-back"]'); await page.waitForSelector(".rv-quiz");
       await page.click('.rv-quiz [data-act="qz-archive"]'); await page.waitForTimeout(250);

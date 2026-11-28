@@ -14,10 +14,17 @@ function focusMinsFor(taskId){
 }
 const pomoCfg = () => Object.assign({}, POMO_DEF, (state.settings && state.settings.pomo) || {});
 function pomoLoad(){
-  const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", day: "", sessions: 0, minutes: 0};
+  const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", courseId: "", day: "", sessions: 0, minutes: 0};
   try { return Object.assign(base, JSON.parse(localStorage.getItem(POMO_LS) || "{}")); } catch(e) { return base; }
 }
 let pomo = pomoLoad(), pomoTimer = null;
+// The course this focus time counts for: the task's course, or the course picked with No particular task (studying for the
+// course in general). Focus events carry it, so Insights' focus log and the Study Days heatmap count the time for that course
+function pomoCourse(){
+  const t = pomo.taskId && state.tasks[pomo.taskId];
+  if (t) return t.courseId || "";
+  return pomo.courseId && courseOf(pomo.courseId) ? pomo.courseId : "";
+}
 const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
 // The length of the session under way, kept from when it started (new timer settings apply to the next one)
 const pomoLen = () => (pomo.running || pomo.left > 0) && Number(pomo.len) > 0 ? Number(pomo.len) : modeMs(pomo.mode);
@@ -96,7 +103,7 @@ function pomoStart(){
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
     if (t && t.status === "todo" && !MILESTONE(t.type)) applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), {status: "doing", order: nextOrder("doing")})}], `${t.title} moved to ${STATUS_LABEL.doing}`);
   } catch (e) { console.warn(e); }
-  fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId});
+  fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()});
 }
 function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo.endAt - Date.now()); pomo.pausedAt = Date.now(); pomo.running = false; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); fire("focus", {type: "pause", mode: pomo.mode}); }
 // Minutes of a running or paused focus session already done
@@ -109,19 +116,33 @@ function pomoElapsedMin(){
 const pomoEarly = (min, why) => {
   const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return 0;
   const A = accOf();
-  if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
+  if (A) { try { A.early(m, pomo.taskId, why, pomoCourse()); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
-  fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
+  fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, courseId: pomoCourse(), why});
   return m;
 };
-// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one
+// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one.
+// A task brings its course with it
 function pomoRetask(id){
   id = id || "";
   if (id === (pomo.taskId || "")) return;
-  if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; }
-  pomo.taskId = id; pomoSave();
+  pomoSplit();
+  pomo.taskId = id;
+  const t = id && state.tasks[id]; if (t && t.courseId) pomo.courseId = t.courseId;
+  pomoSave();
 }
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+// The same for the course: the minutes so far count for the course they were spent on. A task from another course is let go
+// (No particular task), so the session is for the new course in general
+function pomoRecourse(cid){
+  cid = cid || "";
+  if (cid === pomoCourse() && cid === (pomo.courseId || "")) return;
+  const t = pomo.taskId && state.tasks[pomo.taskId], keepTask = !!t && !!cid && t.courseId === cid;
+  if (cid !== pomoCourse()) pomoSplit();
+  pomo.courseId = cid; if (!keepTask) pomo.taskId = "";
+  pomoSave();
+}
+function pomoSplit(){ if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; } }
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId, courseId: pomoCourse()}); }
 function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
@@ -178,7 +199,7 @@ function pomoFinish(missed, quiet){
   if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
   if (!quiet) pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : ""});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : "", courseId: done === "focus" ? pomoCourse() : ""});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -313,9 +334,9 @@ function pomoTakeLock(){
         }
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
-        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()}); }
         else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
-        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()}); }
       });
       pomoSave(); pomoSchedule();
     } finally { ISLAND.hold = false; }
@@ -386,6 +407,9 @@ function renderPomo(){
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
   const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t).filter(t => !t.xs) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
+  // first the course, then that course's tasks (No particular task logs the time for the course in general)
+  const curCourse = pomoCourse(), pomoTasks = curCourse ? openTasks.filter(t => t.courseId === curCourse) : openTasks;
+  const pomoCourses = allCourses().filter(c => !c.archived || c.id === curCourse);
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
@@ -406,7 +430,10 @@ function renderPomo(){
         <button class="btn pomo-rd" data-act="pomo-skip" title="Skip">${POMO_IC.skip}<span class="sr">Skip</span></button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
-      <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
+      <div class="two pomo-for">
+        <label class="f">Studying For<select id="pomoCourse"><option value="">No particular course</option>${pomoCourses.map(c => `<option value="${esc(c.id)}" ${c.id === curCourse ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
+        <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${pomoTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c && !curCourse ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
+      </div>
       <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>${typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml() : ""}
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
@@ -431,7 +458,8 @@ function renderPomo(){
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
   pomoIslandNote();
-  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); });
+  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); pomoUI(true); });
+  $("#pomoCourse").addEventListener("change", e => { pomoRecourse(e.target.value); pomoUI(true); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
   const saveCfg = () => {

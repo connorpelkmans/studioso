@@ -7464,11 +7464,11 @@ const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|qui
 // answer that's waiting on the download doesn't just look slow
 function devDlPill(p){
   let el = document.getElementById("devDlPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  // pillSet (01-helpers.js): a model that's already there (done at once) shows nothing, rather than a pill that flashes up and goes
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${devBrowser()} is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
@@ -8087,11 +8087,10 @@ function aiReadyWhich(){
 // A pill at the bottom with the progress, like Chrome's own
 function aiReadyPill(p, label){
   let el = document.getElementById("aiReadyPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "aiReadyPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${label} is getting ready in the background${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Keep going, nothing waits on it.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function aiReadyStart(w){
   if (w.kind === "e4b") { e4bAgree(true); return; }
@@ -12648,8 +12647,8 @@ function kitFollow(kind, list, cur, auto){
 function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
   return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
-    + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
-    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`;
+    + (!DAILY_QUOTE_ON ? "" : row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
+    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`);
 }
 function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
@@ -13497,20 +13496,48 @@ function newTask(fields){
 const TOAST_EL = document.getElementById("toast");
 const toastEl = () => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); return TOAST_EL; };
 const toastPart = id => TOAST_EL.querySelector("#" + id);
-try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); if (PILLS.size) pillRehost(); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
 let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
-let toastSeq = 0;
-function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+let toastSeq = 0, toastWaiting = false;
+function toastHide(){ clearTimeout(toastT); ++toastSeq; toastWaiting = false; const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
   let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
+}
+/* The small notices at the bottom of the screen (Syncing…, an AI download's progress) share this, so none of them flashes:
+   one that would be up for under a third of a second shows nothing, one that's shown stays up at least a second, and a hide
+   followed at once by a show (one sync right after another, the next step of a download) leaves it up instead of flickering.
+   done() runs once it has faded out (to remove it). */
+const PILLS = new Set();
+function pillSet(el, on, done){
+  PILLS.add(el);
+  const s = el._pill || (el._pill = {});
+  clearTimeout(s.t);
+  if (on) {
+    if (el.classList.contains("show")) return;
+    s.t = setTimeout(() => {
+      const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+      void el.offsetWidth;   // drawn once without .show, so it fades in rather than popping up
+      el.classList.add("show"); s.at = Date.now();
+    }, 300);
+  } else if (el.classList.contains("show")) {
+    s.t = setTimeout(() => {
+      el.classList.remove("show");
+      if (done) s.t = setTimeout(() => { if (!el.classList.contains("show")) { PILLS.delete(el); done(); } }, 400);
+    }, Math.max(350, 1200 - (Date.now() - (s.at || 0))));
+  } else { PILLS.delete(el); if (done) done(); }
+}
+// a pill that's up stays where it can be seen: a sheet that closes, or is redrawn whole, would take it along, so it goes back to
+// the pop-up under it or the page
+function pillRehost(){
+  PILLS.forEach(el => { if (!el.classList.contains("show")) return; const p = el.parentNode; if (p === document.body || (p && p.isConnected && p.open)) return; toastHost().appendChild(el); });
 }
 // "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
 let syncPillN = 0;
@@ -13518,8 +13545,7 @@ function syncPill(on){
   syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
   let el = document.getElementById("syncPill");
   if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
-  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
-  else el.classList.remove("show");
+  pillSet(el, !!syncPillN);
 }
 /* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
    student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
@@ -13549,22 +13575,46 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  const host = toastHost();
-  if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
-  // then jump: wait until the pop-up has settled
-  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
-  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
-  else { ++toastSeq; t.classList.add("show"); }
+  toastShowIn(toastHost(), false);
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
-  try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
+  toastMeasure();
 }
 function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
+  toastT = setTimeout(() => { ++toastSeq; toastWaiting = false; toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+// Shows the toast in host. A pop-up still moving into place (its entrance animation) carries the toast with it, so it would show
+// in the wrong spot and then jump: it waits until the pop-up has settled. fade: it was already up somewhere else and has moved,
+// so it fades in where it is now rather than jumping there
+function toastShowIn(host, fade){
+  const t = TOAST_EL;
+  if (t.parentNode !== host) host.appendChild(t);
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  const seq = ++toastSeq;
+  if (moving.length) {
+    toastWaiting = true; t.classList.remove("show");
+    Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) { toastWaiting = false; t.classList.add("show"); toastMeasure(); } });
+  } else {
+    toastWaiting = false; t.classList.add("show");
+    if (fade) { try { if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) t.animate([{opacity: 0}, {opacity: 1}], {duration: 180, easing: "ease-out"}); } catch (e) {} }
+  }
+}
+const toastMeasure = () => { try { document.documentElement.style.setProperty("--toast-h", TOAST_EL.offsetHeight + "px"); } catch (e) {} };
+/* A pop-up closing puts a toast that's up in it back where it can be seen (the pop-up under it, or the page) before the screen is
+   next drawn. It used to vanish with the sheet until the close event came a moment later, then pop back up somewhere else.
+   Esc and form buttons close a sheet without close(), so this watches the open attribute itself. (A sheet opening over a toast
+   leaves it where it is: moved into the sheet it would sit over the sheet's own buttons) */
+function toastRehost(){
+  const t = TOAST_EL;
+  pillRehost();
+  const p = t.parentNode, stale = p !== document.body && !(p && p.isConnected && p.open);
+  if (!stale) return;
+  if (!(t.classList.contains("show") || toastWaiting)) { document.body.appendChild(t); return; }
+  toastShowIn(toastHost(), true); toastMeasure();
+}
+try { new MutationObserver(recs => { if (recs.some(r => r.target.tagName === "DIALOG")) toastRehost(); }).observe(document.body, {attributes: true, attributeFilter: ["open"], subtree: true}); } catch (e) {}
 /* Haptics: one small vocabulary for the whole app, on phones and tablets only.
    tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
    drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
@@ -15229,7 +15279,7 @@ const COURSE_ICONS = {
   code: ["Computer Science", '<rect class="a" x="2.5" y="4" width="19" height="16" rx="3"/><path class="ws" d="M9 9l-3 3 3 3M15 9l3 3-3 3M13 7.5l-2 9"/>'],
   eng: ["Engineering", '<path class="a" d="M12 2.8l1.6 2.4 2.8-.6.6 2.8 2.4 1.6-1.2 2.6 1.2 2.6-2.4 1.6-.6 2.8-2.8-.6L12 21.2l-1.6-2.4-2.8.6-.6-2.8-2.4-1.6L5.8 12 4.6 9.4 7 7.8l.6-2.8 2.8.6z"/><circle class="w" cx="12" cy="12" r="3.4"/>'],
   geo: ["Geography", '<circle class="b" cx="12" cy="12" r="9"/><path class="a" d="M7.5 6.5c2 0 3 1.5 2.5 3s-2.5 2-3.5 4c-1-1-2-3-1.5-5s1.5-2 2.5-2zM14 12.5c1.5-.5 3.5.5 3.5 2s-1.5 3-3.5 3.5c-.5-1.5-1-4 0-5.5zM13 5c1.5 0 3 .7 3.5 2-1.2.4-2.6.2-3.5-.5z"/><circle cx="12" cy="12" r="9"/>'],
-  hist: ["History", '<path class="b" d="M7 3c0 5 10 5 10 9s-10 4-10 9h10c0-5-10-5-10-9s10-4 10-9z"/><path class="a" d="M9 6.5h6L12 9.5zM8.2 19.8c1-2 2.6-3.2 3.8-3.2s2.8 1.2 3.8 3.2z"/><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>'],
+  hist: ["History", '<path class="b" d="M7 3h10c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2C15.8 15.7 17 17.8 17 21H7c0-3.2 1.2-5.3 2.9-6.8.9-.8 1.5-1.4 1.5-2.2s-.6-1.4-1.5-2.2C8.2 8.3 7 6.2 7 3z"/><path class="a" d="M8.9 7.2h6.2c-.6 1.1-1.5 2-2.3 2.7-.4.3-.7.6-.8.9-.1-.3-.4-.6-.8-.9-.8-.7-1.7-1.6-2.3-2.7zM8.2 20.2c.5-2 2-3.6 3.8-3.6s3.3 1.6 3.8 3.6z"/><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/>'],
   pol: ["Politics", '<path class="a" d="M3 9l9-5 9 5z"/><rect class="b" x="4.5" y="9" width="15" height="8.5"/><path d="M3 9l9-5 9 5zM6.5 9v8.5M10 9v8.5M14 9v8.5M17.5 9v8.5M3 20h18"/>'],
   lang: ["Languages", '<path class="a" d="M3.5 4.5h12v8.5H8l-4.5 3.5z"/><path class="y" d="M15.5 9h5v8.5l-3-2.2h-6V13h4z"/><path class="ws" d="M7 8.5h5"/>'],
   lit: ["Literature", '<path class="b" d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5z"/><path class="a" d="M12 6c2-1.5 5-2 8-1.5V19c-3-.5-6 0-8 1.5z"/><path d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5"/>'],
@@ -17841,7 +17891,10 @@ function qodPop(html, cls){
   requestAnimationFrame(() => w.classList.add("in"));
   const b = w.querySelector("[data-qod-close]"); if (b) b.focus();
 }
+// The daily quote pop-up is switched off for now (the code stays). Set to true to bring back the pop-up and its Settings rows.
+const DAILY_QUOTE_ON = false;
 function dailyQuote(force){
+  if (!force && !DAILY_QUOTE_ON) return;
   if (!force && styleCfg().quotes === false) return;
   if (!force && navigator.webdriver && !window.__qodTest) return;
   const d = todayISO();
@@ -18095,7 +18148,8 @@ function viewSchedule(){
     items.forEach(it => { if (it.s >= groupEnd) { flush(); groupEnd = it.e; } else groupEnd = Math.max(groupEnd, it.e); group.push(it); });
     flush();
     const blocks = items.map(it => {
-      const pos = `top:${top(it.s)}px;height:${Math.max(22, top(it.e) - top(it.s) - 2)}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
+      const bh = Math.max(22, top(it.e) - top(it.s) - 2), slim = bh >= 38 && bh <= 46 ? " sch-slim" : bh < 38 ? " sch-tiny" : "";
+      const pos = `top:${top(it.s)}px;height:${bh}px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px)`;
       if (it.mk) return `<button class="sch-b sch-exam sch-mk" style="top:${Math.min(top(it.s), H - 24)}px;height:22px;left:calc(${it.lane} * 100% / ${it.lanes} + 2px);width:calc(100% / ${it.lanes} - 4px);--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" title="${esc(it.t.title)}, due ${esc(fmtTime(it.t.time))}"><span><b>${esc(fmtTime(it.t.time))}</b> Due: ${esc(it.t.title)}</span></button>`;
       if (it.t) { const c = courseOf(it.t.courseId); return `<button class="sch-b sch-exam" style="${pos};--c:${esc(colorOf(it.t.courseId))}" data-act="edit-task" data-id="${esc(it.t.id)}" data-drag="1" data-type="task" data-dur="60"><b>${esc(it.t.title)}</b><span>${esc(fmtTime(it.t.time))}${c ? " · " + esc(courseLabel(c)) : ""}${it.t.location ? " · " + esc(it.t.location) : ""}</span></button>`; }
       const o = it.o;
@@ -18103,7 +18157,7 @@ function viewSchedule(){
       if (o.type === "avail" && !o.skipped) availMinSum += Math.max(0, it.e - it.s) * (o.avail.kind === "work" || o.avail.kind === "shift" ? 1 : 0);
       const sub = o.skipped ? (o.type === "avail" ? "Skipped this day" : "Skipped this week") : o.type === "avail" ? `${esc(o.label)} · ${esc(o.rangeText)}` : `${o.type === "meet" ? esc(o.label) + " · " : o.label ? esc(o.label) + " · " : o.course ? esc(courseLabel(o.course)) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`;
       const tip = o.type === "avail" ? `${o.title}, ${o.label}, ${o.rangeText}${o.moved ? " (changed this day only)" : ""}. Tap to change or skip this day.` : `${o.title}${o.label ? ", " + o.label : ""}, ${fmtTime(o.start)}–${fmtTime(o.end)}${o.where ? ", " + o.where : ""}${o.moved ? " (moved this week only)" : ""}. Drag to move${o.type === "meet" || (o.ev && o.ev.repeat) ? " just this week" : ""}.`;
-      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
+      return `<button class="sch-b ${esc(o.cls)}${o.skipped ? " skipped" : ""}${o.moved ? " moved" : ""}${slim}" style="${pos};--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}" data-dur="${tToMin(o.end) - tToMin(o.start)}" ${o.skipped || o.type === "avail" || o.ovn === "tail" ? "" : `data-drag="1"`} title="${esc(tip)}">${o.type === "meet" && o.c && !o.skipped && o.label !== "Office Hours" ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.c)}</span><b>${esc(o.title)}</b></span><span class="sch-bd"><b class="sch-tc">${esc(o.title)}</b><span>${sub}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>`
         : o.type === "event" && o.course && !o.skipped ? `<span class="sch-band"><span class="cc-ic" aria-hidden="true">${courseRingHtml(o.course)}</span><b>${esc(courseLabel(o.course))}</b></span><span class="sch-bd"><span class="sch-t">${esc(o.title)}</span><span>${o.label ? esc(o.label) + " · " : ""}${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}</span>${o.where ? `<span>${esc(o.where)}</span>` : ""}</span>` : `<b>${esc(o.title)}</b><span>${sub}</span>${o.where && !o.skipped ? `<span>${esc(o.where)}</span>` : ""}`}${o.moved ? `<i class="sch-mv">${o.type === "avail" ? "This day only" : "This week only"}</i>` : ""}</button>`;
     }).join("");
     const allDay = occ.filter(o => o.allDay && o.date === d.iso);
@@ -21618,7 +21672,7 @@ function noteHtml(n){
     ${noteStickersHtml(n, editing)}
     ${c ? `<span class="note-tag" style="--c:${esc(c.color)};--ci:${esc(noteTagInk(c.color, noteColor(n.color)))}">${esc(courseLabel(c))}</span>` : ""}
     ${n.conflict ? `<button type="button" class="note-conflict" data-act="note-resolve" data-id="${esc(n.id)}">Edited on two devices. Tap to review.</button>` : ""}
-    ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}${esc(tk.title)}</button>` : ""}
+    ${tk ? `<button type="button" class="note-task-tag" data-act="edit-task" data-id="${esc(tk.id)}" title="Open ${esc(tk.title)}">${CLIP}<span class="ntt-t">${esc(tk.title)}</span></button>` : ""}
     ${body}
     ${!editing && n.photos && window.SBPRO && SBPRO.notePhotos ? SBPRO.notePhotos(n) : ""}
     ${!editing && n.ink && window.SBINK ? SBINK.noteThumb(n) : ""}
@@ -24487,10 +24541,17 @@ function focusMinsFor(taskId){
 }
 const pomoCfg = () => Object.assign({}, POMO_DEF, (state.settings && state.settings.pomo) || {});
 function pomoLoad(){
-  const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", day: "", sessions: 0, minutes: 0};
+  const base = {mode: "focus", running: false, endAt: 0, left: 0, cycle: 0, taskId: "", courseId: "", day: "", sessions: 0, minutes: 0};
   try { return Object.assign(base, JSON.parse(localStorage.getItem(POMO_LS) || "{}")); } catch(e) { return base; }
 }
 let pomo = pomoLoad(), pomoTimer = null;
+// The course this focus time counts for: the task's course, or the course picked with No particular task (studying for the
+// course in general). Focus events carry it, so Insights' focus log and the Study Days heatmap count the time for that course
+function pomoCourse(){
+  const t = pomo.taskId && state.tasks[pomo.taskId];
+  if (t) return t.courseId || "";
+  return pomo.courseId && courseOf(pomo.courseId) ? pomo.courseId : "";
+}
 const modeMs = m => m === "focus" && Number(pomo.preset) > 0 ? Number(pomo.preset) * 60000 : Math.max(1, Number(pomoCfg()[m === "focus" ? "focus" : m === "short" ? "short" : "long"]) || 1) * 60000;
 // The length of the session under way, kept from when it started (new timer settings apply to the next one)
 const pomoLen = () => (pomo.running || pomo.left > 0) && Number(pomo.len) > 0 ? Number(pomo.len) : modeMs(pomo.mode);
@@ -24569,7 +24630,7 @@ function pomoStart(){
     const t = pomo.mode === "focus" && pomo.taskId && state.tasks[pomo.taskId];
     if (t && t.status === "todo" && !MILESTONE(t.type)) applyChanges([{kind: "task", id: t.id, after: Object.assign(clone(t), {status: "doing", order: nextOrder("doing")})}], `${t.title} moved to ${STATUS_LABEL.doing}`);
   } catch (e) { console.warn(e); }
-  fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId});
+  fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()});
 }
 function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo.endAt - Date.now()); pomo.pausedAt = Date.now(); pomo.running = false; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); fire("focus", {type: "pause", mode: pomo.mode}); }
 // Minutes of a running or paused focus session already done
@@ -24582,19 +24643,33 @@ function pomoElapsedMin(){
 const pomoEarly = (min, why) => {
   const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return 0;
   const A = accOf();
-  if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
+  if (A) { try { A.early(m, pomo.taskId, why, pomoCourse()); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
-  fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
+  fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, courseId: pomoCourse(), why});
   return m;
 };
-// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one
+// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one.
+// A task brings its course with it
 function pomoRetask(id){
   id = id || "";
   if (id === (pomo.taskId || "")) return;
-  if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; }
-  pomo.taskId = id; pomoSave();
+  pomoSplit();
+  pomo.taskId = id;
+  const t = id && state.tasks[id]; if (t && t.courseId) pomo.courseId = t.courseId;
+  pomoSave();
 }
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+// The same for the course: the minutes so far count for the course they were spent on. A task from another course is let go
+// (No particular task), so the session is for the new course in general
+function pomoRecourse(cid){
+  cid = cid || "";
+  if (cid === pomoCourse() && cid === (pomo.courseId || "")) return;
+  const t = pomo.taskId && state.tasks[pomo.taskId], keepTask = !!t && !!cid && t.courseId === cid;
+  if (cid !== pomoCourse()) pomoSplit();
+  pomo.courseId = cid; if (!keepTask) pomo.taskId = "";
+  pomoSave();
+}
+function pomoSplit(){ if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; } }
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId, courseId: pomoCourse()}); }
 function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
@@ -24651,7 +24726,7 @@ function pomoFinish(missed, quiet){
   if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
   if (!quiet) pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : ""});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : "", courseId: done === "focus" ? pomoCourse() : ""});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -24786,9 +24861,9 @@ function pomoTakeLock(){
         }
         if (pomo.running && pomo.endAt <= t) return; // the timer had already run out by then
         if (a === "pause" && pomo.running) { pomo.left = left > 0 ? left * 1000 : Math.max(1000, pomo.endAt - t); pomo.pausedAt = t; pomo.running = false; clearTimeout(pomoTimer); fire("focus", {type: "pause", mode: pomo.mode}); }
-        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "play" && !pomo.running && pomo.left > 0) { pomo.endAt = end > t ? end : t + pomo.left; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()}); }
         else if (a === "reset" && (pomo.running || pomo.left > 0)) { if (pomo.running) { pomo.left = Math.max(1000, pomo.endAt - t); pomo.running = false; } pomoReset(); }
-        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId}); }
+        else if (a === "skip" && (pomo.running || pomo.left > 0)) { pomoSkip(); pomo.len = modeMs(pomo.mode); pomo.endAt = t + pomo.len; pomo.left = 0; pomo.running = true; fire("focus", {type: "start", mode: pomo.mode, endAt: pomo.endAt, taskId: pomo.taskId, courseId: pomoCourse()}); }
       });
       pomoSave(); pomoSchedule();
     } finally { ISLAND.hold = false; }
@@ -24859,6 +24934,9 @@ function renderPomo(){
   pomoToday();
   const R = 92, C = 2 * Math.PI * R;
   const openTasks = (FOCUS ? FOCUS.ranked.map(x => x.t).filter(t => !t.xs) : []).concat(tasksArr().filter(t => t.status !== "done").sort(sortTasks)).filter((t, i, a) => a.indexOf(t) === i && t.status !== "done" && (canDoNow(t) || t.id === pomo.taskId));
+  // first the course, then that course's tasks (No particular task logs the time for the course in general)
+  const curCourse = pomoCourse(), pomoTasks = curCourse ? openTasks.filter(t => t.courseId === curCourse) : openTasks;
+  const pomoCourses = allCourses().filter(c => !c.archived || c.id === curCourse);
   const every = Number(cfg.every) || 4, inCycle = pomo.cycle % every;
   const fa = d.contains(document.activeElement) ? document.activeElement : null;
   const keep = !fa ? "" : fa.closest(".pomo-ctl .big") ? ".pomo-ctl .big" : fa.id ? "#" + fa.id : fa.dataset.act ? `[data-act="${fa.dataset.act}"]${fa.dataset.id ? `[data-id="${fa.dataset.id}"]` : ""}` : "";
@@ -24879,7 +24957,10 @@ function renderPomo(){
         <button class="btn pomo-rd" data-act="pomo-skip" title="Skip">${POMO_IC.skip}<span class="sr">Skip</span></button>
       </div>
       ${window.SBPRO && SBPRO.pomoHtml ? SBPRO.pomoHtml() : ""}${window.SBEXAM ? SBEXAM.pomoHtml() : ""}
-      <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${openTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
+      <div class="two pomo-for">
+        <label class="f">Studying For<select id="pomoCourse"><option value="">No particular course</option>${pomoCourses.map(c => `<option value="${esc(c.id)}" ${c.id === curCourse ? "selected" : ""}>${esc(courseLabel(c))}</option>`).join("")}</select></label>
+        <label class="f">Working On<select id="pomoTask"><option value="">No particular task</option>${pomoTasks.slice(0, 40).map(t => { const c = courseOf(t.courseId); return `<option value="${esc(t.id)}" ${t.id === pomo.taskId ? "selected" : ""}>${esc(t.title)}${c && !curCourse ? " · " + esc(courseLabel(c)) : ""}</option>`; }).join("")}</select></label>
+      </div>
       <p class="pomo-today">${pomoTodayHtml()}</p><p class="mini pomo-island" hidden></p>${typeof SBSPROUT !== "undefined" ? SBSPROUT.gardenHtml() : ""}
       <details class="adv" ${ui.pomoSet ? "open" : ""} id="pomoSetD"><summary>Timer Settings</summary>
         <div class="adv-body">
@@ -24904,7 +24985,8 @@ function renderPomo(){
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
   pomoIslandNote();
-  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); });
+  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); pomoUI(true); });
+  $("#pomoCourse").addEventListener("change", e => { pomoRecourse(e.target.value); pomoUI(true); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
   const saveCfg = () => {
@@ -40334,8 +40416,9 @@ hook("boot", boot);
   /*GK-START*/
   const GK = (() => {
     const TABS = {
-      study: [["study", "Study"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]],
-      project: [["overview", "Overview"], ["tasks", "Tasks"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]]
+      // Most-used first: what you come for, then the chat, then the occasional tabs, Members last
+      study: [["study", "Study"], ["chat", "Chat"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["members", "Members"]],
+      project: [["overview", "Overview"], ["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["members", "Members"]]
     };
     const ROLES = [["lead", "Lead"], ["researcher", "Researcher"], ["editor", "Editor"], ["presenter", "Presenter"], ["designer", "Designer"]];
     const LIM = {question: 300, detail: 1000, answer: 1000, linkTitle: 120, linkNote: 200, minutes: 2000, actions: 12, peerNote: 300};
@@ -41129,7 +41212,8 @@ hook("boot", boot);
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
+    // (friend requests waiting for you count too: 81-friends.js)
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal() + (globalThis.SBFRIENDS && SBFRIENDS.waiting ? SBFRIENDS.waiting() : 0);
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
@@ -41291,9 +41375,9 @@ hook("boot", boot);
   }
   // Each kind of group has its own sections, one tab at a time
   const GFEAT = {
-    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"],
-            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]],
-    project: [["tasks", "Tasks"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]]
+    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"], ["chat", "Chat"],
+            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]],
+    project: [["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]]
   };
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
@@ -41305,6 +41389,37 @@ hook("boot", boot);
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
+  // A new group starts with the core of its kind turned on. The rest waits in Edit > Features.
+  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: everything free is on
+  // (if Meetings is turned off, Find a Time moves to Overview).
+  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: []};
+  const defaultHidden = (kind, course) => GDEF_OFF[kind === "project" ? "project" : "study"].filter(k => !(k === "deadlines" && course));
+  // A week after a lean new group gets its second member, the owner's next action there shows what else it can turn on (once)
+  const LEANK = () => "studyboard:grpLean:" + myId();
+  const leanAll = () => { try { return JSON.parse(localStorage.getItem(LEANK()) || "{}") || {}; } catch (e) { return {}; } };
+  const leanSet = (gid, v) => { const x = leanAll(); if (v) x[gid] = v; else delete x[gid]; try { localStorage.setItem(LEANK(), JSON.stringify(x)); } catch (e) {} };
+  function moreTipDue(g){
+    const mark = g && leanAll()[g.id];
+    if (!mark || mark.shown || !isOwner(g)) return null;
+    const off = GFEAT[isProj(g) ? "project" : "study"].filter(([k]) => hiddenOf(g).has(k));
+    if (!off.length) { leanSet(g.id, null); return null; }
+    const second = (S.members[g.id] || []).map(m => ts(m.joined_at)).filter(Boolean).sort((a, b) => a - b)[1];
+    return second && Date.now() - second >= 7 * 864e5 ? off : null;
+  }
+  function moreTipSheet(g, off){
+    leanSet(g.id, Object.assign({}, leanAll()[g.id], {shown: Date.now()}));
+    const proj = isProj(g);
+    openSheet(`<div class="sheet grp-more-tip">${head(proj ? "Add More to Your Project" : "Add More to Your Group")}<div class="sheet-body">
+      <p style="margin:0 0 8px">${esc(g.name)} started with just the basics. Now that your ${proj ? "team" : "group"} is up and running, you can turn on more:</p>
+      <ul class="gk-kind-feats">${off.map(([, l]) => `<li>${esc(l)}</li>`).join("")}</ul>
+      <p class="mini" style="margin:8px 0 0">Only you can change this, in Edit under Features. You can turn anything off again later.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="grp-more-feats" data-id="${esc(g.id)}">Choose Features</button></div></div>`);
+  }
+  document.addEventListener("click", e => {
+    const el = e.target.closest && e.target.closest("#grpDetail [data-act]"), gid = ui.grp;
+    if (!el || !gid) return;
+    setTimeout(() => { if (dlg.open || ui.grp !== gid) return; const g = groupOf(gid), off = moreTipDue(g); if (off) moreTipSheet(g, off); }, 500);
+  });
   // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
   const ROOM = {};
   function roomLine(g){
@@ -42154,7 +42269,7 @@ hook("boot", boot);
 </li>`; };
     const DOT = {todo: "#8A94A6", doing: "#2C55D6", done: "#1E9E74"};
     const col = (k, label, list, empty) => `<section class="kb-col k-${k}" data-kbcol="${k}" aria-label="${label}, ${list.length}" style="--sc:${DOT[k]}"><h4><span class="sd" aria-hidden="true"></span>${label}<small>${list.length}</small></h4><ul>${list.map(card).join("") || `<li class="kb-none">${empty}</li>`}</ul></section>`;
-    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Done", cols.done, "Nothing finished yet")}</div>`;
+    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Complete", cols.done, "Nothing finished yet")}</div>`;
   }
 
   /* Q&A board (study groups) */
@@ -42374,10 +42489,10 @@ hook("boot", boot);
 
   /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
-  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Complete"]];
   const PT_BFILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
-  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Done"]];
+  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Complete"]];
   const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, view: "list", busy: false, err: "", setup: false});
   const ptX = gid => { const x = S.pt[gid]; return x && x.ok ? x : null; };
   const ptTaskOf = id => { for (const k in S.pt) { const t = (S.pt[k].tasks || []).find(x => x.id === id); if (t) return t; } return null; };
@@ -42397,7 +42512,7 @@ hook("boot", boot);
     const me = myId(), done = t.status === "done", late = !done && GTL.due(t.due_at, today).late, ms = S.members[g.id] || [];
     const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
-    const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
+    const mini = done ? `Completed${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
     const pend = t._out || outPend(g.id, o => o.task === t.id);
     return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
@@ -42850,19 +42965,22 @@ hook("boot", boot);
     d.started = true;
     sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
-    d.dx = d.x - r.left; d.dy = d.y - r.top;
+    d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
-    document.body.appendChild(gh); d.ghost = gh; d.el.classList.add("kb-lifted");
+    document.body.appendChild(gh); d.ghost = gh;
+    // as on the Task Board: the card leaves a gap where it will land, which moves as it's carried and the other cards make room
+    const ph = document.createElement("li"); ph.className = "kb-ph sm-skip"; ph.setAttribute("aria-hidden", "true"); ph.style.height = r.height + "px";
+    d.el.after(ph); d.el.classList.add("kb-lifted"); d.ph = ph; d.hCol = d.el.closest(".kb-col");
     const kb = d.el.closest(".kb"); if (kb) kb.classList.add("kb-dragging");
     kbTick();
   }
   function kbCol(x, y){ const u = document.elementFromPoint(x, y), c = u && u.closest && u.closest("#grpPT .kb-col"); return c || null; }
   function kbTick(){
     const d = kbDrag; if (!d || !d.started) return;
-    d.ghost.style.transform = `translate(${d.x - d.dx - parseFloat(d.ghost.style.left)}px, ${d.y - d.dy - parseFloat(d.ghost.style.top)}px) rotate(2deg)`;
+    d.ghost.style.translate = (d.x - d.dx - d.gl) + "px " + (d.y - d.dy - d.gt) + "px";
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
-    if (c) c.classList.add("over");
+    if (c) { c.classList.add("over"); if (d.hCol && d.hCol !== c) sbHaptic("tick"); d.hCol = c; kbPlace(d, c); }
     kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
   }
@@ -42882,17 +43000,68 @@ hook("boot", boot);
     const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
     if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
+  /* Motion, the same as the Task Board's (01-events.js bfPlay, bfLanded): cards that change places slide there, and on a drop the
+     card glides from the finger into its slot */
+  const KB_EASE = "cubic-bezier(.2,.8,.2,1)";
+  const kbStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+  const kbCards = () => [...document.querySelectorAll("#grpPT .kb-card[data-id]:not(.kb-lifted)")];
+  function kbRects(){ const m = new Map(); if (kbStill()) return m; kbCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+  function kbSlide(before, skip){
+    if (!before.size) return;
+    kbCards().forEach(c => {
+      const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+      const b = c.getBoundingClientRect(); if (!b.width) return;
+      const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: 260, easing: KB_EASE});
+    });
+  }
+  // The column's own order (GTL.order) decides where a card goes, so the gap opens where the card will really land
+  const kbTo = (d, col) => col === "doing" ? (d.from === "doing" || d.from === "review" ? d.from : "doing") : col;
+  function kbPlace(d, c){
+    const x = ptX(ui.grp), list = c.querySelector("ul"); if (!x || !list || !d.ph) return;
+    const col = c.dataset.kbcol, moved = x.tasks.map(t => t.id === d.id ? Object.assign({}, t, {status: kbTo(d, col)}) : t);
+    const order = (GK.board(moved)[col] || []).map(t => t.id), at = order.indexOf(d.id); if (at < 0) return;
+    const others = [...list.querySelectorAll(":scope > .kb-card[data-id]")].filter(n => n !== d.el), before = others[at] || null;
+    const next = n => { let m = n.nextElementSibling; while (m && m === d.el) m = m.nextElementSibling; return m; };
+    if (d.ph.parentNode === list && (before ? next(d.ph) === before : !next(d.ph) || !next(d.ph).matches(".kb-card[data-id]"))) return;
+    const was = kbRects();
+    if (before) list.insertBefore(d.ph, before); else list.appendChild(d.ph);
+    list.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = true; });
+    if (d.lastList && d.lastList !== list && !d.lastList.querySelector(".kb-card[data-id]:not(.kb-lifted)")) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
+    d.lastList = list;
+    kbSlide(was);
+    if (d.ph.animate && was.size) d.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: KB_EASE});
+  }
+  function kbLand(id, ghost, before){
+    const gr = ghost && ghost.isConnected ? ghost.getBoundingClientRect() : null;
+    kbSlide(before, id);
+    if (ghost) ghost.remove();
+    const el = document.querySelector(`#grpPT .kb-card[data-id="${CSS.escape(id)}"]`);
+    if (!el || !gr || !el.animate || kbStill()) return;
+    const f = el.getBoundingClientRect(); if (!f.width) return;
+    const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+    el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+    const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+      {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+    a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+  }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);
     if (!d.started) { kbDrag = null; return; }
-    const c = ok ? kbCol(d.x, d.y) : null, to = c ? c.dataset.kbcol : "";
-    if (d.ghost) d.ghost.remove(); d.el.classList.remove("kb-lifted");
+    // it lands where its gap is (as on the Task Board), so a drop between columns or just past one still goes where it showed
+    const c = ok ? ((d.ph && d.ph.closest("#grpPT .kb-col")) || kbCol(d.x, d.y)) : null, col = c ? c.dataset.kbcol : "", to = col ? kbTo(d, col) : "";
+    if (ok) sbHaptic("drop", {force: true});
+    const before = kbRects();
+    if (d.ph) d.ph.remove(); d.el.classList.remove("kb-lifted");
+    if (d.lastList) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
     $$("#grpPT .kb-col.over").forEach(k => k.classList.remove("over")); const kb = d.el.closest(".kb"); if (kb) kb.classList.remove("kb-dragging");
     d.justDragged = true; kbDrag = d; setTimeout(() => { if (kbDrag === d) kbDrag = null; }, 350);
     d.started = false;
     const g = groupOf(ui.grp);
+    // the board redraws at once (ptMutate, then swapPT), then the card glides from where it was let go into its new slot
     if (g && to && to !== d.from && PT_STATUS.some(k => k[0] === to)) ptMutate(g.id, d.id, {status: to});
     else if (g && d.dirty) ptRefresh(g.id);
+    kbLand(d.id, d.ghost, before);
   }
   document.addEventListener("pointermove", e => {
     const d = kbDrag; if (!d || d.justDragged || e.pointerId !== d.pid) return;
@@ -43375,12 +43544,12 @@ hook("boot", boot);
 
   // What each kind of group comes with, shown when you choose one so the difference is clear
   const KIND_INFO = {
-    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and quizzes, and see who scores highest in a Quiz Battle", "Propose study sessions and see who is coming", "A weekly challenge with daily check-ins", "Ask questions and mark the answer that helped", "Share the cards you keep missing and see which ones trip up the group"]},
-    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and meeting notes whose action items become tasks"]}
+    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and practice quizzes so everyone can study them", "Propose study sessions and see who is coming, or study together right now", "Chat with the group", "Your course's deadlines, when the group is for a course"], more: "Add questions and answers, whiteboards and more any time in Edit."},
+    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and a team chat", "Meetings with notes, and Find a Time to pick a time that works for everyone", "Shared whiteboards, concept maps and presentations"], more: "Turn off anything your team doesn't need any time in Edit."}
   };
   const kindPreview = k => `<div class="gk-kind-note grp-kind-note" data-for="${k}"${k === "study" ? "" : " hidden"}><p class="gk-kind-lead">${esc(KIND_INFO[k].lead)}</p>
-      <div class="gk-kind-tabs" aria-label="Tabs you get">${GK.tabsFor(k).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
-      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>`;
+      <div class="gk-kind-tabs" aria-label="Tabs you start with">${GK.tabsFor(k).filter(([t]) => !GDEF_OFF[k].includes(t) && !PROSEC.has(t)).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
+      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul><p class="mini" style="margin:6px 0 0">${esc(KIND_INFO[k].more)}</p></div>`;
   function newGroupSheet(g){
     const edit = !!g, proj = edit && isProj(g);
     const opts = coursesArr().map(c => `<option value="${esc(courseLabel(c))}">${esc(c.name)}</option>`).join("");
@@ -43449,7 +43618,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
           } else if (goal) { try { await api.updateGroup(gid, {weekly_goal: goal}); } catch(e) {} }
           if (gcolor) { try { await api.updateGroup(gid, {color: gcolor}); } catch(e) {} }
           if (icon) { try { await setGroupIcon({id: gid}, icon); } catch(e) { note = ` The icon couldn't be saved. ${e.message}`; } }
-          if (tpl && tpl.kind === kind && (tpl.hidden || []).length) { try { await api.updateGroup(gid, {hidden_features: tpl.hidden.filter(k => GFEAT[kind].some(x => x[0] === k))}); } catch(e) {} }
+          const fromTpl = !!tpl && tpl.kind === kind, hid = fromTpl ? (tpl.hidden || []).filter(k => GFEAT[kind].some(x => x[0] === k)) : defaultHidden(kind, course);
+          if (hid.length) { try { await api.updateGroup(gid, {hidden_features: hid}); if (!fromTpl) leanSet(gid, {at: Date.now()}); } catch(e) {} }
           if (dlg.open) dlg.close(); S.groups = null; ui.tab = "groups"; ui.grp = gid; render(); await loadGroups();
           if (tpl && tpl.kind === "project" && kind === "project" && (tpl.tasks || []).length) tplTasksWhenReady(gid, tpl.id);
           askColorSoon(gid); toast(`${name} is ready. Invite your ${kind === "project" ? "team" : "classmates"}.${note}`, null, {label: "Invite", fn: () => inviteSheet(groupOf(gid))});
@@ -43671,7 +43841,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
       case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
-          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          ${window.SBFSHARE && SBFSHARE.menuOpt ? SBFSHARE.menuOpt() : ""}<button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
         </div></div></div>`); return true;
@@ -43685,6 +43855,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
       case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
+      case "grp-more-feats": { const gg = groupOf(id); if (!gg || !isOwner(gg)) return true; newGroupSheet(gg); setTimeout(() => { const f = dlg.querySelector(".grp-feats"); if (f) f.scrollIntoView({block: "start", behavior: "smooth"}); }, 60); return true; }
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
@@ -44570,12 +44741,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   /* Where it all shows */
   function gxPane(g, k){
     const proj0 = isProj(g);
-    const ftSec = (k === "meetings" || (!proj0 && k === "sessions")) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
+    const ftSec = (k === "meetings" || (!proj0 && k === "sessions") || (proj0 && k === "overview" && !featOn(g, "meetings"))) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
     // Group Uploads work in every group project: each file counts in its uploader's own storage
     if (!gxOn(g)) return k === "members" ? `<div id="gxPro">${gxProBox(g)}</div>` : proj0 && k === "files" ? (featOn(g, "uploads") ? gxUploadsHtml(g) : "") : ftSec;
     const proj = isProj(g);
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
-    if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
+    if (proj && k === "overview") return ftSec + `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
     if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));
@@ -44713,7 +44884,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(),
+  window.SBGROUPS = {myName: () => myFirst(), navBadge: () => updateNavBadge(),
     // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
     openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
@@ -44903,10 +45074,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
       answered = true;
-      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
+      // (the check that asked is told no: left waiting, it held every later check, so publishing again showed nothing)
+      if (refused() || yearsOld(iso) < 13) { if (then) then(0); closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
       call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
-        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+        .catch(e => { if (isUnder13(e)) { if (then) then(0); closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
     const form = dlg.querySelector("#ageAsk");
@@ -44957,7 +45129,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (ageCached() === "ok") return Promise.resolve(true);
     if (gateRun && gateFor === u.id) return gateRun;
     gateFor = u.id;
-    return (gateRun = new Promise(r => gate(r)));
+    // (only while it runs: kept after, an answer of "can't tell now" was never asked again, nor a birthday that went missing)
+    const run = gateRun = new Promise(r => gate(r));
+    run.then(() => { if (gateRun === run) gateRun = null; });
+    return run;
   }
   // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
   function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
@@ -45121,7 +45296,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
         S.rows = Array.isArray(rows) ? rows : []; S.lists = FRIENDS.split(S.rows); S.err = ""; S.setup = false; S.at = Date.now();
       } catch (e) { S.err = e.message; S.setup = !!e.setup; S.at = Date.now(); if (!S.rows) S.rows = []; }
       finally { S.loading = null; }
-      drawSheet(); refreshPage();
+      drawSheet(); refreshPage(); announce();
       return S.rows;
     })();
     return S.loading;
@@ -45140,6 +45315,27 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     swap(document.querySelector(".frd-head-btn"), groupsHead());
     swap(document.querySelector(".frd-card"), groupsTop());
   }
+
+  /* A new friend request: a message on screen (with a button that opens it) and a count on the Groups icon.
+     Which requests you've already been told about is kept per account on this device, so each one is announced once. */
+  const SEENK = () => "studyboard:friendReqSeen:" + ((me() || {}).id || "");
+  function announce(){
+    try { if (window.SBGROUPS && SBGROUPS.navBadge) SBGROUPS.navBadge(); } catch (e) {}
+    if (!live() || !S.rows || S.err) return;
+    let seen; try { seen = JSON.parse(localStorage.getItem(SEENK()) || "null"); } catch (e) { seen = null; }
+    const ids = S.lists.incoming.map(r => r.user_id), fresh = S.lists.incoming.filter(r => !(seen || []).includes(r.user_id));
+    try { localStorage.setItem(SEENK(), JSON.stringify(ids.slice(-200))); } catch (e) {}
+    // (the very first check on a device with no record only remembers what's there, unless the requests are recent)
+    const show = seen ? fresh : fresh.filter(r => r.since && Date.now() - new Date(r.since).getTime() < 3 * 86400e3);
+    if (!show.length || sheetOpen()) return;
+    const nm = show[0].display_name || (show[0].username ? "@" + show[0].username : "Someone");
+    const msg = show.length === 1 ? `${nm} sent you a friend request` : `${nm} and ${show.length - 1} other${show.length === 2 ? "" : "s"} sent you friend requests`;
+    toast(msg, null, {label: "View", fn: () => openFriends()});
+    try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+  }
+  // Checked in the background every couple of minutes while Studyboard is open and signed in (and when it comes back to the front)
+  setInterval(() => { if (live() && !document.hidden) load(false); }, 120e3);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && live() && Date.now() - S.at > 30e3) load(true); });
 
   /* Drawing */
   const ICON_FRIENDS = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.2 2.7-5.5 6-5.5s6 2.3 6 5.5"/><path d="M16 11.5h6M19 8.5v6"/></svg>';
@@ -45318,7 +45514,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   hook("render", tab => {
     const u = me() && me().id;
     if (u !== S.uid && !u) reset();
-    if (live() && tab === "groups") load(false);
+    if (live() && (tab === "groups" || !S.rows)) load(false);
     checkLink();
   });
   hook("boot", () => {
@@ -45333,10 +45529,20 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     } catch (e) {}
     setTimeout(checkLink, 1200);
   });
+  // A friend's ⋯ menu opens under its button, or above it when the sheet has no room below (the last friend in the list)
+  document.addEventListener("toggle", e => {
+    const d = e.target; if (!d || !d.classList || !d.classList.contains("frd-more")) return;
+    d.classList.remove("frd-up"); if (!d.open) return;
+    document.querySelectorAll("details.frd-more[open]").forEach(x => { if (x !== d) x.open = false; });
+    const m = d.querySelector(".grp-menu"), b = d.querySelector("summary"), sc = d.closest(".sheet-body") || d.closest("dialog"); if (!m || !b) return;
+    const r = b.getBoundingClientRect(), mh = m.getBoundingClientRect().height, W = sc ? sc.getBoundingClientRect() : {top: 0, bottom: innerHeight};
+    if (r.bottom + 4 + mh > Math.min(W.bottom, innerHeight) - 4 && r.top - 4 - mh >= Math.max(W.top, 0) + 4) d.classList.add("frd-up");
+  }, true);
+  document.addEventListener("pointerdown", e => { if (!(e.target.closest && e.target.closest("details.frd-more"))) document.querySelectorAll("details.frd-more[open]").forEach(x => { x.open = false; }); }, true);
   // A link waiting for sign-in, or for another sheet to close
   setInterval(() => { if (takeLink()) checkLink(); }, 3000);
 
-  window.SBFRIENDS = {open: openFriends, load, T: {FRIENDS}};
+  window.SBFRIENDS = {open: openFriends, load, waiting: () => (live() && S.lists ? S.lists.incoming.length : 0), T: {FRIENDS}};
 })();
 /* ===== module: 82-friend-share.js ===== */
 /* Send a deck, quiz or concept map straight to friends, no code needed (supabase-friend-shares.sql). The friend sees it the
@@ -45368,7 +45574,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (r && r.error) { const err = new Error(missing(r.error) ? srvSetup("Sending to friends", "friend-shares.sql") : words(r.error)); err.setup = missing(r.error); throw err; }
     return r ? r.data : null;
   }
-  const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0};
+  const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0, rows: []};
 
   /* What goes */
   function payloadOf(kind, ref){
@@ -45433,6 +45639,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     S.busy = true;
     try {
       const rows = await rpc("my_friend_shares");
+      S.rows = Array.isArray(rows) ? rows.filter(r => r && r.id) : []; paintDot();
       const todo = FS.fresh(rows, S.seen);
       if (todo.length) offer(todo);
     } catch (e) { if (e.setup) S.setup = true; }
@@ -45450,13 +45657,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const where = r.kind === "map" ? "your concept maps" : r.kind === "quiz" ? "your quizzes" : "your flashcards";
     openSheet(`<div class="sheet fs-sheet fs-in">${head(FS.line(r))}<div class="sheet-body">
       <div class="fs-card">${pic}<div class="fs-who"><b>${esc(r.title)}</b><span class="mini">${esc(r.info || FS.WHAT[r.kind])}${r.from_username ? ` · from @${esc(r.from_username)}` : ""}</span></div></div>
-      <p class="mini" style="margin:0">Add puts your own copy in ${where}. If you don't answer now, it waits for 30 days.</p></div>
+      <p class="mini" style="margin:0">Add puts your own copy in ${where}. Tap Later and it waits for 30 days in Flashcards › ${narrow() ? "Import" : "Share or Import"} › Sent to You.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" id="fsNo">No Thanks</button><span class="spacer"></span><button type="button" class="btn" data-act="close">Later</button><button type="button" class="btn primary" id="fsYes">Add</button></div></div>`);
     const done = () => { if (rest && rest.length) setTimeout(() => offer(rest), 350); };
     const go = add => async e => {
       e.currentTarget.disabled = true;
       try {
         const res = await rpc("take_friend_share", {p_id: r.id, p_add: add});
+        S.rows = S.rows.filter(x => x.id !== r.id); paintDot();
         if (dlg.open) dlg.close();
         if (add) take(r, res); else toast("Okay, not added.");
       } catch (err) { if (dlg.open) dlg.close(); toast(err.message, null, null, {error: true}); }
@@ -45464,6 +45672,36 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     };
     $("#fsYes").addEventListener("click", go(true)); $("#fsNo").addEventListener("click", go(false));
     dlg.addEventListener("close", function once(){ dlg.removeEventListener("close", once); }, {once: true});
+  }
+  /* Sent to You: everything friends have sent that's still waiting (put off with Later, or missed), in Flashcards › Share or
+     Import, with a count on that button */
+  const narrow = () => !!(window.matchMedia && matchMedia("(max-width:639px)").matches);
+  const ago = t => { const d = Math.max(0, Date.now() - new Date(t).getTime()), m = Math.round(d / 60000), h = Math.round(d / 3600000), n = Math.round(d / 86400000); return !t || !isFinite(d) ? "" : m < 60 ? (m <= 1 ? "just now" : m + " min ago") : h < 24 ? h + (h === 1 ? " hour ago" : " hours ago") : n === 1 ? "yesterday" : n + " days ago"; };
+  function paintDot(){
+    const n = S.rows.length;
+    document.querySelectorAll('[data-act="grp-share-menu"]').forEach(b => {
+      let d = b.querySelector(".fs-dot");
+      if (!n) { if (d) d.remove(); return; }
+      if (!d) { d = document.createElement("span"); d.className = "fs-dot"; b.appendChild(d); }
+      d.textContent = n > 9 ? "9+" : String(n); d.setAttribute("aria-label", `${n} sent to you`);
+    });
+  }
+  function menuOpt(){
+    if (!live() || S.setup) return "";
+    const n = S.rows.length;
+    return `<button type="button" class="sm-opt fs-inbox-opt" data-act="fs-inbox"><b>Sent to You${n ? ` <span class="fs-n">${n}</span>` : ""}</b><span class="mini">${n ? `${FS.plural(n, "thing")} from friends waiting for you` : "Decks, quizzes and maps your friends send you"}</span></button>`;
+  }
+  async function inbox(){
+    openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body"><p class="mini" style="margin:0" role="status">Loading…</p></div></div>`);
+    try { const rows = await rpc("my_friend_shares"); S.rows = Array.isArray(rows) ? rows.filter(r => r && r.id) : []; paintDot(); }
+    catch (e) { if (dlg.open && dlg.querySelector(".fs-sheet")) openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(e.message)}</p></div><div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`); return; }
+    if (!dlg.open || !dlg.querySelector(".fs-sheet")) return;
+    const g = G(), pic = r => { try { return g && g.avatar ? g.avatar("", r.from_user, r.from_name, r.from_face || "") : ""; } catch (e) { return ""; } };
+    const list = S.rows.map(r => `<li><button type="button" class="fs-pick fs-open" data-id="${esc(r.id)}">${pic(r)}<span class="fs-who"><b>${esc(r.title || FS.WHAT[r.kind] || "Shared")}</b><span class="mini">${esc([r.kind === "quiz" ? "Quiz" : r.kind === "map" ? "Concept map" : "Deck", r.info, "from " + (r.from_name || "a friend"), ago(r.created_at)].filter(Boolean).join(" · "))}</span></span><span class="fs-go" aria-hidden="true">›</span></button></li>`).join("");
+    openSheet(`<div class="sheet fs-sheet">${head("Sent to You")}<div class="sheet-body">
+      ${list ? `<p class="mini" style="margin:0">Tap one to add it or say no thanks. Each waits for 30 days.</p><ul class="fs-list">${list}</ul>` : `<p style="margin:0">Nothing waiting. When a friend sends you a deck, quiz or concept map, it shows up here until you add it.</p>`}</div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Close</button></div></div>`);
+    dlg.querySelectorAll(".fs-open").forEach(b => b.addEventListener("click", () => { const r = S.rows.find(x => x.id === b.dataset.id); if (r) { S.seen.add(r.id); sheet(r, []); } }));
   }
   // Their copy, made yours
   function take(r, res){
@@ -45505,11 +45743,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("visibilitychange", () => { if (!document.hidden && Date.now() - S.at > 15000) check(); });
   setInterval(() => { if (!document.hidden && (S.uid !== ((me() || {}).id || "") || Date.now() - S.at > 60000)) check(); }, 20000);
   hook("act", (act, el) => {
+    if (act === "fs-inbox") { inbox(); return true; }
     if (act !== "fs-send") return false;
     send(el.dataset.kind, el.dataset.ref || el.dataset.id || "");
     return true;
   });
-  window.SBFSHARE = {send, check, T: {FS, payloadOf}};
+  // the count on Share or Import comes back after the Flashcards page is drawn again
+  hook("render", () => { if (S.rows.length) requestAnimationFrame(paintDot); });
+  window.SBFSHARE = {send, check, inbox, menuOpt, waiting: () => S.rows.length, T: {FS, payloadOf}};
 })();
 /* ===== module: 97-sharing.js ===== */
 /* Public share links and the Course Library */
@@ -46906,10 +47147,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function showPrompt(id){
     const t = state.tasks[id], el = $("#grPrompt");
     if (!t || t.status !== "done" || t.mark || !el || dlg.open) return;
+    // "How long did it take?" is still up in the same spot: wait for it rather than covering it
+    if (document.querySelector(".acc-chip:not([hidden])")) { clearTimeout(promptT); promptT = setTimeout(() => showPrompt(id), 5000); return; }
     const c = courseOf(t.courseId);
     el.innerHTML = `<span class="gp-t"><b>Got a Mark Back?</b> Add it for ${esc(t.title)} to see where you stand${c ? ` in ${esc(courseLabel(c))}` : ""}. You can also add it later.</span>
       <span class="gp-a"><button class="btn small primary" data-act="gp-add" data-id="${esc(id)}">Add Mark</button><button class="btn small" data-act="gp-close">Not Now</button><button class="link-btn gp-off" data-act="gp-off">Don't Ask Again</button></span>`;
-    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    el.hidden = false; void el.offsetWidth; el.classList.add("show");   // drawn once without .show first, so it slides in rather than popping up
     clearTimeout(hideT); hideT = setTimeout(hidePrompt, 16000);
   }
   function hidePrompt(){ const el = $("#grPrompt"); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
@@ -47716,16 +47959,19 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
-      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
+      // Where you stand: how far from your goal (and, from Grade Insights, from the next letter line). Kept here, in the course's
+      // dropdown, so each row on the list stays to its name, the share marked and one plain sentence
+      const gg = goalGap(gr);
+      const stand = `<div class="gp-stand"${gg ? "" : " hidden"}><h4 class="gp-d-h">Where You Stand</h4><div class="gp-stand-chips">${gg ? `<span class="gp-sc ${gg.gap >= 0 ? "gp-sc-ok" : "gp-sc-to"}">${esc(gg.text)}</span>` : ""}</div></div>`;
+      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${stand}${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";
     const rows = all.map(gr => {
       const c = gr.c, g = gr.g, L = p => letterOf(p, g.scale), cur = gr.current != null ? clampP(gr.current) : null;
-      const gg = goalGap(gr);
       return `<li class="gp-course${gr.risk ? " gr-" + gr.risk : ""}" style="--c:${esc(c.color)}">
         <button class="gp-main" data-act="g-open-course" data-id="${esc(c.id)}" aria-label="Open grades for ${esc(c.name)}">
           <span class="g2-ring gp-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
+          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
           <span class="gp-line mini">${esc(gradeLine(gr))}</span>${zeroed(gr) ? `<span class="gp-zero mini" role="note">${esc(ZERO_TXT)}</span>` : gr.risk ? riskPill(gr.risk) : ""}
@@ -49191,8 +49437,13 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     if (gb) gb.insertAdjacentHTML("afterend", html); else if (wi) wi.insertAdjacentHTML("beforebegin", html); else if (marked) marked.insertAdjacentHTML("beforebegin", html); else card.insertAdjacentHTML("beforeend", html);
   });
   addSection("row", (gr, row) => {
-    const e = edgeOf(gr), main = row.querySelector(".gp-main .gp-who .mini");
-    if (e && main && !row.querySelector(".gi-edge-chip")) main.insertAdjacentHTML("beforeend", ` · <span class="gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+    // in the course's dropdown, under Where You Stand (90-grades.js), not on the row itself
+    const e = edgeOf(gr), st = row.querySelector(".gp-drop .gp-stand"), chips = st && st.querySelector(".gp-stand-chips");
+    if (e && chips && !row.querySelector(".gi-edge-chip")) {
+      chips.insertAdjacentHTML("beforeend", `<span class="gp-sc gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+      st.insertAdjacentHTML("beforeend", `<p class="gp-stand-why mini">${esc(edgeLong(gr, e))}</p>`);
+      st.hidden = false;
+    }
   });
   addSection("page", all => {
     const lt = lateTotal(all); if (lt.n < 1 || lt.pts < 0.05) return "";
@@ -50080,7 +50331,7 @@ function pillText(c){
 const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
 const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
 const rowCush = m => m < 0 ? tr("cush.rowShort", "{time} short", {time: fm(m)}) : tr("cush.rowSpare", "{time} spare", {time: fm(m)});
-const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>';
+const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/></svg>';
 const COLOR = {spare: "#1E9E74", tight: "#D9A21B", short: "#D3352A"};
 
 const cur = () => { try { const F = computeFocus(); return F && F.cushion; } catch (e) { return null; } };
@@ -52905,7 +53156,9 @@ function cleanFile(r) {
   /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
      Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
      course list points at the one that stays. Two courses you made yourself are never merged */
-  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  // (made by a school sync: its id is the sync's own. A course you made that a sync was pointed at carries the sync's details
+  // too, but it's still yours: it was folded into a later copy you made, which then took the school course with it when deleted)
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object" && String(c.id || "").startsWith(f + "c_"));
   const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
   const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
   function dupePlan(){
@@ -53059,7 +53312,12 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
-body:has(#dlg[open]) #lmsRelog{display:none}
+/* hidden while a sheet is open without display:none, which replayed its slide-in (popping up again) every time a sheet closed */
+body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
+#lmsRelog{transition:bottom .2s ease}
+@media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
+/* computers: a message sits at the bottom too (32px up from 980px wide), so the notice steps up above it instead of covering its button */
+@media (min-width:980px){body:has(#toast.show) #lmsRelog{bottom:calc(42px + var(--toast-h,44px) + env(safe-area-inset-bottom,0px))}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){
@@ -62508,7 +62766,8 @@ var SBSC = (() => {
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     sfx("pop");
-    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    // (focus time kept from a skipped or reset session: a coin lands when the count finishes, so the credits are heard as well as seen)
+    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600, r.kind === "focus" ? () => sfx("coinLand") : null), still ? 0 : 250);
     if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
@@ -76130,6 +76389,7 @@ var COMP_ACC_MORE = K => {
   // The authority
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (press && press.drag) return false;
     if (dockFrozen()) return false;
     if (spotKind === "slot" && typeof ui !== "undefined" && ui.tab === "companion") return false;
     if (glideAnim && performance.now() < glideEnd) return false;
@@ -76425,6 +76685,16 @@ var COMP_ACC_MORE = K => {
     return Math.round(u / VB * px);
   }
   let spotKind = "", spotSig = "";
+  // Where the student dragged it and let go (style pixels): it stays there on every page until dragged again
+  let dropAt = null;
+  // where it may be carried and dropped: on screen, with clear room beside the side menu (lifted and swaying, it reaches a
+  // little wider than when it stands)
+  function dropRange(px, fresh){
+    const rg = range(px, fresh), g = geometry(), m = Math.round(px * 0.12) + 4;
+    if (g.side) rg.L += m;
+    if (g.sideR !== Infinity) rg.R -= m;
+    return rg;
+  }
   // fresh: choose from scratch (a new page)
   function slotSpot(px){
     if (typeof ui === "undefined" || ui.tab !== "companion") return null;
@@ -76446,6 +76716,8 @@ var COMP_ACC_MORE = K => {
     const px = sizePx(cur), f = fabRect();
     { const sl = slotSpot(px); if (sl) return Object.assign({px}, sl, {fab: f}); }
     { const dk = dockSpot(px); if (dk) return Object.assign({px}, dk, {fab: f}); }
+    // Dropped somewhere by hand: it stays there (kept inside the screen and clear of the side menu as the window changes)
+    if (dropAt) { const rg = dropRange(px); return {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, dropAt.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, dropAt.top))), kind: "drop", px, fab: f}; }
     // Short desktop windows (200% zoom): the Add button sits in the header row there, so its corner at the bottom right stays
     // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
     if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
@@ -76675,7 +76947,7 @@ var COMP_ACC_MORE = K => {
     if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
-    const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
+    const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot" || s.kind === "drop") && !travelAnim && !glideAnim;
     home = s.kind === "home" || !box.dataset.x ? "fab" : s.kind;
     spotKind = s.kind;
     document.body.classList.toggle("cp-docked", s.kind === "dock");
@@ -76692,7 +76964,7 @@ var COMP_ACC_MORE = K => {
     if (still1) {
       box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
       box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind; homeSig = sig;
-      if (s.kind === "pin" || s.kind === "dock") { clamp("place"); fitHitSoon(); }
+      if (s.kind === "pin" || s.kind === "dock" || s.kind === "drop") { clamp("place"); fitHitSoon(); }
       return;
     }
     if (sig === homeSig) {
@@ -77209,7 +77481,7 @@ var COMP_ACC_MORE = K => {
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Drag to move it. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -77920,7 +78192,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function weekCheck(){ const s = aiRead(); if (s.weekDay === todayISO() || !cur) return; const n = aiSummary().dueWeek; if (n >= 8) { s.weekDay = todayISO(); aiWrite(s); queueMoment({about: "week", detail: `a busy week: ${n} things due in the next 7 days`}); } }
   function aiUsage(){ const s = today0(aiRead()); return {n: s.n || 0, max: aiMax(), paused: aiPaused(s), mode: aiMode()}; }
 
-  /* Pointer: tap, hover, long press, right click (no dragging: it lives in its homes) */
+  /* Pointer: tap, hover, long press, right click, and drag and drop (pick it up, carry it anywhere on the page, and it plops
+     down where it's let go; never over the side menu). In its phone tab-bar seat and the Companion page's ring it stays put. */
   let press = null, looking = false, lookT = 0, lastHover = 0, suppressUntil = 0;
   function onDown(e){
     if (!box || e.button > 0 || !ours(e.clientX, e.clientY)) return;
@@ -77930,7 +78203,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function onMove(e){
     if (press && e.pointerId === press.id) {
-      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { press.moved = true; clearTimeout(press.lp); }
+      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { press.moved = true; clearTimeout(press.lp); dragStart(e); }
+      if (press.drag) { e.preventDefault(); dragTo(e); }
       return;
     }
     if (!act || !box || box.hidden) return;
@@ -77953,7 +78227,64 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (!press || e.pointerId !== press.id) return;
     const p = press; press = null; clearTimeout(p.lp);
     e.preventDefault(); e.stopPropagation();
+    if (p.drag) { dragDrop(p); return; }
     if (!p.done && !p.moved && e.type !== "pointercancel") react();
+  }
+  // Drag and drop
+  const canDrag = () => !!(box && cur && act && box.dataset.x && spotKind !== "dock" && spotKind !== "slot" && !dockFrozen());
+  function dragStart(e){
+    if (!canDrag()) return;
+    const z = zf(), x = parseFloat(box.style.left) || +box.dataset.x || 0, y = parseFloat(box.style.top) || +box.dataset.y || 0;
+    stopTravel();
+    if (glideAnim) { const g = glideAnim; glideAnim = null; glideEnd = 0; try { g.cancel(); } catch (err) {} }
+    try { act.stopAll(); } catch (err) {}
+    hideBubble(); hold(1e6);
+    press.drag = {ox: e.clientX / z - x, oy: e.clientY / z - y, vx: 0, lx: e.clientX, raf: 0, ev: null};
+    try { const hit = box.querySelector(".cp-hit"); if (hit && hit.setPointerCapture) hit.setPointerCapture(e.pointerId); } catch (err) {}
+    box.classList.remove("cp-duck", "cp-plop"); box.classList.add("cp-drag");
+    document.documentElement.classList.add("cp-grabbing"); document.documentElement.classList.remove("cp-hover");
+    act.eyes("open"); act.mouth("open"); act.look(0, 0.4);
+  }
+  function dragTo(e){
+    const d = press.drag; d.ev = {x: e.clientX, y: e.clientY};
+    if (d.raf) return;
+    d.raf = requestAnimationFrame(() => {
+      d.raf = 0; if (!press || press.drag !== d || !d.ev) return;
+      const z = zf(), px = +box.dataset.px || sizePx(cur), rg = dropRange(px, true);
+      const x = Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, d.ev.x / z - d.ox)), y = Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, d.ev.y / z - d.oy));
+      box.style.left = f1(x) + "px"; box.style.top = f1(y) + "px";
+      // it sways with the way it's carried
+      d.vx = d.vx * 0.7 + (d.ev.x - d.lx) * 0.3; d.lx = d.ev.x;
+      if (!still()) box.style.setProperty("--cp-tilt", f1(Math.max(-14, Math.min(14, d.vx * 1.2))) + "deg");
+    });
+  }
+  function dragDrop(p){
+    const d = p.drag; if (d.raf) cancelAnimationFrame(d.raf);
+    suppressUntil = performance.now() + 400;
+    document.documentElement.classList.remove("cp-grabbing");
+    const px = +box.dataset.px || sizePx(cur), x = Math.round(parseFloat(box.style.left) || 0), y = Math.round(parseFloat(box.style.top) || 0);
+    dropAt = {left: x, top: y};
+    box.classList.remove("cp-drag"); box.style.removeProperty("--cp-tilt");
+    busyUntil = performance.now() + 900;
+    // it settles where it was let go
+    box.style.left = x + "px"; box.style.top = y + "px"; box.dataset.x = x; box.dataset.y = y; box.dataset.spot = "drop"; spotKind = "drop";
+    homeSig = [x, y, px].join(",");
+    passCacheReset(); place(false);
+    if (!still() && !document.hidden && box.animate) {
+      box.classList.add("cp-plop");
+      const o = "50% 93%", a = box.animate([
+        {transform: "translateY(-14px) scale(1.06)", transformOrigin: o},
+        {transform: "translateY(0) scale(1.16,.82)", transformOrigin: o, offset: 0.4, easing: "ease-out"},
+        {transform: "translateY(-6px) scale(.95,1.06)", transformOrigin: o, offset: 0.68, easing: "ease-in"},
+        {transform: "translateY(0) scale(1.03,.97)", transformOrigin: o, offset: 0.86},
+        {transform: "none", transformOrigin: o}
+      ], {duration: 520, easing: "ease-in"});
+      a.onfinish = a.oncancel = () => { if (box) box.classList.remove("cp-plop"); };
+      later(() => { const feet = y + px * 0.92; puff(x + px * 0.28, feet); puff(x + px * 0.72, feet); }, 200);
+    }
+    act.eyes("happy"); act.mouth("smile");
+    later(() => { if (act && !press) { act.eyes("open"); if (mood === "idle") act.mouth("neutral"); } }, 900);
+    fitHitSoon();
   }
   document.addEventListener("pointerdown", e => {
     noteInput();
@@ -78030,7 +78361,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const roamDue = chance => Date.now() - lastRoam > 4 * 60000 && Math.random() < chance;
   // A stroll on its own every 12 to 25 minutes while you're around
   setInterval(() => {
-    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || phone() || staysPut()) return;
+    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || dropAt || phone() || staysPut()) return;
     if (typeof pomo !== "undefined" && pomo && pomo.running) return;
     if (Date.now() - BR.input < 8000) return;
     nextRoam = Date.now() + rand(12, 25) * 60000; lastRoam = Date.now();
@@ -81815,7 +82146,9 @@ window.SBTRUTH = (() => {
     if (rest.length < A.length - 4 ? content < 5 : content < 2) return true;
     // a question about something: the answer names it (or a word starting the same way)
     if (/^\s*(what|who|why|how|when|where|which|explain|define|describe|tell me about|meaning of)\b/i.test(q)) {
-      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
+      // ("what deck is this", "which course is that": the answer names the one, not the kind, "You're looking at Cells")
+      const kind = (/^\s*(?:what|which)\s+([a-z]+)\s+(?:is|are|am i on|am i in)\s+(?:this|that|these|those|it|here|open|on screen)\b/i.exec(q) || [])[1];
+      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w !== low(kind || "") && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
       if (keys.length && !keys.some(k => low(A).includes(k.length > 5 ? k.slice(0, k.length - 2) : k))) return true;
     }
     return false;
@@ -83308,7 +83641,7 @@ Examples:
       let L = pool;
       const cn = TR && TR.courseIn ? TR.courseIn(q) : null; if (cn) L = L.filter(t => t.courseId === cn.id);
       // (the days that pick them, not the day they go to: "move everything due wednesday to friday")
-      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
+      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|week\b|weekend|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
       const r = TR && TR.range && /\b(today|tonight|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|overdue|late|next \d+ days)\b/.test(sel) ? TR.range(sel, todayISO()) : null;
       if (r) L = L.filter(t => t.due && t.due >= r.from && t.due <= r.to);
       if (!cn && !r) return null;
@@ -83733,7 +84066,8 @@ Examples:
     const dueOf = d => (d.cards || []).filter(c => c.due && c.due <= today).length, newOf = d => (d.cards || []).filter(c => !c.due && !c.seen).length;
     const named = () => { let best = null, bs = 0; all.forEach(d => { const ws = (String(d.name).toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(x => !/^(deck|cards|flashcards|terms|set|nursing|study)$/.test(x)); const s = ws.filter(x => new RegExp(`\\b${x.replace(/&/g, "\\&")}`).test(w)).length; if (s > bs) { bs = s; best = d; } }); return best; };
     // how to, not a deck called "How Do I"
-    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start|delete|rename|share)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\bfor me\b/.test(w))
+    // (sharing, renaming or deleting a deck is the app guide's to answer: they got these steps for making one)
+    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\b(share|sharing|send|rename|delete|remove)\b/.test(w) && !/\bfor me\b/.test(w))
       return deckSay("Open Flashcards and tap New Deck, give it a name, then add cards (a question on the front, the answer on the back). Or just ask me: \"make flashcards from my cardiac note\", or \"make a deck called Pharm\".");
     // studying cards they have ("lets do psych cards", "time to review the heart deck", "lets do a card"): that deck opens to study,
     // never a new deck named after the words (round 7 made "Lets Do A Card" and a new Freud deck)
@@ -85372,7 +85706,7 @@ ANSWERING
       // push it 2 days", "got 17/20 on quiz 4 and 40/50 on the lab report, mark both done"): each part done in turn, the way the chat does
       // one on its own ("it" is the task the part before was about; "both" or "them" are the tasks done so far)
       if (multi && !made) { T.status = "Doing those one at a time…"; draw();
-        const outs = [], touched = []; let prev = "";
+        const outs = [], touched = [], chs = [], shows = []; let prev = "";
         for (const p0 of SBTRUTH.steps(q)) {
           let p1 = p0;
           if (prev) p1 = p1.replace(/\b(it|that one)\b/i, prev);
@@ -85387,12 +85721,14 @@ ANSWERING
           let r = null; LASTD = null; const cant = x => !(x && x.answer) || (LASTD && LASTD.intent === "cant") || /^I can't do that from the chat yet/.test(x.answer);
           if (dev) r = await deviceAct(p1, c, true).catch(() => null);
           if (cant(r)) { LASTD = null; const r1 = await intentAct(p1, c, att).catch(() => null); if (!cant(r1) || !(r && r.answer)) r = r1; }
-          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) r = {answer: r2.answer}; }
+          // (a change Ask proposes is kept, to review and confirm: it used to say "Here's the change." with nothing to confirm)
+          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) { const pk = SBASSIST.pack(r2); r = {answer: r2.answer}; chs.push(...pk.changes); shows.push(...pk.show);
+            const c0 = pk.changes.find(c => c.t && c.t.kind === "task" && c.t.id && state.tasks[c.t.id]); if (c0) r.did = {task: state.tasks[c0.t.id].title}; } }
           if (r && r.answer) { outs.push(r.answer); const nm = (r.did && r.did.task) || (LASTD && LASTD.task) || ""; const t = nm ? taskOf0(nm, null, true) : null; if (t) { prev = t.title; if (!touched.includes(t.title)) touched.push(t.title); }
             // (not only tasks: "dr chen's course to room NUR 210 and make it teal" is that course; an event or deck just changed too)
             else { const other = (r.ref && refName(r.ref)) || (LASTD && (LASTD.item || LASTD.course || LASTD.deck)) || ""; if (other) prev = String(other); } }
         }
-        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: []}; }
+        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: [], changes: chs.length ? chs : undefined, show: shows.length ? shows.slice(0, 5) : undefined}; }
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
       else if (!att.length && !made) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
@@ -93513,13 +93849,16 @@ function logTime(id, min, kind, label, at, day){
 }
 const MIN_EARLY = 1;
 // Called when a focus session is stopped
-function early(min, taskId, why){
+function early(min, taskId, why, courseId){
   min = Math.min(Math.round(Number(min) || 0), 180);
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
   if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
+  // studying for a course in general (Focus's Studying For, with No particular task): the time is the course's, so there's no
+  // "Which task was that for?" to ask
+  if (courseId) return false;
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
 }
@@ -93893,7 +94232,7 @@ hook("boot", () => {
 });
 // A focus session with no task
 hook("focus", e => {
-  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
+  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && !e.courseId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
 const api = {ACC, time: SBTIME, paceFor, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
@@ -98523,7 +98862,7 @@ const QADD = (() => {
   // After files are uploaded into a course
   async function offer(made, opts){
     const el = (made || []).filter(f => f.courseId && f.kind === "file" && wrapEligible(f, opts));
-    const by = {}; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
+    const by = {}, found = []; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
     for (const cid of Object.keys(by)) {
       const c = courseOf(cid); if (!c) continue;
       const items = [];
@@ -98533,9 +98872,16 @@ const QADD = (() => {
       const add = QADD.fresh(objsOf(courseOf(cid)), cands); if (!add.length) continue;
       const src = items.map(x => x.name).join(", ");
       OB.pending[cid] = {list: add, src};
-      toast(`Found ${add.length} learning objective${add.length === 1 ? "" : "s"} in ${clip(items[0].name, 40)}${items.length > 1 ? " and more" : ""}`, null, {label: "Review", fn: () => reviewSheet(cid)});
+      found.push({cid, n: add.length, name: items[0].name, more: items.length > 1});
       if (ui.tab === "courses" && ui.courseId === cid) scheduleRender();
     }
+    if (!found.length) return;
+    // one message for the whole upload (not one per course, each replacing the last at once), and only once the upload's own
+    // message ("Filed 3 files", with its Undo) has had its time, so that one doesn't flash up and vanish
+    for (let i = 0; i < 12 && document.querySelector("#toast.show"); i++) await new Promise(r => setTimeout(r, 1000));
+    const f0 = found[0], n = found.reduce((a, x) => a + x.n, 0);
+    toast(found.length === 1 ? `Found ${n} learning objective${n === 1 ? "" : "s"} in ${clip(f0.name, 40)}${f0.more ? " and more" : ""}`
+      : `Found ${n} learning objectives in ${found.length} courses`, null, {label: "Review", fn: () => reviewSheet(f0.cid)});
   }
   const origUpload = uploadFiles;
   uploadFiles = async function(list, opts){
@@ -101194,7 +101540,7 @@ var SBPRO = null;
   hook("focus", e => {
     if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !(Number(e.minutes) > 0)) return;
     const t = e.taskId ? state.tasks[e.taskId] : null, start = new Date(Date.now() - Number(e.minutes) * 60000);
-    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : "", t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
+    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : String(e.courseId || ""), t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
     setS({focusLog: focusLog().concat([row]).slice(-600)});
   });
   hook("fc-rated", () => {
@@ -101865,7 +102211,8 @@ var SBPRO = null;
     return {W, R, interval, seed, next, days, spread, boxFor};
   })();
   /*FSRS-END*/
-  const smart = d => !!d && d.sched !== "classic";
+  // Smart scheduling (FSRS) is part of Smart Flashcards, a Pro feature: without Pro every deck reviews on the Classic steps
+  const smart = d => !!d && d.sched !== "classic" && !P.locked();
   const target = d => [0.85, 0.9, 0.95].includes(Number(d && d.retention)) ? Number(d.retention) : 0.9;
   // Days since the card's last review; with no date (older cards), estimated from its due date less its box's interval
   const elapsedOf = c => {
@@ -101899,10 +102246,10 @@ var SBPRO = null;
     const cells = Array.from({length: weeks * 7}, (_, i) => { const day = addDays(start, i), v = Number(rv[day]) || 0; return {day, v}; }), cm = Math.max(1, ...cells.map(x => x.v));
     const lk = P.locked(), sm = smart(d);
     const schedCard = `<section class="pro-card"><h3>Review Scheduling</h3>
-        <div class="segb" role="group" aria-label="Review scheduling"><button type="button" data-act="pro-dk-sched" data-id="classic" aria-pressed="${!sm}">Classic</button><button type="button" data-act="pro-dk-sched" data-id="smart" aria-pressed="${sm}">Smart</button></div>
+        <div class="segb" role="group" aria-label="Review scheduling"><button type="button" data-act="pro-dk-sched" data-id="classic" aria-pressed="${!sm}">Classic</button><button type="button" data-act="pro-dk-sched" data-id="smart" aria-pressed="${sm}">Smart${lk && typeof PRO_BADGE === "string" ? " " + PRO_BADGE : ""}</button></div>
         ${sm ? `<p class="pro-say">Smart learns how quickly you forget each card and spaces its reviews to match, so easy cards come back less often and hard ones sooner.</p>
           <label class="f"><span class="lh">How Much to Remember</span><select data-dk-ret>${[[0.9, "90% (balanced)"], [0.95, "95% (more reviews)"], [0.85, "85% (fewer reviews)"]].map(([v, l]) => `<option value="${v}"${target(d) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>`
-          : `<p class="pro-say mini">Classic brings a card back after 1, 3, 7, 14 and 30 days as you get it right.</p>`}</section>`;
+          : `<p class="pro-say mini">Classic brings a card back after 1, 3, 7, 14 and 30 days as you get it right.${lk ? " Smart scheduling, which learns how quickly you forget each card, comes with Studyboard Pro." : ""}</p>`}</section>`;
     if (lk) return schedCard + `<p class="mini" style="margin:0">Deck stats (what you remember, reviews coming up and your last 12 weeks) come with Studyboard Pro.</p>`;
     return `<section class="pro-card"><div class="fh-tot"><span><b>${seen.length ? Math.round(sumRight / Math.max(1, sumSeen) * 100) + "%" : "—"}</b><span class="mini">remembered</span></span><span><b>${due}</b><span class="mini">due today</span></span><span><b>${fresh}</b><span class="mini">still new</span></span></div>
         <h3>Reviews Coming Up</h3>
@@ -102704,6 +103051,7 @@ var SBPRO = null;
       case "pro-dk-stats": if (dlg.open && !dlg.querySelector(".pro-dk-body")) dlg.close(); openStats(id); return true;
       case "pro-dk-sched": {
         if (!DK || !state.decks[DK]) return true;
+        if (id === "smart" && P.locked()) { proWhy("Smart scheduling, which learns how quickly you forget each card and spaces its reviews to match, is part of Studyboard Pro."); return true; }
         const nd = clone(state.decks[DK]); nd.sched = id === "smart" ? "smart" : "classic"; nd.updated = Date.now(); saveDeck(nd, null);
         toast(id === "smart" ? "Smart scheduling is on for this deck" : "Classic scheduling"); openStats(DK); return true;
       }
@@ -102738,7 +103086,7 @@ var SBPRO = null;
     return false;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
-  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
+  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: Smart scheduling that learns how quickly you forget each card, stats, and picture cards from your files", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
   Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage, imageBlob: blobOf});
 
   const css = document.createElement("style");
@@ -104551,7 +104899,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-nav{order:1}
   .pdr-bar > .pdr-zoom{order:2}
   .pdr-bar > .pdr-out{order:3;margin-left:auto}
-  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:7;bottom:calc((var(--pdr-dock) - 44px) / 2)}
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
@@ -112900,6 +113248,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:760px){
   dialog#dlg .pdr-sheet{box-sizing:border-box;transition:padding-bottom .3s cubic-bezier(.32,.72,0,1)}
   html.kb-open dialog#dlg .pdr-sheet:has(.pde-e.editing){padding-bottom:var(--kb-h,0px)}
+  /* (so the reader isn't also lifted above the keyboard like other sheets: that left the page 39px tall between the two) */
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){margin-bottom:0;max-height:100%}
   dialog#dlg .pdr-sheet > .sheet-head{transition:margin-top .3s cubic-bezier(.32,.72,0,1),opacity .2s ease}
   dialog#dlg .pdr-sheet :is(.pdr-bar,.pdr-bar2){transition:opacity .2s ease}
   html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head{margin-top:calc(-1 * var(--pdr-fold,0px));opacity:0;pointer-events:none}
@@ -112918,7 +113268,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-bar.paneled .pde-sub{display:none}
   /* the bar sits at the bottom (99-pro.js) and is one line: the Read / Mark Up / Edit switch, then the tools that fit and More
      (measureFit). The chosen tool's options and notes float just above it, only while there are any */
-  .pdr-sheet > .pde-bar{position:relative;z-index:2;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
+  /* (above the page's edit layer, z-index 4: the More menu and the options float up over the page and are tapped there) */
+  .pdr-sheet > .pde-bar{position:relative;z-index:6;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
   .pdr-sheet > .pde-bar > .spacer{display:none}
   .pdr-sheet > .pde-bar > .pde-sub{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);height:auto;min-height:48px;box-sizing:border-box;padding:4px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.16)}
   .pdr-sheet > .pde-bar > .pde-sub:not(:has(> :not([hidden],.pde-note:empty))){display:none}
@@ -117151,9 +117502,10 @@ hook("act", (act, el, id) => {
 const css = document.createElement("style");
 css.textContent = `
 .lc-next{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(228px + env(safe-area-inset-bottom,0px));z-index:49;width:min(560px,calc(100vw - 32px));box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
-@media (min-width:761px){.lc-next{bottom:92px}
-/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons */
-dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}}
+@media (min-width:761px){.lc-next{bottom:92px}}
+/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons (at every width: on a
+   phone it stayed fixed inside the sheet, rode along with the sheet's slide-in, then jumped into place when the slide ended) */
+dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}
 /* in the sheet's From Lecture to Exam card (any width) it is part of the card, under the step it's about */
 .lc-chain > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0;box-shadow:none;z-index:auto}
 .lc-next-t{margin:0;flex:1 1 220px;min-width:0;font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}

@@ -18,7 +18,7 @@ var SBPRO = null;
   hook("focus", e => {
     if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !(Number(e.minutes) > 0)) return;
     const t = e.taskId ? state.tasks[e.taskId] : null, start = new Date(Date.now() - Number(e.minutes) * 60000);
-    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : "", t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
+    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : String(e.courseId || ""), t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
     setS({focusLog: focusLog().concat([row]).slice(-600)});
   });
   hook("fc-rated", () => {
@@ -689,7 +689,8 @@ var SBPRO = null;
     return {W, R, interval, seed, next, days, spread, boxFor};
   })();
   /*FSRS-END*/
-  const smart = d => !!d && d.sched !== "classic";
+  // Smart scheduling (FSRS) is part of Smart Flashcards, a Pro feature: without Pro every deck reviews on the Classic steps
+  const smart = d => !!d && d.sched !== "classic" && !P.locked();
   const target = d => [0.85, 0.9, 0.95].includes(Number(d && d.retention)) ? Number(d.retention) : 0.9;
   // Days since the card's last review; with no date (older cards), estimated from its due date less its box's interval
   const elapsedOf = c => {
@@ -723,10 +724,10 @@ var SBPRO = null;
     const cells = Array.from({length: weeks * 7}, (_, i) => { const day = addDays(start, i), v = Number(rv[day]) || 0; return {day, v}; }), cm = Math.max(1, ...cells.map(x => x.v));
     const lk = P.locked(), sm = smart(d);
     const schedCard = `<section class="pro-card"><h3>Review Scheduling</h3>
-        <div class="segb" role="group" aria-label="Review scheduling"><button type="button" data-act="pro-dk-sched" data-id="classic" aria-pressed="${!sm}">Classic</button><button type="button" data-act="pro-dk-sched" data-id="smart" aria-pressed="${sm}">Smart</button></div>
+        <div class="segb" role="group" aria-label="Review scheduling"><button type="button" data-act="pro-dk-sched" data-id="classic" aria-pressed="${!sm}">Classic</button><button type="button" data-act="pro-dk-sched" data-id="smart" aria-pressed="${sm}">Smart${lk && typeof PRO_BADGE === "string" ? " " + PRO_BADGE : ""}</button></div>
         ${sm ? `<p class="pro-say">Smart learns how quickly you forget each card and spaces its reviews to match, so easy cards come back less often and hard ones sooner.</p>
           <label class="f"><span class="lh">How Much to Remember</span><select data-dk-ret>${[[0.9, "90% (balanced)"], [0.95, "95% (more reviews)"], [0.85, "85% (fewer reviews)"]].map(([v, l]) => `<option value="${v}"${target(d) === v ? " selected" : ""}>${l}</option>`).join("")}</select></label>`
-          : `<p class="pro-say mini">Classic brings a card back after 1, 3, 7, 14 and 30 days as you get it right.</p>`}</section>`;
+          : `<p class="pro-say mini">Classic brings a card back after 1, 3, 7, 14 and 30 days as you get it right.${lk ? " Smart scheduling, which learns how quickly you forget each card, comes with Studyboard Pro." : ""}</p>`}</section>`;
     if (lk) return schedCard + `<p class="mini" style="margin:0">Deck stats (what you remember, reviews coming up and your last 12 weeks) come with Studyboard Pro.</p>`;
     return `<section class="pro-card"><div class="fh-tot"><span><b>${seen.length ? Math.round(sumRight / Math.max(1, sumSeen) * 100) + "%" : "—"}</b><span class="mini">remembered</span></span><span><b>${due}</b><span class="mini">due today</span></span><span><b>${fresh}</b><span class="mini">still new</span></span></div>
         <h3>Reviews Coming Up</h3>
@@ -1528,6 +1529,7 @@ var SBPRO = null;
       case "pro-dk-stats": if (dlg.open && !dlg.querySelector(".pro-dk-body")) dlg.close(); openStats(id); return true;
       case "pro-dk-sched": {
         if (!DK || !state.decks[DK]) return true;
+        if (id === "smart" && P.locked()) { proWhy("Smart scheduling, which learns how quickly you forget each card and spaces its reviews to match, is part of Studyboard Pro."); return true; }
         const nd = clone(state.decks[DK]); nd.sched = id === "smart" ? "smart" : "classic"; nd.updated = Date.now(); saveDeck(nd, null);
         toast(id === "smart" ? "Smart scheduling is on for this deck" : "Classic scheduling"); openStats(DK); return true;
       }
@@ -1562,7 +1564,7 @@ var SBPRO = null;
     return false;
   });
   dlg.addEventListener("close", () => { if (dlg.open) return; OC = null; CF = null; DK = null; DP = null; });
-  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: stats, and picture cards from your files (Smart scheduling is free for everyone)", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
+  P.addFeature({id: "cards", name: "Smart Flashcards", where: "In each deck: Smart scheduling that learns how quickly you forget each card, stats, and picture cards from your files", icon: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/>'});
   Object.assign(P, {FSRS, cardRated, cardPreview, cardFace: face, deckBtns, openStats, openImageCards: filesSheet, openImageEditor: openEditor, scanImage, scanPdf, cardsFor, studyCard, openDiagramPractice: practiceOpen, imageSets: setsOf, storeImage, imageBlob: blobOf});
 
   const css = document.createElement("style");
@@ -3375,7 +3377,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-nav{order:1}
   .pdr-bar > .pdr-zoom{order:2}
   .pdr-bar > .pdr-out{order:3;margin-left:auto}
-  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:7;bottom:calc((var(--pdr-dock) - 44px) / 2)}
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}

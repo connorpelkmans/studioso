@@ -2728,7 +2728,9 @@ function cleanFile(r) {
   /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
      Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
      course list points at the one that stays. Two courses you made yourself are never merged */
-  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  // (made by a school sync: its id is the sync's own. A course you made that a sync was pointed at carries the sync's details
+  // too, but it's still yours: it was folded into a later copy you made, which then took the school course with it when deleted)
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object" && String(c.id || "").startsWith(f + "c_"));
   const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
   const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
   function dupePlan(){
@@ -2882,7 +2884,12 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
-body:has(#dlg[open]) #lmsRelog{display:none}
+/* hidden while a sheet is open without display:none, which replayed its slide-in (popping up again) every time a sheet closed */
+body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
+#lmsRelog{transition:bottom .2s ease}
+@media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
+/* computers: a message sits at the bottom too (32px up from 980px wide), so the notice steps up above it instead of covering its button */
+@media (min-width:980px){body:has(#toast.show) #lmsRelog{bottom:calc(42px + var(--toast-h,44px) + env(safe-area-inset-bottom,0px))}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){
