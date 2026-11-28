@@ -36,3 +36,5 @@
 .frd-sec .grp-list > li:last-child{border-bottom-left-radius:14px;border-bottom-right-radius:14px}
 .frd-more .grp-menu{left:auto;right:0;z-index:30}
 .frd-more.frd-up .grp-menu{top:auto;bottom:calc(100% + 4px)}
+/* your friend code, big and spaced so it's easy to read out or type */
+.frd-code.frd-code-big{flex:0 1 auto;font:800 1.7rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.14em;padding:12px 18px;text-align:center;user-select:all;-webkit-user-select:all}
