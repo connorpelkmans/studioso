@@ -151,7 +151,8 @@ async function planner(browser, w){
   await page.waitForSelector("#grpMine", {timeout: 6000});
   const card = await txt(page, "#grpMine");
   // one label for a group task everywhere (Round 2 SO4): the group's name, as on Today's Plan, with the list in its tooltip
-  const gTitle = await page.evaluate(() => { const b = document.querySelector("#grpMine .gm-badge"); return b ? b.getAttribute("title") || b.dataset.tip || "" : ""; });
+  // (a tip that only adds to the badge's own words is kept as data-tipfull, shown while the badge is cut off: 99-motion-a11y-tz.js)
+  const gTitle = await page.evaluate(() => { const b = document.querySelector("#grpMine .gm-badge"); return b ? b.getAttribute("title") || b.dataset.tip || b.dataset.tipfull || "" : ""; });
   ok(/Bio Squad/.test(card) && /BIOL 201 Poster/.test(gTitle), tag + " group badge: " + card.replace(/\s+/g, " ") + " / " + gTitle);
   ok(/Write the methods section/.test(card) && /Collect survey data/.test(card) && !/Design the poster layout/.test(card) && !/Proofread/.test(card), tag + " only my tasks");
   ok(/My Group Tasks\s*2/.test(card) && !/assigned to you|due this week|Open the Group/.test(card), tag + " the card has its title and count, no summary line: " + card.replace(/\s+/g, " ").slice(0, 160));

@@ -156,7 +156,9 @@ const CAP = (() => {
       if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
       if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
+    // "next week" with no day: the Monday it starts (the earliest it could be), flagged so the date is checked before it's added
+    take(/\bnext\s+week\b/i, () => { out.due = weekdayDate(today, 1, "next"); out.flags.push("week"); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -165,6 +167,10 @@ const CAP = (() => {
 
   /* courses */
   const alnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Everyday names for a subject: "orgo" for Organic Chemistry, "english" for ENGL, "chemistry" for CHEM (l: the code's letters, n: the name)
+  const NICK = [[/^(orgo|ochem)$/, (l, n) => /organic/.test(n)], [/^english$/, (l, n) => /^eng/.test(l) || /english/.test(n)], [/^chemistry$/, l => /^chem/.test(l)], [/^biology$/, l => /^bio/.test(l)],
+    [/^psychology$/, l => /^psy/.test(l)], [/^physics$/, l => /^phys/.test(l)], [/^(economics|econ)$/, l => /^ec/.test(l)], [/^history$/, l => /^hist/.test(l)], [/^(math|maths)$/, l => /^math/.test(l)],
+    [/^spanish$/, l => /^span/.test(l)], [/^french$/, l => /^fr/.test(l)], [/^(stats|statistics)$/, l => /^stat/.test(l)], [/^(philosophy|philo)$/, l => /^phil/.test(l)], [/^sociology$/, l => /^soc/.test(l)]];
   // Finds the course a sentence mentions
   function matchCourse(text, courses){
     const low = String(text || "").toLowerCase(), words = low.match(/[a-z]+|\d+/g) || [];
@@ -182,6 +188,7 @@ const CAP = (() => {
         const nameW = String(c.name || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !["intro", "introduction", "principles", "fundamentals", "with", "and", "topics", "advanced", "general"].includes(w));
         const w = words.find(x => x.length >= 4 && nameW.some(n => n.startsWith(x) || x.startsWith(n))); if (w) { s = 2; used = [w]; }
       }
+      if (s < 2.6) { const nm = String(c.name || "").toLowerCase(), w = words.find(x => NICK.some(([re, ok]) => re.test(x) && ok(letters, nm))); if (w) { s = 2.6; used = [w]; } }
       if (s >= 2) scored.push({course: c, score: s, used});
     });
     if (!scored.length) return null;
@@ -373,7 +380,8 @@ const CAP = (() => {
       else {
         d.courseId = cm.course.id;
         const tok = cm.used.join("[\\s\\-]*"), codey = cm.used.some(u => /\d/.test(u));
-        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$`, "i"), " ");
+        // a course word leaves the title at its start or end, or right after "read", "study" or "review" ("read psych ch 14" is Read Chapter 14)
+        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$|(?<=^\\s*(?:read|study|review)\\s+)${tok}\\b`, "i"), " ");
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
@@ -770,7 +778,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : d.flags && d.flags.includes("week") && d.due ? `<p class="mini cap-warn">No day was given, so it's set to the Monday. Check the date.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -823,7 +831,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${Number(d.weight) > 0 ? " · " + Number(d.weight) + "%" : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 

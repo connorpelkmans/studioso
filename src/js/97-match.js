@@ -67,7 +67,9 @@
     draw();
     return true;
   }
-  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(t.text)}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
+  // a formula is read as words ("p K sub a"), as Learn does, not as its typed source
+  const spoken = x => { try { return typeof mathSpeech === "function" ? mathSpeech(x) : String(x || ""); } catch (e) { return String(x || ""); } };
+  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(spoken(t.text))}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
   function draw(){
     openSheet(`<div class="sheet mt-sheet${still() ? " mt-still" : ""}" data-mt-play>${head("Match")}<div class="sheet-body">
       <div class="mt-bar"><span class="mt-name">${esc(R.src.name || "Deck")}</span><span class="mt-clock"><span id="mtTime" role="timer" aria-label="Time in seconds">0.0</span><span class="mt-pen" id="mtPen" aria-hidden="true">+1s</span></span></div>

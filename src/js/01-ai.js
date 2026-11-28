@@ -1839,7 +1839,12 @@ function aiStudySheet(deckId, mode){
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
-  if (!aiCfg().key) { aiSetupSheet(true); return; }
+  if (!aiCfg().key) {
+    const d0 = deckId ? state.decks[deckId] : null;
+    aiSetupSheet(true, mode === "quiz" ? {feature: "Quiz From Slides or Notes", alt: {text: "make a practice quiz from one of your decks.", label: "Quiz From a Deck", act: "qz-from-deck"}}
+      : {feature: "Create with AI", alt: d0 ? {text: "add cards to this deck yourself, or paste a list.", label: "Edit Deck", act: "fc-edit", id: d0.id} : {text: "make a deck and add cards yourself, or paste a list.", label: "New Deck", act: "fc-new"}});
+    return;
+  }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
@@ -2173,6 +2178,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -2209,14 +2216,14 @@ function viewAiQuiz(){
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Read the rationales for the ones you missed." : pct >= 50 ? "Getting there. Review the rationales, then retry the missed questions." : "Keep going. Study the material and the rationales below, then try again.";
     const ansText = x => x.type === "short" ? x.answer : x.type === "order" ? x.correct.map((ix, k) => `${k + 1}. ${x.options[ix]}`).join("  ") : x.correct.map(i => x.options[i]).join("; ");
-    return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const letters = "ABCDEFGH";
@@ -2249,7 +2256,9 @@ function viewAiQuiz(){
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
-  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end)
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${label}${q.topic ? ` · ${esc(q.topic)}` : ""}</span>
@@ -2447,9 +2456,9 @@ function aiUseCard(){
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
 const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
-  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more.", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more.", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud.", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
@@ -2462,7 +2471,9 @@ function aiTiersCard(){
   const c = aiCfg(), now = c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard") ? "pro" : c.provider === "device" && typeof devTier === "function" ? devTier() : "";
   const fact = (h, t) => `<div class="ai-tier-fact"><b>${h}</b><span>${t}</span></div>`;
   const PRIVATE = fact("Private", "It runs entirely on your laptop. Your questions, notes and files stay on this device: nothing is sent to Studyboard or anyone else. If Look Things Up on the Web is on, only the search words go to Wikipedia, Wiktionary or OpenAlex.");
-  const hasPro = typeof aiProAvail === "function" && aiProAvail();
+  const hasPro = (typeof aiProAvail === "function" && aiProAvail()) || (typeof aiProUser === "function" && aiProUser());
+  // on Pro already (a code, a promotion or Plus, which don't include Studyboard AI Pro): no Get Pro, a way to add it instead
+  const onPro = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro(); } catch (e) { return false; } })();
   const more = t => {
     const cats = t.cats && t.cats.length === AI_CATS.length ? `<div class="ai-tier-cats">${AI_CATS.map((n, i) => `<div class="ai-tier-cat"><span>${n}</span><span class="ai-tier-bar sm" role="img" aria-label="${t.cats[i]}%"><i style="width:${t.cats[i]}%"></i></span><b>${t.cats[i]}%</b></div>`).join("")}</div>`
       : `<span class="ai-tier-soon">Results for each kind of question are coming soon.</span>`;
@@ -2475,7 +2486,7 @@ function aiTiersCard(){
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
       + fact("Not Used for Training", `Studyboard pays for Claude through Anthropic's API, and Anthropic doesn't use what's sent through its paid API to train its models. See <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.`)
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
-      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
+      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : onPro ? `<p class="ai-tier-incl">Your Pro plan doesn't include it. Subscribe to add it.</p><button type="button" class="btn ai-tier-get" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI Pro">Get Studyboard AI Pro</button>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
   // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
   // is never marked); the reason goes in its details
@@ -2514,6 +2525,12 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the first time, the check of which free AI this computer can run may still be going: wait for it (at most about a second) so
+  // the sheet opens once, final, rather than redrawing its list of AIs a moment after it opens
+  if (typeof DEVAI !== "undefined" && DEVAI.settled && !DEVAI.settledAt && !opts._waited) {
+    let go = false; const open = () => { if (go) return; go = true; aiSetupSheet(fromFeature, Object.assign({}, opts, {_waited: true})); };
+    DEVAI.settled.then(open, open); setTimeout(open, 1000); return;
+  }
   // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
   if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
     const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
@@ -2523,6 +2540,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // without a key box on this sheet, the lines about this device's free AI don't point at "a free key below"
+  const keyTxt = s => gemOk ? s : String(s || "").replace(/\s*(You can still use AI with a free key|A free key below works(?: instead| everywhere)?|Or add a free key below)\./g, "");
   // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
   const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
@@ -2541,8 +2560,10 @@ function aiSetupSheet(fromFeature, opts){
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  // and opts.alt ({text, label, act, id}) is the way to do it without AI, so the sheet isn't a dead end
+  const alt = opts.alt && !aiReady() ? `<p class="ai-alt mini" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:12rem"><b>Without AI:</b> ${esc(opts.alt.text)}</span><button type="button" class="btn small" data-act="${esc(opts.alt.act)}"${opts.alt.id ? ` data-id="${esc(opts.alt.id)}"` : ""}>${esc(opts.alt.label)}</button></p>` : "";
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
-    <div class="sheet-body">
+    <div class="sheet-body">${alt}
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
@@ -2555,10 +2576,11 @@ function aiSetupSheet(fromFeature, opts){
       ${inPreview() ? "" : aiTiersCard()}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
-      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devWhyText()))}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devNoneText()))}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${!pro && !gemOk && !inPreview() && !(typeof sbUser !== "undefined" && sbUser) ? `<div class="ai-disclaimer ai-signin" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Want AI with a free key?</b> Sign in to your free Studyboard account first. Free keys are for students 18 and older, and your account is how Studyboard checks.</p><button type="button" class="btn small primary" data-act="${SB_HOSTED ? "sb-signin" : "sb-connect"}">${SB_HOSTED ? "Sign In" : "Set Up Sync"}</button></div>` : ""}
       ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
       <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">

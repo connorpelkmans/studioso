@@ -117,3 +117,35 @@ fan.alpha_composite(back, (40, 40))
 fan.alpha_composite(big, (420, 520))
 fan = fan.crop(fan.getbbox())
 fan.resize((256, int(256 * fan.height / fan.width)), Image.LANCZOS).save(f"{DEST}/bucks-stack.webp", quality=86, method=6)
+
+# The Stripe product image (1024 x 1024, on the checkout's flat navy):
+# two bills fanned, a soft shadow under them and a sparkle on the corner
+S = 2048
+yy2, xx2 = np.mgrid[0:S, 0:S].astype(np.float32)
+# one flat colour, Stripe Checkout's own background (#0F2B58), so the image sits seamlessly on the checkout page
+bg = np.ones((S, S, 3), np.float32) * np.array([15, 43, 88], np.float32)
+canvas = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+bw = int(S * 0.74); bh = int(bw * H / W)
+bill = big.resize((bw, bh), Image.LANCZOS)
+back = bill.rotate(12, resample=Image.BICUBIC, expand=True)
+bk = np.asarray(back).astype(np.float32); bk[..., :3] *= 0.78; back = Image.fromarray(bk.astype(np.uint8), "RGBA")
+front = bill.rotate(-4, resample=Image.BICUBIC, expand=True)
+def shadow(im, dx, dy, r, k):
+    a = np.asarray(im)[..., 3].astype(np.float32) / 255
+    sh = Image.fromarray((a * 255 * k).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r))
+    layer = Image.new("RGBA", im.size, (3, 10, 26, 0)); layer.putalpha(sh); return layer, dx, dy
+bx, by = int(S * 0.5 - back.width / 2 - S * 0.04), int(S * 0.5 - back.height / 2 - S * 0.07)
+fx, fy = int(S * 0.5 - front.width / 2 + S * 0.03), int(S * 0.5 - front.height / 2 + S * 0.06)
+for im, x, y in ((back, bx, by), (front, fx, fy)):
+    sh, dx, dy = shadow(im, 0, 0, 40, 0.7)
+    canvas.alpha_composite(sh, (x + 18, y + 40))
+    canvas.alpha_composite(im, (x, y))
+# a glint on the front bill, near its top right corner, as on the coin
+cv = np.asarray(canvas).astype(np.float32)
+sx, sy, sz = fx + front.width * 0.82, fy + front.height * 0.22, S * 0.07
+dx_, dy_ = np.abs(xx2 - sx), np.abs(yy2 - sy)
+star = np.clip(1 - (np.sqrt(dx_) * np.sqrt(dy_)) / (sz * 0.18), 0, 1) * np.exp(-(dx_ + dy_) / sz)
+core = np.exp(-((dx_ ** 2 + dy_ ** 2) / (2 * (sz * 0.08) ** 2)))
+a = np.clip(star * 1.6 + core * 1.3, 0, 1)
+cv[..., :3] = cv[..., :3] * (1 - a[..., None]) + np.array([235, 255, 225], np.float32) * a[..., None]
+Image.fromarray(np.clip(cv, 0, 255).astype(np.uint8), "RGBA").convert("RGB").resize((1024, 1024), Image.LANCZOS).save(f"{DEST}/bucks-product-1024.png", optimize=True)

@@ -47,9 +47,9 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       // 3, 4, 18: quick add reads like Quick Capture
       await view(p, {tab: "board", bview: "plan"});
       await p.fill("#qaIn", "study for midterm 2 hrs tomorrow");
-      ok(/Will add: Study for midterm · tomorrow · 2h/.test(await p.textContent("#qaLive")), "10: the add bar says what it will add as you type: " + await p.textContent("#qaLive"));
+      ok(/Will add: Study for Midterm · tomorrow · 2h/.test(await p.textContent("#qaLive")), "10: the add bar says what it will add as you type: " + await p.textContent("#qaLive"));
       await p.click('#qaForm button[type="submit"]'); await wait(400);
-      let made = (await stored(p)).find(t => t.title === "Study for midterm");
+      let made = (await stored(p)).find(t => t.title === "Study for Midterm");
       ok(made && made.type === "Study" && made.hours === 2 && made.due === "2026-10-24", "3: studying for a midterm is a Study task and keeps its 2 hours: " + JSON.stringify(made && {type: made.type, hours: made.hours, due: made.due}));
       await p.evaluate(() => localStorage.setItem("studyboard:cap:prefs", JSON.stringify({auto: false})));
       const same = [];
@@ -129,7 +129,8 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       await p.keyboard.press("Control+z"); await wait(250);
       ok((await stored(p)).some(t => t.id === "t5"), "11: Ctrl+Z still undoes the delete after the toast has gone");
 
-      // 6, 17, 21, 22: Today's Plan
+      // 6, 17, 21, 22: Today's Plan (the two-week ribbon and its Planned Today tile are off by default; data-plan-top="week" turns them on)
+      await p.evaluate(() => { document.documentElement.dataset.planTop = "week"; });
       await view(p, {tab: "board", bview: "plan"});
       ok(await p.isVisible(".plan-past") && /Did you take/.test(await p.textContent(".plan-past")) && /Quiz 3/.test(await p.textContent(".plan-past")), "6: a past quiz not marked done asks if you took it");
       const tile = await p.textContent('[data-act="plan-tile"][data-id="late"] b');
@@ -159,27 +160,28 @@ const typeAdd = async (p, text) => { await p.fill("#qaIn", text); await p.click(
       ok(await p.getAttribute(".next-up .nu-title", "data-id") === first && !(await p.locator('.next-up [data-act="nu-back"]').count()), "22: Go Back returns to the first pick");
       await p.click('.plan-past [data-act="toggle"]'); await wait(300);
       ok((await task(p, "t3")).status === "done", "6: Mark Done on the question completes the quiz");
-      // 23: tabs work with arrow keys
-      const tabs = await p.locator(".pt-tab").count();
-      if (tabs > 1) {
-        await p.focus('.pt-tab[aria-selected="true"]'); const k0 = await p.evaluate(() => document.activeElement.dataset.k);
-        await p.keyboard.press("ArrowRight"); await wait(100);
-        const k1 = await p.evaluate(() => document.activeElement.dataset.k + "|" + document.activeElement.getAttribute("aria-selected"));
-        ok(k1.split("|")[0] !== k0 && k1.endsWith("|true"), "23: ArrowRight moves to and selects the next tab");
-      } else ok(true, "23: only one tab here");
+      // 23: the sections under the plan (links that fold open, no longer tabs) work from the keyboard
+      const tab = p.locator(".pt-tab").first();
+      if (await tab.count()) {
+        const k0 = await tab.getAttribute("data-k");
+        await tab.focus(); await p.keyboard.press("Enter"); await wait(100);
+        ok(await tab.getAttribute("aria-expanded") === "true" && await p.isVisible(`#ptp-${k0}`), "23: Enter on a section link opens it");
+        await p.keyboard.press("Enter"); await wait(100);
+        ok(await tab.getAttribute("aria-expanded") === "false" && !(await p.isVisible(`#ptp-${k0}`)), "23: and Enter again closes it");
+      } else ok(true, "23: no sections here");
 
       // 14: Break It Down needs hours, and can be waved off
       await view(p, {tab: "board", bview: "board"});
-      await p.click('.card[data-id="t1"]'); await p.waitForSelector("#dlg[open] form");
+      await p.click('.card[data-id="t1"]'); await p.click("#dlg #tvEdit"); await p.waitForSelector("#dlg[open] form");
       ok(!(await p.locator("#dlg .bd-panel.offer").count()), "14: a 2-hour lab report doesn't get the big-task banner from its name alone");
       await p.keyboard.press("Escape"); await wait(200);
       if ((await task(p, "t2")).status === "done") { await p.click('.card[data-id="t2"] .card-check'); await wait(300); }
-      await p.click('.card[data-id="t2"]'); await p.waitForSelector("#dlg[open] form");
+      await p.click('.card[data-id="t2"]'); await p.click("#dlg #tvEdit"); await p.waitForSelector("#dlg[open] form");
       ok(await p.locator("#dlg .bd-panel.offer").count() === 1, "14: a 4-hour assignment gets the banner");
       await p.click('#dlg [data-act="bd-no"]'); await wait(200);
       ok(!(await p.locator("#dlg .bd-panel.offer").count()) && await p.locator('#dlg .bd-new-link [data-act="bd-open"]').count() === 1, "14: dismissing it leaves the quiet link");
       await p.keyboard.press("Escape"); await wait(200);
-      await p.click('.card[data-id="t2"]'); await p.waitForSelector("#dlg[open] form");
+      await p.click('.card[data-id="t2"]'); await p.click("#dlg #tvEdit"); await p.waitForSelector("#dlg[open] form");
       ok(!(await p.locator("#dlg .bd-panel.offer").count()), "14: the dismissal is remembered for that task");
       await p.keyboard.press("Escape"); await wait(200);
 

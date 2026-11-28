@@ -64,4 +64,17 @@ t("Windows and Mozilla zone names (I9)", () => {
   const tbl = between("const ICS_WIN_TZ = ", "function icsZone"), names = [...tbl.matchAll(/": "([^"]+)"/g)].map(x => x[1]);
   assert.ok(names.length > 60); names.forEach(z => new Intl.DateTimeFormat("en-US", {timeZone: z}));
 });
+t("overnight events, exam periods and school breaks (Google Calendar export)", () => {
+  const night = one("UID:n1", "SUMMARY:Overnight shift", "DTSTART;TZID=America/Los_Angeles:20260905T200000", "DTEND;TZID=America/Los_Angeles:20260906T010000");
+  assert.strictEqual(night.start, "20:00"); assert.strictEqual(night.end, "01:00", "an end the next morning stays overnight");
+  const late = one("UID:n2", "SUMMARY:Party", "DTSTART;TZID=America/Los_Angeles:20260905T200000", "DTEND;TZID=America/Los_Angeles:20260906T000000");
+  assert.strictEqual(late.end, "23:59", "an end at midnight ends the day");
+  const fin = one("UID:n3", "SUMMARY:Final Exams Period", "DTSTART;VALUE=DATE:20261207", "DTEND;VALUE=DATE:20261219");
+  assert.strictEqual(fin.kind, "event", "a span of days isn't one exam"); assert.strictEqual(fin.endDate, "2026-12-18");
+  assert.strictEqual(one("UID:n4", "SUMMARY:Finals week", "DTSTART;VALUE=DATE:20261207").kind, "event");
+  assert.strictEqual(one("UID:n5", "SUMMARY:Week 5 Quiz", "DTSTART;VALUE=DATE:20261007").kind, "task", "a quiz in week 5 is still a quiz");
+  const brk = one("UID:n6", "SUMMARY:Thanksgiving Break - No Classes", "DTSTART;VALUE=DATE:20261125", "DTEND;VALUE=DATE:20261130");
+  assert.strictEqual(brk.kind, "off", "a break can be a day off"); assert.strictEqual(brk.endDate, "2026-11-29");
+  assert.strictEqual(one("UID:n7", "SUMMARY:Club social", "DTSTART;VALUE=DATE:20261010").kind, "event");
+});
 console.log(n + " ics import tests passed");

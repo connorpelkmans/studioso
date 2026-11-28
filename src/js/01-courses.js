@@ -954,6 +954,14 @@ const AVAIL = (() => {
       while (cur < w.e && ti < left.length) {
         const t = left[ti], room = w.e - cur;
         if (room < Math.min(minSlot, t.left)) break;
+        // A short task isn't cut into a scrap under half an hour (25m before a shift, the rest after it): a later task that fits
+        // the gap whole goes there instead, else the gap stays free and the task starts in the next window
+        if (t.left > room && room < 30 && t.left <= 90 && t.left === Math.round(tasks.find(x => x.id === t.id).min)) {
+          const j = left.findIndex((u, i) => i > ti && u.left > 0 && u.left <= room && u.left >= Math.min(minSlot, u.left));
+          if (j < 0) break;
+          const u = left[j]; left.splice(j, 1); left.splice(ti, 0, u);
+          continue;
+        }
         const len = Math.min(t.left, maxS, room);
         slots.push({id: t.id, s: cur, e: cur + len, min: len});
         t.left -= len; cur += len;
@@ -1079,6 +1087,13 @@ const AVAIL = (() => {
       }
       if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      // a run of days written with numbers: 11/12-11/14, 11/12-14, 11/30 to 12/2
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\s*(?:-|–|to)\s*(?:(\d{1,2})\/)?(\d{1,2})$/))) {
+        const a = mk(Number(m[1]) - 1, Number(m[2])), z = mk((m[3] ? Number(m[3]) : Number(m[1])) - 1, Number(m[4]));
+        if (!a || !z || z < a || dnum(z) - dnum(a) > 31) return bad.push(tok.trim());
+        for (let d = a; d <= z; d = addD(d, 1)) out.add(d);
+        return null;
+      }
       if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       bad.push(tok.trim());
     });

@@ -11,7 +11,7 @@ function patchAppDelegate(text){
   const m = /func\s+application\s*\(\s*_\s+application\s*:\s*UIApplication\s*,\s*didFinishLaunchingWithOptions[^{]*\{[^\n]*\n/.exec(text);
   if (!m) return null;
   const at = m.index + m[0].length;
-  const indent = (/^([ \t]*)\S/m.exec(text.slice(at)) || [, "        "])[1] || "        ";
+  const indent = (/^([ \t]*)\S/m.exec(text.slice(at)) || [null, "        "])[1] || "        ";
   return text.slice(0, at) + indent + "// Background App Refresh keeps the widgets up to date (MainViewController.swift)\n" + indent + LINE + "\n" + text.slice(at);
 }
 

@@ -137,7 +137,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-/* Rarity: grey Common, green Uncommon, blue Rare, purple Exotic, yellow Legendary */
+/* Rarity: grey Common, green Uncommon, blue Rare, purple Epic, yellow Legendary */
 .cp-rar{display:inline-block;font:700 .58rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:999px;color:#fff;background:#6B7280;vertical-align:middle;white-space:nowrap}
 .cp-rar-uncommon{background:#15803D}
 .cp-rar-rare{background:#2563EB}
@@ -289,10 +289,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The companion's Ask button (Companion tab, the speech bubble, Ask About This Task): one look everywhere, in every theme.
-   A solid purple pill with the companion's face, white bold text, and no colour change on hover; a theme's button gradient, hover
+   A solid purple pill with white text (not the soft purple of other AI buttons); a theme's button gradient, hover
    tint or photo glow never reaches it. Keyboard focus still gets a clear ring. */
-html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
-html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
+html .btn.primary.cp-ask-go.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
+html .btn.primary.cp-ask-go.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
@@ -356,3 +356,27 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 @media (prefers-color-scheme:dark){
 :root:not([data-theme="light"]) .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
 }
+
+/* The Christmas present (98-companion.js showGift): the wrapped box bobs; Open It lifts the lid away in a burst */
+.cpg-stage{border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+.cpg-stage:focus-visible{outline:3px solid #FFD983;outline-offset:6px;border-radius:50%}
+.cpg-box{position:relative;width:62%;height:62%;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
+.cpg-lid{transform-box:fill-box;transform-origin:50% 100%}
+@media (prefers-reduced-motion:no-preference){
+  .cpu-gift:not(.cpu-still) .cpg-box{animation:cpg-bob 1.6s ease-in-out infinite}
+  .cpu-gift:not(.cpu-still) .cpg-stage:hover .cpg-box{animation:cpg-wiggle .5s ease-in-out infinite}
+  .cpu-gift.cpg-opening .cpg-box{animation:none}
+  .cpu-gift.cpg-opening .cpg-lid{animation:cpg-lid .8s cubic-bezier(.2,.8,.3,1) forwards}
+  .cpu-gift.cpg-opening .cpu-glow{animation:cpg-flash .8s ease-out forwards}
+}
+@keyframes cpg-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes cpg-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+@keyframes cpg-lid{0%{transform:none}30%{transform:translateY(-6px) rotate(-6deg)}100%{transform:translate(60%,-180%) rotate(38deg);opacity:0}}
+@keyframes cpg-flash{0%{opacity:.7;transform:scale(1)}60%{opacity:1;transform:scale(1.5)}100%{opacity:.9;transform:scale(1.35)}}
+/* A Pro holiday gift: a quiet line under the present's words, with the PRO mark */
+.cpg-pro{display:inline-flex;align-items:center;gap:6px;font:600 .78rem/1.2 var(--body);color:rgba(255,255,255,.78);animation:cpu-up .5s ease-out .7s both}
+.cpg-pro .pro-badge{font-size:.6rem;padding:1px 5px}
+.cpu-did .pro-badge{font-size:.6rem;padding:1px 5px;vertical-align:1px;margin-right:2px}
+/* The New Year's gift: a quiet note that the year's other holiday gifts are for Pro */
+.cpu-next{display:flex;align-items:center;justify-content:center;gap:6px;margin:-2px 0 0;font:600 .8rem/1.3 var(--body);color:rgba(255,255,255,.75);animation:cpu-up .5s ease-out .75s both}
+.cpu-next .pro-badge{font-size:.6rem;padding:1px 5px;flex:none}

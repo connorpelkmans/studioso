@@ -44,7 +44,8 @@ async function page0(o = {}){
 }
 const act = (page, a, id, extra) => page.evaluate(([a, id, extra]) => { const b = document.createElement("button"); b.dataset.act = a; if (id) b.dataset.id = id; Object.assign(b.dataset, extra || {}); b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }, [a, id, extra]).then(() => page.waitForTimeout(300));
 const txt = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return e ? e.innerText.replace(/\s+/g, " ").trim() : ""; }, sel);
-const shown = (page, sel) => page.evaluate(s => { const e = document.querySelector(s); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
+// (on a phone a closed sheet leaves a still copy sliding away for a moment, .sm-ghost: that copy doesn't count as shown)
+const shown = (page, sel) => page.evaluate(s => { const e = [...document.querySelectorAll(s)].find(x => !x.closest(".sm-ghost")); return !!e && !!(e.offsetWidth || e.offsetHeight); }, sel);
 const noOverflow = async (page, what) => ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no horizontal scroll: " + what);
 const tooSmall = (page, sel) => page.evaluate(s => [...document.querySelectorAll(s)].filter(e => e.offsetParent && e.getBoundingClientRect().height < 39.5).map(e => (e.textContent || e.getAttribute("aria-label") || "").trim().slice(0, 24)), sel);
 const shot = (page, name) => page.screenshot({path: path.join(SHOTS, `qol-${name}.png`)});
@@ -72,8 +73,8 @@ async function focusTimer(w, dark){
   ok(await fmin(page) === 10, tag + " and the 10 minutes are kept");
   ok(/Today: 0 focus sessions, 10m focused/.test(await txt(page, "#pomoDlg .pomo-today")), tag + " Today line: " + await txt(page, "#pomoDlg .pomo-today"));
 
-  // A finished session with a task
-  const finish = (tid, auto) => page.evaluate(([tid, auto]) => { const st = window.__sbBreakdown.state(), T = window.__sbPomo, p = T.pomo; st.settings = Object.assign({}, st.settings, {pomo: Object.assign({}, st.settings.pomo, {autoBreak: auto})}); p.mode = "focus"; p.taskId = tid; p.preset = 25; p.running = true; p.endAt = Date.now() - 5; T.save(); T.finish(); }, [tid, auto]).then(() => page.waitForSelector("#alarmDlg[open]"));
+  // A finished session with a task (a 25-minute one: a session keeps the length it started with, pomo.len)
+  const finish = (tid, auto) => page.evaluate(([tid, auto]) => { const st = window.__sbBreakdown.state(), T = window.__sbPomo, p = T.pomo; st.settings = Object.assign({}, st.settings, {pomo: Object.assign({}, st.settings.pomo, {autoBreak: auto})}); p.mode = "focus"; p.taskId = tid; p.preset = 25; p.len = 25 * 60000; p.running = true; p.endAt = Date.now() - 5; T.save(); T.finish(); }, [tid, auto]).then(() => page.waitForSelector("#alarmDlg[open]"));
   await P(() => document.querySelector("#pomoDlg").close());
   await finish("t1", true);
   ok(/Mark “Write the essay” Done/.test(await txt(page, "#alDone")) && await shown(page, "#alAgain") && await shown(page, "#alSkip"), tag + " the alarm offers Mark Done, Another Session on It and Skip Break: " + await txt(page, "#alarmDlg"));
@@ -110,14 +111,16 @@ async function streaks(){
   await page.evaluate(d => { const st = window.__sbBreakdown.state(); st.settings = Object.assign({}, st.settings, {streak: {cur: 9, best: 9, last: d}}); SBSTREAK.enable(); }, today());
   await page.waitForTimeout(4200);
   const ward = await page.evaluate(() => { const b = document.createElement("div"); b.innerHTML = SBCOMP.wardrobe(); return b.textContent.replace(/\s+/g, " "); });
-  ok(/Hero Cape.*?0 of 7 day streak/.test(ward), "with the gentle streak on, prop progress uses it, not the hidden fire streak of 9: " + (ward.match(/Hero Cape.{0,160}/) || [""])[0]);
+  // (props are bought with study credits now, "Hero Cape 300 Rare": no streak count shows, and never the hidden fire streak's 9)
+  ok(/Hero Cape\s*\d+\s*Rare/.test(ward) && !/\b9 of \d+ day streak|\b9 day streak/.test(ward), "with the gentle streak on, prop progress uses it, not the hidden fire streak of 9: " + (ward.match(/Hero Cape.{0,160}/) || [""])[0]);
   await done(page, "streaks");
 }
 
 /* Style Shop search, free sections first, companion tiles, How to Earn More */
 async function shop(w, dark){
   const tag = `${w}px${dark ? " dark" : ""}:`, page = await page0({w, dark, free: true});
-  await act(page, "shop"); await page.waitForSelector("#dlg[open] .ui-shop #shopQ"); await page.waitForTimeout(500);
+  // the shop opens on its home; Themes is a See All page of it
+  await act(page, "shop"); await act(page, "shop-tab", "themes"); await page.waitForSelector("#dlg[open] .ui-shop #shopQ"); await page.waitForTimeout(500);
   const order = await page.$$eval("#dlg .sheet-body > .ui-sec", s => s.map(x => x.dataset.f));
   ok(order[0] === "free" && order[1] === "photos", tag + " a free account sees Free themes first, then the Pro photo section: " + order.slice(0, 3).join(","));
   const q = async v => { await page.fill("#shopQ", v); await page.waitForTimeout(250); return page.$$eval("#dlg .sheet-body .shop-tile:not(.ui-nomatch), #dlg .sheet-body .shop-pack:not(.ui-nomatch)", ts => ts.filter(t => t.offsetParent).map(t => (t.querySelector(".shop-name b") || t).textContent.trim())); };
@@ -127,11 +130,11 @@ async function shop(w, dark){
   await shot(page, `shop-search-${w}${dark ? "-dark" : ""}`);
   hit = await q("zzzzq");
   ok(hit.length === 0 && /Nothing matches/.test(await txt(page, "#dlg .ui-none")), tag + " no match says so");
-  await page.click('#dlg [data-act="shop-tab"][data-id="stickers"]'); await page.waitForSelector("#dlg .ui-shop #shopQ"); await page.waitForTimeout(400);
+  await act(page, "shop-tab", "stickers"); await page.waitForSelector("#dlg .ui-shop #shopQ"); await page.waitForTimeout(400);
   ok(await page.inputValue("#shopQ") === "zzzzq", tag + " the search carries across tabs");
   hit = await q("cat");
   ok(hit.length >= 1, tag + " sticker search finds packs with a cat: " + hit.join(", "));
-  await page.click('#dlg [data-act="shop-tab"][data-id="cards"]'); await page.waitForTimeout(400);
+  await act(page, "shop-tab", "cards"); await page.waitForTimeout(400);
   hit = await q("");
   ok(hit.length > 3, tag + " clearing shows everything again");
   ok(await page.evaluate(() => { const r = document.querySelector("#shopQ").getBoundingClientRect(); return r.height >= 39.5 && r.right <= innerWidth; }), tag + " the search field is big enough and fits");
@@ -171,7 +174,10 @@ async function project(w, dark){
   const tabs = await page.$$eval("#grpDetail .grp-tabs [role=tab]", bs => bs.map(b => ({t: b.dataset.t, sel: b.getAttribute("aria-selected"), ti: b.tabIndex, pane: (document.getElementById(b.getAttribute("aria-controls")) || {}).getAttribute ? document.getElementById(b.getAttribute("aria-controls")).getAttribute("role") : "", r: b.getBoundingClientRect().right})));
   ok(tabs.length >= 5 && tabs.every(x => x.pane === "tabpanel"), tag + " every tab controls a tabpanel");
   ok(tabs.filter(x => x.ti === 0).length === 1 && tabs[0].sel === "true", tag + " one tab is in the tab order");
-  ok(await page.evaluate(() => { const b = document.querySelector("#grpDetail .grp-tabs"); return b.scrollWidth <= b.clientWidth + 1 && [...b.children].every(c => c.getBoundingClientRect().right <= innerWidth); }), tag + " every section tab is visible, none hidden off the edge");
+  // (on a phone the tabs sit in one row that scrolls sideways: each one can be scrolled fully into view)
+  ok(await page.evaluate(() => { const b = document.querySelector("#grpDetail .grp-tabs"), sl = b.scrollLeft;
+    const r = (b.scrollWidth <= b.clientWidth + 1 || /auto|scroll/.test(getComputedStyle(b).overflowX)) && [...b.children].every(c => { b.scrollLeft += c.getBoundingClientRect().right - b.getBoundingClientRect().right > 0 ? c.getBoundingClientRect().right - b.getBoundingClientRect().right : 0; const x = c.getBoundingClientRect(); return x.left >= -1 && x.right <= innerWidth + 1; });
+    b.scrollLeft = sl; return r; }), tag + " every section tab is visible, none out of reach off the edge");
   ok((await tooSmall(page, "#grpDetail .grp-tabs [role=tab]")).length === 0, tag + " tabs are at least 40px tall");
   await page.focus('#grpDetail .grp-tabs [role=tab][aria-selected="true"]'); await page.keyboard.press("ArrowRight"); await page.waitForTimeout(150);
   const after = await page.evaluate(() => ({focus: document.activeElement.dataset.t, sel: document.querySelector('#grpDetail .grp-tabs [aria-selected="true"]').dataset.t, pane: [...document.querySelectorAll("#grpDetail .grp-pane")].filter(p => !p.hidden).map(p => p.dataset.pane)}));

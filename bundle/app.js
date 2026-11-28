@@ -591,8 +591,8 @@ const TYPE_CFG = {
   Project:    {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Milestones", step:"Add a milestone, e.g. Proposal approved", link:"Project Link", team:"Team Members", notes:"Notes", notesPh:"Scope, requirements, meeting times…", title:"e.g. Bridge design project"},
   Lab:        {start:"Lab Session", due:"Report Due", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Pre-Lab Checklist", step:"Add a step, e.g. Read procedure", location:"Lab Room", link:"Instructions Link", notes:"Notes", notesPh:"Equipment, safety notes, data to collect…", title:"e.g. Lab 3: Tensile testing"},
   Reading:    {start:"Start Date", due:"Read By", hours:"Time Needed", prog:"Progress", checklist:"Sections", step:"Add a section, e.g. 4.2 Equilibrium", reading:"What to Read", notes:"Notes", notesPh:"Key ideas, questions for class…", title:"e.g. Read chapter 4"},
-  Exam:       {single:true, due:"Exam Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
-  Quiz:       {single:true, due:"Quiz Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
+  Exam:       {single:true, due:"Exam Date", time:"Start Time", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
+  Quiz:       {single:true, due:"Quiz Date", time:"Start Time", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
   Study:      {start:"Study Day", due:"Finish By", hours:"Time Needed", prog:"Progress", checklist:"Study Steps", step:"Add a step, e.g. Recall the RAAS pathway", link:"Link", notes:"Notes", notesPh:"What to cover…", title:"e.g. Review cardiac drugs"},
   Other:      {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Checklist", step:"Add a step", link:"Link", notes:"Notes", notesPh:"Details…", title:"e.g. Register for spring classes"}
 };
@@ -834,7 +834,8 @@ const TB = (() => {
     d = d || {};
     if (kind === "course") return cut(d.name || d.code, 70) || "Course";
     if (kind === "task") return cut(d.title, 70) || "Task";
-    if (kind === "note") return d.wb ? "Whiteboard: " + (cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Untitled") : cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    // (a first line written as a Markdown heading, "# Lecture 22", is named without its #)
+    if (kind === "note") { const l = (String(d.text || "").split("\n").find(x => x.trim()) || "").replace(/^\s*#{1,6}\s+/, ""); return d.wb ? "Whiteboard: " + (cut(l, 60) || "Untitled") : cut(l, 60) || "Empty note"; }
     if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
     if (kind === "file") return cut(d.name, 70) || "File";
     if (kind === "event") return cut(d.title, 70) || "Event";
@@ -1080,6 +1081,13 @@ function normTask(t){
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  // the cards picked from a picked deck (deck id → card ids); a deck with no entry counts in full
+  if (t.readyCards != null) {
+    if (t.readyCards && typeof t.readyCards === "object" && !Array.isArray(t.readyCards)) {
+      const o = {}; Object.keys(t.readyCards).slice(0, 30).forEach(k => { const v = t.readyCards[k]; if (k.length <= 80 && Array.isArray(v)) o[k] = v.filter(x => typeof x === "string" && x.length <= 80).slice(0, 1000); });
+      if (Object.keys(o).length) t.readyCards = o; else delete t.readyCards;
+    } else delete t.readyCards;
+  }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
@@ -6107,7 +6115,12 @@ function aiStudySheet(deckId, mode){
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
-  if (!aiCfg().key) { aiSetupSheet(true); return; }
+  if (!aiCfg().key) {
+    const d0 = deckId ? state.decks[deckId] : null;
+    aiSetupSheet(true, mode === "quiz" ? {feature: "Quiz From Slides or Notes", alt: {text: "make a practice quiz from one of your decks.", label: "Quiz From a Deck", act: "qz-from-deck"}}
+      : {feature: "Create with AI", alt: d0 ? {text: "add cards to this deck yourself, or paste a list.", label: "Edit Deck", act: "fc-edit", id: d0.id} : {text: "make a deck and add cards yourself, or paste a list.", label: "New Deck", act: "fc-new"}});
+    return;
+  }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
@@ -6441,6 +6454,8 @@ function aiAnswer(given, pre){
   else if (q.type === "order") correct = given.length === q.correct.length && given.every((v, k) => v === q.correct[k]);
   else { const r = pre || gradeWritten(given, q.answer); correct = r.correct; partial = r.close ? {close: true} : r.partly ? {partly: true} : null; if (r.ai) f.aiFb = Object.assign(f.aiFb || {}, {[f.i]: r.ai}); }
   f.ans[f.i] = {given, correct, partial}; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   // right or wrong, felt (a written answer graded a moment later by AI still gets it when the result comes back)
   sbHaptic(correct ? "tap" : "error", {force: !!pre});
   render();
@@ -6477,14 +6492,14 @@ function viewAiQuiz(){
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Read the rationales for the ones you missed." : pct >= 50 ? "Getting there. Review the rationales, then retry the missed questions." : "Keep going. Study the material and the rationales below, then try again.";
     const ansText = x => x.type === "short" ? x.answer : x.type === "order" ? x.correct.map((ix, k) => `${k + 1}. ${x.options[ix]}`).join("  ") : x.correct.map(i => x.options[i]).join("; ");
-    return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")} Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         ${quizAddedHtml(f)}
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="ai-retry-missed">Retry the ${missed.length} Missed</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="ai-retake">Retake Whole Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Review</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.stem)}</span><span class="a">Answer: <b>${esc(ansText(y.x))}</b></span>${y.x.rationale ? `<span class="mini">${esc(y.x.rationale)}</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const letters = "ABCDEFGH";
@@ -6517,7 +6532,9 @@ function viewAiQuiz(){
       ${explainHtml(`q|${f.deckId}|${f.quizId}|${q.id}`, q.type === "short" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="ai-next" id="aiNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
   const label = {single: "Choose the best answer", truefalse: "True or false", multiple: "Select all that apply", order: "Put these in the correct order", short: "Type your answer"}[q.type];
-  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end)
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; return SBSC.liveHtml(SBSC.quizTriesLeft("ai-" + (f.quizId || f.deckId)) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>${esc(qz ? qz.title : "Quiz")}</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card ai-q" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${label}${q.topic ? ` · ${esc(q.topic)}` : ""}</span>
@@ -6715,9 +6732,9 @@ function aiUseCard(){
    The free ones run on the student's own laptop; Studyboard AI Pro runs on Claude in the cloud, on any device. */
 const AI_CATS = ["Planner actions", "Notes and subject help", "General knowledge and maths", "Planner questions", "Decks, companion and the app", "Casual chat"];
 const AI_LEVELS = [
-  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
-  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
-  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
+  {id: "8", name: "Studyboard AI 8GB", where: "Free, runs on your laptop. Needs 8 GB of memory or more.", pct: 62, cats: [69, 49, 84, 63, 61, 34]},
+  {id: "16", name: "Studyboard AI 16GB", where: "Free, runs on your laptop. Needs 16 GB of memory or more.", pct: 76, cats: [77, 66, 96, 72, 72, 66]},
+  {id: "pro", name: "Studyboard AI Pro", where: "With Pro, on any device. Runs on Claude in the cloud.", pct: 99, cats: [100, 100, 100, 100, 100, 98]}];
 // the 8GB level's model on this browser: Chrome's or Edge's own built-in AI, otherwise Google's Gemma 4 E2B
 function aiLevel8Model(){
   const ua = navigator.userAgent || "", edge = typeof devBrowser === "function" && devBrowser() === "Edge";
@@ -6730,7 +6747,9 @@ function aiTiersCard(){
   const c = aiCfg(), now = c.provider === "studyboard" || (c.provider === "anthropic" && c.model === "studyboard") ? "pro" : c.provider === "device" && typeof devTier === "function" ? devTier() : "";
   const fact = (h, t) => `<div class="ai-tier-fact"><b>${h}</b><span>${t}</span></div>`;
   const PRIVATE = fact("Private", "It runs entirely on your laptop. Your questions, notes and files stay on this device: nothing is sent to Studyboard or anyone else. If Look Things Up on the Web is on, only the search words go to Wikipedia, Wiktionary or OpenAlex.");
-  const hasPro = typeof aiProAvail === "function" && aiProAvail();
+  const hasPro = (typeof aiProAvail === "function" && aiProAvail()) || (typeof aiProUser === "function" && aiProUser());
+  // on Pro already (a code, a promotion or Plus, which don't include Studyboard AI Pro): no Get Pro, a way to add it instead
+  const onPro = (() => { try { return typeof PLAN !== "undefined" && !!PLAN && PLAN.isPro(); } catch (e) { return false; } })();
   const more = t => {
     const cats = t.cats && t.cats.length === AI_CATS.length ? `<div class="ai-tier-cats">${AI_CATS.map((n, i) => `<div class="ai-tier-cat"><span>${n}</span><span class="ai-tier-bar sm" role="img" aria-label="${t.cats[i]}%"><i style="width:${t.cats[i]}%"></i></span><b>${t.cats[i]}%</b></div>`).join("")}</div>`
       : `<span class="ai-tier-soon">Results for each kind of question are coming soon.</span>`;
@@ -6743,7 +6762,7 @@ function aiTiersCard(){
       + fact("Where Your Data Goes", "Each request (what you type, plus the material for that job, like a note, file or your deadlines) goes over an encrypted connection to Studyboard's AI server on Cloudflare, which passes it to Anthropic and sends the answer back. Studyboard's server doesn't store it or keep logs of it.")
       + fact("Not Used for Training", `Studyboard pays for Claude through Anthropic's API, and Anthropic doesn't use what's sent through its paid API to train its models. See <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer">Anthropic's privacy policy</a>.`)
       + fact("Works Everywhere", "Phones, tablets and laptops, with nothing to download.") + byCat
-      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
+      + (hasPro ? `<p class="ai-tier-incl">Included with your Pro plan.</p>` : onPro ? `<p class="ai-tier-incl">Your Pro plan doesn't include it. Subscribe to add it.</p><button type="button" class="btn ai-tier-get" data-act="plan-open" data-reason="Subscribe to Pro to get Studyboard AI Pro">Get Studyboard AI Pro</button>` : typeof PLAN !== "undefined" && PLAN && PLAN.openSheetPick ? `<button type="button" class="btn ai-tier-get" data-act="ai-level-pro">Get Pro</button>` : "");
   };
   // the 16GB AI on a device that certainly can't run it (01-ai-device.js e4bCantHere: never guessed, so a computer that could run it
   // is never marked); the reason goes in its details
@@ -6782,6 +6801,12 @@ async function aiAgeCheck(){
 }
 function aiSetupSheet(fromFeature, opts){
   opts = opts || {};
+  // the first time, the check of which free AI this computer can run may still be going: wait for it (at most about a second) so
+  // the sheet opens once, final, rather than redrawing its list of AIs a moment after it opens
+  if (typeof DEVAI !== "undefined" && DEVAI.settled && !DEVAI.settledAt && !opts._waited) {
+    let go = false; const open = () => { if (go) return; go = true; aiSetupSheet(fromFeature, Object.assign({}, opts, {_waited: true})); };
+    DEVAI.settled.then(open, open); setTimeout(open, 1000); return;
+  }
   // the free AI is on its way (downloading in the background): no setup to ask for, just where it's at
   if (fromFeature && typeof DEVAI !== "undefined" && (DEVAI.e4b === "downloading" || DEVAI.warm) && !aiCfg().key && !aiProAvail()) {
     const pct = Math.round(((DEVAI.e4b === "downloading" ? DEVAI.e4bPct : DEVAI.progress) || 0) * 100);
@@ -6791,6 +6816,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // without a key box on this sheet, the lines about this device's free AI don't point at "a free key below"
+  const keyTxt = s => gemOk ? s : String(s || "").replace(/\s*(You can still use AI with a free key|A free key below works(?: instead| everywhere)?|Or add a free key below)\./g, "");
   // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
   const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
@@ -6809,8 +6836,10 @@ function aiSetupSheet(fromFeature, opts){
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  // and opts.alt ({text, label, act, id}) is the way to do it without AI, so the sheet isn't a dead end
+  const alt = opts.alt && !aiReady() ? `<p class="ai-alt mini" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:12rem"><b>Without AI:</b> ${esc(opts.alt.text)}</span><button type="button" class="btn small" data-act="${esc(opts.alt.act)}"${opts.alt.id ? ` data-id="${esc(opts.alt.id)}"` : ""}>${esc(opts.alt.label)}</button></p>` : "";
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
-    <div class="sheet-body">
+    <div class="sheet-body">${alt}
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
@@ -6823,10 +6852,11 @@ function aiSetupSheet(fromFeature, opts){
       ${inPreview() ? "" : aiTiersCard()}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
-      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devWhyText()))}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devNoneText()))}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${!pro && !gemOk && !inPreview() && !(typeof sbUser !== "undefined" && sbUser) ? `<div class="ai-disclaimer ai-signin" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Want AI with a free key?</b> Sign in to your free Studyboard account first. Free keys are for students 18 and older, and your account is how Studyboard checks.</p><button type="button" class="btn small primary" data-act="${SB_HOSTED ? "sb-signin" : "sb-connect"}">${SB_HOSTED ? "Sign In" : "Set Up Sync"}</button></div>` : ""}
       ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
       <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">
@@ -7776,7 +7806,10 @@ async function e4bCantHere(){
     return unsure();
   } catch (e) { return unsure(); }
 }
-devProbe().then(() => e4bCantHere()).then(() => { try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+// (DEVAI.settled: the AI Features sheet opened before this finishes waits for it, briefly, so it opens once with the final list
+// instead of redrawing it a moment after opening)
+DEVAI.settled = devProbe().then(() => e4bCantHere()).then(() => { DEVAI.settledAt = Date.now(); try { if (typeof e4bPaint === "function") e4bPaint(); const t = document.getElementById("aiTiersLive"); if (t && typeof aiTiersCard === "function") t.outerHTML = aiTiersCard(); } catch (e) {} });
+DEVAI.settled.catch(() => {}).then(() => { DEVAI.settledAt = DEVAI.settledAt || Date.now(); });
 // How much is downloaded (0 to 1), and whether all of it is
 async function e4bHave(){
   const D = e4bDesk();
@@ -7792,7 +7825,10 @@ function e4bDownload(){
   DEVAI.e4bFull = false; DEVAI.e4bErr = "";
   e4bRunning = (async () => {
     const D = e4bDesk(); let top = 0; const say = p => { top = Math.max(top, p); DEVAI.e4bPct = top;  // (never backwards: a part that's retried keeps the progress shown)
- DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); try { scheduleRender(); } catch (e) {} };
+
+      // the progress itself is painted in place (e4bPaint); the page redraws only when the state changes, so a download in the
+      // background never keeps redrawing what's on screen (which restarted the hover animations on deck tiles, every few moments)
+      const was = DEVAI.e4b; DEVAI.e4b = p >= 1 ? "ready" : "downloading"; e4bPaint(); if (was !== DEVAI.e4b || p >= 1) try { scheduleRender(); } catch (e) {} };
     try {
       if (D) {
         // the app downloads it itself; this only follows along
@@ -8650,7 +8686,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}${(x.flags || []).includes("week") && x.due ? `<span class="qa-past qa-wk mini">No day was given, so it's set to the Monday. Check the date.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -8681,7 +8717,7 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); const wk = w && w.querySelector(".qa-wk"); if (wk) { wk.remove(); it.flags = (it.flags || []).filter(f => f !== "week"); } }
   else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;
@@ -8924,6 +8960,9 @@ const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || [])
 const enoughToday = (t, x) => {
   if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
+  // the plan already counts time worked today (less left on the task, less of today left), so when today's time covers all
+  // that's left, the plan means "finish it today": 30m logged on an overdue 1h task leaves 30m today, not "enough"
+  if (target > 0 && x.R > 0 && x.alloc + 0.125 >= x.R) return false;
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */
@@ -13201,7 +13240,7 @@ const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids)
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + JSON.stringify(ex.readyCards || "") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -13212,31 +13251,37 @@ function examEvidence(ex){
   let out = null;
   const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
   if (linked.length) {
+    // a picked deck counts in full, or only the cards picked from it (readyCards: deck id → card ids)
+    const rc = ex.readyCards && typeof ex.readyCards === "object" ? ex.readyCards : {};
+    const cardsOf = d => { const ids = Array.isArray(rc[d.id]) ? new Set(rc[d.id]) : null; return d.cards.filter(live).filter(c => !ids || ids.has(c.id)); };
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
-    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+    out = {how: "linked", decks: ds, cards: ds.flatMap(cardsOf), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   // Automatic AI's reading of the exam's topics against what each deck holds
   if (!out && aiIds) {
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -13244,7 +13289,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -13255,7 +13300,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -13266,7 +13311,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), JSON.stringify(t.readyCards || ""), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -13398,6 +13443,8 @@ function atRisk(t){
   if (t.status === "done" || !t.due) return false;
   const fx = FOCUS && FOCUS.info[t.id];
   if (fx && fx.behind >= 0.5 && fx.dl >= 0) return true;
+  // Today's Plan knows the work left and the time before it's due: a 15 minute email due tomorrow, with hours free, isn't at risk
+  if (fx && !MILESTONE(t.type) && !fx.dead) return fx.dl >= 0 && fx.own >= 1;
   const d = dayDiff(todayISO(), t.due);
   if (MILESTONE(t.type)) return d >= 0 && d <= 3 && progress(t).frac < 0.5;
   return d >= 0 && d <= 2 && progress(t).frac < 0.5 && (t.status === "todo" || hoursLeft(t) > 2);
@@ -13819,6 +13866,134 @@ function section(title, ts, cls = "", opts){
   if (!ts.length) return "";
   return `<h2 class="sec ${cls}"><span class="t">${esc(title)}</span><span class="n">${ts.length}</span></h2>${taskList(ts, opts)}`;
 }
+/* ===== module: 01-sfx.js ===== */
+/* Sound effects for rewarding moments: coins counting up, chests opening, the prize wheel, buying and unlocking accessories, holiday
+   presents, a passed or perfect quiz, a good flashcard session, a presentation on time or mastered, a streak milestone and a task
+   checked off. Each is made in the browser with Web Audio (no files, works offline), short and soft, through one gentle compressor
+   and a little room reverb so they sit together.
+   SFX.play(name, opts) plays one now; SFX.render(name, opts) makes it as a WAV (for previews). Off in Settings (Sound Effects), and
+   never while the app is in the background. Places that call it: 98-0study-credits.js (rewards, chests, the wheel), 98-companion.js
+   (buying, reveals, presents), 99-review-streaks.js (milestones), 01-flashcards.js (a good session), 01-style-shop.js (a task) */
+const SFX = (() => {
+  const KEY = "studyboard:sfx";
+  const on = () => { try { return localStorage.getItem(KEY) !== "off"; } catch (e) { return true; } };
+  let AC = null, bus = null, lastAt = {};
+  const VOL = 1.7;
+
+  // ---- building blocks: each draws into (ctx, out) starting at time t ----
+  const env = (ctx, g, t, a, peak, dur) => { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); };
+  function tone(ctx, out, t, f, dur, o){
+    o = o || {}; const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || "sine"; osc.frequency.setValueAtTime(f, t); if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + (o.glide || dur));
+    if (o.detune) osc.detune.setValueAtTime(o.detune, t);
+    env(ctx, g, t, o.a || 0.005, (o.gain || 0.2), dur);
+    let node = osc; if (o.lp) { const fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = o.lp; osc.connect(fl); node = fl; }
+    node.connect(g); g.connect(out); osc.start(t); osc.stop(t + dur + 0.05);
+  }
+  // a bell or coin: a few inharmonic partials that fade at different rates
+  function bell(ctx, out, t, f, dur, gain){ [[1, 1], [2.76, .45], [5.4, .22], [8.9, .1]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.7), {gain: gain * a, a: 0.002})); }
+  let NOISE = null;
+  function noiseBuf(ctx){ if (NOISE && NOISE.sampleRate === ctx.sampleRate) return NOISE; const n = ctx.sampleRate * 1.5, b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0); let s = 12345; for (let i = 0; i < n; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; d[i] = (s / 0x3fffffff) - 1; } return (NOISE = b); }
+  function noise(ctx, out, t, dur, o){
+    o = o || {}; const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noiseBuf(ctx); f.type = o.type || "bandpass"; f.frequency.setValueAtTime(o.f || 2000, t); if (o.to) f.frequency.exponentialRampToValueAtTime(o.to, t + dur); f.Q.value = o.q || 1;
+    env(ctx, g, t, o.a || 0.01, o.gain || 0.15, dur);
+    src.connect(f); f.connect(g); g.connect(out); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+  }
+  const N = n => 440 * Math.pow(2, (n - 69) / 12);  // a MIDI note
+  const arp = (ctx, out, t, notes, step, o) => notes.forEach((n, i) => { tone(ctx, out, t + i * step, N(n), (o && o.dur) || 0.5, Object.assign({type: "triangle", gain: 0.16}, o)); tone(ctx, out, t + i * step, N(n + 12), ((o && o.dur) || 0.5) * 0.6, {gain: 0.05}); });
+  const chord = (ctx, out, t, notes, dur, gain) => notes.forEach((n, i) => { tone(ctx, out, t, N(n), dur, {type: "triangle", gain: gain || 0.09, a: 0.02, detune: (i % 2 ? 4 : -4)}); tone(ctx, out, t, N(n), dur, {type: "sawtooth", gain: (gain || 0.09) * 0.25, a: 0.03, lp: 1800}); });
+  const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
+  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
+
+  // ---- the sounds: each returns how long it lasts ----
+  const S = {
+    // one coin landing in the pile (played many times while credits count up; o.i varies the pitch a little)
+    coin: (c, o, t, x) => { const k = [0, 2, 4, 7, 9][(x.i || 0) % 5]; bell(c, o, t, N(93 + k), 0.18, 0.09); return 0.2; },
+    // the total lands: a bright two-note ding
+    coinLand: (c, o, t) => { bell(c, o, t, N(95), 0.5, 0.08); bell(c, o, t + 0.09, N(100), 0.8, 0.1); return 0.9; },
+    // a reward screen opens: a short stinger, 1 (nice), 2 (passed, on time, a good session), 3 (perfect, mastered)
+    reward: (c, o, t, x) => { const lv = x.level || 1;
+      if (lv >= 3) { arp(c, o, t, [60, 64, 67, 72, 76], 0.07, {dur: 0.4}); chord(c, o, t + 0.36, [60, 64, 67, 72], 1.2, 0.08); sparkle(c, o, t + 0.4, 8, 0.05); return 1.6; }
+      if (lv === 2) { arp(c, o, t, [67, 71, 74, 79], 0.075, {dur: 0.45}); chord(c, o, t + 0.3, [67, 71, 74], 0.8, 0.06); return 1.1; }
+      arp(c, o, t, [72, 76, 79], 0.07, {dur: 0.35, gain: 0.12}); return 0.6; },
+    // a small reward (a task done): a soft pop and one coin
+    pop: (c, o, t) => { tone(c, o, t, 660, 0.09, {to: 1180, glide: 0.06, gain: 0.16}); bell(c, o, t + 0.05, N(96), 0.25, 0.07); return 0.3; },
+    // a chest opening: a wooden thunk, the lid's whoosh, then a sparkle that grows with its rarity
+    chest: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
+      tone(c, o, t, 140, 0.18, {to: 70, gain: 0.3}); noise(c, o, t, 0.12, {type: "lowpass", f: 500, gain: 0.18});
+      noise(c, o, t + 0.06, 0.35, {f: 700, to: 4200, q: 0.8, gain: 0.07});
+      arp(c, o, t + 0.2, [72, 76, 79, 84, 88, 91].slice(0, 3 + r), 0.06, {dur: 0.4, gain: 0.11});
+      if (r >= 2) sparkle(c, o, t + 0.35, 4 + r * 2, 0.05); if (r >= 4) chord(c, o, t + 0.55, [60, 67, 72, 76], 1.4, 0.06);
+      return 0.9 + r * 0.25; },
+    // the wheel starts: a rising whoosh
+    whoosh: (c, o, t) => { noise(c, o, t, 0.5, {f: 400, to: 2600, q: 0.7, gain: 0.2, a: 0.12}); return 0.6; },
+    // the pointer passing a slice
+    tick: (c, o, t) => { noise(c, o, t, 0.025, {type: "highpass", f: 2500, gain: 0.16, a: 0.001}); tone(c, o, t, 1900, 0.03, {gain: 0.05, a: 0.001}); return 0.05; },
+    // the wheel stops: coins (x.coins) or an accessory (x.rarity)
+    win: (c, o, t, x) => { if (x.coins) { S.coinLand(c, o, t); for (let i = 0; i < 6; i++) S.coin(c, o, t + 0.15 + i * 0.06, {i}); return 1; }
+      const r = RANK[x.rarity] || 0; S.reward(c, o, t, {level: r >= 3 ? 3 : 2}); if (r >= 2) sparkle(c, o, t + 0.5, 3 + r * 2, 0.05); return 1.7; },
+    // buying an accessory: a cash register's ka-ching
+    buy: (c, o, t) => { noise(c, o, t, 0.06, {type: "lowpass", f: 900, gain: 0.2, a: 0.002}); tone(c, o, t, 200, 0.07, {to: 120, gain: 0.15});
+      bell(c, o, t + 0.07, N(98), 0.7, 0.1); bell(c, o, t + 0.14, N(103), 1.0, 0.1); for (let i = 0; i < 5; i++) S.coin(c, o, t + 0.22 + i * 0.05, {i: i + 2}); return 1.1; },
+    // a new accessory: a magical rise, more sparkle the rarer it is
+    reveal: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
+      tone(c, o, t, 500, 0.6, {to: 1600, glide: 0.5, type: "sine", gain: 0.06, a: 0.1}); arp(c, o, t + 0.15, [72, 79, 84, 88, 91].slice(0, 3 + Math.min(2, r)), 0.08, {dur: 0.5, gain: 0.1});
+      sparkle(c, o, t + 0.45, 3 + r * 2, 0.05); if (r >= 3) chord(c, o, t + 0.6, [65, 69, 72, 77], 1.3, 0.055); return 1.4 + r * 0.15; },
+    // a holiday present appears: a few soft sleigh bells
+    present: (c, o, t) => { for (let i = 0; i < 8; i++) bell(c, o, t + i * 0.07 + (i % 2) * 0.02, N(98 + (i % 3) * 2), 0.18, 0.07); return 0.8; },
+    // a present opened: paper tearing, then ta-da
+    unwrap: (c, o, t) => { for (let i = 0; i < 7; i++) noise(c, o, t + i * 0.035, 0.06, {f: 1800 + i * 400, q: 1.5, gain: 0.1, a: 0.003}); arp(c, o, t + 0.3, [67, 72, 76], 0.06, {dur: 0.3}); chord(c, o, t + 0.5, [67, 72, 76, 79], 1.1, 0.075); return 1.6; },
+    // a study-streak milestone: a warm rising chord
+    streak: (c, o, t) => { arp(c, o, t, [65, 69, 72, 76], 0.09, {dur: 0.7, gain: 0.11}); chord(c, o, t + 0.36, [65, 69, 72, 76], 1.4, 0.06); return 1.8; }
+  };
+
+  function ctx(){
+    try {
+      if (AC && AC.state === "closed") AC = null;
+      if (!AC) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; AC = new C(); bus = null; }
+      if (AC.state !== "running") AC.resume().catch(() => {});
+      return AC;
+    } catch (e) { return null; }
+  }
+  // one gentle compressor and a short room reverb shared by every sound
+  function chain(c){
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+    const master = c.createGain(); master.gain.value = VOL;
+    const wet = c.createGain(); wet.gain.value = 0.16; const conv = c.createConvolver(); const n = Math.round(c.sampleRate * 0.9), ir = c.createBuffer(2, n, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); let s = 777 + ch; for (let i = 0; i < n; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; d[i] = ((s / 0x3fffffff) - 1) * Math.pow(1 - i / n, 3); } }
+    conv.buffer = ir; const inp = c.createGain();
+    inp.connect(comp); inp.connect(conv); conv.connect(wet); wet.connect(comp); comp.connect(master); master.connect(c.destination);
+    return inp;
+  }
+  // (repeats of one sound are spaced: a burst of coins can't pile up into noise)
+  const GAP = {coin: 0.045, tick: 0.03, pop: 0.25};
+  function play(name, opts){
+    try {
+      if (!S[name] || !on() || document.hidden) return false;
+      const now = performance.now() / 1000, gap = GAP[name] == null ? 0.12 : GAP[name];
+      if (lastAt[name] && now - lastAt[name] < gap) return false; lastAt[name] = now;
+      if (window.__SB_TEST) { (window.__sfxLog = window.__sfxLog || []).push(name + (opts && (opts.rarity || opts.level || opts.coins) ? ":" + (opts.rarity || opts.level || "coins") : "")); }
+      const c = ctx(); if (!c) return false;
+      if (!bus || bus.context !== c) bus = chain(c);
+      S[name](c, bus, c.currentTime + 0.02, opts || {});
+      return true;
+    } catch (e) { return false; }
+  }
+  // a sound as a 16-bit WAV (Blob), for previews and the settings row's sample
+  async function render(name, opts){
+    const C = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!C || !S[name]) return null;
+    const sr = 44100, len = Math.ceil(sr * 3), c = new C(2, len, sr), inp = chain(c);
+    S[name](c, inp, 0.05, opts || {}); const buf = await c.startRendering();
+    const L = buf.getChannelData(0), R = buf.getChannelData(1); let end = len; while (end > sr * 0.3 && Math.abs(L[end - 1]) < 1e-4) end--; end = Math.min(len, end + sr * 0.15);
+    const dv = new DataView(new ArrayBuffer(44 + end * 4)), w = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); dv.setUint32(4, 36 + end * 4, true); w(8, "WAVE"); w(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 2, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 4, true); dv.setUint16(32, 4, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, end * 4, true);
+    for (let i = 0; i < end; i++) { dv.setInt16(44 + i * 4, Math.max(-1, Math.min(1, L[i])) * 32767, true); dv.setInt16(46 + i * 4, Math.max(-1, Math.min(1, R[i])) * 32767, true); }
+    return new Blob([dv.buffer], {type: "audio/wav"});
+  }
+  return {play, render, on, KEY, names: () => Object.keys(S), set: v => { try { if (v) localStorage.removeItem(KEY); else localStorage.setItem(KEY, "off"); } catch (e) {} }};
+})();
+window.SBSFX = SFX;
 // A day-plan card's time: it only breaks after its dash (never between a time and its AM or PM), and only when it doesn't fit
 const dtlWhen = w => esc(w).replace(/ (AM|PM)\b/g, "\u00A0$1").replace(/([–-])/g, "$1<wbr>");
 /* ===== module: 01-board.js: the app's core, the Board, the focus engine and what the planner knows ===== */
@@ -13839,6 +14014,8 @@ function card(t){
 }
 function backupNudge(){
   if (inPreview() || !tasksArr().length) return "";
+  // a brand-new planner isn't nagged in its first 3 days: the welcome setup and Getting Started offer backups already
+  try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if (at && Date.now() - at < 3 * 864e5) return ""; } catch (e) {}
   if (FSB.status === "paused") return `<div class="nudge"><span>Automatic backups to “${esc(FSB.where)}” are paused until you allow access again.</span><button class="btn small primary" data-act="fsb-resume">Resume Backups</button></div>`;
   if (FSB.status === "on") return "";
   const last = Number(localStorage.getItem("studioso:lastExport") || 0), later = Number(localStorage.getItem("studioso:nudge") || 0);
@@ -14447,7 +14624,10 @@ function computeFocusNow(){
   let busyAhead = null;
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
-    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    // the most today can hold: the free time left before your end of day, around classes, shifts and events still to come
+    // (a library shift tonight means "Make Today 8h" can't be offered at 3 PM)
+    const freeLeft = av && av.res && isNum(av.res.total) ? av.res.total / 60 : Infinity;
+    const dayLeft = Math.min(Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), leftH, freeLeft), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
     if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
@@ -14538,6 +14718,7 @@ function planGapWhy(F){
   if (F.doneToday >= 0.25) { const d = Math.min(rest, q(F.doneToday)); why.push(tr("plan.gap.done", "{time} of focus is already done today, so it comes off the {set} you set.", {time: fmtHM(d), set: fmtHM(F.thSet)})); why.chips.push({k: "done", t: tr("plan.chip.done", "{time} done of {set}", {time: fmtHM(d), set: fmtHM(F.thSet)})}); rest -= d; }
   if (F.lateCap && rest >= 0.25) { const end = F.sd ? fmtTime(AVAIL.toT(F.sd.end % 1440)) : "1:00 AM", over = F.sd && F.sd.past && !F.sd.night; why.push(over ? tr("plan.gap.over", "Your study day ended at {end}, so today's plan is done.", {end}) : tr("plan.gap.late", "It's late, so today's plan stops at {end}, your end of day.", {end})); why.chips.push({k: "end", t: over ? tr("plan.chip.over", "Day ended {end}", {end}) : tr("plan.chip.late", "Ends {end}", {end})}); rest = 0; }
   if (F.avail && F.avail.active && F.avail.note) rest = 0;
+  if (rest >= 0.25) why.push(tr("plan.gap.free", "That's all the work there is to do today, so {time} of the {set} you set is free.", {time: fmtHM(q(rest)), set: fmtHM(F.thSet)}));
   return why;
 }
 // For tests: the plan as the app sees it right now
@@ -14565,7 +14746,8 @@ function dayTimelineHtml(F, todayList, heroId){
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
-      if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
+      // work, shifts and other availability blocks show too, so the strip never calls a shift Free (protected time stays as Free)
+      if ((o.type !== "meet" && o.type !== "event" && !(o.type === "avail" && o.avail && o.avail.kind !== "protected")) || o.skipped || o.allDay || !o.start || !o.end) return;
       const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
     // A timed exam or quiz sat in person today is on the strip too (the plan keeps that time clear)
@@ -14714,8 +14896,11 @@ function planNotes(F, inView, crunchMain){
   const b = F.busyAhead;
   const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+    // days with the same reason say it once: "Monday and Wednesday (Shift at campus library)"
+    const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " and " + l[l.length - 1] : l[0];
+    const same = b.days.length > 1 && b.days[0].what && b.days.every(d => d.what === b.days[0].what);
+    const list = same ? and(b.days.map(name)) + ` (${b.days[0].what})` : and(b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")));
+    return {list: esc(list), many: b.days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
   })() : null;
   // Short of time and busy days ahead both ask for more time today: one row, one button
   if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
@@ -14794,6 +14979,10 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   // Open tasks with no due date can't be ranked; Full Ranking ends with a line that lists them
   const nUndated = tasksArr().filter(t => t.status !== "done" && !t.due && inFilter(t) && matchesQ(t)).length;
+  // Only work that starts later (a new student's first task, say): say so, rather than "nothing due yet"
+  const laterOnes = !todayList.length && !overdue && !queued ? F.later.filter(inView).map(x => x.t).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))) : [];
+  const laterSum = !laterOnes.length ? "" : laterOnes.length === 1 && laterOnes[0].start ? `Nothing needs work today. ${esc(laterOnes[0].title)} starts ${esc(fmtDate(laterOnes[0].start))}${laterOnes[0].due ? ` (due ${esc(fmtDate(laterOnes[0].due))})` : ""}.`
+    : `Nothing needs work today. ${laterOnes.length === 1 ? "Your task starts" : `${laterOnes.length} tasks start`} later: see Not Started Yet below.`;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater || nUndated;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
   let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
@@ -14813,10 +15002,10 @@ function focusHtml(){
   const planTile = offToday ? "" : `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : laterSum || "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(offToday ? "" : `<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${termHtml}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml || laterSum ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
       ${window.SBDAYWRAP && !pick ? SBDAYWRAP.rowHtml(F) : ""}
@@ -15812,6 +16001,14 @@ const AVAIL = (() => {
       while (cur < w.e && ti < left.length) {
         const t = left[ti], room = w.e - cur;
         if (room < Math.min(minSlot, t.left)) break;
+        // A short task isn't cut into a scrap under half an hour (25m before a shift, the rest after it): a later task that fits
+        // the gap whole goes there instead, else the gap stays free and the task starts in the next window
+        if (t.left > room && room < 30 && t.left <= 90 && t.left === Math.round(tasks.find(x => x.id === t.id).min)) {
+          const j = left.findIndex((u, i) => i > ti && u.left > 0 && u.left <= room && u.left >= Math.min(minSlot, u.left));
+          if (j < 0) break;
+          const u = left[j]; left.splice(j, 1); left.splice(ti, 0, u);
+          continue;
+        }
         const len = Math.min(t.left, maxS, room);
         slots.push({id: t.id, s: cur, e: cur + len, min: len});
         t.left -= len; cur += len;
@@ -15937,6 +16134,13 @@ const AVAIL = (() => {
       }
       if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      // a run of days written with numbers: 11/12-11/14, 11/12-14, 11/30 to 12/2
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\s*(?:-|–|to)\s*(?:(\d{1,2})\/)?(\d{1,2})$/))) {
+        const a = mk(Number(m[1]) - 1, Number(m[2])), z = mk((m[3] ? Number(m[3]) : Number(m[1])) - 1, Number(m[4]));
+        if (!a || !z || z < a || dnum(z) - dnum(a) > 31) return bad.push(tok.trim());
+        for (let d = a; d <= z; d = addD(d, 1)) out.add(d);
+        return null;
+      }
       if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       bad.push(tok.trim());
     });
@@ -16695,8 +16899,10 @@ function schOccurrences(from, to){
 function schOccurrencesNow(from, to, sc){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
   const SS = window.SBSCHOOL;
-  coursesArr().forEach(c => courseMeetings(c).forEach(m => {
+  coursesArr().forEach(c => { const cd = c.classDates || {}, cFrom = isDate(cd.from) ? cd.from : "", cUntil = isDate(cd.until) ? cd.until : ""; courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
+      // no class before the First Class or after the Last Class you set in Term Dates (finals week and the break stay clear)
+      if ((cFrom && d < cFrom) || (cUntil && d > cUntil)) continue;
       // no class on a day off; a rotating class time meets on its cycle days
       if (SS ? !SS.meets(sc, m, d) : !(m.days || []).includes(parse(d).getDay())) continue;
       const key = `${d}|${m.start}|${m.kind}`, mv = (c.meetMoves || {})[key];
@@ -16704,7 +16910,7 @@ function schOccurrencesNow(from, to, sc){
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || m.start, end: mv.end || m.end, moved: true}); }
       if (inRange(o.date)) out.push(o);
     }
-  }));
+  }); });
   eventsArr().forEach(ev => {
     const c = ev.courseId ? courseOf(ev.courseId) : null;
     const base = {type: "event", id: ev.id, ev, color: c ? c.color : "var(--accent)", title: ev.title, label: ev.label || "", course: c, where: ev.where || "", allDay: ev.allDay, cls: EV_LABEL_CLASS[ev.label] || "k-event"};
@@ -16828,31 +17034,35 @@ function occSheet(type, id, key){
   if (type === "event" && state.events[id] && !state.events[id].repeat && !evInSeries(state.events[id])) { eventForm(state.events[id]); return; }
   const o = findOcc(type, id, key); if (!o) return;
   const usual = type === "meet" ? {date: o.orig, start: o.m.start, end: o.m.end} : {date: o.orig, start: o.ev.start, end: o.ev.end};
+  // an overnight event (10 PM to 2 AM) is edited as one piece, whichever half was tapped
+  const oS = o.ds || o.start, oE = o.de || o.end, oD = o.ovn === "tail" ? addDays(o.date, -1) : o.date;
   const name = `${o.title}${o.label && o.label !== o.title ? " " + o.label : ""}`;
   openSheet(`<form class="sheet">${head(name)}
     <div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">Usually ${esc(parse(usual.date).toLocaleDateString(undefined, {weekday: "long"}))}s, ${esc(fmtTime(usual.start))}–${esc(fmtTime(usual.end))}${o.where ? `, ${esc(o.where)}` : ""}. Changes here only affect the week of ${esc(fmtShort(o.orig))}; every other week stays the same.${o.skipped ? " <b>Skipped this week.</b>" : o.moved ? " <b>Moved this week.</b>" : ""}</p>
       <div class="two">
-        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : o.date)}" required></label>
+        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : oD)}" required></label>
         <span></span>
       </div>
       <div class="two">
-        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : o.start)}" required></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(o.skipped ? usual.end : o.end)}" required></label>
+        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : oS)}" required></label>
+        <label class="f"><span class="lh">Ends${type === "event" ? ` <span class="hint" id="occNext"${(o.skipped ? usual.end < usual.start : oE < oS) ? "" : " hidden"}>the next day</span>` : ""}</span><input type="time" name="end" value="${esc(o.skipped ? usual.end : oE)}" required></label>
       </div>
       <p class="mini" style="margin:6px 0 0">Tip: on the schedule you can also drag a class to a new time or day.</p>
     </div>
     <div class="sheet-foot occ-foot">
       <button type="button" class="btn" id="occSkip">${o.skipped ? "Don't Skip" : "Skip This Week"}</button>
       ${o.moved ? `<button type="button" class="btn" id="occReset">Reset to Usual Time</button>` : ""}
-      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Event"}</button>
+      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Every Week"}</button>
       <button type="button" class="btn primary" data-submit>Save This Week</button></div>
   </form>`, fd => {
     const date = String(fd.get("date") || ""), start = String(fd.get("start") || ""), end = String(fd.get("end") || "");
-    if (!isDate(date) || !start || !end || end <= start) { toast("Pick a date, and an end time after the start"); return false; }
+    // an event may run past midnight (an end before the start is the next day); a class can't
+    if (!isDate(date) || !start || !end || end === start || (end < start && type !== "event")) { toast("Pick a date, and an end time after the start"); return false; }
     const same = date === usual.date && start === usual.start && end === usual.end;
     setOccurrence(type, id, key, same ? null : {date, start, end}, same ? `${name} is back to its usual time` : `Moved ${name} to ${fmtShort(date)}, ${fmtTime(start)} (this week only)`);
   });
+  { const f = dlg.querySelector("form"), nx = f && f.querySelector("#occNext"); if (nx) { const upd = () => { nx.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }; f.elements.start.addEventListener("input", upd); f.elements.end.addEventListener("input", upd); } }
   $("#occSkip").addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, o.skipped ? null : {skip: true}, o.skipped ? `${name} is back on` : `Skipped ${name} on ${fmtShort(o.orig)}`); });
   const r = $("#occReset"); if (r) r.addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, null, `${name} is back to its usual time`); });
   $("#occAll").addEventListener("click", () => { dlg.close(); setTimeout(() => type === "meet" ? courseForm(state.courses[id]) : eventForm(state.events[id]), 30); });
@@ -17085,7 +17295,8 @@ function icsPlan(text){
     let e = icsWhen(g("DTEND")); const dur = icsDur(txt("DURATION"));
     let end = "", endDate = "";
     if (s.allDay) { if (e && e.date > addDays(s.date, 1)) endDate = addDays(e.date, -1); }
-    else if (e && e.ms) end = e.date === s.date ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
+    // an end the next morning (a 10 PM to 2 AM shift) stays overnight; one at midnight or days later ends the day
+    else if (e && e.ms) end = e.date === s.date ? e.time : e.date === addDays(s.date, 1) && e.time !== "00:00" && e.time < s.time ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
     let repeat = null, until = "", note = "";
     const rr = txt("RRULE");
     if (rr) {
@@ -17113,8 +17324,11 @@ function icsPlan(text){
     const exd = []; (it.props.EXDATE || []).forEach(x => String(x.v).split(",").forEach(v => { const w = icsWhen({v, p: x.p}); if (w) exd.push(w.date); }));
     const lastDate = repeat ? (repeat.until || "9999-12-31") : (endDate || s.date);
     const past = lastDate < addDays(today, -30);
-    const isTask = !repeat && TASK_RX.test(title);
-    out.push({kind: isTask ? "task" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
+    // a span of days ("Final Exams Period", Dec 7 to 18) or an exam week is a stretch of the term, not one exam to sit or hand in
+    const isTask = !repeat && !(s.allDay && endDate) && !/\b(exams?|finals?|midterms?|tests?)\s+(period|weeks?|season|schedule|timetable)\b/i.test(title) && TASK_RX.test(title);
+    // a school break or holiday can be a day off (no classes, a free day for Today's Plan) instead of an event
+    const off = s.allDay && !repeat && !isTask && /\b(break|holidays?|recess|vacation|no (classes|class|school|lectures?)|classes? (cancell?ed|suspended)|(campus|university|college|school) (is )?closed|closure|reading (day|days|week|period)|study (day|days|week|period)|day off|days off|snow day)\b/i.test(title);
+    out.push({kind: isTask ? "task" : off ? "off" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
   });
   overrides.forEach(ov => {
     const it = out.find(x => x.uid === ov.uid && x.repeat); if (!it || !ov.rid) return;
@@ -17150,12 +17364,12 @@ function icsImportSheet(text, fileName){
   const pick = (L, it) => L ? (L.find(x => x.icsSrc === src) || L.find(x => !x.icsSrc && x.title === it.title)) : undefined;
   const existingEv = {}, existingT = {};
   its.forEach(it => { const e = pick(evByUid[it.uid], it), t = pick(tByUid[it.uid], it); if (e) existingEv[it.uid] = e; if (t) existingT[it.uid] = t; });
-  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
+  const whenOf = it => it.kind === "task" && (!it.date || (!it.repeat && !it.endDate)) ? `Due ${fmtShort(it.due || it.date)}${(it.time || it.start) ? " " + fmtTime(it.time || it.start) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}${it.end < it.start ? " (next day)" : ""}`}`;
   const courseName = it => it.courseId ? courseLabel(courseOf(it.courseId)) : it.newCourse ? `${it.newCourse} (new)` : "";
   const ncs = Object.entries(plan.newCourses);
   openSheet(`<form class="sheet ics-sheet">${head("Import Calendar")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
+      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks; breaks and holidays can be days off. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
       ${ncs.length ? `<fieldset><legend>New Courses</legend><div class="check-list">${ncs.map(([code, n]) => `<label class="mi-check"><input type="checkbox" name="nc" value="${esc(code)}" checked> Add ${esc(code)} as a course <span class="mini">${n} item${n === 1 ? "" : "s"}</span></label>`).join("")}</div></fieldset>` : ""}
       <label class="mi-check"><input type="checkbox" id="icsPast"> Include things that already happened <span class="mini">(older than a month)</span></label>
       <div class="ics-list" id="icsList"></div>
@@ -17173,10 +17387,14 @@ function icsImportSheet(text, fileName){
       ch.push({kind: "course", id: nc.id, after: nc}); made[it.newCourse] = nc.id; return nc.id;
     };
     let nE = 0, nT = 0, nU = 0;
+    // breaks and holidays picked as Day Off go to School Days: no classes, and Today's Plan treats them as free days
+    const sc0 = (state.settings && state.settings.school) || {}, offs = (Array.isArray(sc0.off) ? sc0.off : []).slice(); let nO = 0;
     rows.forEach(r => {
       const it = its[Number(r.dataset.i)];
       if (!r.querySelector("input[type=checkbox]").checked || (it.past && !past)) return;
-      const as = r.querySelector("select").value, courseId = courseFor(it);
+      const as = r.querySelector("select").value;
+      if (as === "off") { const from = it.date, to = it.endDate && it.endDate > from ? it.endDate : from; if (!offs.some(o => o.from === from && (o.to || o.from) === to)) { offs.push({id: uid(), name: it.title.slice(0, 60), from, to}); nO++; } return; }
+      const courseId = courseFor(it);
       if (as === "task") {
         const prev = existingT[it.uid], due = it.due || it.date, time = it.time != null ? it.time : it.start;
         const t = prev ? Object.assign(clone(prev), {title: it.title, due, time: time || "", icsSrc: src}) : normTask({id: uid(), created: Date.now(), title: it.title, courseId, type: guessTaskType(it.title), due, time: time || "", location: it.where || "", notes: it.notes || "", status: it.done ? "done" : "todo", doneAt: it.done ? Date.now() : null, order: nextOrder(it.done ? "done" : "todo"), icsUid: it.uid, icsSrc: src});
@@ -17190,9 +17408,10 @@ function icsImportSheet(text, fileName){
         ch.push({kind: "event", id: ev.id, after: ev}); prev ? nU++ : nE++;
       }
     });
-    if (!ch.length) { toast("Everything in that file is already here"); return; }
+    if (nO) { offs.sort((a, b) => a.from < b.from ? -1 : 1); state.settings = Object.assign({}, state.settings, {school: Object.assign({}, sc0, {off: offs})}); saveSettings(); scheduleRender(); }
+    if (!ch.length) { toast(nO ? `Added ${nO} day${nO === 1 ? "" : "s"} off. Change them in School Days.` : "Everything in that file is already here"); return; }
     const nC = Object.keys(made).length;
-    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nU && `${nU} updated`].filter(Boolean);
+    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nO && `${nO} day${nO === 1 ? "" : "s"} off`, nU && `${nU} updated`].filter(Boolean);
     applyChanges(ch, `Imported ${parts.join(", ")}`);
     const first = its.filter(it => it.kind === "event" && !it.past).map(it => it.date).sort().find(d => d >= mondayOf(todayISO()));
     ui.tab = "schedule"; ui.schWeek = mondayOf(first && first < addDays(todayISO(), 21) ? first : todayISO());
@@ -17203,7 +17422,7 @@ function icsImportSheet(text, fileName){
     const vis = its.map((it, i) => ({it, i})).filter(({it}) => past || !it.past).sort((a, b) => ((a.it.date || a.it.due) < (b.it.date || b.it.due) ? -1 : 1));
     list.innerHTML = vis.length ? vis.map(({it, i}) => `<div class="ics-row" data-i="${i}"><input type="checkbox" checked aria-label="Import ${esc(it.title)}">
       <div class="ics-main"><b>${esc(it.title)}</b><span class="mini">${esc(whenOf(it))}${courseName(it) ? ` · ${esc(courseName(it))}` : ""}${(it.kind === "task" ? existingT : existingEv)[it.uid] ? " · already imported" : ""}</span></div>
-      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option></select></div>`).join("")
+      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option>${it.allDay && !it.repeat ? `<option value="off" ${it.kind === "off" ? "selected" : ""}>Day Off</option>` : ""}</select></div>`).join("")
       : `<p class="mini">Everything in this file happened more than a month ago. Tick the box above to include it.</p>`;
     const nPast = its.filter(it => it.past).length;
     count.textContent = `${vis.length} item${vis.length === 1 ? "" : "s"}${!past && nPast ? `, ${nPast} older hidden` : ""}`;
@@ -17665,6 +17884,7 @@ function dailyQuote(force){
   if (!force && (dlg.open || document.getElementById("qod") || document.hidden)) { setTimeout(() => dailyQuote(false), 4000); return; }
   try { localStorage.setItem("studyboard:quoteDay", d); } catch(e) {}
   const [q, who] = todaysQuote();
+  window.__sbQuoteAt = Date.now();   // the one-time intros (Discord, feature intros) give it a couple of minutes before they show
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
     ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
@@ -17797,6 +18017,10 @@ function viewScheduleMonth(){
   const evBy = {};
   try {
     schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
+    // exams and quizzes are on the month too (finals week reads at a glance); a tap opens the exam
+    tasksArr().forEach(t => { if (!MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < lo || t.due > hi) return;
+      const tm = /^\d\d:\d\d$/.test(t.time || "") ? t.time : "";
+      (evBy[t.due] = evBy[t.due] || []).push({type: "task", id: t.id, key: t.id, kind: "exam", title: t.title, color: colorOf(t.courseId), allDay: !tm, start: tm, end: tm ? minToT(Math.min(1439, tToMin(tm) + (t.type === "Exam" ? 120 : 60))) : "", where: t.location || "", course: courseOf(t.courseId), ttype: t.type, date: t.due}); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
   } catch (e) { console.warn("schedule month: events", e); }
   const hol = {};
@@ -17815,11 +18039,11 @@ function viewScheduleMonth(){
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     // (office hours are listed under the day, not in the cell, so the month isn't full of them)
-    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office").sort((a, b) => (b.kind === "exam") - (a.kind === "exam")), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
-    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}${hl.length ? (hl.some(h => h.off) ? " hol hol-off" : " hol") : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
   }
-  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const dayEvs = evBy[pick] || [], dayHol = hol[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const isNow = monthKey === today.slice(0, 7);
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
@@ -17836,7 +18060,8 @@ function viewScheduleMonth(){
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
     ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
-    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+    ${dayHol.length ? `<p class="mini smc-hol${dayHol.some(h => h.off) ? " off" : ""}">${esc(dayHol.map(h => h.name).join(", "))}${dayHol.some(h => h.off) ? " · no classes" : ""}</p>` : ""}
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row${o.kind === "exam" ? " smc-exam" : ""}" style="--c:${esc(o.color)}" ${o.type === "task" ? `data-act="edit-task" data-id="${esc(o.id)}"` : `data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"`}><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.type === "task" ? (o.start ? esc(fmtTime(o.start)) : esc(o.ttype)) : o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
       : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
 }
 function viewSchedule(){
@@ -17887,14 +18112,16 @@ function viewSchedule(){
   // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
   const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  // the morning end of an overnight event (a night shift to 2 AM) doesn't stretch the grid back to midnight: it sits at the top
+  const nightTail = o => o.ovn === "tail" && tToMin(o.end) <= 7 * 60;
+  let lo = Math.min(...timed.filter(o => !nightTail(o)).map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
   let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
-    const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
+    const items = timed.filter(o => o.date === d.iso).map(o => o.ovn === "tail" ? (s => ({s, e: Math.max(tToMin(o.end), s + 45), o}))(Math.max(tToMin(o.start), h0 * 60)) : {s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o})
       .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
       .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
@@ -17917,7 +18144,7 @@ function viewSchedule(){
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
     const nowLine = d.iso === today && nowM >= h0 * 60 && nowM <= h1 * 60 ? `<i class="sch-now" style="top:${top(nowM)}px"></i>` : "";
-    const offD = window.SBSCHOOL && schoolCfg() ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
+    const offD = window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
     return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}${offD ? " is-off" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
@@ -17928,7 +18155,8 @@ function viewSchedule(){
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
   }).join("");
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }
-  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
+  const offOf = iso => { try { return window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), iso) : null; } catch (e) { return null; } };
+  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}${offOf(d.iso) ? " is-off" : ""}"${offOf(d.iso) ? ` title="${esc(schoolDayText(d.iso) || "Day off")}"` : ""}><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
   const nEv = occ.filter(o => o.type === "event" && !o.skipped).length;
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
@@ -19452,7 +19680,9 @@ function mathFitAll(list){
   const room = new Map();
   xs.forEach(x => {
     if (!room.has(x.box)) { const cs = getComputedStyle(x.box); room.set(x.box, x.box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)); }
-    x.room = room.get(x.box); x.w = x.el.offsetWidth;
+    // a formula on its own line ($$...$$) is a block as wide as the note, so it's measured by what KaTeX drew inside it
+    const k = x.el.classList.contains("mth-d") && x.el.querySelector(".katex-html");
+    x.room = room.get(x.box); x.w = k ? Math.max(k.scrollWidth, k.offsetWidth) : x.el.offsetWidth;
   });
   xs.forEach(x => { if (x.room > 0 && x.w > x.room) x.el.style.fontSize = Math.max(0.6, Math.floor(x.room / x.w * 100) / 100) + "em"; });
 }
@@ -19949,7 +20179,7 @@ const SY = (() => {
       .replace(/\s*[|•·;]\s*/g, " ")
       .replace(/\(\s*\d{1,3}(?:\.\d+)?\s*%[^)]*\)/g, " ")
       .replace(/\(\s*\)/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/\s+/g, " ").replace(/ ([:,;])/g, "$1")
       .replace(/^[\s,:;.\-–—@#*]+|[\s,:;\-–—@#*]+$/g, "")
       .trim();
   }
@@ -20017,8 +20247,9 @@ const SY = (() => {
     if (!info.instructor) { for (const l of top) { const x = l.match(/\b((?:Dr|Prof|Professor)\.?\s+[A-Z][a-zA-Z'’\-]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-zA-Z'’\-]+)?)/); if (x) { info.instructor = x[1]; break; } } }
     info.office = clean(field(/(?:^|[;,.]\s*)(?:instructor\s+|student\s+)?(?:office|drop-?in|student|help)\s+hours?\s*[:\-–]?\s*(.+)/i)).split(";")[0].trim();
     info.room = clean(field(/^\s*(?:class\s*room|room|location|lecture location|classroom|where|place)\s*[:\-–]\s*(.+)/i));
-    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
-    const dayTime = /\b((?:M|T|W|Th|R|F|Tu|MWF|MW|TTh|TR|TuTh|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri)(?:[\/,&\s-]+(?:M|T|W|Th|R|F|Tu|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|and))*(?:days?)?)\s*,?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/i;
+    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meetings?|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
+    const DT = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|MWF|MW|TTh|TR|TuTh|Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Th|Tu|M|T|W|R|F)";
+    const dayTime = new RegExp("\\b(" + DT + "(?:[\\/,&\\s-]+(?:" + DT + "|and))*(?:days?)?)\\s*,?\\s*" + /(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/.source, "i");
     const hasDays = x => /\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b(MWF|MW|TTh|TR|TuTh|WF|MTWRF)\b/i.test(x || "");
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
@@ -20088,8 +20319,8 @@ const SY = (() => {
     let total = 0;
     for (const l of lines) { const m = l.match(/^(?:grand\s+)?total(?:\s+points)?\b[^\d%]*(\d{2,4})(?:\s*(?:pts|points))?\s*$/i); if (m) { total = Number(m[1]); break; } }
     const CATS = [[/^(?:the\s+)?final(?:\s+exam(?:ination)?)?\b/i, "Final"], [/^(?:mid-?terms?|exams?|examinations?|tests?)(?:\s+(?:exams?|tests?))?\b/i, "Exam"],
-      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?)\b/i, "Assignment"],
-      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^(?:readings?|reading\s+responses?)\b/i, "Reading"]];
+      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?|reading\s+responses?|response\s+papers?|reflections?|discussion\s+posts?|journals?)\b/i, "Assignment"],
+      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^readings?\b/i, "Reading"]];
     const WORDN = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, twelve:12};
     // "Quizzes 20%, Homework 20%, Midterm 30%" on one line: each part is its own entry
     const isCat = p => CATS.some(([re]) => re.test(p.replace(/^[\s•\-*·]+/, "").trim()));
@@ -20298,6 +20529,8 @@ const SY = (() => {
     // Numbered lines in the breakdown go to the item with that number
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
+    // A breakdown line naming one item ("Research Paper 15%") is that item's weight, when exactly one item has that name
+    breakdown(text).forEach(b => { const k = normTitle(b.t); if (k.length < 4 || /^(home ?work|hw|quiz|exam|midterm|test|lab|assignment|project|reading|essay|paper|report|presentation|discussion|problem set|worksheet)$/i.test(b.t.trim())) return; const hit = final.filter(x => x.weight == null && normTitle(x.title).includes(k)); if (hit.length === 1) { hit[0].weight = b.w; hit[0].ownW = true; } });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
     const splits = {};
@@ -20559,7 +20792,11 @@ function importSheet(courseId, file){
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
     // a breakdown line with no date is the course's item of that name, whatever its date
-    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // A task you named your own way is the same one too: "Quiz 5" is your "Psych Quiz 5 (Ch. 12-13)" (same kind and number), and an
+    // exam or quiz is the one of that type already on that day ("Final Exam" and "Psych Final (online)" on Dec 16)
+    const kindNo = s => { const m = String(s || "").toLowerCase().match(/\b(quiz|exam|midterm|test|lab|homework|hw|problem set|assignment|essay|paper|project|reading response|response)\s*#?\s*(\d+)\b/); return m ? m[1].replace(/^hw$/, "homework") + " " + Number(m[2]) : ""; };
+    const sameOne = (i, cid) => allTasks().some(t => t.courseId === cid && !t.prepFor && t.type === i.type && ((kindNo(i.title) && kindNo(t.title) === kindNo(i.title)) || (!!i.due && t.due === i.due && /^(Exam|Quiz)$/.test(i.type))));
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)) || sameOne(i, cid));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
@@ -21005,7 +21242,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && fileKind(f) === "pdf" && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf && fileKind(f) === "pdf" ? (DESK ? "Open in Another App" : "Open in Browser") : (pdf || canPreview(f)) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -21385,6 +21622,9 @@ function notePlain(text, max){
 }
 // A note's name for screen readers: its words as read, not its formatting or math code
 const noteLabelText = n => { const t = String(n.text || "").trim(); if (!t) return "Empty note"; const s = typeof mathSpeech === "function" ? mathSpeech(t) : t; return s.replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\s+/g, " ").slice(0, 80); };
+// "# Title" and "## Heading" lines (typed, or from lecture study notes and imports) show as headings, without the #s.
+// The text keeps them, so it exports and syncs as typed. html: the note's text, already escaped
+const noteHeads = html => html.indexOf("#") < 0 ? html : html.replace(/(^|\n)(#{1,6})[ \t]+(?=\S)([^\n]*)/g, (m, a, h, t) => `${a}<span class="nh nh${Math.min(h.length, 3)}">${t}</span>`);
 function noteHtml(n){
   const c = courseOf(n.courseId), w = NOTE_W(), tk = n.taskId ? state.tasks[n.taskId] : null;
   const editing = noteEditing === n.id;
@@ -21404,7 +21644,7 @@ function noteHtml(n){
          <details class="note-moredd"${noteMoreOpen === n.id ? " open" : ""}><summary class="btn small">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.filter(x => x.id !== (NOTE_SHAPES.find(y => y.id === styleCfg().note) || NOTE_SHAPES[0]).id).map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${pinOptionsHtml(n)}</select></div><div class="note-xbtns" role="group" aria-label="More for this note"><button type="button" class="btn small" data-act="note-versions" data-id="${esc(n.id)}" title="Restore an earlier version of this note">Versions</button><button type="button" class="btn small" data-act="note-export" data-id="${esc(n.id)}" title="Make a Word or Google Doc from this note">Export</button>${window.SBSHARE ? `<button type="button" class="btn small" data-act="share-link" data-kind="note" data-ref="${esc(n.id)}" title="Make a link anyone can open">Share Link</button>` : ""}</div></details>
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
-    : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
+    : `<div class="note-body">${n.text.trim() ? noteHeads(window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
   return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}${noteDark(n.color) ? " note-dark" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
@@ -23036,6 +23276,7 @@ function deckSheet(d){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Deck Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(d.name)}" autofocus placeholder="e.g. Population ecology"></label>
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
+      ${!isNew && window.SBXR ? SBXR.countsHtml(d, "") : ""}
       <label class="f"><span class="lh">Card Style <span class="hint">how cards look while you study</span></span><select name="cardStyle"><option value="">${esc((CARD_STYLES.find(x => x.id === deckDefaultStyle(d)) || CARD_STYLES[0]).name)} (default)</option>${cardStyleGroups().map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(x => `<option value="${x.id}" ${d.cardStyle === x.id ? "selected" : ""} ${owns("card", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>${window.SBVH ? SBVH.deckBtn(d) : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
@@ -23043,7 +23284,7 @@ function deckSheet(d){
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cs = String(fd.get("cardStyle") || "");
     if (isNew) { const nd = normDeck({id: uid(), created: Date.now(), name, courseId: fd.get("courseId") || "", cardStyle: cs}); ui.deckId = nd.id; saveDeck(nd, `Created ${name}`); }
-    else saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved");
+    else { const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, "") : []; saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved"); if (links.length) applyChanges(links, null); }
   });
   const del = $("#dkDel");
   if (del) del.addEventListener("click", () => { dlg.close(); ui.deckId = null; applyChanges([{kind: "deck", id: d.id, after: null}], `Deleted ${d.name}`); });
@@ -23055,13 +23296,16 @@ function cardSheet(d, cardId){
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
       <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      ${window.SBXR ? SBXR.countsHtml(d, c.id) : ""}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
+    const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, cardId) : [];
     x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    if (links.length) applyChanges(links, null);
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -23245,7 +23489,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
-    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards, cards >= 5 && total > 0 && (f.good + f.easy) / total >= 0.7); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }
@@ -23253,7 +23497,11 @@ function viewStudy(){
   if (!c) { f.i++; return viewStudy(); }
   const RD = f.flipped ? rateDues(d, c) : null;
   const lbl = r => { const {due0, due} = RD[r], n = dayDiff(todayISO(), due); return n <= 0 ? "today" : (n === 1 ? "1 day" : n + " days") + (due < due0 ? " (before your exam)" : ""); };
-  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
+  // the hint (before the answer) and the explanation (after) go under Show Answer and the rating buttons, so those stay right below the card
+  const buddy = fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`);
+  // Studyboard Credits this session has earned so far (98-0study-credits.js): one a card, each card once
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC || f.cr0 == null) return ""; return SBSC.liveHtml(SBSC.earned(true) - f.cr0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Studying ${esc(title)}</h2><span class="mini">${f.i + 1} of ${f.q.length}</span>${crLive}${undoBtn(f, true)}<button class="btn small" data-act="fc-exit">End Session</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.q.length * 100)}%"></i></div>
     ${f.note ? `<p class="mini">${esc(f.note)}</p>` : ""}
     ${fcChipsHtml(c, f)}
@@ -23263,13 +23511,12 @@ function viewStudy(){
         <span class="face back"${f.flipped ? ` id="fcFaceNow"` : ` aria-hidden="true"`}><span class="face-label">${esc(tr("fc.side.back", "Back"))}</span>${c.img && window.SBPRO && SBPRO.cardFace ? SBPRO.cardFace(c, true) : `<span class="face-text">${esc(c.back)}</span><span class="face-hint" aria-hidden="true">${esc(c.front)}</span>`}</span>
       </span>
     </button>`}
-    ${fcBuddyHtml(d, c, f, `c|${it.deckId}|${it.cardId}`)}
     ${f.flipped ? `<div class="rate" role="group" aria-label="How well did you know it?">
       <button class="rate-btn again" data-act="fc-rate" data-id="again"><b>Again</b><span>${lbl("again")}</span></button>
       <button class="rate-btn hard" data-act="fc-rate" data-id="hard"><b>Hard</b><span>${lbl("hard")}</span></button>
       <button class="rate-btn good" data-act="fc-rate" data-id="good"><b>Good</b><span>${lbl("good")}</span></button>
       <button class="rate-btn easy" data-act="fc-rate" data-id="easy"><b>Easy</b><span>${lbl("easy")}</span></button>
-    </div>${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>`}`;
+    </div>${buddy}${window.SBREPLAY ? SBREPLAY.cardHtml(d, c) : ""}${window.SBCMAP && SBCMAP.cardHtml ? SBCMAP.cardHtml(d, c) : ""}<p class="hint-line tip-everyday kbd-only">Keys: 1 Again, 2 Hard, 3 Good, 4 Easy. Z undoes the last rating. Esc ends the session.</p>` : `<div class="rate"><button class="btn primary" data-act="fc-flip" style="grid-column:1/-1">Show Answer</button></div>${buddy}`}`;
 }
 
 /* Quizzes made automatically from your cards */
@@ -23416,6 +23663,8 @@ function answerQuiz(given, pre){
   else if (q.type === "tf") r = {given, correct: (given === "true") === q.truth};
   else r = Object.assign({given}, pre || gradeWritten(given, q.answer));
   f.ans[f.i] = r; goalBump(1);
+  // a right answer can turn up a chest, opened at the quiz's end (98-0study-credits.js)
+  if (r && r.correct) { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.rollChest("quiz"); } catch (e) {} }
   sbHaptic(r.correct ? "tap" : "error", {force: !!pre});
   const d = state.decks[q.deckId] && clone(state.decks[q.deckId]);
   if (d) { const c = d.cards.find(x => x.id === q.cardId); if (c) { if (r.correct) c.right++; else { r.prev = {box: c.box, due: c.due, seen: c.seen}; c.wrong++; c.box = Math.max(0, c.box - 1); c.due = todayISO(); c.seen = Math.max(1, c.seen); } saveDeck(d, null); } }
@@ -23443,13 +23692,13 @@ function viewQuiz(){
     const right = f.ans.filter(x => x && x.correct).length, total = f.qs.length, pct = total ? Math.round(right / total * 100) : 0;
     const missed = f.qs.map((x, i) => ({x, a: f.ans[i]})).filter(y => !(y.a && y.a.correct));
     const msg = pct >= 90 ? "Excellent. You know this material." : pct >= 75 ? "Solid. Review the few you missed." : pct >= 50 ? "Getting there. Study the missed cards, then try again." : "Keep going. Study these cards, then retake the quiz.";
-    return `<div class="view-head"><h2>Quiz Results</h2></div>
+    return `<div class="qz-res${missed.length ? "" : " solo"}"><div class="view-head"><h2>Quiz Results</h2></div>
       <section class="done-card">
         <p class="big-num">${right}<span> / ${total} correct, ${pct}%</span></p>
         <div class="score-bar"><i style="width:${pct}%"></i></div>
         <p>${msg}</p>
         <div class="row-actions">${missed.length ? `<button class="btn primary" data-act="fc-retry-missed">Retry the ${missed.length} Missed</button><button class="btn" data-act="fc-study-missed">Study Missed Cards</button>` : ""}<button class="btn ${missed.length ? "" : "primary"}" data-act="fc-new-quiz">New Quiz</button><button class="btn" data-act="fc-exit">Done</button></div>
-      </section>
+      </section></div>
       ${missed.length ? `<h3 class="fsec">Missed Questions</h3><ul class="miss-list">${missed.map(y => `<li><span class="q">${esc(y.x.prompt)}</span><span class="a">Answer: <b>${esc(y.x.answer)}</b></span>${y.a && y.a.given && y.x.type !== "tf" ? `<span class="mini">You answered: ${esc(y.a.given)}</span>` : y.x.type === "tf" ? `<span class="mini">Shown: ${esc(y.x.shown)} (${y.x.truth ? "true" : "false"})</span>` : ""}</li>`).join("")}</ul>` : ""}`;
   }
   const d = state.decks[q.deckId];
@@ -23464,7 +23713,9 @@ function viewQuiz(){
   const fb = a ? `<div class="feedback ${a.correct ? "ok" : "no"}" role="status"><b>${a.correct ? (a.close ? "Close enough, counted as correct." : "Correct.") : "Not quite."}</b>${a.correct && !a.close ? "" : ` The answer is <span class="ans">${esc(q.answer)}</span>.`}${!a.correct && q.type === "written" ? ` <button class="link-btn" data-act="fc-override">I Was Right</button>` : ""}${a.ai ? `<p class="ai-fb">${AI_ICON}${esc(a.ai)}</p>` : ""}</div>
       ${explainHtml(`c|${q.deckId}|${q.cardId}`, q.type === "written" ? a.given : "")}
       <div class="row-actions"><button class="btn primary" data-act="fc-next" id="qNext">${f.i + 1 < f.qs.length ? "Next Question" : "See Results"}</button></div>` : "";
-  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span><button class="btn small" data-act="fc-exit">Quit</button></div>
+  // Studyboard Credits so far: one per right answer (passing adds more at the end); the same quiz key finishQuiz uses
+  const crLive = (() => { try { if (typeof SBSC === "undefined" || !SBSC) return ""; const key = "deck-" + [...new Set(f.qs.map(q => q.deckId))].sort().join("+"); return SBSC.liveHtml(SBSC.quizTriesLeft(key) ? f.ans.filter(x => x && x.correct).length : 0); } catch (e) { return ""; } })();
+  return `<div class="view-head"><h2>Quiz</h2><span class="mini">Question ${f.i + 1} of ${f.qs.length}</span>${crLive}<button class="btn small" data-act="fc-exit">Quit</button></div>
     <div class="progress"><i style="width:${Math.round(f.i / f.qs.length * 100)}%"></i></div>
     <section class="q-card" style="--c:${esc(colorOf(d ? d.courseId : ""))}">
       <span class="face-label">${q.type === "mc" ? `Pick the ${kind[1]}` : q.type === "tf" ? "True or false" : `Type the ${kind[1]}`}</span>
@@ -23878,11 +24129,14 @@ async function fcHint(){
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
   if (k) { k.hints = list; k.hintV = HINT_V; delete k.hint; saveDeck(nd, null); } else render();
 }
+// The bubble pops in once for each new thing it says (thinking, then each hint), never again when the screen redraws with the same
+// hint (saving the hints to the card, a sync): a fresh element each time replayed the pop, so it flashed out and back in
+const bubblePop = h => { const k = h.busy ? "busy" : "at" + h.at; if (h.popped === k) return ""; h.popped = k; return " pop"; };
 function hintBubbleHtml(h, act){
   const name = buddyName();
-  if (h.busy) return `<p class="fc-bubble" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
+  if (h.busy) return `<p class="fc-bubble${bubblePop(h)}" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
   const more = h.at + 1 < h.list.length;
-  return `<div class="fc-bubble" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
+  return `<div class="fc-bubble${bubblePop(h)}" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
 }
 function fcBuddyHtml(d, c, f, key){
   const name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
@@ -24315,16 +24569,6 @@ function playAlarm(name, vol, repeats){
   audioIdle((t - ac.currentTime) * 1000 + 300);
   return true;
 }
-// A short coin chime: focus time saved when a session is skipped or reset (quieter than the alarm, and only with a sound chosen)
-function playCoin(){
-  const cfg = pomoCfg(); if (cfg.sound === "none") return false;
-  const ac = audio(); if (!ac) return false;
-  const v = Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.7)) * 0.7, t = ac.currentTime + 0.03;
-  tone(ac, ac.destination, t, 1567.98, 0.16, "square", 0.09 * v); tone(ac, ac.destination, t, 1567.98, 0.2, "sine", 0.35 * v);
-  tone(ac, ac.destination, t + 0.09, 2093, 0.5, "square", 0.08 * v); tone(ac, ac.destination, t + 0.09, 2093, 0.6, "sine", 0.4 * v);
-  audioIdle(1000);
-  return true;
-}
 // The sound system is switched off once a sound has played: left running, iOS counts the app as playing audio (a speaker
 // in the Dynamic Island, squeezing the timer out of it). Switching it back on later needs no tap.
 let audioIdleT = 0;
@@ -24352,7 +24596,7 @@ function pomoStart(){
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   nativeAlarm();
-  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
+  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) { pomo.len = modeMs(pomo.mode); pomo.done = 0; }
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
@@ -24367,20 +24611,26 @@ function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
   const total = pomoLen(), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
-  return Math.max(0, (total - left) / 60000);
+  return Math.max(0, (total - left) / 60000 - (Number(pomo.done) || 0));
 }
 // Stopping a focus session early
 const pomoEarly = (min, why) => {
-  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return;
+  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return 0;
   const A = accOf();
   if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
-  // the time you focused is kept: a coin chime says so (the credits card shows what it earned, 98-0study-credits.js)
-  try { playCoin(); sbHaptic("success"); } catch(e) {}
+  return m;
 };
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
-function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one
+function pomoRetask(id){
+  id = id || "";
+  if (id === (pomo.taskId || "")) return;
+  if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; }
+  pomo.taskId = id; pomoSave();
+}
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
   if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
@@ -24407,18 +24657,22 @@ function pomoEnd(missed){
   try { if (navigator.locks && navigator.locks.request) { navigator.locks.request("studioso-pomo-finish", go).catch(e => console.warn(e)); return; } } catch(e) {}
   go();
 }
-function pomoFinish(missed){
+// quiet: a session that ended long ago, counted without the alarm
+function pomoFinish(missed, quiet){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000)) : 0;
-  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer);
+  // minutes already logged to another task when the session changed task part way (pomoRetask) aren't counted twice
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)) : 0;
+  // a session that ended while Studyboard was closed counts on the day it ended
+  const endDay = missed && pomo.endAt ? isoDay(pomo.endAt) : todayISO(), endAt = missed && pomo.endAt ? pomo.endAt : 0;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
-    pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
+    pomo.cycle++; if (endDay === todayISO()) { pomo.sessions++; pomo.minutes += fm; }
     const t = pomo.taskId && state.tasks[pomo.taskId];
     // A group project task: the minutes go to its own focus record (see gtAddWork)
     if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
-      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
+      const n = addWork(clone(t), fm, "focus", endDay, endAt); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
@@ -24427,11 +24681,12 @@ function pomoFinish(missed){
   if (done === "long") pomo.cycle = 0;
   pomo.mode = next;
   const auto = !missed && ((next !== "focus" && cfg.autoBreak) || (next === "focus" && cfg.autoFocus));
+  if (quiet) { pomo.mode = "focus"; if (done === "long") pomo.cycle = 0; }
   pomoSave();
   if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
-  pomoAlarm(done, next, auto, missed);
+  if (!quiet) pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed, taskId: done === "focus" ? pomo.taskId : ""});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : ""});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -24473,11 +24728,21 @@ function setTitle(){
 }
 // Light updates every half second; a full redraw only when something changes
 let lastSig = "";
+// Studyboard Credits this focus session has earned so far (98-0study-credits.js), inside the dial just above the time while a focus session is going
+let pomoCrN = -1;
+function pomoCreditsHtml(){
+  if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
+  const l = SBSC.focusLive(); pomoCrN = l.n;
+  // nothing until the first credit (a "+0" at the start of every session is just noise)
+  return l.n > 0 ? SBSC.liveHtml(l.n) : "";
+}
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
   if (full || sig !== lastSig) { lastSig = sig; renderPomoBits(); if ($("#pomoDlg").open) renderPomo(); }
   const clock = fmtClock(left), frac = Math.max(0, Math.min(1, left / total));
   $$("[data-pomo-time]").forEach(el => { el.textContent = clock; });
+  // the credits chip changes once a minute (a little bump when it does)
+  try { const box = document.querySelector("[data-pomo-cr]"); if (box && typeof SBSC !== "undefined" && SBSC) { const was = pomoCrN, html = pomoCreditsHtml(); if (pomoCrN !== was || !box.innerHTML !== !html) { box.innerHTML = html; const c = box.firstElementChild; if (c && was >= 0 && pomoCrN > was) c.classList.add("bump"); } } } catch (e) {}
   const ring = $("#pomoRing"); if (ring) ring.style.strokeDashoffset = String(ring.dataset.c * (1 - frac));
   setTitle();
 }
@@ -24597,7 +24862,7 @@ function nativeAlarm(){
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
   if (taskId === undefined && window.SBEXAM) SBEXAM.pomoDefault();
-  if (taskId !== undefined) { pomo.taskId = taskId; if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
+  if (taskId !== undefined) { pomoRetask(taskId); if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
   const d = $("#pomoDlg");
   renderPomo();
   if (!d.open) { d.showModal(); const b = d.querySelector(".pomo-ctl .btn.primary"); if (b) b.focus(); }
@@ -24640,7 +24905,7 @@ function renderPomo(){
       <div class="segb pomo-modes" role="group" aria-label="Timer mode">${["focus", "short", "long"].map(m => `<button data-act="pomo-mode" data-id="${m}" aria-pressed="${pomo.mode === m}">${MODE_LABEL[m]}</button>`).join("")}</div>
       <div class="pomo-dial m-${pomo.mode}">
         <svg viewBox="0 0 220 220" aria-hidden="true"><circle cx="110" cy="110" r="${R}" class="track"/><circle id="pomoRing" cx="110" cy="110" r="${R}" class="bar" data-c="${C}" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - pomoLeft() / pomoLen())}"/></svg>
-        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
+        <div class="pomo-read">${typeof SBSPROUT !== "undefined" ? SBSPROUT.dialHtml() : ""}<span class="pomo-cr" data-pomo-cr>${pomoCreditsHtml()}</span><span class="pomo-time" data-pomo-time role="timer" aria-live="off">${fmtClock(pomoLeft())}</span><span class="pomo-mode-lbl">${!pomo.running && pomo.left > 0 ? "Paused" : pomo.mode === "focus" ? `Session ${inCycle + 1} of ${every}` : esc(MODE_LABEL[pomo.mode])}</span></div>
       </div>
       ${typeof SBSPROUT !== "undefined" ? SBSPROUT.noteHtml() : ""}<p class="sr pomo-cycle">${inCycle} of ${every} focus sessions done before a long break</p>
       <div class="pomo-ctl">
@@ -24674,7 +24939,7 @@ function renderPomo(){
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
   pomoIslandNote();
-  $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
+  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
   const saveCfg = () => {
@@ -24699,12 +24964,26 @@ setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(()
 // Another tab or window changed the timer: show the same
 window.addEventListener("storage", e => { if (e.key === POMO_LS && e.newValue) { const p = pomoStored(); if (p) pomoAdopt(p); } });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); } });
+// "3:40 PM", "yesterday at 3:40 PM" or "Tue, Nov 24 at 3:40 PM"
+function pomoWhen(ms){
+  const d = new Date(ms), day = isoDay(ms), t = d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"});
+  return day === todayISO() ? t : day === addDays(todayISO(), -1) ? `yesterday at ${t}` : `${d.toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})} at ${t}`;
+}
 function pomoBoot(){
   if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {
-    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    if (pomo.running && Date.now() >= pomo.endAt) {
+      if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true);
+      // finished long ago: a focus session still counts (on the day it ended), with a note instead of the alarm
+      else if (pomo.mode === "focus") {
+        const m = Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)), at = pomo.endAt;
+        pomoFinish(true, true);
+        // a moment after start-up, so the start-up reminders don't write over it
+        setTimeout(() => toast(`Your ${m}-minute focus session from ${pomoWhen(at)} ended while Studyboard was closed. It's counted.`), 6000);
+      } else { pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.mode = "focus"; pomoSave(); }
+    }
     pomoSchedule(); pomoUI(true);
   });
 }
@@ -24726,7 +25005,10 @@ function pomoAction(act, el){
       else web();
       return true;
     }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId;
+      // Start on another task while a focus session runs: the time so far goes to the first task (pomoRetask), and a new session starts
+      if (prevTask !== el.dataset.id && pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { pomoRetask(el.dataset.id); pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer); pomoSave(); }
+      openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
@@ -29137,7 +29419,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days (Studyboard AI Pro comes with a paid plan). No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI Pro. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
@@ -32953,7 +33235,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     assignment: ["homework"], paper: ["essay"], essay: ["paper"], due: ["deadline"], deadline: ["due"], cough: ["coughing"], pain: ["analgesic"],
     analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical", "internship"], internship: ["placement"],
     calc: ["calculus"], calculus: ["calc", "derivative", "integral"], bio: ["biology"], biology: ["bio"], chem: ["chemistry"], chemistry: ["chem"], psych: ["psychology"], psychology: ["psych"],
-    econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
+    orgo: ["organic"], ochem: ["organic"], econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
   };
   function hash(s){
     let a = 0x811c9dc5, b = 0x9747b28c ^ s.length;
@@ -33221,7 +33503,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     });
     notesArr().forEach(n => {
       const txt = String(n.text || "").trim(); if (!txt) return;
-      const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
+      // a "# Heading" first line is the note's title without its #
+      const skip = (/^#{1,6}[ \t]+(?=\S)/.exec(txt) || [""])[0].length, first = txt.slice(skip).split("\n")[0].slice(0, 90), rest = txt.slice(skip + first.length).trim();
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
     });
@@ -33866,7 +34149,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   function examLine(D, x, extra, pre){
     const t = x.t, bits = [(pre ? (x.k === "quiz" ? "Quiz: " : "Exam: ") : "") + t.title, courseTag(D, t), `${longDate(t.due)} (${rel(x.days)})`, clock(t.time) ? "at " + clock(t.time) : "", t.location ? "in " + t.location : "", hasWeight(t) ? `worth ${t.weight}% of the grade` : ""];
     let s = bits.filter(Boolean).join(", ");
-    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
+    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200).trim().replace(/[.!?;:,]+$/, "")}`;
     return s;
   }
   // Tasks still to do between two dates (inclusive)
@@ -33881,6 +34164,10 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
+  // What students call a course ("my orgo final"): the start of the words in its name
+  const NICK = {orgo: "organic chem", ochem: "organic chem", gchem: "general chem", genchem: "general chem", biochem: "biochem", calc: "calculus", precalc: "precalculus",
+    stats: "statistic", stat: "statistic", psych: "psycholog", bio: "biolog", micro: "microecon", macro: "macroecon", econ: "economic", physio: "physiolog",
+    anat: "anatom", soc: "sociolog", polisci: "political science", compsci: "computer science", philo: "philosoph", hist: "history", lit: "literature"};
   // Which courses the question names (by code like "bio 101" or by a word from the name)
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
@@ -33896,6 +34183,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
         else if (letters.some(x => x.length >= 3 && pre(x))) s += 1.6;
       }
       toks(c.name || "").filter(x => x.length >= 4 && !GENERIC_NAME.has(x)).forEach(x => { if (qs.has(x)) s += 1; else if (pre(x)) s += 0.8; });
+      const nm = " " + toks(c.name || "").join(" ");
+      if (qt.some(x => NICK[x] && nm.includes(" " + NICK[x]))) s = Math.max(s, 2);
       if (s > top + 1e-9) { top = s; best = [c]; } else if (s > 0 && Math.abs(s - top) < 1e-9) best.push(c);
     });
     return top >= 1.5 ? best : [];
@@ -33917,11 +34206,13 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   /* The exact answer for a question, or null when it needs reading */
-  function exactAnswer(D, q){
+  // scope: the course picked under Ask About, used when the question doesn't name a course itself
+  function exactAnswer(D, q, scope){
     const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     if (!ql) return null;
     if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
-    const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
+    const named = coursesInQ(D, q), cs = named.length || !scope ? named : D.courses.filter(c => c.id === scope);   // named: only the courses the question itself names (rooms, instructors, a day's classes)
+    const only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
     const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
     if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
       const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
@@ -33938,6 +34229,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       let hinted = false;
       if (hint) { const h = up.filter(x => hint.test(x.t.title)); if (h.length) { up = h; hinted = true; } }
       const listAll = /\b(all|list|exams|tests|quizzes|quizes|how many|which|what exams|any|remaining|upcoming exams)\b/.test(ql) && !/\bnext\b|\bfirst\b|\bsoonest\b/.test(ql);
+      // "when is the final?" in a course whose final is a paper or project, not an exam: say that, with its due date
+      const finals = !up.length && hint && cs.length && /final/.test(String(hint)) ? D.tasks.filter(t => isDate(t.due) && t.due >= D.today && t.status !== "done" && only(t) && /\bfinal\b/i.test(t.title)).sort((a, b) => a.due < b.due ? -1 : 1) : [];
+      if (finals.length) return {kind: "exam", items: askItems(finals), text: `There's no final exam${forC} in your planner. ${finals.length === 1 ? "The final work is" : "The final work:"} ${finals.slice(0, 3).map(t => `${t.title}, due ${longDate(t.due)}`).join("; ")}.`};
       if (!up.length) {
         const past = examsOf(D, kinds).filter(x => only(x.t) && (x.passed || x.done)).pop();
         return {kind: "exam", items: past ? askItems([past.t]) : [], text: `You have no upcoming ${noun}${forC} in your planner.${past ? ` The most recent was ${past.t.title}${courseTag(D, past.t) ? " (" + courseTag(D, past.t) + ")" : ""} on ${longDate(past.t.due)}${past.done ? ", marked as taken" : ""}.` : ""}`};
@@ -33978,16 +34272,16 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       return {kind: "due", items: askItems(real.concat(od)), text};
     }
     if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
-      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
+      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !named.length || (o.c && named.some(c => c.id === o.c.id)) || (o.course && named.some(c => c.id === o.course.id)))
         .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
-      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
-      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
+      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}.`};
+      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
-    if (cs.length && cs.length <= 3) {
+    if (named.length && named.length <= 3) {
       const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
       if (ask) {
         const lbl = {instructor: "instructor", office: "office hours", room: "room"}[ask];
-        const lines = cs.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
+        const lines = named.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
         return {kind: "course", items: [], text: (ask === "instructor" ? "Instructor, " : ask === "office" ? "Office hours, " : "Room, ") + lines.join("; ") + "."};
       }
     }
@@ -34091,7 +34385,7 @@ Return JSON only.`;
     else if (S.thread.length && S.thread[S.thread.length - 1].q === q) S.thread.pop();
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
-    let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    let det = null; try { det = exactAnswer(askData(), q, S.course); } catch(e) { console.warn(e); }
     // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
     if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
@@ -34564,6 +34858,8 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      // search by meaning runs on the device without AI, but nothing writes an answer: say so, or a question just lists matches
+      else if (!aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Without AI, Ask answers dates and grades from your planner and finds the closest matches. Set up AI (free with a Gemini key) to get answers from your notes too.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
@@ -34897,7 +35193,7 @@ Return JSON only.`;
     runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
   };
   setTimeout(warmFiles, 15000);
-  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
+  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun, exact: (q, scope) => exactAnswer(askData(), q, scope)}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
   window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();
@@ -34942,7 +35238,7 @@ var SBAREA = (() => {
     ex: {type: "STRING", description: "One realistic quick-add example task for a student in this field, like 'chem lab report fri 5pm worth 8%'. Lowercase, under 60 characters, with a short day and optional time or weight"},
     types: {type: "ARRAY", items: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]}, description: "All eight task types, the ones this field uses most first"},
     hours: {type: "OBJECT", properties: {Assignment: {type: "NUMBER"}, Project: {type: "NUMBER"}, Lab: {type: "NUMBER"}, Reading: {type: "NUMBER"}, Exam: {type: "NUMBER"}, Quiz: {type: "NUMBER"}, Study: {type: "NUMBER"}}, description: "Typical hours a student in this field spends on one task of each type"},
-    skin: {type: "STRING", enum: FIELD_SKINS.concat([""]), description: "The theme that fits the field best, or an empty string when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
+    skin: {type: "STRING", enum: FIELD_SKINS.concat(["none"]), description: "The theme that fits the field best, or none when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
   // The same tuning each preset field has
   const cleanTuned = (r, text) => {
     if (!r || typeof r !== "object") return null;
@@ -35063,7 +35359,7 @@ document.head.appendChild(AREA_CSS);
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   // The time is kept too, so the Board's semester card waits a few days after the welcome setup
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); if (mode === "first" && !localStorage.getItem(KEY + ":first")) localStorage.setItem(KEY + ":first", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
@@ -35489,7 +35785,7 @@ document.head.appendChild(AREA_CSS);
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
+      case "apptour": tourNext = !!window.SBTOUR; finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
       case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
@@ -35618,6 +35914,7 @@ document.head.appendChild(AREA_CSS);
     }
   });
 
+  const WSPIN = "sb:welcomeSpin"; let tourNext = false;
   function finish(completed, firstTask){
     if (completed) flushCourse();
     if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
@@ -35630,6 +35927,10 @@ document.head.appendChild(AREA_CSS);
     if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // a new student's welcome spin on the prize wheel: now, or once the App Tour they chose is finished or skipped
+    // (only the first time through: a replay from Settings isn't a new student)
+    if (mode === "first") try { if (tourNext) localStorage.setItem(WSPIN, "tour"); else if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } catch (e) {}
+    tourNext = false;
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
       const bar = i.closest(".qa-bar");
@@ -36455,6 +36756,8 @@ const ERRCORE = (() => {
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
+    // the welcome spin waits for the tour a new student chose at the end of the welcome setup (40-onboarding.js)
+    try { if (localStorage.getItem("sb:welcomeSpin") === "tour") { localStorage.removeItem("sb:welcomeSpin"); if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } } catch (e) {}
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -36986,6 +37289,9 @@ const csStudyList = () => { const s = state.settings || {}; const l = s.studyPla
 // A guess at when classes end
 function csGuessUntil(){
   const today = todayISO(), ids = new Set(csCourses().map(c => c.id));
+  // the Last Class from Term Dates (School Days, or a course's Lectures tab) when it's set
+  const set = csCourses().map(c => c.classDates && c.classDates.until).filter(d => isDate(d) && d >= today).sort().pop();
+  if (set) return set;
   const last = Object.values(state.tasks || {}).filter(t => t && ids.has(t.courseId) && !t.archivedTerm && t.due && t.due > addDays(today, 14)).map(t => t.due).sort().pop();
   const y = today.slice(0, 4), m = Number(today.slice(5, 7));
   let term = m >= 9 ? y + "-12-15" : m <= 4 ? y + "-04-30" : y + "-08-15";
@@ -38250,7 +38556,9 @@ const CAP = (() => {
       if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
       if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
+    // "next week" with no day: the Monday it starts (the earliest it could be), flagged so the date is checked before it's added
+    take(/\bnext\s+week\b/i, () => { out.due = weekdayDate(today, 1, "next"); out.flags.push("week"); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -38259,6 +38567,10 @@ const CAP = (() => {
 
   /* courses */
   const alnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Everyday names for a subject: "orgo" for Organic Chemistry, "english" for ENGL, "chemistry" for CHEM (l: the code's letters, n: the name)
+  const NICK = [[/^(orgo|ochem)$/, (l, n) => /organic/.test(n)], [/^english$/, (l, n) => /^eng/.test(l) || /english/.test(n)], [/^chemistry$/, l => /^chem/.test(l)], [/^biology$/, l => /^bio/.test(l)],
+    [/^psychology$/, l => /^psy/.test(l)], [/^physics$/, l => /^phys/.test(l)], [/^(economics|econ)$/, l => /^ec/.test(l)], [/^history$/, l => /^hist/.test(l)], [/^(math|maths)$/, l => /^math/.test(l)],
+    [/^spanish$/, l => /^span/.test(l)], [/^french$/, l => /^fr/.test(l)], [/^(stats|statistics)$/, l => /^stat/.test(l)], [/^(philosophy|philo)$/, l => /^phil/.test(l)], [/^sociology$/, l => /^soc/.test(l)]];
   // Finds the course a sentence mentions
   function matchCourse(text, courses){
     const low = String(text || "").toLowerCase(), words = low.match(/[a-z]+|\d+/g) || [];
@@ -38276,6 +38588,7 @@ const CAP = (() => {
         const nameW = String(c.name || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !["intro", "introduction", "principles", "fundamentals", "with", "and", "topics", "advanced", "general"].includes(w));
         const w = words.find(x => x.length >= 4 && nameW.some(n => n.startsWith(x) || x.startsWith(n))); if (w) { s = 2; used = [w]; }
       }
+      if (s < 2.6) { const nm = String(c.name || "").toLowerCase(), w = words.find(x => NICK.some(([re, ok]) => re.test(x) && ok(letters, nm))); if (w) { s = 2.6; used = [w]; } }
       if (s >= 2) scored.push({course: c, score: s, used});
     });
     if (!scored.length) return null;
@@ -38467,7 +38780,8 @@ const CAP = (() => {
       else {
         d.courseId = cm.course.id;
         const tok = cm.used.join("[\\s\\-]*"), codey = cm.used.some(u => /\d/.test(u));
-        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$`, "i"), " ");
+        // a course word leaves the title at its start or end, or right after "read", "study" or "review" ("read psych ch 14" is Read Chapter 14)
+        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$|(?<=^\\s*(?:read|study|review)\\s+)${tok}\\b`, "i"), " ");
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
@@ -38864,7 +39178,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : d.flags && d.flags.includes("week") && d.due ? `<p class="mini cap-warn">No day was given, so it's set to the Monday. Check the date.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -38917,7 +39231,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${Number(d.weight) > 0 ? " · " + Number(d.weight) + "%" : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 
@@ -42501,7 +42815,7 @@ hook("boot", boot);
       case "grp-pt-view": if (x) { x.view = el.dataset.v === "board" ? "board" : "list"; ptRefresh(g.id); } return true;
       case "grp-pt-status": { const t = x && x.tasks.find(k => k.id === id); if (t && !t._tmp && PT_STATUS.some(k => k[0] === el.dataset.s)) ptMutate(g.id, id, {status: el.dataset.s}); return true; }
       case "grp-pt-plan": if (g && isProj(g)) planSheet(g); return true;
-      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true), 40); return true;
+      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true, {feature: "Start From a Plan", alt: {text: "add the project's tasks one at a time.", label: "Add a Task", act: "grp-pt-new"}}), 40); return true;
       case "grp-pt-new": if (g && isProj(g)) ptAddSheet(g); return true;
       case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
       case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
@@ -42870,10 +43184,11 @@ hook("boot", boot);
 
   /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
-  function needOnline(){
+  // title: what needs the account ("Study Groups Need a Free Account"); sharing by default
+  function needOnline(title){
     if (online()) return true;
     const local = !sbConfig();
-    openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
+    openSheet(`<div class="sheet">${head(title || "Sharing Needs a Studyboard Account")}<div class="sheet-body">
       <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
@@ -43327,7 +43642,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
   // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
   window.SBGRPNEW = (name, project) => {
-    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+    try { if (typeof needOnline === "function" && !needOnline("Study Groups Need a Free Account")) return false; newGroupSheet(null);
       setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
         if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
@@ -43402,9 +43717,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
         S.groups = null; loadGroups(); })(); return true;
       case "grp-import": importDeckFile(); return true;
-      case "grp-name": if (needOnline()) nameSheet(false, null); return true;
+      case "grp-name": if (needOnline("Your Name Needs a Free Account")) nameSheet(false, null); return true;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
-      case "grp-new": if (needOnline()) newGroupSheet(null); return true;
+      case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
@@ -44448,7 +44763,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
-    profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
+    profile: () => { if (needOnline("Your Name Needs a Free Account")) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
     hue: (gid, id, name) => memberHue(gid, id, name),
     // open a group on its Whiteboards tab
@@ -46325,7 +46640,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     const loose = mine.filter(t => wOf(t) == null && !excused(t) && markPct(t) != null);
     const gr = {c, g, R, xc: xcs, xcGot, xcOpen, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
-      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01,
+      finish: fill => GRULES.finalWith(items, RU, D, fill)};
     // an unweighted average says where you are, not what's left: there's no total to finish
     if (gr.unw) Object.assign(gr, {done: false, need: () => null, projected: null, remaining: 0, minFinal: 0, maxFinal: 100});
     // every listed item marked isn't a final grade: more can still be added until classes are over
@@ -46334,6 +46650,21 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     gr.risk = riskOf(gr);
     return gr;
   }
+  /* How much of its course a task counts for: its share of a category weight (Grade Settings, "Quizzes 20%") when its course
+     has one for its type, otherwise its own weight. 0 when it has neither. Used outside the grade itself (the mark sheet, Today's
+     Plan, Rough Week Rescue), so work weighted by category counts there as it does on the Grades page. */
+  let SHARE_AT = null;
+  function gradeShare(t){
+    if (!t) return 0;
+    const c = t.courseId && !t.prepFor ? courseOf(t.courseId) : null;
+    if (c && catsOf(c).length) {
+      if (!SHARE_AT || SHARE_AT.st !== state || SHARE_AT.at !== state.updated) SHARE_AT = {st: state, at: state.updated, done: new Set()};
+      if (!SHARE_AT.done.has(c.id)) { courseGrade(c); SHARE_AT.done.add(c.id); }
+      const e = EFFW.get(t.id); if (e && e.how === "cat") return e.w;
+    }
+    return hasWeight(t) ? Number(t.weight) : 0;
+  }
+  const shareCat = t => { const e = gradeShare(t) > 0 && EFFW.get(t.id); return e && e.how === "cat" ? e.cat : ""; };
   /* "Must pass" parts (Grade Settings): an average on one type of work, or the final exam alone, that has to reach its own minimum.
      avg: on what's marked; need: the average still needed on the rest of that part (0 once it's safe, over 100 out of reach). */
   const mustName = cat => cat === "Final" ? "Final Exam" : typePl(cat);
@@ -46425,7 +46756,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const pen0 = t.mark && t.mark.pen ? penTxt(t.mark.pen) : "";
     openSheet(`<form class="sheet">${head(t.mark ? "Edit Your Mark" : "Add Your Mark")}
       <div class="sheet-body">
-        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
+        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${shareCat(t) ? `Worth ${fmtW(gradeShare(t))} of your course grade (a share of ${esc(shareCat(t) === "Final" ? "the Final Exam" : typePl(shareCat(t)))}).` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
         <label class="f"><span class="lh">Your Mark <span class="hint">a score like 43/50, a percent like 86%, or a letter like B+</span></span><input type="text" id="gmIn" autocomplete="off" maxlength="24" value="${esc(baseInput(t.mark))}" placeholder="e.g. 43/50" autofocus></label>
         <div class="chips gr-mk-chips" role="group" aria-label="Other kinds of mark"><button type="button" class="chip" data-gm="Pass">Pass</button><button type="button" class="chip" data-gm="Fail">Fail</button><button type="button" class="chip" data-gm="Excused" title="It won't count toward your grade">Excused / Doesn't Count</button></div>
         <details class="gr-pen"${pen0 ? " open" : ""}><summary>Late Penalty</summary><label class="f"><span class="lh">Taken Off for Being Late <span class="hint">a percent of the mark like 10%, or points like 2</span></span><input type="text" id="gmPen" autocomplete="off" maxlength="12" value="${esc(pen0)}" placeholder="e.g. 10%"></label></details>
@@ -46629,7 +46960,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!gset().prompt || !Array.isArray(changes) || changes.length !== 1) return;
     const ch = changes[0], t = ch.after;
     if (ch.kind !== "task" || !t || t.status !== "done" || !t.doneAt || Date.now() - t.doneAt > 10000) return;
-    if (!hasWeight(t) || t.mark || t.prepFor || asked().includes(t.id)) return;
+    if (!(gradeShare(t) > 0) || t.mark || t.prepFor || asked().includes(t.id)) return;
     setAsked(t.id);
     clearTimeout(promptT);
     promptT = setTimeout(() => showPrompt(t.id), 6800);
@@ -46698,7 +47029,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     out.push(...mustTxt);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
-    if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
+    // a category weight with nothing in it yet (Quizzes 15% before the first quiz is added) is named, not left as a mystery share
+    const emptyCats = (gr.cats || []).filter(k => !gr.ts.some(t => (EFFW.get(t.id) || {}).cat === k.cat)), emptyW = emptyCats.reduce((s, k) => s + k.w, 0);
+    if (gr.unlisted > 0.5 && emptyCats.length && Math.abs(emptyW - gr.unlisted) < 0.5) out.push(`<span class="mini">Nothing has been added to ${emptyCats.map(k => `${esc(k.cat === "Final" ? "Final Exam" : typePl(k.cat))} (${fmtW(k.w)})`).join(" or ")} yet, so ${emptyCats.length === 1 ? "it counts" : "they count"} as work still to come.</span>`);
+    else if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
   const riskPill = r => r === "risk" ? `<span class="pill gr-risk">Pass Mark at Risk</span>` : r === "out" ? `<span class="pill gr-risk">Talk to Your Instructor</span>` : r === "watch" ? `<span class="pill gr-watch">Close to Pass Mark</span>` : "";
@@ -46801,7 +47135,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const p = {}; let n = 0, mk = 0;
     gr.ts.forEach(t => { const v = vals && vals[t.id]; if (isNum(v) && !gr.missed.includes(t)) { p[t.id] = Number(v); n++; if (gr.pm.get(t.id) != null) mk++; } });
     const w = courseGrade(gr.c, null, p);
-    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need};
+    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need, finish: w.finish};
   }
   function whatIfOut(gr, vals){
     const w = whatIf(gr, vals), g = gr.g, L = p => letterOf(p, g.scale);
@@ -46811,6 +47145,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
+      // where that leaves the course, on the same footing as Solve (your average so far on the rest), so the two agree
+      if (gr.base != null && w.rem > 0.01 && w.finish) out.push(`With your average so far (${fmtP(gr.base)}) on the rest, you'd finish on ${lt(w.finish(gr.base))}.`);
       const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
@@ -47335,6 +47671,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const soon = todayISO(), cut = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
     let big = null; live.forEach(gr => gr.open.forEach(t => { const w = wOf(t); if (w > 0 && t.status !== "done" && (!t.due || (t.due >= soon && t.due <= cut)) && (!big || w > big.w)) big = {w, t, gr}; }));
     if (big) J.push(`The biggest item coming up: ${big.t.title} in ${courseLabel(big.gr.c)}, worth ${fmtW(big.w)}${big.t.due ? ", due " + big.t.due : ""}.`);
+    // points lost, letter cutoffs, forecasts and study patterns (90-grade-insights.js)
+    try { if (window.SBGINS && SBGINS.judgments) J.push(...SBGINS.judgments(all, S)); } catch (e) { console.warn("grade insights: judgments", e); }
     return J;
   }
   const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
@@ -47420,7 +47758,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
         <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk, "At risk")}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -48115,7 +48453,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (x.dl > 21 || (x.dl < 0 && x.dead)) return;
       const gr = risk[t.courseId];
       if (gr) {
-        if (!(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null) return;
+        if (!(gradeShare(t) > 0 || PTS_W[t.id]) || markPct(t) != null) return;
         // Work due now keeps its own order (what saves the most marks today), so only its reason changes
         if (!x.tier) x.score *= BOOST[gr.risk];
         x.passBoost = gr.risk; any = true;
@@ -48126,7 +48464,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       // Under a goal: graded work, and study sessions for a graded exam, get a smaller lift than a pass-mark risk
       const s = short[t.courseId]; if (!s) return;
       const ex = t.prepFor ? allTasks().find(y => y.id === t.prepFor) : null;
-      if (!(ex ? hasWeight(ex) && markPct(ex) == null : (hasWeight(t) || PTS_W[t.id]) && markPct(t) == null)) return;
+      if (!(ex ? gradeShare(ex) > 0 && markPct(ex) == null : (gradeShare(t) > 0 || PTS_W[t.id]) && markPct(t) == null)) return;
       if (!x.tier) x.score *= 1.06 + Math.min(0.12, s.gs.gap / 100);
       x.goalBoost = true; any = true;
       const nm = courseLabel(s.gr.c), goal = s.gr.g.goal;
@@ -48178,13 +48516,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const overdue = open.filter(t => t.due < w.today && t.late !== "none").length;
     const fixed = [], sugg = [];
     items.forEach(x => {
-      const t = x.t, W = hasWeight(t) ? Number(t.weight) : 0, exam = t.prepFor && state.tasks[t.prepFor];
+      const t = x.t, W = gradeShare(t), exam = t.prepFor && state.tasks[t.prepFor];
       const fix = why => fixed.push(Object.assign({}, x, {why}));
       if (MILESTONE(t.type)) return fix(t.type === "Exam" ? "Exam date" : "Quiz date");
       if (t.due > w.end && t.status === "todo" && !blockers(t).length) {
         const ns = addDays(w.end, 1), left = dayDiff(ns, t.due);
-        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3, label: `Start ${fmtShort(ns)} instead`,
-          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
+        // big work left for the few days before its due date isn't ticked: starting it later would crowd them
+        const R = remainingOf(t) || 0, roomy = R <= left * dailyHours() * 0.5;
+        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3 && roomy, label: `Start ${fmtShort(ns)} instead`,
+          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : !roomy ? `It isn't due until ${fmtShort(t.due)}, but it still needs about ${fmtHM(R)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
       }
       if (W >= 15) return fix(`Worth ${fmtW(W)} of your grade`);
       if (t.late === "none") return fix("No late work accepted");
@@ -48203,7 +48543,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       }
       fix(W ? `Graded deadline, worth ${fmtW(W)}` : t.type === "Study" ? "Study session" : "Class deadline");
     });
-    const heavy = items.filter(x => !MILESTONE(x.t.type) && hasWeight(x.t) && Number(x.t.weight) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
+    const heavy = items.filter(x => !MILESTONE(x.t.type) && gradeShare(x.t) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
       && !tasksArr().some(e => e.extFor === x.t.id && e.status !== "done")).sort((a, b) => b.h - a.h)[0] || null;
     const need = items.reduce((s, x) => s + x.h, 0);
     const plan = {w, items, fixed, sugg, heavy, need, overdue, ext: false};
@@ -48299,7 +48639,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
       // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
-      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+      if (s.ov.due && s.ov.due !== cur.due && gradeShare(cur) > 0 && !/^(Study|Reading)$/.test(cur.type)) {
         if (!n.origDue) n.origDue = cur.due;
         const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
         n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
@@ -48371,6 +48711,9 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // The rest of the grade math, for the insights modules (90-grade-insights.js and the ones after it)
+  Object.assign(window.SBGRADES.math, {grades, wOf, GRULES, holdOf, gset, saveG, termStats, typePl, fmtW, fmtN, fmtG, fmtCr, gpaMax, isFinal, excused, closed,
+    inDanger, zeroed, nowOf, finalOf, terms, gradeLine, markSheet, r1});
   // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
   window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,
@@ -48471,7 +48814,7 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     const rows = d.pts.map(p => `<tr><th scope="row">${esc(p.title)}</th><td>${esc(dayTxt(p.key))}</td><td>${esc(pctTxt(p.pct))}${d.letter(p.pct) ? " " + esc(d.letter(p.pct)) : ""}</td></tr>`).join("");
     return `<figure class="gt-fig">${svg}
       <figcaption><b class="gt-sum">${esc(sum)}</b><span class="mini">${esc(tr("trend.cap", "Your grade after each graded item, in due date order."))}</span></figcaption>
-      <table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></figure>`;
+      <div class="sr"><table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></div></figure>`;
   }
   function sectionHtml(c){
     const d = dataFor(c); if (!d || !d.gr.ts.length) return "";
@@ -48511,6 +48854,1017 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
   window.SBTREND = {GTREND, dataFor, sumText};
 })();
 
+/* ===== module: 90-grade-insights.js ===== */
+/* Deeper grade analysis (GRADE-ANALYSIS-PLAN.md). This module holds the math for every phase (GINS, which uses no app state, so
+   tests can load it alone) and Phase 1: Where Your Points Went, the moment a mark is saved, letter cutoffs close by, and how you
+   compare with the class. 90-grade-forecast.js (forecast, Target GPA, best next hour) and 90-grade-habits.js (patterns, timeline,
+   weekly summary, term recap) build on it. Everything is worked out on the device from marks, weights, dates and focus time. */
+(() => {
+  /*GINS-START*/
+  const GINS = (() => {
+    const isN = v => v != null && v !== "" && isFinite(Number(v));
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+    const sdev = a => { if (a.length < 2) return null; const m = mean(a); return Math.sqrt(a.reduce((s, v) => s + (v - m) * (v - m), 0) / (a.length - 1)); };
+
+    /* 1. Where the points went. items: [{id, title, cat, w (the share of the course it counts for, %), pct (its mark, %),
+       pen (the late penalty, in percent of the item), missed (couldn't be handed in: counts as 0), dropped (a drop rule took it out)}]
+       Points are course points: 10% of the course marked at 70% loses 3 of them. */
+    function lost(items){
+      let total = 0, late = 0, missed = 0, marked = 0, earned = 0, dropped = 0;
+      const byCat = {}, rows = [];
+      (items || []).forEach(it => {
+        if (!it || !(Number(it.w) > 0)) return;
+        if (it.dropped) { dropped++; return; }
+        const w = Number(it.w), p = it.missed ? 0 : clamp(Number(it.pct) || 0, 0, 100), pts = w * (100 - p) / 100;
+        marked += w; earned += w * p / 100;
+        if (pts <= 1e-9) return;
+        const lp = !it.missed && Number(it.pen) > 0 ? Math.min(pts, w * Number(it.pen) / 100) : 0;
+        total += pts; late += lp;
+        if (it.missed) missed += pts; else byCat[it.cat || "Other"] = (byCat[it.cat || "Other"] || 0) + pts - lp;
+        rows.push({id: it.id, title: it.title || "", cat: it.cat || "Other", pts, late: lp, missed: !!it.missed});
+      });
+      const slices = Object.entries(byCat).filter(x => x[1] > 1e-9).map(([cat, pts]) => ({key: cat, kind: "cat", pts}))
+        .concat(missed > 1e-9 ? [{key: "missed", kind: "missed", pts: missed}] : [], late > 1e-9 ? [{key: "late", kind: "late", pts: late}] : [])
+        .sort((a, b) => b.pts - a.pts);
+      return {total, late, missed, marked, earned, dropped, slices, items: rows.sort((a, b) => b.pts - a.pts)};
+    }
+
+    /* 2. The letter a grade is in, how far above its line, and how far to the next one up. scale: [[letter, lowest %]] */
+    function boundary(p, scale){
+      if (!isN(p) || !Array.isArray(scale)) return null;
+      const sc = scale.map(x => [String(x[0]), Number(x[1])]).filter(x => isFinite(x[1])).sort((a, b) => b[1] - a[1]);
+      const i = sc.findIndex(x => Number(p) >= x[1] - 1e-9); if (i < 0) return null;
+      const up = i > 0 ? sc[i - 1] : null, dn = i + 1 < sc.length ? sc[i + 1] : null;
+      return {letter: sc[i][0], floor: sc[i][1], above: Number(p) - sc[i][1], up: up ? {letter: up[0], th: up[1], gap: up[1] - Number(p)} : null, down: dn && sc[i][1] > 0 ? {letter: dn[0]} : null};
+    }
+    // Within `near` points of the next letter up, or of falling to the one below
+    function edge(p, scale, near){
+      const b = boundary(p, scale), n = near == null ? 1 : near; if (!b) return null;
+      if (b.up && b.up.gap > 1e-9 && b.up.gap <= n) return {dir: "up", letter: b.up.letter, gap: b.up.gap, now: b.letter};
+      if (b.down && b.above <= n) return {dir: "down", letter: b.letter, gap: b.above, below: b.down.letter, now: b.letter};
+      return null;
+    }
+
+    /* 8. The class's results on one item, in percent: low, quartiles, median, high, mean, and where your mark sits */
+    function spread(cls, of, mine){
+      if (!cls || !(Number(of) > 0)) return null;
+      const f = v => isN(v) ? Number(v) / Number(of) * 100 : null;
+      const o = {lo: f(cls.lo), lq: f(cls.lq), med: f(cls.median), uq: f(cls.uq), hi: f(cls.hi), mean: f(cls.mean), mine: isN(mine) ? Number(mine) : null};
+      if (o.med == null && o.mean == null) return null;
+      o.mid = o.med != null ? o.med : o.mean;
+      o.vs = o.mine != null ? o.mine - o.mid : null;
+      o.band = o.mine == null ? null : o.uq != null && o.mine >= o.uq - 1e-9 ? "top" : o.lq != null && o.mine < o.lq - 1e-9 ? "low" : o.mine >= o.mid - 1e-9 ? "upper" : "lower";
+      return o;
+    }
+
+    /* Random numbers that repeat for the same seed, so a forecast doesn't flicker between redraws */
+    function rng(seed){
+      let a = (Number(seed) >>> 0) || 1;
+      const next = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      let spare = null;
+      next.normal = () => { if (spare != null) { const s = spare; spare = null; return s; } let u = 0, v = 0; while (u === 0) u = next(); v = next(); const r = Math.sqrt(-2 * Math.log(u)); spare = r * Math.sin(2 * Math.PI * v); return r * Math.cos(2 * Math.PI * v); };
+      return next;
+    }
+    const seedOf = s => { let h = 2166136261; String(s || "").split("").forEach(ch => { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }); return h >>> 0; };
+
+    /* 3. Forecast. GR: the grade rules (GRULES: finalWith does drops and bonus the same way the grade does). items: GRULES items
+       [{id, w, cat, fin, pct (null when unmarked), z (counts as 0)}], R: rules, D: what the course is out of.
+       Each unmarked item is drawn around your average on that type of work (pulled toward your overall average while there are
+       few marks), with a spread from how much your marks vary (never under 6 points, 8 for exams), plus a shared "form" for the
+       whole run (a good or bad stretch moves everything a little). Needs 3 marks; returns null otherwise or when nothing is left. */
+    function catStats(items){
+      const marked = items.filter(it => it.pct != null && isFinite(it.pct)), all = marked.map(it => Number(it.pct));
+      if (marked.length < 3) return null;
+      const mAll = mean(all), sAll = Math.max(sdev(all) || 0, 6), K = 2, by = {};
+      marked.forEach(it => { (by[it.cat || ""] = by[it.cat || ""] || []).push(Number(it.pct)); });
+      const of = cat => {
+        const a = by[cat || ""] || [], n = a.length, m = (n * (n ? mean(a) : 0) + K * mAll) / (n + K), s0 = n >= 2 ? sdev(a) : sAll;
+        return {m, s: Math.max(Math.sqrt((n * s0 * s0 + K * sAll * sAll) / (n + K)), cat === "Exam" ? 8 : 6), n};
+      };
+      return {mAll, sAll, of, n: marked.length};
+    }
+    function forecast(GR, items, R, D, o){
+      o = o || {};
+      const S = catStats(items || []); if (!S) return null;
+      const open = items.filter(it => it.pct == null && !it.z && Number(it.w) > 0); if (!open.length) return null;
+      const st = new Map(open.map(it => [it, S.of(it.cat)])), rnd = rng(o.seed || 1), runs = Math.max(50, o.runs || 2000), form = o.form != null ? o.form : 4;
+      const out = new Float64Array(runs), add = Number(o.add) || 0, fix = o.fix || {};
+      for (let r = 0; r < runs; r++) {
+        const f = rnd.normal() * form;
+        const copy = items.map(it => {
+          if (it.pct != null || it.z || !(Number(it.w) > 0)) return it;
+          if (isN(fix[it.id])) return Object.assign({}, it, {pct: Number(fix[it.id])});
+          const s = st.get(it);
+          return Object.assign({}, it, {pct: clamp(s.m + f + rnd.normal() * s.s, 0, 100)});
+        });
+        out[r] = GR.finalWith(copy, R, D, 0) + add;
+      }
+      const v = Array.from(out).sort((a, b) => a - b), q = p => v[Math.min(v.length - 1, Math.max(0, Math.round(p * (v.length - 1))))];
+      const at = th => v.filter(x => x >= th - 1e-9).length / v.length;
+      let buckets = null, top = null;
+      if (Array.isArray(o.scale) && o.scale.length) {
+        const sc = o.scale.map(x => [String(x[0]), Number(x[1])]).sort((a, b) => b[1] - a[1]);
+        buckets = sc.map((x, i) => { const hi = i ? sc[i - 1][1] : Infinity; return {letter: x[0], th: x[1], p: v.filter(y => y >= x[1] - 1e-9 && y < hi - 1e-9).length / v.length}; });
+        top = buckets.slice().sort((a, b) => b.p - a.p)[0];
+      }
+      // samples: the runs in the order they were drawn, so a term GPA can combine courses run by run
+      return {runs, p10: q(0.1), p25: q(0.25), p50: q(0.5), p75: q(0.75), p90: q(0.9), mean: mean(v), at, buckets, top, cat: S.of, samples: out};
+    }
+
+    /* 4. Target GPA. courses: [{id, cr (credits), rem (share of the course still to come, %), base (your average so far),
+       opts: [{letter, pts (GPA points), need (the average needed on what's left: 0 or less is secured, over 100 out of reach,
+       null when the course is finished and this is its letter)}]}]. Picks one letter per course so the credit-weighted GPA reaches
+       `target`, asking as little as possible beyond what you're already doing: cost grows with the square of how far a needed
+       average is above your average so far. locks: {courseId: letter}. */
+    function gpaPlan(courses, target, locks){
+      locks = locks || {};
+      const C = [], fixed = [];
+      for (const c of courses || []) {
+        if (!(Number(c.cr) > 0) || !Array.isArray(c.opts) || !c.opts.length) continue;
+        let opts = c.opts.filter(x => isN(x.pts) && (x.need == null || x.need <= 100 + 1e-9));
+        const sec = opts.filter(x => x.need != null && x.need <= 1e-9).sort((a, b) => b.pts - a.pts)[0], fin = opts.filter(x => x.need == null);
+        if (fin.length) opts = [fin.sort((a, b) => b.pts - a.pts)[0]];
+        else if (sec) opts = opts.filter(x => x.pts >= sec.pts - 1e-9 && (x.need > 1e-9 || x === sec));
+        if (locks[c.id]) { const L = opts.filter(x => x.letter === locks[c.id]); if (!L.length) return {ok: false, why: "lock", id: c.id}; opts = L; }
+        if (!opts.length) continue;
+        const base = isN(c.base) ? Number(c.base) : 75, rem = clamp(Number(c.rem) || 0, 0, 100);
+        const cost = x => x.need == null || x.need <= 0 ? 0 : Number(c.cr) * rem / 100 * Math.pow(Math.max(0, x.need - base) / 10, 2) + Number(c.cr) * rem / 100 * x.need / 1e4;
+        const best = new Map(); opts.forEach(x => { const k = x.pts; if (!best.has(k) || cost(x) < cost(best.get(k))) best.set(k, x); });
+        const o2 = [...best.values()].map(x => Object.assign({}, x, {cost: cost(x)})).sort((a, b) => a.pts - b.pts);
+        (o2.length === 1 ? fixed : C).push({id: c.id, cr: Number(c.cr), opts: o2});
+      }
+      const all = C.concat(fixed), tot = all.reduce((s, c) => s + c.cr, 0);
+      if (!tot) return {ok: false, why: "none"};
+      const maxG = all.reduce((s, c) => s + c.cr * c.opts[c.opts.length - 1].pts, 0) / tot, minG = all.reduce((s, c) => s + c.cr * c.opts[0].pts, 0) / tot;
+      const fixPts = fixed.reduce((s, c) => s + c.cr * c.opts[0].pts, 0);
+      if (maxG < target - 1e-9) return {ok: false, why: "reach", max: maxG, min: minG};
+      C.sort((a, b) => b.cr - a.cr);
+      const restMax = new Array(C.length + 1).fill(0);
+      for (let i = C.length - 1; i >= 0; i--) restMax[i] = restMax[i + 1] + C[i].cr * C[i].opts[C[i].opts.length - 1].pts;
+      const need = target * tot - 1e-9;
+      let best = null, bestCost = Infinity, steps = 0;
+      const pick = new Array(C.length);
+      (function go(i, pts, cost){
+        if (++steps > 400000 || cost >= bestCost - 1e-12) return;
+        if (pts + fixPts + restMax[i] < need) return;
+        if (i === C.length) { bestCost = cost; best = pick.slice(); return; }
+        for (const x of C[i].opts) { pick[i] = x; go(i + 1, pts + C[i].cr * x.pts, cost + x.cost); }
+      })(0, 0, 0);
+      if (!best) return {ok: false, why: "reach", max: maxG, min: minG};
+      const picks = C.map((c, i) => Object.assign({id: c.id, cr: c.cr}, best[i])).concat(fixed.map(c => Object.assign({id: c.id, cr: c.cr, fixed: true}, c.opts[0])));
+      return {ok: true, gpa: picks.reduce((s, p) => s + p.cr * p.pts, 0) / tot, cost: bestCost, picks, max: maxG, min: minG};
+    }
+    // The GPA a set of future terms needs for a cumulative target: null when there are no future credits
+    function cumNeed(o){
+      const {pastPts = 0, pastCr = 0, termGpa = 0, termCr = 0, target, futureCr} = o || {};
+      if (!(Number(futureCr) > 0) || !isN(target)) return null;
+      return (target * (pastCr + termCr + futureCr) - pastPts - termGpa * termCr) / futureCr;
+    }
+
+    /* 7. Best use of the next hour. items: [{id, w (share of the course, %), hours (left), m (what you usually get on this type),
+       gapUp (points to the course's next letter, when close)}]. lift: how much better than usual focused work could do on it,
+       half the room left under 97, between 2 and 25 points. gain: what that is in course points. Ranked by gain per hour;
+       cross: the gain would reach the course's next letter. */
+    function roi(items){
+      return (items || []).filter(it => Number(it.w) > 0).map(it => {
+        const m = isN(it.m) ? Number(it.m) : 75, lift = clamp((97 - m) * 0.5, 2, 25), gain = Number(it.w) * lift / 100, h = Math.max(0.25, Number(it.hours) || 1);
+        const cross = isN(it.gapUp) && Number(it.gapUp) > 0 && Number(it.gapUp) <= gain;
+        return Object.assign({}, it, {lift, gain, h, perHour: gain / h, cross});
+      }).sort((a, b) => b.perHour - a.perHour || (b.cross ? 1 : 0) - (a.cross ? 1 : 0));
+    }
+
+    /* 5. Habits and results. marks: [{pct, type, lead (days between first working on it and its due date), min (minutes worked),
+       late (handed in late: true/false/null), penPts (course points lost to its late penalty), ready (practice score before an
+       exam), night (worked mostly 10pm-4am: true/false/null)}]. Each finding needs 4 or more marks on each side and a 5-point gap;
+       they come out strongest first. Correlations only: the wording elsewhere says "tended to". */
+    const MIN_N = 4, MIN_GAP = 5;
+    function habits(marks){
+      const out = [], pctOf = a => mean(a.map(x => Number(x.pct)));
+      const cmp = (key, a, b, extra) => {
+        if (a.length < MIN_N || b.length < MIN_N) return;
+        const ma = pctOf(a), mb = pctOf(b), gap = ma - mb;
+        if (Math.abs(gap) < MIN_GAP) return;
+        out.push(Object.assign({key, a: ma, b: mb, na: a.length, nb: b.length, gap, w: Math.abs(gap) * Math.sqrt(Math.min(a.length, b.length))}, extra || {}));
+      };
+      const M = (marks || []).filter(x => x && isN(x.pct));
+      const L = M.filter(x => isN(x.lead));
+      cmp("lead", L.filter(x => x.lead >= 3), L.filter(x => x.lead <= 1));
+      const byType = {};
+      M.filter(x => Number(x.min) > 0).forEach(x => { (byType[x.type || "Other"] = byType[x.type || "Other"] || []).push(x); });
+      Object.entries(byType).forEach(([type, a]) => {
+        if (a.length < MIN_N * 2) return;
+        const s = a.slice().sort((x, y) => x.min - y.min), h = Math.floor(s.length / 2), cut = s[h].min;
+        cmp("time", s.slice(h), s.slice(0, h), {type, cut});
+      });
+      const late = M.filter(x => x.late === true), on = M.filter(x => x.late === false);
+      const cost = late.reduce((s, x) => s + (Number(x.penPts) || 0), 0);
+      if (late.length >= 2 && cost > 0.05) out.push({key: "late", n: late.length, cost, w: 3 + cost * 2});
+      cmp("lateMark", on, late);
+      const rd = M.filter(x => isN(x.ready));
+      if (rd.length >= 3) {
+        const bias = mean(rd.map(x => Number(x.ready) - Number(x.pct))), err = mean(rd.map(x => Math.abs(Number(x.ready) - Number(x.pct))));
+        if (err <= 8 || Math.abs(bias) >= 8) out.push({key: "ready", n: rd.length, bias, err, w: err <= 8 ? 4 : Math.abs(bias) / 2});
+      }
+      const nt = M.filter(x => x.night === true || x.night === false);
+      cmp("night", nt.filter(x => !x.night), nt.filter(x => x.night));
+      return out.sort((a, b) => b.w - a.w);
+    }
+
+    /* 6. Term timeline. Week ends (Sundays) from `start` to `end` ("YYYY-MM-DD"), with `end` itself last. */
+    const dUTC = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "")); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN; };
+    const isoUTC = ms => new Date(ms).toISOString().slice(0, 10);
+    function weeks(start, end){
+      const a = dUTC(start), b = dUTC(end); if (!isFinite(a) || !isFinite(b) || b < a) return [];
+      const out = []; let d = a + ((7 - new Date(a).getUTCDay()) % 7) * 864e5;
+      for (let k = 0; d < b && k < 60; k++, d += 7 * 864e5) out.push(isoUTC(d));
+      out.push(isoUTC(b));
+      return out;
+    }
+    // points: [{key: week end, v}] -> the change over the last week, and the biggest single-week move
+    function moves(pts){
+      const v = (pts || []).filter(p => isN(p.v));
+      if (v.length < 2) return {last: null, big: null};
+      let big = null;
+      for (let i = 1; i < v.length; i++) { const d = v[i].v - v[i - 1].v; if (!big || Math.abs(d) > Math.abs(big.d)) big = {key: v[i].key, d}; }
+      return {last: v[v.length - 1].v - v[v.length - 2].v, big};
+    }
+
+    return {lost, boundary, edge, spread, rng, seedOf, catStats, forecast, gpaPlan, cumNeed, roi, habits, weeks, moves, mean, sdev, MIN_N, MIN_GAP};
+  })();
+  /*GINS-END*/
+
+  const M = () => window.SBGRADES && window.SBGRADES.math;
+  const r1 = v => Math.round(v * 10) / 10;
+  const pts = v => tr("gi.pts", "{n} pts", {n: SBI18N.fmtN(r1(v))});
+  const catName = (k, m) => k === "late" ? tr("gi.lost.late", "Late penalties") : k === "missed" ? tr("gi.lost.missed", "Missed work") : m.typePl(k);
+  // The share of the course a mark counts for, as the grade counts it (a drop rule's kept marks carry the dropped ones' weight)
+  const shareOf = (gr, t) => { const m = M(), ew = gr.ew || {}; return (isNum(ew[t.id]) ? ew[t.id] : m.wOf(t)) / gr.D * 100; };
+  const penPct = t => { const k = t.mark; return k && isNum(k.before) && Number(k.outOf) > 0 && Number(k.before) > Number(k.got) ? (Number(k.before) - Number(k.got)) / Number(k.outOf) * 100 : 0; };
+
+  /* 1. Where Your Points Went */
+  function lostOf(gr){
+    const m = M();
+    const its = gr.marked.map(t => ({id: t.id, title: t.title, cat: t.type || "Other", w: shareOf(gr, t), pct: gr.pm.get(t.id), pen: penPct(t), dropped: gr.dropped.has(t.id)}))
+      .concat((gr.missed || []).map(t => ({id: t.id, title: t.title, cat: t.type || "Other", w: m.wOf(t) / gr.D * 100, pct: 0, missed: true})));
+    return GINS.lost(its);
+  }
+  const SLICE_C = ["var(--accent)", "color-mix(in srgb,var(--accent) 62%,var(--ink))", "color-mix(in srgb,var(--accent) 45%,var(--surface))", "color-mix(in srgb,var(--accent) 30%,var(--ink))", "color-mix(in srgb,var(--accent) 25%,var(--surface))"];
+  const sliceColor = (s, i) => s.kind === "late" ? "var(--warn,#c98a12)" : s.kind === "missed" ? "var(--late)" : SLICE_C[i % SLICE_C.length];
+  function lostHtml(gr){
+    if (gr.unw || gr.current == null) return "";
+    const L = lostOf(gr), m = M(); if (L.total < 0.05) return "";
+    const cs = L.slices.filter(s => s.kind === "cat");
+    const sl = L.slices.map(s => Object.assign({}, s, {c: sliceColor(s, cs.indexOf(s))}));
+    const name = s => catName(s.key, m);
+    const sum = tr("gi.lost.sum", "You've lost {lost} of {course} so far, out of the {marked} marked.", {lost: pts(L.total), course: courseLabel(gr.c), marked: m.fmtW(L.marked)});
+    const bar = `<div class="gi-lost-bar" role="img" aria-label="${esc(sum + " " + sl.map(s => name(s) + " " + pts(s.pts)).join(", "))}">${sl.map(s => `<i style="flex:${s.pts.toFixed(3)} 1 0;background:${s.c}" title="${esc(name(s) + ": " + pts(s.pts))}"></i>`).join("")}</div>`;
+    const legend = `<ul class="gi-lost-leg">${sl.map(s => `<li><i style="background:${s.c}" aria-hidden="true"></i><span>${esc(name(s))}</span><b>${esc(pts(s.pts))}</b></li>`).join("")}</ul>`;
+    const top = L.items.filter(x => x.pts >= 0.3).slice(0, 3);
+    const lines = [];
+    if (top.length) lines.push(esc(tr("gi.lost.top", "Most lost on: {list}.", {list: top.map(x => tr("gi.lost.item", "{title} ({n}{why})", {title: x.title, n: pts(x.pts), why: x.missed ? ", " + tr("gi.lost.missedw", "missed") : x.late > 0.05 ? ", " + tr("gi.lost.latew", "{n} of it late", {n: pts(x.late)}) : ""})).join(", ")})));
+    if (L.late > 0.05) lines.push(esc(tr("gi.lost.lateLine", "Late penalties cost you {n}. Handing in on time is the cheapest fix there is.", {n: pts(L.late)})));
+    if (L.dropped) lines.push(esc(trn("gi.lost.drop", L.dropped, "{n} dropped mark isn't counted here, as your drop rule leaves it out.|{n} dropped marks aren't counted here, as your drop rule leaves them out.")));
+    return `<div class="gr-sub gi-lost"><h4>${esc(tr("gi.lost.title", "Where Your Points Went"))}</h4><p class="gi-lost-sum">${esc(sum)}</p>${bar}${legend}${lines.length ? `<ul class="gb-lines">${lines.map(x => `<li>${x}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+  // Late penalties across every course this term, for the Grades page
+  function lateTotal(all){
+    let n = 0, p = 0;
+    all.forEach(gr => gr.marked.forEach(t => { const pp = penPct(t); if (pp > 0 && !gr.dropped.has(t.id)) { n++; p += shareOf(gr, t) * pp / 100; } }));
+    return {n, pts: p};
+  }
+
+  /* 2. Letter cutoffs close by */
+  function edgeOf(gr){
+    if (gr.current == null || gr.g.pf || gr.unw || gr.final) return null;
+    return GINS.edge(gr.current, gr.g.scale, 1);
+  }
+  const edgeText = e => e.dir === "up" ? tr("gi.edge.up", "{n} from {letter}", {n: pts(e.gap), letter: e.letter}) : tr("gi.edge.down", "{n} above the {letter} line", {n: pts(e.gap), letter: e.letter});
+  const edgeLong = (gr, e) => e.dir === "up"
+    ? tr("gi.edge.upL", "You're {n} from {letter}. A strong mark on your next graded item could tip it over.", {n: pts(e.gap), letter: e.letter})
+    : tr("gi.edge.downL", "You're {n} above the {letter} line, so a weak mark could drop you to {below}.", {n: pts(e.gap), letter: e.letter, below: e.below});
+
+  /* 8. How you compare with the class (opt-in, Grade Options) */
+  const LMS_KEYS = ["bs", "cv", "bb", "md", "sg", "gc"];
+  function spreadOf(t){
+    const m = M(), L = LMS_KEYS.map(f => t && t[f]).find(Boolean), fb = L && L.fb, p = m.markPct(t);
+    return fb && fb.cls ? GINS.spread(fb.cls, fb.of, p) : null;
+  }
+  // The class's spread on one item: a light track (0 to 100%), the full range, the middle half as a soft pill, the median as a thin
+  // tick, and your mark as a ringed dot. Drawn in HTML so it stays crisp at any width.
+  function stripSvg(s){
+    const p = v => Math.max(0, Math.min(100, v)).toFixed(2) + "%", w = (a, b) => Math.max(0.5, Math.min(100, b) - Math.max(0, a)).toFixed(2) + "%";
+    const parts = [];
+    if (s.lo != null && s.hi != null) parts.push(`<i class="gi-st-rng" style="left:${p(s.lo)};width:${w(s.lo, s.hi)}"></i>`);
+    if (s.lq != null && s.uq != null) parts.push(`<i class="gi-st-box" style="left:${p(s.lq)};width:${w(s.lq, s.uq)}"></i>`);
+    parts.push(`<i class="gi-st-mid" style="left:${p(s.mid)}"></i>`);
+    if (s.mine != null) parts.push(`<i class="gi-st-me gi-st-${esc(s.band || "upper")}" style="left:${p(s.mine)}"></i>`);
+    return `<span class="gi-st" aria-hidden="true"><span class="gi-st-in">${parts.join("")}</span></span>`;
+  }
+  function compareHtml(gr){
+    const m = M(); if (!m.gset().cls) return "";
+    const rows = gr.marked.map(t => ({t, s: spreadOf(t)})).filter(x => x.s && x.s.mine != null);
+    if (!rows.length) return "";
+    const above = rows.filter(x => x.s.vs > 0.05).length, mid = rows.some(x => x.s.med != null) ? tr("gi.cmp.median", "median") : tr("gi.cmp.mean", "average");
+    const P = v => m.fmtP(v);
+    const li = rows.sort((a, b) => sortTasks(a.t, b.t)).map(({t, s}) => {
+      const said = tr("gi.cmp.row", "{title}: you {mine}, class {mid} {cmid}{range}", {title: t.title, mine: P(s.mine), mid, cmid: P(s.mid), range: s.lo != null && s.hi != null ? tr("gi.cmp.range", ", range {lo} to {hi}", {lo: P(s.lo), hi: P(s.hi)}) : ""});
+      const tag = s.band === "top" ? tr("gi.cmp.top", "Top quarter") : s.band === "low" ? tr("gi.cmp.low", "Bottom quarter") : Math.abs(s.vs) < 0.5 ? tr("gi.cmp.at", "At the {mid}", {mid}) : s.vs >= 0 ? tr("gi.cmp.upper", "Above {mid}", {mid}) : tr("gi.cmp.lower", "Below {mid}", {mid});
+      return `<li role="img" aria-label="${esc(said)}"><span class="gi-cmp-t"><b>${esc(t.title)}</b><span class="mini">${esc(tr("gi.cmp.sub", "you {mine} · class {mid} {cmid}", {mine: P(s.mine), mid, cmid: P(s.mid)}))}</span></span>${stripSvg(s)}<span class="pill gi-band gi-band-${s.band}">${esc(tag)}</span></li>`;
+    }).join("");
+    return `<div class="gr-sub gi-cmp"><h4>${esc(tr("gi.cmp.title", "How You Compare"))}</h4><p class="mini" style="margin:0">${esc(trn("gi.cmp.sum", rows.length, "Above the class {mid} on {a} of {n} item your school site shares results for. It's context, not a ranking.|Above the class {mid} on {a} of {n} items your school site shares results for. It's context, not a ranking.", {a: above, mid}))}</p>
+      <ul class="gi-cmp-list">${li}</ul><p class="mini gi-cmp-key" aria-hidden="true"><span class="gi-k-box"></span>${esc(tr("gi.cmp.keyBox", "middle half of the class"))} <span class="gi-k-mid"></span>${esc(mid)} <span class="gi-k-me"></span>${esc(tr("gi.cmp.keyMe", "you"))}</p></div>`;
+  }
+
+  /* 2. The moment a mark is saved: what it did to the course */
+  const MOMENT_ID = "giMoment";
+  let momentT = null;
+  function momentEl(){
+    let el = document.getElementById(MOMENT_ID);
+    if (!el) { el = document.createElement("div"); el.id = MOMENT_ID; el.className = "gi-moment"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.hidden = true; document.body.appendChild(el); }
+    return el;
+  }
+  function hideMoment(){ const el = document.getElementById(MOMENT_ID); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
+  function momentFor(t, before, after){
+    const m = M(), g = after.g, p = m.markPct(t), cur = after.current, was = before ? before.current : null;
+    const L = v => v != null ? m.letterOf(v, g.scale) : "", d = cur != null && was != null ? cur - was : null;
+    const head = tr("gi.mo.head", "{title}: {mark}", {title: t.title, mark: m.fmtP(p) + (L(p) ? " " + L(p) : "")});
+    const moved = cur == null ? "" : d == null ? tr("gi.mo.first", "{course} starts at {cur}.", {course: courseLabel(after.c), cur: m.fmtP(cur)})
+      : Math.abs(d) < 0.05 ? tr("gi.mo.same", "{course} stays at {cur}.", {course: courseLabel(after.c), cur: m.fmtP(cur)})
+      : tr("gi.mo.moved", "{course} is now {cur} ({d}).", {course: courseLabel(after.c), cur: m.fmtP(cur), d: (d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(d)))});
+    const lw = L(was), lc = L(cur);
+    let note = "", party = false;
+    if (lc && lw && lc !== lw) { const up = cur > was; note = up ? tr("gi.mo.letterUp", "Up to {l}!", {l: lc}) : tr("gi.mo.letterDown", "That moves you to {l}. One mark doesn't decide a course.", {l: lc}); party = up; }
+    const goal = g.goal;
+    if (!note && goal != null && before && !after.done) {
+      const nb = before.need(goal), na = after.need(goal);
+      if (na != null && na <= 0 && !(nb != null && nb <= 0)) { note = tr("gi.mo.goal", "Your goal of {g} is locked in.", {g: m.fmtP(goal)}); party = true; }
+      else if (na != null && na > 100 && !(nb != null && nb > 100)) note = tr("gi.mo.goalOut", "Your goal of {g} is out of reach now. The highest you can still get is {max}.", {g: m.fmtP(goal), max: m.fmtP(after.maxFinal)});
+    }
+    if (!note && cur != null) { const e = edgeOf(after); if (e) note = edgeLong(after, e); else { const b = GINS.boundary(cur, g.scale); if (b && b.letter && !g.pf) note = b.up ? tr("gi.mo.still", "Still {l}, {n} above the line and {u} from {up}.", {l: b.letter, n: pts(b.above), u: pts(b.up.gap), up: b.up.letter}) : tr("gi.mo.top", "Still {l}, the top of the scale.", {l: b.letter}); } }
+    return {head, moved, note, party};
+  }
+  function showMoment(t, before, after){
+    if (!after || after.unw || after.g.pf) return;
+    const x = momentFor(t, before, after), el = momentEl();
+    el.innerHTML = `<span class="gi-mo-ic${x.party ? " party" : ""}" aria-hidden="true">${x.party ? "🎉" : `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>`}</span>
+      <span class="gi-mo-t"><b>${esc(x.head)}</b><span>${esc(x.moved)}</span>${x.note ? `<span class="gi-mo-note">${esc(x.note)}</span>` : ""}</span>
+      <span class="gi-mo-acts"><button type="button" class="btn small" data-act="gi-mo-open" data-id="${esc(after.c.id)}">${esc(tr("gi.mo.open", "See Grades"))}</button><button type="button" class="icon-btn" data-act="gi-mo-close" aria-label="${esc(tr("gi.mo.close", "Close"))}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span>`;
+    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    try { if (typeof sbHaptic === "function") sbHaptic(x.party ? "success" : "tap"); } catch (e) {}
+    clearTimeout(momentT); momentT = setTimeout(hideMoment, 9000);
+  }
+  // Around every save: the course grades before, and if one mark changed, what it did
+  const sameMark = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  const origApply = applyChanges;
+  applyChanges = function(changes){
+    let before = null;
+    try {
+      const m = M();
+      if (m && Array.isArray(changes) && changes.length && changes.length <= 3 && changes.every(c => c && c.kind === "task")) {
+        before = {};
+        changes.forEach(c => { const t = state.tasks[c.id], cid = (c.after && c.after.courseId) || (t && t.courseId); if (cid && !before[cid] && state.courses[cid]) before[cid] = {gr: m.courseGrade(state.courses[cid]), marks: {}}; if (cid && before[cid]) before[cid].marks[c.id] = t ? t.mark : null; });
+      }
+    } catch (e) { before = null; }
+    const r = origApply.apply(this, arguments);
+    if (before) {
+      try {
+        const m = M(), hit = [];
+        Object.entries(before).forEach(([cid, b]) => Object.entries(b.marks).forEach(([id, was]) => { const t = state.tasks[id]; if (t && t.courseId === cid && t.mark && m.markPct(t) != null && !t.mark.ex && !sameMark(was, t.mark)) hit.push({t, cid}); }));
+        if (hit.length === 1 && m.gset().moment !== false) { const {t, cid} = hit[0]; showMoment(t, before[cid].gr, m.courseGrade(state.courses[cid])); }
+      } catch (e) { console.warn("grade insights: moment", e); }
+    }
+    return r;
+  };
+  hook("act", (act, el, id) => {
+    if (act === "gi-mo-close") { hideMoment(); return true; }
+    if (act === "gi-mo-open") { hideMoment(); if (state.courses[id]) { ui.tab = "courses"; ui.courseId = id; ui.courseTab = "grades"; ui.courseTabFor = id; render(); } return true; }
+    return false;
+  });
+
+  /* Putting the sections in place after each redraw (the same way the grade trend does) */
+  const SECTIONS = {course: [], page: [], row: []};
+  // where: "course" (a course's Grades card), "page" (the Grades page, under the course list), "row" (each course row on the Grades page)
+  const addSection = (where, fn) => SECTIONS[where].push(fn);
+  addSection("course", (gr, card) => {
+    // letter cutoff close by, under the three numbers at the top
+    const e = edgeOf(gr), top = card.querySelector(".gr-top");
+    if (e && top && !card.querySelector(".gi-edge")) top.insertAdjacentHTML("afterend", `<p class="gi-edge gi-edge-${e.dir}" role="note"><span class="pill">${esc(edgeText(e))}</span> ${esc(edgeLong(gr, e))}</p>`);
+    const html = lostHtml(gr) + compareHtml(gr); if (!html || card.querySelector(".gi-lost,.gi-cmp")) return;
+    const gb = card.querySelector(".gr-sub.gb"), wi = card.querySelector(".gr-wi"), marked = [...card.querySelectorAll(".gr-sub")].find(x => !x.classList.contains("gt-sec") && /Marked/.test((x.querySelector("h4") || {}).textContent || ""));
+    if (gb) gb.insertAdjacentHTML("afterend", html); else if (wi) wi.insertAdjacentHTML("beforebegin", html); else if (marked) marked.insertAdjacentHTML("beforebegin", html); else card.insertAdjacentHTML("beforeend", html);
+  });
+  addSection("row", (gr, row) => {
+    const e = edgeOf(gr), main = row.querySelector(".gp-main .gp-who .mini");
+    if (e && main && !row.querySelector(".gi-edge-chip")) main.insertAdjacentHTML("beforeend", ` · <span class="gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+  });
+  addSection("page", all => {
+    const lt = lateTotal(all); if (lt.n < 1 || lt.pts < 0.05) return "";
+    // Your Patterns says it when there's a pattern to it
+    try { if (window.SBGINS.habitsOf && SBGINS.habitsOf(all).list.some(h => h.key === "late")) return ""; } catch (e) {}
+    return {order: 90, html: `<p class="gi-late-note mini" role="note"><b>${esc(tr("gi.late.k", "Late penalties this term:"))}</b> ${esc(trn("gi.late.v", lt.n, "{pts} of course grade lost on {n} item.|{pts} of course grade lost across {n} items.", {pts: pts(lt.pts)}))}</p>`};
+  });
+  hook("render", tab => {
+    if (tab !== "courses") return;
+    const m = M(); if (!m) return;
+    try {
+      if (ui.courseId) {
+        if (ui.courseTab !== "grades" || ui.courseTabFor !== ui.courseId) return;
+        const card = document.querySelector('.gr-card[aria-label="Grades"]'), c = courseOf(ui.courseId);
+        if (!card || card.classList.contains("gr-empty") || !c) return;
+        const gr = m.courseGrade(c); if (!gr.ts.length) return;
+        SECTIONS.course.forEach(fn => { try { fn(gr, card); } catch (e) { console.warn("grade insights: course", e); } });
+        return;
+      }
+      if (ui.courseTab !== "grades") return;
+      const page = document.querySelector("section.gp"); if (!page || page.querySelector(".gi-page")) return;
+      const all = m.grades();
+      page.querySelectorAll(".gp-course").forEach(row => {
+        const id = (row.querySelector(".gp-main") || {}).dataset; const c = id && courseOf(id.id); if (!c) return;
+        const gr = all.find(x => x.c.id === c.id); if (!gr) return;
+        SECTIONS.row.forEach(fn => { try { fn(gr, row); } catch (e) { console.warn("grade insights: row", e); } });
+      });
+      const parts = [];
+      SECTIONS.page.forEach(fn => { try { const r = fn(all); if (r && r.html) parts.push(r); } catch (e) { console.warn("grade insights: page", e); } });
+      const html = parts.sort((a, b) => a.order - b.order).map(p => p.html).join("");
+      const at = page.querySelector(".gp-need") || page.querySelector(".gp-hero");
+      if (at) at.insertAdjacentHTML("afterend", `<div class="gi-page">${html}</div>`);
+    } catch (e) { console.warn("grade insights", e); }
+  });
+
+  /* What the AI coach is told (it words these; it doesn't work them out) */
+  const JUDGE = [];
+  JUDGE.push(all => {
+    const m = M(), out = [];
+    all.filter(gr => gr.current != null && !gr.unw && !m.zeroed(gr)).forEach(gr => {
+      const L = lostOf(gr), name = courseLabel(gr.c);
+      if (L.total >= 0.5 && L.slices.length) out.push(`${name}: ${r1(L.total)} course points lost so far on the ${r1(L.marked)}% marked; most from ${catName(L.slices[0].key, m).toLowerCase()} (${r1(L.slices[0].pts)} points)${L.late > 0.05 ? `, ${r1(L.late)} to late penalties` : ""}.`);
+      const e = edgeOf(gr); if (e) out.push(`${name}: ${e.dir === "up" ? `${r1(e.gap)} points from ${e.letter}` : `only ${r1(e.gap)} points above the ${e.letter} cutoff`}.`);
+    });
+    return out;
+  });
+
+  window.SBGINS = {GINS, addSection, lostOf, edgeOf, spreadOf, shareOf, penPct, pts, judge: fn => JUDGE.push(fn),
+    judgments: (all, S) => [].concat(...JUDGE.map(fn => { try { return fn(all, S) || []; } catch (e) { return []; } }))};
+})();
+/* ===== module: 90-grade-forecast.js ===== */
+/* Grade analysis, Phase 2 (GRADE-ANALYSIS-PLAN.md): a forecast with how sure it is (each course, and the term's GPA), the Target
+   GPA planner, and the best use of your next hour. The math is GINS in 90-grade-insights.js. */
+(() => {
+  const M = () => window.SBGRADES && window.SBGRADES.math, X = () => window.SBGINS, G = () => window.SBGINS.GINS;
+  const r1 = v => Math.round(v * 10) / 10;
+  const pctS = v => Math.round(v * 100) + "%";
+  const chance = p => p >= 0.95 ? tr("fc.p.very", "very likely") : p <= 0.05 ? tr("fc.p.unlikely", "unlikely") : tr("fc.p.about", "about {p} likely", {p: pctS(p)});
+
+  /* 3. The forecast for one course, kept until something changes */
+  let FC = {st: null, at: 0, by: new Map()};
+  function fcOf(gr, opts){
+    const m = M(); if (!m || gr.unw || gr.g.pf || gr.done || gr.current == null) return null;
+    opts = opts || {};
+    if (!opts.fix && FC.st === state && FC.at === state.updated && FC.by.has(gr.c.id)) return FC.by.get(gr.c.id);
+    if (FC.st !== state || FC.at !== state.updated) FC = {st: state, at: state.updated, by: new Map()};
+    const f = G().forecast(m.GRULES, gr.items, gr.R, gr.D, {seed: G().seedOf(gr.c.id), runs: opts.runs || 2000, scale: gr.g.scale, add: gr.xcGot || 0, fix: opts.fix});
+    if (!opts.fix) FC.by.set(gr.c.id, f);
+    return f;
+  }
+  // What would move it most: the heaviest item still to come, done well
+  function lever(gr, f, target){
+    const m = M(), open = gr.open.filter(t => m.wOf(t) > 0).sort((a, b) => m.wOf(b) - m.wOf(a))[0]; if (!open || !f) return null;
+    const usual = f.cat(open.type).m, good = Math.min(100, Math.max(85, Math.round(usual + 10)));
+    if (good <= usual + 2) return null;
+    const g2 = fcOf(gr, {fix: {[open.id]: good}, runs: 800});
+    return g2 ? {t: open, good, before: f.at(target.v), after: g2.at(target.v), target} : null;
+  }
+  // The line worth watching: your goal, else the next letter up from the likeliest one
+  function targetOf(gr, f){
+    const g = gr.g, m = M();
+    if (g.goal != null) return {v: g.goal, name: tr("fc.t.goal", "your {g} goal", {g: m.fmtP(g.goal)})};
+    const b = G().boundary(f.p50, g.scale);
+    return b && b.up ? {v: b.up.th, name: tr("fc.t.letter", "{l} or better", {l: b.up.letter})} : b ? {v: b.floor, name: tr("fc.t.letter", "{l} or better", {l: b.letter})} : null;
+  }
+  function fcHtml(gr){
+    const m = M(), g = gr.g;
+    if (gr.unw || g.pf || gr.done || gr.current == null) return "";
+    if (gr.marked.length < 3) return `<div class="gr-sub gi-fc"><h4>${esc(tr("fc.title", "Forecast"))}</h4><p class="gi-fc-early">${esc(tr("fc.early", "Too early to forecast: a forecast starts after 3 marks, once there's a pattern to go on."))}</p></div>`;
+    const f = fcOf(gr); if (!f) return "";
+    const L = v => m.letterOf(v, g.scale), lo = m.fmtP(f.p10), hi = m.fmtP(f.p90), risky = !!gr.risk;
+    const top = f.top, shown = (f.buckets || []).filter(b => b.p >= 0.03);
+    const big = top ? tr("fc.big", "Most likely {l}", {l: top.letter}) : m.fmtP(f.p50);
+    const sub = tr("fc.range", "Likely between {lo} and {hi}, middle {mid}", {lo, hi, mid: m.fmtP(f.p50)});
+    const bar = shown.length ? `<div class="gi-fc-bar" role="img" aria-label="${esc(shown.map(b => tr("fc.bucket", "{l}: {p}", {l: b.letter, p: pctS(b.p)})).join(", "))}">${shown.slice().reverse().map(b => `<span class="${top && b.letter === top.letter ? "on" : ""}" style="flex:${b.p.toFixed(3)} 1 0;background:color-mix(in srgb,var(--accent) ${Math.round(15 + b.p * 70)}%,var(--surface))" title="${esc(b.letter + ": " + pctS(b.p))}">${b.p >= 0.08 ? esc(b.letter + " " + pctS(b.p)) : ""}</span>`).join("")}</div>` : "";
+    const lines = [], tg = targetOf(gr, f);
+    // at risk: the range and what would change it, not a failing chance
+    if (!risky && tg) lines.push(tr("fc.chance", "Reaching {t}: {c}.", {t: tg.name, c: chance(f.at(tg.v))}));
+    if (risky) lines.push(f.at(g.pass) >= 0.5 ? tr("fc.passOk", "Passing ({p}) is {c} if things go the way they have been.", {p: m.fmtP(g.pass), c: chance(f.at(g.pass))}) : tr("fc.passRisk", "This one is close. What you do on the work still to come decides it, and that's still in your hands."));
+    const lv = tg || risky ? lever(gr, f, risky ? {v: g.pass, name: tr("fc.t.pass", "a pass")} : tg) : null;
+    if (lv && lv.after - lv.before >= 0.04) lines.push(tr("fc.lever", "{good} on {title} would make {t} {c}.", {good: lv.good + "%", title: lv.t.title, t: lv.target.name, c: chance(lv.after)}));
+    return `<div class="gr-sub gi-fc"><h4>${esc(tr("fc.title", "Forecast"))}</h4><div class="gi-fc-head"><span class="gi-fc-big">${esc(big)}</span><span class="mini">${esc(sub)}</span></div>${bar}
+      <ul class="gi-fc-lines">${lines.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
+      <p class="gi-fc-why">${esc(tr("fc.why", "From {n} marks: your average on each type of work and how much your marks vary, run 2,000 times over what's left. Drop rules and bonus count. It's a likely range, not a promise.", {n: gr.marked.length}))}</p></div>`;
+  }
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(".gi-fc")) return;
+    const html = fcHtml(gr); if (!html) return;
+    // the forecast says what Projected Final did, with a range
+    if (html.indexOf("gi-fc-early") < 0) [...card.querySelectorAll(".gr-top .gr-stat")].forEach(s => { if (/Projected Final/.test((s.querySelector(".gr-k") || {}).textContent || "")) s.remove(); });
+    const at = card.querySelector(".gr-bar") || card.querySelector(".gr-top");
+    if (at) at.insertAdjacentHTML("afterend", html);
+  });
+
+  /* The term's GPA forecast: each course's runs in step, letters to points, by credits */
+  function gpaFc(all){
+    const m = M(), max = m.gpaMax(); if (!max) return null;
+    const S = m.termStats(all), parts = [];
+    all.forEach(gr => {
+      if (gr.current == null || gr.g.pf || gr.unw) return;
+      const cr = isNum(gr.c.credits) ? Number(gr.c.credits) : S.def; if (!(cr > 0)) return;
+      const f = fcOf(gr);
+      parts.push({cr, gr, f, fixed: f ? null : m.GRULES.points(m.letterOf(m.finalOf(gr), gr.g.scale), max)});
+    });
+    if (!parts.length || !parts.some(p => p.f)) return null;
+    const runs = 2000, tot = parts.reduce((s, p) => s + p.cr, 0), out = [];
+    for (let r = 0; r < runs; r++) {
+      let s = 0, w = 0;
+      parts.forEach(p => { const v = p.f ? m.GRULES.points(m.letterOf(p.f.samples[r % p.f.samples.length], p.gr.g.scale), max) : p.fixed; if (v != null) { s += p.cr * v; w += p.cr; } });
+      if (w > 0) out.push(s / w);
+    }
+    out.sort((a, b) => a - b);
+    const q = p => out[Math.round(p * (out.length - 1))];
+    return {p10: q(0.1), p50: q(0.5), p90: q(0.9), at: v => out.filter(x => x >= v - 1e-9).length / out.length, max, n: parts.length, tot};
+  }
+
+  /* 4. Target GPA */
+  function planInputs(all){
+    const m = M(), max = m.gpaMax(), S = m.termStats(all);
+    return all.filter(gr => gr.current != null && !gr.g.pf && !gr.unw).map(gr => {
+      const cr = isNum(gr.c.credits) ? Number(gr.c.credits) : S.def;
+      const fin = gr.done ? m.letterOf(gr.minFinal, gr.g.scale) : null;
+      const opts = gr.g.scale.map(x => ({letter: x[0], th: Number(x[1]), pts: m.GRULES.points(x[0], max)})).filter(x => x.pts != null)
+        .map(x => Object.assign(x, {need: gr.done ? (x.letter === fin ? null : 999) : gr.need(x.th)})).filter(x => x.need == null || x.need <= 100);
+      return {id: gr.c.id, gr, cr, rem: gr.remaining, base: gr.current, opts};
+    }).filter(x => x.cr > 0 && x.opts.length);
+  }
+  // the best letter already secured in a course (no lower one is worth picking)
+  const secOf = x => x.opts.filter(o => o.need != null && o.need <= 0).sort((a, b) => b.pts - a.pts)[0];
+  const PLAN_UI = {target: null, locks: {}, cum: null, fut: null};
+  function planHtml(all){
+    const m = M(), max = m.gpaMax(); if (!max) return "";
+    const ins = planInputs(all); if (!ins.length) return "";
+    const S = m.termStats(all);
+    const tgt = PLAN_UI.target != null ? PLAN_UI.target : Math.min(max, Math.ceil(((S.gpaProj || S.gpaNow || 3) + 0.05) * 10) / 10);
+    const res = G().gpaPlan(ins, tgt, PLAN_UI.locks);
+    const head = `<h3>${esc(tr("gp.plan.title", "Target GPA"))}<span class="spacer"></span><span class="mini">${esc(tr("gp.plan.now", "projected now {g}", {g: m.fmtG(S.gpaProj != null ? S.gpaProj : S.gpaNow)}))}</span></h3>`;
+    const inp = `<div class="gi-plan-row"><label for="giPlanT">${esc(tr("gp.plan.q", "What term GPA are you aiming for?"))}</label><input id="giPlanT" type="number" min="0" max="${max}" step="0.05" inputmode="decimal" value="${esc(String(tgt))}" data-noenter></div>`;
+    let body;
+    if (!res.ok) {
+      body = res.why === "reach" ? `<p class="gi-plan-out">${esc(tr("gp.plan.reach", "A {t} isn't reachable this term: the most still possible is {max}, with full marks on everything left. {low}", {t: m.fmtG(tgt), max: m.fmtG(res.max), low: res.max >= 0.1 ? tr("gp.plan.try", "Try a target at or under that.") : ""}))}</p>`
+        : res.why === "lock" ? `<p class="gi-plan-out">${esc(tr("gp.plan.lock", "One of the letters you picked can't be reached any more."))} <button type="button" class="link-btn" data-act="gi-plan-unlock">${esc(tr("gp.plan.unlockAll", "Clear My Picks"))}</button></p>` : "";
+    } else {
+      const byId = new Map(res.picks.map(p => [p.id, p]));
+      const rows = ins.map(x => {
+        const p = byId.get(x.id); if (!p) return "";
+        const c = x.gr.c, need = p.need == null ? tr("gp.plan.final", "final grade") : p.need <= 0 ? tr("gp.plan.sec", "already secured") : tr("gp.plan.need", "needs {n} on the remaining {w}", {n: m.fmtN(p.need), w: m.fmtW(x.rem)});
+        const sel = x.opts.length > 1 && p.need != null ? `<select data-plan-c="${esc(c.id)}" aria-label="${esc(tr("gp.plan.pick", "Letter for {c}", {c: courseLabel(c)}))}">${x.opts.filter(o => o.need > 0 || o === secOf(x)).sort((a, b) => b.pts - a.pts).map(o => `<option value="${esc(o.letter)}"${o.letter === p.letter ? " selected" : ""}>${esc(o.letter)}</option>`).join("")}</select>` : "";
+        const locked = !!PLAN_UI.locks[c.id];
+        return `<li class="${locked ? "lock" : ""}" style="--c:${esc(c.color)}"><span class="gi-plan-n"><b>${esc(courseLabel(c))}</b><span class="mini">${esc(need)} · ${esc(tr("gp.plan.cr", "{n} credits", {n: m.fmtCr(x.cr)}))}${locked ? " · " + esc(tr("gp.plan.locked", "your pick")) : ""}</span></span>${sel || `<span class="gi-plan-l">${esc(p.letter)}</span>`}</li>`;
+      }).join("");
+      const hard = res.picks.filter(p => p.need != null && p.need > 0).sort((a, b) => b.need - a.need)[0];
+      const say = tr("gp.plan.say", "Here's the easiest way to a {t}: it asks the least above what you've been getting.", {t: m.fmtG(tgt)}) + (hard ? " " + tr("gp.plan.hard", "The biggest ask is {c}.", {c: courseLabel(state.courses[hard.id])}) : "");
+      // cumulative with this plan, when past terms are saved
+      let cum = "";
+      if (S.pastGpa != null) {
+        const pastCr = [].concat(...S.T.filter(t => !t.manual).map(t => (t.courses || []).map(x => isNum(x.credits) ? Number(x.credits) : S.def))).reduce((s, v) => s + v, 0) + S.T.filter(t => t.manual).reduce((s, t) => s + (Number(t.credits) || 0), 0);
+        const termCr = ins.reduce((s, x) => s + x.cr, 0), cumG = (S.pastGpa * pastCr + res.gpa * termCr) / (pastCr + termCr);
+        cum = `<p class="mini">${esc(tr("gp.plan.cum", "With your past terms, this plan puts your cumulative GPA at {g}.", {g: m.fmtG(cumG)}))}</p>`;
+        const ct = PLAN_UI.cum, fc = PLAN_UI.fut;
+        const need = ct != null && fc ? G().cumNeed({pastPts: S.pastGpa * pastCr, pastCr, termGpa: res.gpa, termCr, target: ct, futureCr: fc}) : null;
+        cum += `<details class="gi-cum"${ct != null ? " open" : ""}><summary>${esc(tr("gp.plan.ahead", "Planning further ahead?"))}</summary><div class="gi-plan-row"><label>${esc(tr("gp.plan.cumT", "Cumulative goal"))} <input id="giCumT" type="number" min="0" max="${max}" step="0.05" inputmode="decimal" value="${ct != null ? esc(String(ct)) : ""}" data-noenter></label><label>${esc(tr("gp.plan.fut", "Credits still to take"))} <input id="giCumF" type="number" min="1" max="400" step="1" inputmode="numeric" value="${fc ? esc(String(fc)) : ""}" data-noenter></label></div>${need != null ? `<p class="gi-plan-out">${esc(need > max ? tr("gp.plan.cumNo", "That would take more than a {max} on everything after this term, so it's out of reach. A lower goal still counts.", {max: m.fmtG(max)}) : need <= 0 ? tr("gp.plan.cumYes", "You'd already be there after this term.") : tr("gp.plan.cumNeed", "You'd need about a {g} average over your next {c} credits.", {g: m.fmtG(need), c: fc}))}</p>` : ""}</details>`;
+      }
+      body = `<p class="gi-plan-out">${esc(say)}</p><ul class="gi-plan-list">${rows}</ul>${cum}
+        <div class="gi-plan-acts"><button type="button" class="btn small primary" data-act="gi-plan-save">${esc(tr("gp.plan.save", "Use These as My Course Goals"))}</button>${Object.keys(PLAN_UI.locks).length ? `<button type="button" class="btn small" data-act="gi-plan-unlock">${esc(tr("gp.plan.unlockAll", "Clear My Picks"))}</button>` : ""}</div>`;
+      PLAN_UI.last = {res, ins};
+    }
+    return `<section class="gi-card gi-plan" aria-labelledby="giPlanH">${head.replace("<h3>", '<h3 id="giPlanH">')}${inp}<div class="gi-plan-body" aria-live="polite">${body}</div></section>`;
+  }
+  function savePlanGoals(){
+    const L = PLAN_UI.last; if (!L || !L.res.ok) return;
+    const chs = L.res.picks.filter(p => p.need != null).map(p => {
+      const c = state.courses[p.id], x = L.ins.find(i => i.id === p.id), o = x && x.opts.find(q => q.letter === p.letter); if (!c || !o) return null;
+      const n = clone(c); n.grading = Object.assign({}, n.grading || {}, {goal: o.th}); return {kind: "course", id: c.id, after: n};
+    }).filter(Boolean);
+    if (chs.length) applyChanges(chs, trn("gp.plan.saved", chs.length, "Goal set for {n} course|Goals set for {n} courses"));
+  }
+  // Only the results redraw, so the box being typed in stays put (replacing it mid-blur would fire its change again)
+  let planBusy = false;
+  const redrawPlan = () => {
+    const sec = document.querySelector(".gi-plan"); if (!sec || planBusy) return;
+    planBusy = true;
+    try {
+      const tmp = document.createElement("div"); tmp.innerHTML = planHtml(M().grades());
+      const nb = tmp.querySelector(".gi-plan-body"), ob = sec.querySelector(".gi-plan-body"), nh = tmp.querySelector("h3"), oh = sec.querySelector("h3");
+      const f = document.activeElement && ob && ob.contains(document.activeElement) ? document.activeElement.id || (document.activeElement.dataset.planC && "plan:" + document.activeElement.dataset.planC) : "";
+      if (nh && oh && oh.innerHTML !== nh.innerHTML) oh.innerHTML = nh.innerHTML;
+      // unchanged results stay as they are (leaving the box fires a change; a button being clicked mustn't be swapped out)
+      if (nb && ob) { if (ob.innerHTML !== nb.innerHTML) ob.innerHTML = nb.innerHTML; } else if (ob) ob.innerHTML = "";
+      if (f) { const el = f.startsWith("plan:") ? sec.querySelector(`[data-plan-c="${CSS.escape(f.slice(5))}"]`) : document.getElementById(f); if (el) el.focus(); }
+    } finally { planBusy = false; }
+  };
+  document.addEventListener("change", e => {
+    const t = e.target; if (!t || !t.closest || !t.closest(".gi-plan")) return;
+    if (t.id === "giPlanT") { const v = Number(t.value), max = M().gpaMax(); if (isFinite(v) && v > 0 && v <= max) { PLAN_UI.target = Math.round(v * 100) / 100; PLAN_UI.locks = {}; } redrawPlan(); }
+    else if (t.dataset.planC) { PLAN_UI.locks[t.dataset.planC] = t.value; redrawPlan(); }
+    else if (t.id === "giCumT" || t.id === "giCumF") { const v = Number(t.value); if (t.id === "giCumT") PLAN_UI.cum = isFinite(v) && v > 0 ? v : null; else PLAN_UI.fut = isFinite(v) && v > 0 ? Math.round(v) : null; redrawPlan(); }
+  });
+  hook("act", (act) => {
+    if (act === "gi-plan-save") { savePlanGoals(); return true; }
+    if (act === "gi-plan-unlock") { PLAN_UI.locks = {}; redrawPlan(); return true; }
+    return false;
+  });
+
+  /* 7. Best use of your next hour */
+  function roiItems(all){
+    const m = M(), today = todayISO(), out = [];
+    all.forEach(gr => {
+      if (gr.unw || gr.done || gr.g.pf) return;
+      const f = fcOf(gr), proj = f ? f.p50 : gr.projected != null ? gr.projected : gr.current;
+      const b = proj != null ? G().boundary(proj, gr.g.scale) : null;
+      gr.open.forEach(t => {
+        if (t.status === "done" || (t.due && t.due < today) || !(m.wOf(t) > 0)) return;
+        let h = 0; try { h = remainingOf(t); if (!(h > 0) && MILESTONE(t.type)) h = effortOf(t) * (1 - progress(t).frac); } catch (e) { h = 1; }
+        const usual = f ? f.cat(t.type).m : gr.current;
+        out.push({id: t.id, t, gr, w: m.wOf(t) / gr.D * 100, hours: h, m: usual, gapUp: b && b.up ? b.up.gap : null, up: b && b.up ? b.up.letter : ""});
+      });
+    });
+    return G().roi(out);
+  }
+  function roiHtml(all){
+    const m = M(), list = roiItems(all).slice(0, 5); if (list.length < 2) return "";
+    const rows = list.map((x, i) => {
+      const c = x.gr.c, why = tr("gr.roi.why", "you usually get {m} on {type}, it's worth {w}, about {h} left", {m: m.fmtP(x.m), type: m.typePl(x.t.type).toLowerCase(), w: m.fmtW(x.w), h: fmtHM(x.hours)});
+      return `<li style="--c:${esc(c.color)}"><span class="gi-roi-n">${i + 1}</span><span class="gi-roi-t"><b>${esc(x.t.title)}</b><span class="mini">${esc(courseLabel(c))}${x.t.due ? " · " + esc(fmtShort(x.t.due)) : ""} · ${esc(why)}${x.cross ? " · " + esc(tr("gr.roi.cross", "could tip you to {l}", {l: x.up})) : ""}</span></span><span class="gi-roi-v">${esc(tr("gr.roi.v", "+{n} pts/hr", {n: SBI18N.fmtN(r1(x.perHour * 10) / 10)}))}</span></li>`;
+    }).join("");
+    return `<section class="gi-card gi-roi" aria-labelledby="giRoiH"><h3 id="giRoiH">${esc(tr("gr.roi.title", "Best Use of Your Next Hour"))}</h3><p class="gi-sub">${esc(tr("gr.roi.sub", "Graded work ranked by how much an hour on it could add to that course's grade, if it goes {l} points better than you usually do there.", {l: "10–15"}))}</p><ol class="gi-roi-list">${rows}</ol></section>`;
+  }
+
+  /* On the Grades page: the forecast summary, Target GPA and the next hour */
+  function termFcHtml(all){
+    const m = M(), gf = gpaFc(all);
+    const rows = all.map(gr => ({gr, f: fcOf(gr)})).filter(x => x.f && x.f.top);
+    if (!gf && !rows.length) return "";
+    const head = gf ? `<div class="gi-fc-head"><span class="gi-fc-big">${esc(tr("fc.gpa", "Term GPA likely {mid}", {mid: m.fmtG(gf.p50)}))}</span><span class="mini">${esc(tr("fc.gpaR", "between {lo} and {hi} out of {max}", {lo: m.fmtG(gf.p10), hi: m.fmtG(gf.p90), max: m.fmtG(gf.max)}))}</span></div>` : "";
+    const list = rows.map(({gr, f}) => `<li>${esc(tr("fc.row", "{c}: most likely {l} ({lo} to {hi})", {c: courseLabel(gr.c), l: f.top.letter, lo: m.fmtP(f.p10), hi: m.fmtP(f.p90)}))}</li>`).join("");
+    return `<section class="gi-card gi-fc" aria-labelledby="giFcH"><h3 id="giFcH">${esc(tr("fc.termTitle", "Where This Term Is Heading"))}</h3>${head}${list ? `<ul class="gi-fc-lines">${list}</ul>` : ""}<p class="gi-fc-why">${esc(tr("fc.termWhy", "Each course's forecast, from your marks so far. Open a course for its letter chances and what would change them."))}</p></section>`;
+  }
+  X().addSection("page", all => ({order: 10, html: termFcHtml(all)}));
+  X().addSection("page", all => ({order: 20, html: roiHtml(all)}));
+  X().addSection("page", all => ({order: 30, html: planHtml(all)}));
+
+  X().judge((all) => {
+    const m = M(), out = [];
+    all.forEach(gr => { const f = fcOf(gr); if (f && f.top) out.push(`${courseLabel(gr.c)} forecast: most likely ${f.top.letter} (${r1(f.p10)}% to ${r1(f.p90)}%), from the student's marks so far; a likely range, not a promise.`); });
+    const gf = gpaFc(all); if (gf) out.push(`Term GPA forecast: most likely ${m.fmtG(gf.p50)} (${m.fmtG(gf.p10)} to ${m.fmtG(gf.p90)}).`);
+    const top = roiItems(all)[0]; if (top) out.push(`Best use of the next hour for grades: ${top.t.title} in ${courseLabel(top.gr.c)} (about ${r1(top.perHour)} course points per hour if it goes better than usual).`);
+    return out;
+  });
+  window.SBGFC = {fcOf, gpaFc, planInputs, roiItems};
+})();
+/* ===== module: 90-grade-habits.js ===== */
+/* Grade analysis, Phases 3 and 4 (GRADE-ANALYSIS-PLAN.md): Your Patterns (how starting early, time spent, handing in late, late
+   nights and practice scores went with your marks, from data the app already keeps), the term timeline, This Week in Grades, and
+   grade cards for the Term Recap. The math is GINS in 90-grade-insights.js. */
+(() => {
+  const M = () => window.SBGRADES && window.SBGRADES.math, X = () => window.SBGINS, G = () => window.SBGINS.GINS;
+  const r1 = v => Math.round(v * 10) / 10;
+  const LMS_KEYS = ["bs", "cv", "bb", "md", "sg", "gc"];
+
+  /* When each mark came in. A mark from the school site says when it was graded; one typed in is noted the first time it's seen
+     (this device). The first time this runs, marks already there get their due date or the day they were finished, not today,
+     so a whole term of marks doesn't look new. */
+  const LOG_KEY = "studyboard:markSeen";
+  const sigOf = t => t && t.mark ? [t.mark.got, t.mark.outOf, t.mark.letter || "", t.mark.pf || ""].join("|") : "";
+  const logGet = () => { try { const v = JSON.parse(localStorage.getItem(LOG_KEY) || "null"); return v && typeof v === "object" ? v : null; } catch (e) { return null; } };
+  const logSet = v => { try { localStorage.setItem(LOG_KEY, JSON.stringify(v)); } catch (e) {} };
+  const guessAt = t => Number(t.doneAt) || (t.due ? parse(t.due).getTime() + 12 * 36e5 : Number(t.created) || Date.now());
+  function syncLog(){
+    const m = M(); if (!m) return {};
+    let log = logGet(); const first = !log; log = log || {};
+    let ch = false;
+    allTasks().forEach(t => {
+      if (!t.mark || m.markPct(t) == null) return;
+      const s = sigOf(t), e = log[t.id];
+      if (e && e.s === s) return;
+      log[t.id] = {s, at: first || !e && t.markNew === undefined && guessAt(t) < Date.now() - 864e5 * 21 ? guessAt(t) : Date.now()}; ch = true;
+    });
+    const ids = Object.keys(log); if (ids.length > 900) { ids.sort((a, b) => log[a].at - log[b].at).slice(0, ids.length - 900).forEach(k => delete log[k]); ch = true; }
+    if (ch) logSet(log);
+    return log;
+  }
+  hook("changed", () => { try { syncLog(); } catch (e) {} });
+  function markAt(t, log){
+    const L = LMS_KEYS.map(f => t && t[f]).find(Boolean), g = L && L.fb && L.fb.at;
+    if (g && isFinite(new Date(g).getTime())) return new Date(g).getTime();
+    const e = (log || {})[t.id]; return e && e.s === sigOf(t) ? e.at : guessAt(t);
+  }
+  const dayOf = ms => iso(new Date(ms));
+
+  /* 5. Your Patterns */
+  // The day work on a task started: its first logged or focused minutes, else the first time it moved to Doing or got progress
+  function startDay(t){
+    const w = (typeof workEntries === "function" ? workEntries(t) : []).map(e => e.d).sort()[0];
+    const h = (t.history || []).filter(x => x && /^(Status: To Do → |Progress: 0% → |Preparedness: 0% → )/.test(x.text || "") && Number(x.at) > 0).map(x => dayOf(Number(x.at))).sort()[0];
+    return [w, h].filter(Boolean).sort()[0] || null;
+  }
+  function nightOf(t){
+    const es = typeof workEntries === "function" ? workEntries(t).filter(e => e.kind === "focus" && Number(e.at) > 0) : [];
+    const tot = es.reduce((s, e) => s + e.min, 0); if (tot < 30) return null;
+    const late = es.filter(e => { const h = new Date(e.at).getHours(); return h >= 22 || h < 4; }).reduce((s, e) => s + e.min, 0);
+    return late / tot >= 0.5;
+  }
+  function lateOfT(t){
+    if (X().penPct(t) > 0) return true;
+    if (!t.doneAt || !t.due) return null;
+    return Number(t.doneAt) > new Date(t.due + "T" + (t.time || "23:59")).getTime() + 6e4;
+  }
+  function marksOf(all){
+    const m = M(), out = [];
+    all.forEach(gr => gr.marked.forEach(t => {
+      if (t.prepFor || gr.dropped.has(t.id)) return;
+      const pct = gr.pm.get(t.id), sd = startDay(t), mins = typeof workEntries === "function" ? workEntries(t).reduce((s, e) => s + e.min, 0) : Number(t.focusMin) || 0;
+      const rs = (t.readySnap && isNum(t.readySnap.measured)) ? t.readySnap.measured : t.wrap && isNum(t.wrap.measured) ? t.wrap.measured : null;
+      out.push({id: t.id, t, gr, pct, type: t.type || "Other", lead: sd && t.due && !MILESTONE(t.type) ? dayDiff(sd, t.due) : null, min: MILESTONE(t.type) ? 0 : mins,
+        late: MILESTONE(t.type) ? null : lateOfT(t), penPts: X().shareOf(gr, t) * X().penPct(t) / 100, ready: MILESTONE(t.type) ? rs : null, night: MILESTONE(t.type) ? null : nightOf(t)});
+    }));
+    return out;
+  }
+  let HB = {st: null, at: 0, v: null};
+  function habitsOf(all){
+    if (HB.st === state && HB.at === state.updated && HB.v) return HB.v;
+    const marks = marksOf(all), v = {marks, list: G().habits(marks)};
+    HB = {st: state, at: state.updated, v};
+    return v;
+  }
+  const P = v => M().fmtP(v);
+  const minsTxt = n => n >= 60 ? fmtHM(n / 60) : tr("hb.min", "{n} min", {n: Math.round(n)});
+  // The next piece of graded work a finding is about, to act on
+  function nextOpen(all, type){
+    const m = M(), today = todayISO(), c = [];
+    all.forEach(gr => gr.open.forEach(t => { if (t.status !== "done" && t.due && t.due > today && !MILESTONE(t.type) && m.wOf(t) > 0 && (!type || t.type === type)) c.push(t); }));
+    return c.sort((a, b) => a.due.localeCompare(b.due))[0] || null;
+  }
+  function habitText(h, all){
+    const m = M();
+    switch (h.key) {
+      case "lead": {
+        const say = h.gap > 0 ? tr("hb.lead", "Work you started 3 or more days before it was due averaged {a} ({na} items). Work started the day before, or on the day, averaged {b} ({nb} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb})
+          : tr("hb.leadRev", "Oddly, work you started the day before averaged {b} ({nb} items), above the {a} for work started 3+ days early ({na} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb});
+        const nx = h.gap > 0 ? nextOpen(all) : null, sd = nx ? addDays(nx.due, -3) : "";
+        const ok = nx && (!nx.start || nx.start > sd) && sd >= todayISO();
+        return {title: tr("hb.leadT", "Starting Early"), say, bars: [[tr("hb.early", "3+ days early"), h.a, h.na], [tr("hb.lateStart", "Day before"), h.b, h.nb]],
+          act: ok ? {label: sd === todayISO() ? tr("hb.leadDoT", "Start {title} Today", {title: nx.title}) : tr("hb.leadDo", "Start {title} on {d}", {title: nx.title, d: fmtShort(sd)}), act: "hb-start", id: nx.id, v: sd} : null};
+      }
+      case "time": return {title: tr("hb.timeT", "Time on {type}", {type: m.typePl(h.type)}), say: h.gap > 0 ? tr("hb.time", "Your {type} averaged {a} when you put in {cut} or more, and {b} with less ({n} items).", {type: m.typePl(h.type).toLowerCase(), a: P(h.a), b: P(h.b), cut: minsTxt(h.cut), n: h.na + h.nb})
+        : tr("hb.timeRev", "More time didn't go with better marks on your {type}: {a} with {cut} or more, {b} with less. Working differently may help more than working longer.", {type: m.typePl(h.type).toLowerCase(), a: P(h.a), b: P(h.b), cut: minsTxt(h.cut)}),
+        bars: [[tr("hb.more", "{cut}+", {cut: minsTxt(h.cut)}), h.a, h.na], [tr("hb.less", "Less"), h.b, h.nb]]};
+      case "late": return {title: tr("hb.lateT", "Late Penalties"), say: trn("hb.late", h.n, "Handing in late cost you {pts} of course grade on {n} item this term.|Handing in late cost you {pts} of course grade across {n} items this term.", {pts: X().pts(h.cost)}) + " " + tr("hb.lateDo", "A start date 3 days before each due date is the easiest way to keep those points.")};
+      case "lateMark": return {title: tr("hb.lmT", "On Time vs Late"), say: tr("hb.lm", "Work you handed in on time averaged {a}; late work averaged {b}, before counting the penalty itself.", {a: P(h.a), b: P(h.b)}), bars: [[tr("hb.ontime", "On time"), h.a, h.na], [tr("hb.latew", "Late"), h.b, h.nb]]};
+      case "ready": return {title: tr("hb.readyT", "Your Practice Scores"), say: h.err <= 8 ? trn("hb.readyOk", h.n, "Before {n} exam, your flashcard and quiz scores predicted your mark within about {e} points. You can trust them to tell you when you're ready.|Before {n} exams, your flashcard and quiz scores predicted your mark within about {e} points. You can trust them to tell you when you're ready.", {e: Math.round(h.err)})
+        : h.bias > 0 ? tr("hb.readyHi", "Your practice scores ran about {e} points above your exam marks ({n} exams). Practise with questions in the exam's own style to get a truer read.", {e: Math.round(h.bias), n: h.n})
+        : tr("hb.readyLo", "You did about {e} points better on exams than your practice scores said ({n} exams). You're more ready than they suggest.", {e: Math.round(-h.bias), n: h.n})};
+      case "night": return {title: tr("hb.nightT", "Late Nights"), say: h.gap > 0 ? tr("hb.night", "Work you did mostly before 10pm averaged {a} ({na} items); work done mostly after 10pm averaged {b} ({nb} items).", {a: P(h.a), na: h.na, b: P(h.b), nb: h.nb})
+        : tr("hb.nightRev", "Your late-night work averaged {b}, a little above the {a} for daytime work. Whatever time works for you is fine.", {a: P(h.a), b: P(h.b)}),
+        bars: [[tr("hb.day", "Before 10pm"), h.a, h.na], [tr("hb.nightw", "After 10pm"), h.b, h.nb]]};
+    }
+    return null;
+  }
+  function habitsHtml(all){
+    const H = habitsOf(all); if (H.marks.length < 4) return "";
+    const items = H.list.map(h => Object.assign({h}, habitText(h, all))).filter(x => x.say).slice(0, 3);
+    const bar = ([label, v, n], i) => `<div class="gi-hab-bar${i ? " b" : ""}"><span>${esc(label)}</span><span aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, v))}%"></i></span><b>${esc(P(v))}</b></div>`;
+    const body = items.length ? `<ul class="gi-hab-list">${items.map(x => `<li><b>${esc(x.title)}</b><span>${esc(x.say)}</span>${x.bars ? `<div class="gi-hab-bars" role="img" aria-label="${esc(x.bars.map(b => `${b[0]}: ${P(b[1])} over ${b[2]}`).join(", "))}">${x.bars.map(bar).join("")}</div>` : ""}${x.act ? `<button type="button" class="btn small gi-hab-do" data-act="${esc(x.act.act)}" data-id="${esc(x.act.id)}" data-v="${esc(x.act.v)}">${esc(x.act.label)}</button>` : ""}</li>`).join("")}</ul>`
+      : `<p class="gi-hab-empty">${esc(tr("hb.empty", "No clear patterns yet. They show up once there are at least {n} marks on each side of a comparison (like work started early and work started late), with a gap of {g} points or more.", {n: G().MIN_N, g: G().MIN_GAP}))}</p>`;
+    return `<section class="gi-card gi-hab" aria-labelledby="giHabH"><h3 id="giHabH">${esc(tr("hb.title", "Your Patterns"))}</h3><p class="gi-sub">${esc(trn("hb.sub", H.marks.length, "From {n} mark, with the focus time, start dates and hand-in times Studyboard already keeps. These show what went with your better marks, not what caused them.|From {n} marks, with the focus time, start dates and hand-in times Studyboard already keeps. These show what went with your better marks, not what caused them."))}</p>${body}</section>`;
+  }
+  hook("act", (act, el, id) => {
+    if (act !== "hb-start") return false;
+    const t = state.tasks[id], v = el.dataset.v; if (!t || !isDate(v)) return true;
+    const n = clone(t); n.start = v; applyChanges([{kind: "task", id, after: n}], tr("hb.started", "{title} now starts {d}", {title: t.title, d: fmtShort(v)}));
+    return true;
+  });
+
+  /* 6. Term timeline: the credit-weighted average at the end of each week, rebuilt from the marks (nothing stored) */
+  let TL = {st: null, at: 0, v: null};
+  function timeline(all){
+    if (TL.st === state && TL.at === state.updated && TL.v) return TL.v;
+    const m = M(), log = syncLog(), S = m.termStats(all);
+    const live = all.filter(gr => gr.marked.length && !gr.unw);
+    const dated = live.map(gr => ({gr, its: gr.marked.map(t => ({t, d: t.due || dayOf(markAt(t, log))}))}));
+    const first = dated.flatMap(x => x.its.map(i => i.d)).filter(Boolean).sort()[0];
+    let v = null;
+    if (first) {
+      const wk = G().weeks(first, todayISO());
+      if (wk.length >= 3) {
+        const series = dated.map(x => ({gr: x.gr, pts: wk.map(w => { const ids = new Set(x.its.filter(i => i.d <= w).map(i => i.t.id)); return {key: w, v: ids.size ? m.courseGrade(x.gr.c, ids).current : null, ids}; })}));
+        const avg = wk.map((w, i) => { const rows = series.map(s => ({v: s.pts[i].v, cr: s.gr.c.credits})).filter(r => r.v != null); return {key: w, v: rows.length ? m.GRULES.avg(rows, S.def) : null}; });
+        // moves count from the first week every course has a mark: before that, a course joining the average isn't a real move
+        const full = Math.max(0, avg.findIndex((p, i) => series.every(s => s.pts[i].v != null)));
+        const mv = G().moves(avg.slice(full));
+        // what moved it most: the heaviest marks that week
+        let why = "";
+        if (mv.big) {
+          const k = wk.indexOf(mv.big.key), prev = wk[k - 1] || "";
+          const its = dated.flatMap(x => x.its.filter(i => i.d > prev && i.d <= mv.big.key).map(i => ({t: i.t, gr: x.gr, w: m.wOf(i.t)}))).sort((a, b) => b.w - a.w);
+          if (its[0]) why = `${its[0].t.title} (${courseLabel(its[0].gr.c)})`;
+        }
+        v = {wk, series, avg, mv, why};
+      }
+    }
+    TL = {st: state, at: state.updated, v};
+    return v;
+  }
+  function timelineHtml(all){
+    const m = M(), T = timeline(all); if (!T) return "";
+    const wide = !(window.matchMedia && matchMedia("(max-width:600px)").matches), W = wide ? 640 : 340, H = wide ? 190 : 200, box = {l: 40, t: 16, w: W - 40 - 18, h: H - 16 - 30};
+    const vals = T.avg.map(p => p.v).concat(...T.series.map(s => s.pts.map(p => p.v))).filter(v => v != null);
+    const dom = window.SBTREND ? SBTREND.GTREND.domain(vals) : {lo: 0, hi: 100}, n = T.wk.length;
+    const xy = (i, v) => window.SBTREND ? SBTREND.GTREND.xy(i, n, v, dom, box) : {x: box.l + i * box.w / (n - 1), y: box.t + (dom.hi - v) / (dom.hi - dom.lo) * box.h};
+    const path = pts => { let d = "", on = false; pts.forEach((p, i) => { if (p.v == null) { on = false; return; } const q = xy(i, p.v); d += (on ? "L" : "M") + q.x.toFixed(1) + " " + q.y.toFixed(1); on = true; }); return d; };
+    const ticks = [dom.hi, Math.round((dom.lo + dom.hi) / 2 / 5) * 5, dom.lo].filter((v, i, a) => a.indexOf(v) === i);
+    const last = T.avg[n - 1], lp = last.v != null ? xy(n - 1, last.v) : null;
+    const bi = T.mv.big ? T.wk.indexOf(T.mv.big.key) : -1, bp = bi >= 0 && T.avg[bi].v != null ? xy(bi, T.avg[bi].v) : null;
+    const lastTxt = T.mv.last == null ? "" : Math.abs(T.mv.last) < 0.05 ? tr("tl.same", "No change since last week") : tr("tl.wk", "{d} since last week", {d: (T.mv.last > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.last)))});
+    const bigTxt = T.mv.big && Math.abs(T.mv.big.d) >= 0.3 ? tr("tl.big", "Biggest week: {d} in the week ending {w}{why}.", {d: (T.mv.big.d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.big.d))), w: fmtShort(T.mv.big.key), why: T.why ? tr("tl.why", ", mostly {x}", {x: T.why}) : ""}) : "";
+    const first = T.avg.find(p => p.v != null);
+    const desc = tr("tl.desc", "Your average across courses at the end of each week, from {a} to {b}.", {a: first ? P(first.v) : "", b: last.v != null ? P(last.v) : ""});
+    const svg = `<svg class="gi-tl-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(desc + " " + bigTxt)}">
+      ${ticks.map(v => `<line class="gi-tl-grid" x1="${box.l}" x2="${box.l + box.w}" y1="${xy(0, v).y.toFixed(1)}" y2="${xy(0, v).y.toFixed(1)}"/><text class="gi-tl-ax" x="${box.l - 6}" y="${(xy(0, v).y + 4).toFixed(1)}" text-anchor="end">${v}%</text>`).join("")}
+      ${T.series.map(s => `<path class="gi-tl-c" d="${path(s.pts)}" style="stroke:${esc(s.gr.c.color)}"/>`).join("")}
+      <path class="gi-tl-avg" d="${path(T.avg)}"/>
+      ${lp ? `<circle class="gi-tl-dot" cx="${lp.x.toFixed(1)}" cy="${lp.y.toFixed(1)}" r="4.5"/>` : ""}
+      ${bp && bigTxt ? `<text class="gi-tl-big" x="${bp.x.toFixed(1)}" y="${(bp.y - 9).toFixed(1)}" text-anchor="middle">${esc((T.mv.big.d > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(T.mv.big.d))))}</text>` : ""}
+      <text class="gi-tl-ax" x="${box.l}" y="${H - 8}">${esc(fmtShort(T.wk[0]))}</text><text class="gi-tl-ax" x="${box.l + box.w}" y="${H - 8}" text-anchor="end">${esc(tr("tl.today", "Today"))}</text></svg>`;
+    const leg = `<ul class="gi-tl-leg"><li><i style="background:var(--ink);height:3px"></i>${esc(tr("tl.avg", "Average"))}</li>${T.series.map(s => `<li><i style="background:${esc(s.gr.c.color)}"></i>${esc(courseLabel(s.gr.c))}</li>`).join("")}</ul>`;
+    const cls = T.mv.last > 0.05 ? "up" : T.mv.last < -0.05 ? "down" : "";
+    return `<section class="gi-card gi-tl" aria-labelledby="giTlH"><h3 id="giTlH">${esc(tr("tl.title", "Your Term So Far"))}<span class="spacer"></span>${lastTxt ? `<span class="gi-wk ${cls}">${esc(lastTxt)}</span>` : ""}</h3>${svg}${leg}${bigTxt ? `<p class="mini">${esc(bigTxt)}</p>` : ""}</section>`;
+  }
+
+  /* 9. This Week in Grades */
+  const DG_KEY = "studyboard:digestHidden";
+  function digest(all){
+    const m = M(), log = syncLog(), since = Date.now() - 7 * 864e5, out = {marks: [], moved: [], next: null};
+    all.forEach(gr => {
+      const fresh = gr.marked.filter(t => markAt(t, log) >= since); if (!fresh.length) return;
+      const allIds = new Set(gr.marked.map(t => t.id)), now = m.courseGrade(gr.c, allIds).current;
+      fresh.forEach(t => { const w = new Set(allIds); w.delete(t.id); const b = w.size ? m.courseGrade(gr.c, w).current : null; out.marks.push({t, gr, pct: gr.pm.get(t.id), d: b != null && now != null ? now - b : null}); });
+      const w = new Set([...allIds].filter(id => !fresh.some(t => t.id === id))), b = w.size ? m.courseGrade(gr.c, w).current : null;
+      if (b != null && now != null) out.moved.push({gr, d: now - b, now});
+    });
+    const today = todayISO(), end = addDays(today, 7);
+    all.forEach(gr => gr.open.forEach(t => { if (t.status !== "done" && t.due && t.due >= today && t.due <= end && m.wOf(t) > 0) { const w = m.wOf(t) / gr.D * 100; if (!out.next || w > out.next.w) out.next = {t, gr, w}; } }));
+    out.marks.sort((a, b) => markAt(b.t, log) - markAt(a.t, log));
+    out.moved.sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    return out;
+  }
+  function digestHtml(all, onBoard){
+    const m = M(), D = digest(all); if (!D.marks.length && !D.next) return "";
+    if (onBoard && !D.marks.length) return "";
+    const sg = v => (v > 0 ? "+" : "−") + SBI18N.fmtN(r1(Math.abs(v)));
+    const today = todayISO(), range = tr("dg.range", "{a} to {b}", {a: fmtShort(addDays(today, -6)), b: fmtShort(today)});
+    // New marks: one row each, course colour, the mark, and what it did to the course
+    const chip = d => d == null || Math.abs(d) < 0.05 ? `<span class="gi-dg-d same">${esc(tr("dg.same", "no change"))}</span>` : `<span class="gi-dg-d ${d > 0 ? "up" : "down"}" title="${esc(tr("dg.dTip", "What it did to the course grade"))}">${esc(sg(d))}</span>`;
+    const rows = D.marks.slice(0, 5).map(x => `<li style="--c:${esc(x.gr.c.color)}"><span class="gi-dg-t"><b>${esc(x.t.title)}</b><span class="mini">${esc(courseLabel(x.gr.c))}</span></span><span class="gi-dg-m">${esc(P(x.pct))}</span>${chip(x.d)}</li>`).join("");
+    const more = D.marks.length > 5 ? `<p class="mini gi-dg-more">${esc(trn("dg.more", D.marks.length - 5, "and {n} more mark|and {n} more marks"))}</p>` : "";
+    const marks = D.marks.length ? `<div class="gi-dg-sec"><h4>${esc(tr("dg.newH", "New Marks"))}</h4><ul class="gi-dg-rows"><li class="gi-dg-cols" aria-hidden="true"><span></span><span>${esc(tr("dg.colMark", "Mark"))}</span><span>${esc(tr("dg.colCourse", "Course"))}</span></li>${rows}</ul>${more}</div>` : "";
+    // Two tiles: the course that moved most, and the biggest graded item next week
+    const mv = D.moved.filter(x => Math.abs(x.d) >= 0.3)[0], tiles = [];
+    if (mv) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(mv.gr.c.color)}"><span class="k">${esc(tr("dg.mvH", "Biggest Move"))}</span><b>${esc(courseLabel(mv.gr.c))} <span class="gi-dg-d ${mv.d > 0 ? "up" : "down"}">${esc(sg(mv.d))}</span></b><span class="mini">${esc(tr("dg.mvS", "now {now}", {now: P(mv.now)}))}</span></div>`);
+    if (D.next) tiles.push(`<div class="gi-dg-tile" style="--c:${esc(D.next.gr.c.color)}"><span class="k">${esc(tr("dg.nextH", "Coming Up"))}</span><b>${esc(D.next.t.title)}</b><span class="mini">${esc(tr("dg.nextS", "{c} · worth {w} · due {due}", {c: courseLabel(D.next.gr.c), w: m.fmtW(D.next.w), due: fmtShort(D.next.t.due)}))}</span></div>`);
+    const tl = tiles.length ? `<div class="gi-dg-tiles">${tiles.join("")}</div>` : "";
+    // One study pattern, as a tip
+    const H = habitsOf(all).list[0], ht = H ? habitText(H, all) : null;
+    const tip = ht ? `<div class="gi-dg-tip"><span class="gi-dg-tip-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.2 1 2V17h6v-.3c0-.8.4-1.5 1-2A7 7 0 0 0 12 2z"/></svg></span><span><b>${esc(tr("dg.tipH", "Your Pattern: {t}", {t: ht.title}))}</b><span>${esc(ht.say)}</span></span></div>` : "";
+    const count = D.marks.length ? trn("dg.count", D.marks.length, "{n} new mark|{n} new marks") : "";
+    return `<section class="gi-card gi-dg" aria-labelledby="giDgH"><div class="gi-dg-head"><h3 id="giDgH">${esc(tr("dg.head0", "This Week in Grades"))}</h3><span class="mini">${esc(range)}${count ? " · " + esc(count) : ""}</span></div>
+      ${marks}${tl}${tip}
+      ${onBoard ? `<div class="gi-dg-acts"><button type="button" class="btn small primary" data-act="dg-open">${esc(tr("dg.open", "Open Grades"))}</button><button type="button" class="btn small" data-act="dg-hide">${esc(tr("dg.hide", "Done for This Week"))}</button></div>` : ""}</section>`;
+  }
+  const dgHidden = () => { try { return localStorage.getItem(DG_KEY) === mondayOf(todayISO()); } catch (e) { return false; } };
+  // On Today: over the weekend and on Monday, once a week, when marks came in
+  const origBoard = viewBoard;
+  viewBoard = function(){
+    const html = origBoard.apply(this, arguments);
+    try {
+      const wd = new Date().getDay(), m = M();
+      if (!m || dgHidden() || !(wd === 6 || wd === 0 || wd === 1 || window.__sbDigestAny) || m.gset().digest === false) return html;
+      const card = digestHtml(m.grades(), true); if (!card) return html;
+      const k = html.indexOf('<div class="qa-wrap">');
+      return k >= 0 ? html.slice(0, k) + card + html.slice(k) : card + html;
+    } catch (e) { console.warn("grade insights: digest", e); return html; }
+  };
+  hook("act", act => {
+    if (act === "dg-hide") { try { localStorage.setItem(DG_KEY, mondayOf(todayISO())); } catch (e) {} render(); return true; }
+    if (act === "dg-open") { ui.tab = "courses"; ui.courseId = null; ui.courseTab = "grades"; render(); window.scrollTo(0, 0); return true; }
+    return false;
+  });
+
+  X().addSection("page", all => ({order: 5, html: digestHtml(all, false)}));
+  X().addSection("page", all => ({order: 40, html: timelineHtml(all)}));
+  X().addSection("page", all => ({order: 50, html: habitsHtml(all)}));
+
+  /* 11. What to Shore Up (topics and mastery, from what's already there): where a course has lost the most points, the topics
+     of its next exam's prep plan you rated weakest, and its flashcard decks by how ready you are. No new tagging needed. */
+  const CONF_ORDER = {weak: 0, ok: 1, strong: 2}, CONF_TXT = {weak: () => tr("su.weak", "shaky"), ok: () => tr("su.ok", "okay"), strong: () => tr("su.strong", "strong")};
+  function shoreHtml(gr){
+    const m = M(), c = gr.c, today = todayISO();
+    const ex = allTasks().filter(t => t.courseId === c.id && MILESTONE(t.type) && !t.prepFor && t.status !== "done" && t.due && t.due >= today).sort((a, b) => a.due.localeCompare(b.due))[0];
+    const topics = ex && ex.prep && Array.isArray(ex.prep.topics) ? ex.prep.topics.filter(t => t && t.name && !t.done).slice().sort((a, b) => (CONF_ORDER[a.conf] ?? 1) - (CONF_ORDER[b.conf] ?? 1)).slice(0, 5) : [];
+    const decks = typeof deckStats === "function" ? Object.values(state.decks || {}).filter(d => d && d.courseId === c.id && !d.archived && (d.cards || []).length).map(d => ({d, r: deckStats(d).ready})).sort((a, b) => a.r - b.r).slice(0, 4) : [];
+    if (!topics.length && !decks.length) return "";
+    const L = X().lostOf(gr), top = L.slices.find(s => s.kind === "cat");
+    const lines = [];
+    if (top && top.pts >= 1) lines.push(tr("su.lost", "{type} are where you've lost the most so far ({n}).", {type: m.typePl(top.key), n: X().pts(top.pts)}) + (ex ? " " + tr("su.next", "Next up: {title} on {d}, worth {w}.", {title: ex.title, d: fmtShort(ex.due), w: m.fmtW(m.wOf(ex) || 0)}) : ""));
+    const tl = topics.length ? `<p class="mini" style="margin:0">${esc(tr("su.topics", "Topics for {title}, weakest first (from its prep plan):", {title: ex.title}))}</p><ul class="gi-su-topics">${topics.map(t => `<li class="gi-su-${esc(t.conf || "ok")}"><b>${esc(t.name)}</b><span class="mini">${esc(tr("su.rated", "you rated it {c}", {c: (CONF_TXT[t.conf] || CONF_TXT.ok)()}))}</span></li>`).join("")}</ul><button type="button" class="btn small" data-act="prep-plan" data-id="${esc(ex.id)}">${esc(tr("su.plan", "Open the Prep Plan"))}</button>` : "";
+    const dl = decks.length ? `<ul class="gi-su-decks">${decks.map(x => `<li><span class="gi-su-dn"><b>${esc(x.d.name)}</b><span class="mini">${esc(trn("su.cards", x.d.cards.length, "{n} card|{n} cards"))} · ${esc(tr("su.ready", "{p}% ready", {p: x.r}))}</span></span><span class="gi-su-bar" role="img" aria-label="${esc(tr("su.ready", "{p}% ready", {p: x.r}))}"><i style="width:${x.r}%"></i></span><button type="button" class="btn small" data-act="fc-study" data-id="${esc(x.d.id)}">${esc(tr("su.study", "Study"))}</button></li>`).join("")}</ul>` : "";
+    return `<div class="gr-sub gi-su"><h4>${esc(tr("su.title", "What to Shore Up"))}</h4>${lines.map(x => `<p class="gi-su-lead">${esc(x)}</p>`).join("")}${tl}${dl}</div>`;
+  }
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(".gi-su")) return;
+    const html = shoreHtml(gr); if (!html) return;
+    const at = card.querySelector(".gi-cmp") || card.querySelector(".gi-lost") || card.querySelector(".gr-sub.gb");
+    if (at) at.insertAdjacentHTML("afterend", html); else card.insertAdjacentHTML("beforeend", html);
+  });
+
+  /* 10. Term Recap: grade cards beside the planner's ones (99-pro.js) */
+  function recapSlides(T){
+    const m = M(); if (!m) return [];
+    const all = m.grades(), S = m.termStats(all), out = [];
+    const g = S.gpaProj != null ? S.gpaProj : S.gpaNow, prev = S.T.length ? S.past[0].gpa : null;
+    if (S.max && g != null) out.push({k: tr("rc.gpa", "Term GPA"), big: m.fmtG(g), line: prev != null ? (g >= prev + 0.05 ? tr("rc.gpaUp", "Up from {p} last term. That's real progress.", {p: m.fmtG(prev)}) : g <= prev - 0.05 ? tr("rc.gpaDn", "{p} last term. One term doesn't define you, and you know more now than you did.", {p: m.fmtG(prev)}) : tr("rc.gpaSame", "Right in line with last term's {p}.", {p: m.fmtG(prev)})) : tr("rc.gpaFirst", "Out of {max}, across {n} courses.", {max: m.fmtG(S.max), n: S.n})});
+    const best = all.flatMap(gr => gr.marked.map(t => ({t, gr, p: gr.pm.get(t.id), w: m.wOf(t)}))).filter(x => x.p != null && x.w >= 3).sort((a, b) => b.p - a.p || b.w - a.w)[0];
+    if (best) out.push({k: tr("rc.best", "Best Mark"), big: P(best.p), line: tr("rc.bestL", "On {title} in {c}.", {title: best.t.title, c: courseLabel(best.gr.c)})});
+    const H = habitsOf(all).list.find(h => (h.key === "lead" || h.key === "time" || h.key === "night") && h.gap > 0) || habitsOf(all).list.find(h => h.key === "ready" && h.err <= 8);
+    if (H) { const x = habitText(H, all); if (x) out.push({k: tr("rc.worked", "What Worked"), big: x.title, line: x.say}); }
+    return out;
+  }
+  X().judge(all => {
+    const out = [], H = habitsOf(all).list.slice(0, 3);
+    H.forEach(h => { const x = habitText(h, all); if (x) out.push(`Study pattern (a correlation from the student's own data, not a cause): ${x.say}`); });
+    const T = timeline(all); if (T && T.mv.last != null) out.push(`Average across courses changed ${r1(T.mv.last)} points since last week.`);
+    return out;
+  });
+  /* A course's Grades tab, organized: the summary stays on top (the numbers, the letter cutoff, the goal, the bar and What You
+     Need), and everything else sits in four tabs: Marks, Breakdown, Outlook and What If. Runs after every other section is in
+     place (this is the last course section), and only moves what's there. The tab is remembered while the app is open. */
+  const GTABS = [
+    ["marks", () => tr("gt.marks", "Marks"), c => c.marks],
+    ["breakdown", () => tr("gt.breakdown", "Breakdown"), c => c.breakdown],
+    ["outlook", () => tr("gt.outlook", "Outlook"), c => c.outlook],
+    ["whatif", () => tr("gt.whatif", "What If"), c => c.whatif]];
+  const h4Of = el => ((el.querySelector(":scope > h4") || {}).textContent || "").trim();
+  X().addSection("course", (gr, card) => {
+    if (card.querySelector(":scope > .gi-tabs")) return;
+    const kids = [...card.children];
+    const subs = kids.filter(el => el.classList.contains("gr-sub"));
+    const groups = {
+      marks: subs.filter(el => /^(Marked|Still to Mark)\b/.test(h4Of(el))),
+      breakdown: subs.filter(el => el.matches(".gb, .gi-lost, .gi-cmp")),
+      outlook: subs.filter(el => el.matches(".gi-fc, .gt-sec, .gi-su")),
+      whatif: subs.filter(el => el.matches(".gr-wi"))};
+    const tabs = GTABS.filter(([k, , f]) => f(groups).length);
+    if (tabs.length < 2) return;
+    const want = ui.grTab && tabs.some(t => t[0] === ui.grTab) ? ui.grTab : tabs[0][0];
+    const cid = gr.c.id, n = groups.marks.reduce((s, el) => s + el.querySelectorAll(":scope > .gr-work > li").length, 0);
+    const bar = document.createElement("div");
+    bar.className = "gi-tabs"; bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", tr("gt.label", "Course grade details"));
+    bar.innerHTML = tabs.map(([k, name]) => `<button type="button" role="tab" id="gtab-${k}" class="gi-tab" data-act="gi-gtab" data-id="${k}" aria-controls="gpan-${k}" aria-selected="${k === want}" tabindex="${k === want ? 0 : -1}">${esc(name())}${k === "marks" && n ? `<span class="n">${n}</span>` : ""}</button>`).join("");
+    // the summary keeps its order on top; the tabs and their sections go after it
+    card.appendChild(bar);
+    let at = bar;
+    tabs.forEach(([k, , f]) => {
+      const p = document.createElement("div");
+      p.className = "gi-pan"; p.id = "gpan-" + k; p.setAttribute("role", "tabpanel"); p.setAttribute("aria-labelledby", "gtab-" + k); p.dataset.cid = cid;
+      if (k !== want) p.hidden = true;
+      f(groups).forEach(el => p.appendChild(el));
+      at.after(p); at = p;
+    });
+  });
+  function gtabGo(k, focus){
+    ui.grTab = k;
+    document.querySelectorAll(".gi-tabs .gi-tab").forEach(b => { const on = b.dataset.id === k; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
+    document.querySelectorAll(".gi-pan").forEach(p => { p.hidden = p.id !== "gpan-" + k; });
+  }
+  hook("act", (act, el, id) => { if (act !== "gi-gtab") return false; gtabGo(id); return true; });
+  // arrow keys move between tabs, as tabs do
+  document.addEventListener("keydown", e => {
+    const t = e.target; if (!t || !t.classList || !t.classList.contains("gi-tab") || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    const all = [...t.parentNode.querySelectorAll(".gi-tab")], i = all.indexOf(t);
+    const j = e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + all.length) % all.length;
+    e.preventDefault(); gtabGo(all[j].dataset.id, true);
+  });
+  // something that points at a mark (search, the companion) opens the Marks tab
+  window.SBGTAB = gtabGo;
+
+  Object.assign(window.SBGINS, {recapSlides, habitsOf, timeline, digest, markAt});
+})();
 /* ===== module: 92-estimates.js ===== */
 /* Quick time estimates */
 var SBEST = (() => {
@@ -48768,7 +50122,8 @@ function fromPlan(p){
     rows.push({id: t.id, title: t.title || "", due: t.due, dl: x.dl, R: x.R, L: x.L, A: x.A, noEst: own && !!(window.SBEST && SBEST.needs(t))});
   });
   const today = p.today, offToday = dayIsOff(today);
-  const avTot = p.av && p.av.active && p.av.res ? (p.av.res.total || 0) / 60 : Infinity;
+  // the free time left today around classes, shifts and events (also when Availability isn't set up: the strip shows the same)
+  const avTot = p.av && p.av.res && isNum(p.av.res.total) ? (p.av.res.total || 0) / 60 : Infinity;
   const roomToday = offToday ? 0 : Math.max(0, Math.min(p.leftH, avTot, 16 - p.doneToday) - p.th);
   const offDays = [];
   for (let i = 0; i <= CUSH.WINDOW; i++) { const d = addDays(today, i); if (dayIsOff(d)) offDays.push({date: d, i, h: p.dh}); }
@@ -50758,7 +52113,7 @@ function cleanFile(r) {
     // Without an account: the calendar link (kept up to date) is the way in, so the account comes first and then straight
     // back here. A one-off calendar file stays under Other options
     const feedWay = local ? `<div class="bs-way${ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Keep Due Dates Synced With Your Calendar Link" : "Keep It Synced Automatically"}</b><span class="bs-pill">Free Account</span></div>
-          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.</p>
+          <p class="mini">Paste your ${P.name} calendar link once and new due dates, quizzes and events show up by themselves, on your phone and computer. It needs a free Studyboard account, which takes about 30 seconds. You'll come straight back here to paste the link.${P.feedOnly ? "" : ` For grades and submissions too, get the Studyboard ${dl} and sign in to ${P.name} there.`}</p>
           ${findSteps(true)}
           <div class="bs-acts"><button class="btn ${ext ? "" : "primary"}" data-act="${A}-acct">Create a Free Account</button><button class="btn" data-act="${A}-acct-in">I Have an Account</button></div></div>`
       : `<div class="bs-way${desk || ext ? "" : " rec"}"><div class="bs-way-h"><b>${ext ? "Or Just Use Your Calendar Link" : "Use Your Calendar Link"}</b><span class="bs-pill">${P.feedOnly ? "Recommended" : ext ? "Due Dates Only" : desk ? "Works on Your Phone" : "Works Here"}</span></div>
@@ -60236,14 +61591,14 @@ var TP_DATA = [];
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
     account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "haptics", "haptic-try", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "wrap-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
     school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
     capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
     data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
-    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help", "invite-friends"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
@@ -60264,7 +61619,7 @@ var TP_DATA = [];
     "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
     "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
     export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
-    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "invite-friends": "🎁", haptics: "📳", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
   const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
   function addEmoji(r){
     if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;
@@ -60511,7 +61866,7 @@ var SBSTATS = (() => {
     const fromTasks = allTasks().reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
     return Math.max(logged, fromTasks);
   }
-  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true, e.day); });
   return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 
@@ -60521,16 +61876,16 @@ var SBSTATS = (() => {
    They're separate from Studyboard Bucks, the green bills bought with money for the Style Shop (97-credits.js).
 
    How many credits each kind of work earns follows how hard it is, roughly per minute of real effort:
-     - Focus time       1 per minute             (at most 3 hours a day count)
+     - Focus time       1 per 2 minutes          (at most 3 hours a day count)
      - Flashcards       1 per card reviewed      active recall (at most 150 a day count)
      - Practice quizzes 1 per right answer, +5 for passing (70%+ of 3 or more questions), +5 more for a perfect score; 3 tries a quiz a day
      - Tasks            by type: Exam 40, Project 30, Quiz 20, Assignment and Lab 12, Reading and Study 6, Other 4;
                         a step of a broken-down task 3 (at most 8 tasks a day count, so splitting work up doesn't pay)
      - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
-   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
-   study day (a 25-minute focus session 25, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
-   75 credits. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Epic 500, Legendary 1,000): a steady
+   study day (a 25-minute focus session 12, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
+   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Epic about a week and a Legendary about two weeks.
    The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
@@ -60553,7 +61908,7 @@ var SBSC = (() => {
   const PRES_SLIDE = 3, PRES_WHOLE = 20, PRES_MASTER = 30, PRES_RUNS_A_DAY = 2;
   // In the order the Wardrobe lists them: [key, name, how it's earned]
   const KINDS = [
-    ["focus", "Focus Time", "1 credit for every minute on the focus timer (up to 3 hours a day)"],
+    ["focus", "Focus Time", "1 credit for every 2 minutes on the focus timer (up to 3 hours a day)"],
     ["cards", "Flashcards", "1 credit for every card you review (up to 150 a day)"],
     ["quiz", "Practice Quizzes", "1 credit for each right answer, +5 for passing (70% or more), +5 more for a perfect score"],
     ["task", "Tasks", "By how big the task is: an exam 40, a project 30, a quiz 20, an assignment or lab 12, a reading 6 (up to 8 tasks a day)"],
@@ -60567,10 +61922,10 @@ var SBSC = (() => {
   const sc = () => { const s = state.settings && state.settings.sc; return s && typeof s === "object" ? s : {}; };
   function setSc(patch){
     const cur = sc(), next = Object.assign({}, cur, patch);
-    ["hw", "ev", "own", "evOld", "cd"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
+    ["hw", "ev", "own", "evOld", "cd", "chd", "wsw", "wpro"].forEach(k => { if (patch[k]) next[k] = Object.assign({}, cur[k], patch[k]); });
     // events older than 45 days fold into one total per kind, so the list stays small
     const old = addDays(todayISO(), -45), ev = Object.assign({}, next.ev), fold = Object.assign({}, next.evOld);
-    Object.keys(ev).forEach(k => { const m = /^(quiz|pres):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
+    Object.keys(ev).forEach(k => { const m = /^(quiz|pres|chest|spin):(\d{4}-\d{2}-\d{2}):/.exec(k); if (m && m[2] < old) { fold[m[1]] = (Number(fold[m[1]]) || 0) + (Number(ev[k]) || 0); delete ev[k]; } });
     next.ev = ev; next.evOld = fold;
     // card days older than 45 days fold into one total (already capped)
     const cd = Object.assign({}, next.cd); let cdOld = Number(next.cdOld) || 0;
@@ -60594,7 +61949,7 @@ var SBSC = (() => {
       if (typeof SBSTATS === "undefined") return 0;
       const days = Object.values(SBSTATS.focusDays()).map(m => Number(m) || 0), logged = days.reduce((n, m) => n + m, 0);
       const capped = days.reduce((n, m) => n + Math.min(m, FOCUS_MIN_A_DAY), 0), extra = Math.max(0, SBSTATS.totalFocusMinutes() - logged);
-      return capped + extra;
+      return (capped + extra) / 2;
     });
     tr(() => {
       // finished tasks, by the day they were finished: the biggest ones first, at most TASKS_A_DAY a day
@@ -60630,7 +61985,7 @@ var SBSC = (() => {
   // Each card counts once per study session, however it was rated: a card marked Again comes back in the same session, and
   // seeing it again earns nothing more (so credits follow how many cards were gone through, never the ratings)
   const sessSeen = () => { try { const f = ui.fc; if (!f || f.mode !== "study") return null; return f.crSeen = f.crSeen || {}; } catch (e) { return null; } };
-  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; } cardRated(1); });
+  hook("fc-rated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id) { m[id] = (m[id] || 0) + 1; if (m[id] > 1) return; if (m[id] === 1) rollChest("cards"); } cardRated(1); });
   hook("fc-unrated", e => { const m = sessSeen(), id = e && e.cardId; if (m && id && m[id]) { m[id]--; if (m[id] > 0) return; } cardRated(-1); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) flushCards(); });
   window.addEventListener("pagehide", flushCards);
@@ -60643,6 +61998,8 @@ var SBSC = (() => {
     DERIVED.forEach(k => { by[k] = Math.max(Number(hw[k]) || 0, cur[k] || 0); });
     by.quiz = (sc().qbase != null ? Number(sc().qbase) || 0 : Math.max(Number(hw.quiz) || 0, savedQuizPts())) + evSum("quiz");
     by.pres = evSum("pres");
+    by.chest = evSum("chest");
+    by.spin = evSum("spin");
     by.cards = cardsTotal();
     const earned = Math.floor(Object.values(by).reduce((n, x) => n + x, 0));
     cache = {by, cur, earned}; cacheAt = now;
@@ -60666,7 +62023,9 @@ var SBSC = (() => {
   }
 
   /* ---------- Spending ---------- */
-  const owns = id => !!(sc().own || {})[id];
+  // An accessory owned from before credits (98-companion.js, props earned by milestones then): kept for good, at no cost
+  function grant(id){ if (!id || owns(id)) return; setSc({own: {[id]: 0}}); invalidate(); }
+  const owns = id => !!id && Object.prototype.hasOwnProperty.call(sc().own || {}, id);
   // Pays for an accessory: true when bought (or already owned), false when there aren't enough credits
   function buy(id, price){
     price = Math.max(0, Math.round(Number(price) || 0));
@@ -60679,6 +62038,337 @@ var SBSC = (() => {
     return true;
   }
 
+  /* ---------- Chests ----------
+     Now and then finishing a piece of work turns up a chest: a flashcard gone through (each card once a session), a quiz question
+     answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
+     credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
+     How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
+     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
+  const CHEST = {
+    common: {name: "Common", min: 5, max: 20, p: 0.70},
+    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
+    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
+    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+  };
+  const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
+  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
+  function rollChest(kind){
+    try {
+      // tests can make every roll find one (window.__SB_TEST only)
+      // in browser tests nothing is left to luck: no chests unless a test asks for one (window.__SB_TEST only)
+      let chance = CHEST_CHANCE[kind] || 0; try { if (window.__SB_TEST) chance = localStorage.getItem("studyboard:chest-test") ? 1 : 0; } catch (e) {}
+      if (Math.random() >= chance) return null;
+      const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
+      let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
+      const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
+      setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});
+      if (kind !== "focus") foundNote(c);
+      fire("chest-found", c);
+      return c;
+    } catch (e) { return null; }
+  }
+  const takeChests = () => { const l = pending(); if (l.length) setSc({chq: []}); return l; };
+  // the chest, drawn: a wooden chest with metal bands and a rim in its rarity's colour (lid apart, so it can open)
+  function chestSvg(t, small){
+    const rim = RIM[t] || RIM.common, id = "ch" + Math.random().toString(36).slice(2, 7);
+    return `<svg class="scr-chest${small ? " sm" : ""}" viewBox="0 0 120 112" aria-hidden="true"><defs>
+      <linearGradient id="${id}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#B5763A"/><stop offset="1" stop-color="#7A4A1E"/></linearGradient>
+      <linearGradient id="${id}l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C98A48"/><stop offset="1" stop-color="#94592A"/></linearGradient></defs>
+      ${small ? "" : `<ellipse cx="60" cy="104" rx="46" ry="6" fill="rgba(0,0,0,.18)"/>`}
+      <g class="ch-glow"><ellipse cx="60" cy="50" rx="40" ry="12" fill="${rim}" opacity=".9"/><ellipse cx="60" cy="50" rx="30" ry="7" fill="#fff" opacity=".85"/></g>
+      <g class="ch-base"><rect x="14" y="50" width="92" height="50" rx="6" fill="url(#${id}w)" stroke="#2B2233" stroke-width="3"/>
+        <path d="M18 66h84M18 82h84" stroke="#5A3412" stroke-opacity=".45" stroke-width="2"/>
+        <rect x="24" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/><rect x="86" y="50" width="10" height="50" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="14" y="50" width="92" height="7" fill="${rim}" stroke="#2B2233" stroke-width="2.5"/>
+        <rect x="51" y="54" width="18" height="20" rx="3.5" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/><circle cx="60" cy="62" r="2.6" fill="#2B2233"/><path d="M60 63v5" stroke="#2B2233" stroke-width="2.4" stroke-linecap="round"/></g>
+      <g class="ch-lid"><path d="M14 50V34Q14 12 60 12Q106 12 106 34V50Z" fill="url(#${id}l)" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M24 50V27Q24 17 34 15.5V50ZM86 50V15.5Q96 17 96 27V50Z" fill="${rim}" stroke="#2B2233" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M14 44h92" stroke="#2B2233" stroke-width="2.5"/><path d="M30 24Q60 16 90 24" stroke="#fff" stroke-opacity=".35" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <rect x="51" y="40" width="18" height="12" rx="3" fill="#F2C14E" stroke="#2B2233" stroke-width="2.5"/></g></svg>`;
+  }
+  // Found: a small note near the top that goes by itself (nothing to tap, nothing in the way)
+  function foundNote(c){
+    if (screensOff()) return;
+    try {
+      const o = document.createElement("div"); o.className = "scr-found ch-" + c.t + (calm() ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
+      if (o.showPopover) o.setAttribute("popover", "manual");
+      // the very first chest a student finds also says when it opens; after that, the name is enough
+      const first = !sc().chSeen; if (first) setSc({chSeen: 1});
+      o.innerHTML = `<span class="scr-found-ic">${chestSvg(c.t, true)}</span><span><b>${CHEST[c.t].name} Chest found!</b>${first ? "<small>Opens at the end</small>" : ""}</span>`;
+      document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      placeNote(o);
+      requestAnimationFrame(() => o.classList.add("show"));
+      setTimeout(() => { o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); }, 400); }, 2600);
+    } catch (e) {}
+    document.querySelectorAll("[data-scr-chests]").forEach(el => { el.innerHTML = chestsHtml(); });
+  }
+  // Where the note goes: in a presentation run, centred just under its top bar (the slides fill the middle and the filmstrip the
+  // bottom); in a flashcard session or a quiz, centred on the page's content near the bottom of the screen, above a phone's tab bar
+  function placeNote(o){
+    try {
+      const st = document.getElementById("prStage"), top = st && st.querySelector(".pr-top");
+      if (top) { const r = top.getBoundingClientRect(); o.classList.add("at-top"); o.style.top = Math.round(r.bottom + 10) + "px"; o.style.left = Math.round(innerWidth / 2) + "px"; return; }
+      const v = document.getElementById("view"), vr = v && v.getBoundingClientRect();
+      o.style.left = Math.round(vr && vr.width ? vr.left + vr.width / 2 : innerWidth / 2) + "px";
+      // anything fixed along the bottom (a phone's tab bar): the note sits above it
+      let edge = innerHeight, e = document.elementFromPoint(innerWidth / 2, innerHeight - 20);
+      while (e && e !== document.body && e !== document.documentElement) { const cs = getComputedStyle(e); if (!o.contains(e) && (cs.position === "fixed" || cs.position === "sticky")) { edge = Math.min(edge, e.getBoundingClientRect().top); break; } e = e.parentElement; }
+      // (more room on a phone, where the companion sits up out of the tab bar)
+      o.style.bottom = Math.round(innerHeight - edge + (innerWidth < 640 && edge < innerHeight ? 34 : 14)) + "px";
+    } catch (e) {}
+  }
+  // the chests waiting to be opened, as little icons (beside the credits chip while studying)
+  const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
+  // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
+  // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  // An open modal dialog (the Focus timer, a sheet) makes the rest of the page inert, popovers included, so a screen shown over one
+  // couldn't be tapped: it goes inside the top one, and moves out (to the next one, or the page) when that dialog closes
+  const topModal = () => { const l = [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return false; } }); return l[l.length - 1] || null; };
+  function mount(o){
+    const host = topModal() || document.body;
+    host.appendChild(o);
+    try { if (o.showPopover && !o.matches(":popover-open")) o.showPopover(); } catch (e) {}
+    if (host !== document.body) host.addEventListener("close", function moved(){ host.removeEventListener("close", moved); if (o.isConnected && host.contains(o)) mount(o); });
+  }
+  function openChests(list, done){
+    const still = calm(), o = document.createElement("div");
+    o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    mount(o);
+    let i = 0, opened = false;
+    const draw = () => {
+      const c = list[i]; opened = false;
+      o.className = `scr-rw scr-ch ch-${c.t}` + (still ? " scr-still" : "");
+      o.innerHTML = `<div class="scr-dim"></div><div class="scr-ch-box">
+        <span class="scr-kick ch-kick">${list.length > 1 ? `Chest ${i + 1} of ${list.length}` : "You found a chest!"}</span>
+        <h2 id="scrChT">${CHEST[c.t].name} Chest</h2>
+        <button type="button" class="scr-ch-stage" data-ch="open" aria-label="Open the ${CHEST[c.t].name} chest"><span class="scr-ch-rays"></span>${chestSvg(c.t)}<span class="scr-ch-coins" aria-hidden="true"></span></button>
+        <p class="scr-ch-amt" aria-live="polite"><span class="scr-ch-hint">Tap to open</span></p>
+        <div class="scr-acts"><button type="button" class="btn primary scr-go" data-ch="open">Open</button></div></div>`;
+      setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    };
+    const open = () => {
+      if (opened) { i++; if (i < list.length) draw(); else close(); return; }
+      opened = true; const c = list[i];
+      o.classList.add("is-open");
+      try { if (typeof sbHaptic === "function") sbHaptic(c.t === "common" ? "tap" : "success", {force: true}); } catch (e) {}
+      sfx("chest", {rarity: c.t}); setTimeout(() => coinRun(c.c, Math.min(1200, 400 + c.c * 6)), still ? 300 : 700);
+      const coins = o.querySelector(".scr-ch-coins");
+      if (coins && !still) coins.innerHTML = Array.from({length: c.t === "legendary" ? 14 : c.t === "exotic" ? 11 : c.t === "rare" ? 8 : 6}, (_, k) => `<img src="${COIN_SRC}" alt="" style="--x:${Math.round((k % 2 ? 1 : -1) * (14 + (k * 37) % 90))}px;--y:${-70 - (k * 53) % 80}px;--d:${(k * 0.045).toFixed(2)}s">`).join("");
+      const amt = o.querySelector(".scr-ch-amt");
+      amt.innerHTML = `${coin(26)}<b>+<span data-n>${still ? c.c : 0}</span></b><span>credits</span>`;
+      setTimeout(() => countUp(amt.querySelector("[data-n]"), 0, c.c, Math.min(1200, 400 + c.c * 6)), still ? 0 : 380);
+      const b = o.querySelector(".scr-go"); if (b) b.textContent = i + 1 < list.length ? "Next Chest" : "Collect";
+    };
+    const close = () => { o.classList.add("scr-out"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); done(); }, still ? 0 : 220); };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-ch]"); if (b) { if (b.classList.contains("scr-ch-stage") && opened) return; open(); } });
+    o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); while (i < list.length - 1) i++; opened = true; open(); } if (e.key === "Tab") e.preventDefault(); });
+    draw();
+  }
+  // chests left from a session that ended without its screen (closed early): opened the next time things are calm
+  function openLeftovers(){
+    if (!pending().length) return;
+    const ae = document.activeElement;
+    if (studying() || rOpen || document.hidden || document.querySelector("dialog[open]") || (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable))) { setTimeout(openLeftovers, 15000); return; }
+    reward({kind: "hello", kick: "Chests to Open", title: "Found while you were studying", lines: [], showZero: true});
+  }
+
+  /* ---------- The prize wheel: a spin for an exam grade of 80% or more ----------
+     A mark of 80% or more on an exam (typed in, or from the school site) earns a spin, once per exam,
+     at most SPINS_A_WEEK a week (Monday to Sunday). The wheel has 12 prizes, each slice as big as its chance, so what you see is
+     what you get: 1 Legendary accessory (2%), 2 Epic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
+     100 (10%), 150 (8%), 200 (6%). The accessories are picked at random from ones the student doesn't own yet (none of a rarity
+     left: that slice is coins instead, half its price). Marks already there when this first runs, and more than 3 arriving at
+     once (a sync catching up), are counted as seen without a spin. A spin waits (sc.wsq) until it's spun.
+     Pro: one free spin every week (Monday to Sunday) on top of the exam spins (sc.wpro marks the week's as given). The Wardrobe
+     says so to free students, with Get Pro, and shows Pro students theirs. */
+  const WHEEL_ITEMS = [["legendary", 1, 0.02], ["exotic", 2, 0.04], ["rare", 3, 0.06]];
+  const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
+  // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
+  const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
+  const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
+  const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
+  const weekKey = () => mondayOf(todayISO());
+  const spinsLeftThisWeek = () => Math.max(0, SPINS_A_WEEK - (Number((sc().wsw || {})[weekKey()]) || 0));
+  const spinQueue = () => (Array.isArray(sc().wsq) ? sc().wsq : []).filter(x => x && x.id);
+  let gradesReady = false;
+  function checkGrades(){
+    if (!gradesReady) return;
+    // exams only (a task of the type Exam)
+    const good = Object.values(state.tasks || {}).filter(t => t && t.id && t.type === "Exam" && (gradePct(t) || 0) >= 80);
+    const seenList = sc().wg;
+    if (!Array.isArray(seenList)) { setSc({wg: good.map(t => t.id).slice(-800)}); return; }
+    const seen = new Set(seenList), fresh = good.filter(t => !seen.has(t.id));
+    if (!fresh.length) return;
+    const ids = seenList.concat(fresh.map(t => t.id)).slice(-800);
+    // more than 3 at once: a sync or an import catching up, not grades just earned
+    if (fresh.length > 3) { setSc({wg: ids}); return; }
+    const wk = weekKey(), used = Number((sc().wsw || {})[wk]) || 0, n = Math.max(0, Math.min(fresh.length, SPINS_A_WEEK - used));
+    const add = fresh.slice(0, n).map(t => ({id: uid(), title: String(t.title || "").slice(0, 80), pct: Math.round(gradePct(t))}));
+    setSc({wg: ids, wsq: spinQueue().concat(add), wsw: {[wk]: used + add.length}});
+    if (add.length) setTimeout(spinSoon, 600);
+  }
+  // Pro's weekly spin (Pro only counts with the paywall on: with it off, everyone is Pro)
+  let planTest = null; // browser tests only: {paywall, pro}
+  const plan = () => { try { if (planTest) return planTest; return typeof PLAN !== "undefined" && !!PLAN ? {paywall: PLAN.paywall(), pro: PLAN.isPro()} : null; } catch (e) { return null; } };
+  const proNow = () => { const x = plan(); return !!x && x.paywall && x.pro; };
+  const proFree = () => { const x = plan(); return !!x && x.paywall && !x.pro; };
+  function checkPro(){
+    if (!gradesReady || !proNow()) return;
+    const wk = weekKey();
+    // this week's given already, or last week's still waiting to be spun (this week's comes once that one is)
+    if ((sc().wpro || {})[wk] || spinQueue().some(x => x.pro)) return;
+    setSc({wpro: {[wk]: 1}, wsq: spinQueue().concat([{id: uid(), pro: true}])});
+    setTimeout(spinSoon, 600);
+  }
+  // A new student's welcome spin: once, when they first get into the app (the welcome setup done, and the App Tour finished or
+  // skipped if they took it). 40-onboarding.js and 49-apptour.js call it; sc.wwel marks it given, so it never comes twice
+  function welcomeSpin(){
+    if (sc().wwel || spinQueue().some(x => x.welcome)) return false;
+    setSc({wwel: 1, wsq: spinQueue().concat([{id: uid(), welcome: true}])});
+    setTimeout(spinSoon, 900);
+    return true;
+  }
+  const MINI_WHEEL = (() => { const cols = ["#F5B700", "#FFE7A8", "#7C3AED", "#FFD36B", "#2563EB", "#FFE7A8", "#E5484D", "#FFD36B"];
+    const p = (d, r) => [20 + r * Math.sin(d * Math.PI / 180), 20 - r * Math.cos(d * Math.PI / 180)].map(v => v.toFixed(2));
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="21" r="18" fill="#2B2233"/>${cols.map((c, k) => { const [x0, y0] = p(k * 45, 15), [x1, y1] = p(k * 45 + 45, 15); return `<path d="M20 20L${x0} ${y0}A15 15 0 0 1 ${x1} ${y1}Z" fill="${c}" transform="translate(0 1)"/>`; }).join("")}<circle cx="20" cy="21" r="4" fill="#FFF4C8" stroke="#2B2233" stroke-width="1.5"/><path d="M16 1.5h8l-4 7z" fill="#E5484D" stroke="#2B2233" stroke-width="1.2" stroke-linejoin="round"/></svg>`; })();
+  // the Wardrobe's line about it: Get Pro for free students, their spin for Pro students, nothing with the paywall off
+  function proSpinHtml(){
+    if (proFree()) return `<div class="wh-pro"><span class="wh-pro-ic">${MINI_WHEEL}</span><span class="wh-pro-t"><b>A free spin every week with Pro</b><span class="mini">Spin the prize wheel for credits and Rare to Legendary accessories, on top of your exam spins.</span></span><button type="button" class="btn small wh-pro-btn" data-act="plan-open" data-reason="Pro members get a free prize wheel spin every week, for credits and Rare to Legendary accessories.">Get Pro</button></div>`;
+    if (!proNow()) return "";
+    const ready = spinQueue().some(x => x.pro), given = !!(sc().wpro || {})[weekKey()];
+    return `<div class="wh-pro is-pro"><span class="wh-pro-ic">${MINI_WHEEL}</span><span class="wh-pro-t"><b>Your free Pro spin</b><span class="mini">${ready ? "This week's is ready." : given ? "Spun this week. The next one comes on Monday." : "One every week, on top of your exam spins."}</span></span>${ready ? `<button type="button" class="btn small wh-pro-btn" data-act="wh-pro-spin">Spin</button>` : ""}</div>`;
+  }
+  // the Wardrobe's Spin: the wheel straight away (over the sheet), then the Wardrobe redrawn
+  function spinPro(after){ const sp = spinQueue().find(x => x.pro); if (!sp || rOpen) return false; showWheel(sp, after); return true; }
+  // the wheel's prizes, freshly picked: [{k: "item"|"coins", r: rarity, id, name, n, p}]
+  function wheelPrizes(){
+    const list = (() => { try { return window.SBCOMP && SBCOMP.accList ? SBCOMP.accList() : []; } catch (e) { return []; } })();
+    const out = [], used = new Set();
+    const x2 = proNow();
+    WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
+      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
+      for (let i = 0; i < count; i++) {
+        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
+        else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
+      }
+    });
+    (x2 ? WHEEL_COINS_PRO : WHEEL_COINS).forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
+    // items spread between the coins, so the small slices aren't all bunched together
+    const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
+    while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
+    return mixed;
+  }
+  const RCOL = {legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
+  // The wheel: 12 equal slices, so every prize shows (each accessory's own picture on a badge in its rarity's colour, each coin
+  // prize a coin and its number). Which one it lands on follows the odds (the prize list under it says them); the slice sizes don't.
+  function wheelSvg(prizes){
+    const C = 160, R = 140, n = prizes.length, step = 360 / n, id = "wh" + Math.random().toString(36).slice(2, 6);
+    const pt = (deg, r) => [C + r * Math.sin(deg * Math.PI / 180), C - r * Math.cos(deg * Math.PI / 180)];
+    const defs = [`<radialGradient id="${id}c0" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFF8E1"/><stop offset="1" stop-color="#FFE7A8"/></radialGradient>`,
+      `<radialGradient id="${id}c1" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#FFEDB8"/><stop offset="1" stop-color="#FFD36B"/></radialGradient>`]
+      .concat(Object.entries(RCOL).map(([k, [a, b]]) => `<radialGradient id="${id}${k}" cx="50%" cy="50%" r="60%"><stop offset=".25" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient>`));
+    let ci = 0;
+    const slices = prizes.map((pz, k) => {
+      const a0 = k * step, a1 = a0 + step, [x0, y0] = pt(a0, R), [x1, y1] = pt(a1, R), mid = a0 + step / 2;
+      pz.mid = mid;
+      const fill = pz.r && pz.k === "item" ? `url(#${id}${pz.r})` : pz.r ? `url(#${id}${pz.r})` : `url(#${id}c${(ci++) % 2})`;
+      const path = `<path d="M${C} ${C}L${x0.toFixed(2)} ${y0.toFixed(2)}A${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z" fill="${fill}" stroke="#2B2233" stroke-width="2.5"/>`;
+      // the slice's prize, drawn upright at the top and turned round to its slice
+      let art;
+      if (pz.k === "item") {
+        const ic = (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "").replace("<svg ", `<svg x="${C - 19}" y="${C - R + 21}" width="38" height="38" `);
+        const ring = {legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
+        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="#F5B700" stroke-width="1.2"/>` : ""}`;
+      } else {
+        art = `<image href="${COIN_SRC}" x="${C - 15}" y="${C - R + 18}" width="30" height="30"/><text x="${C}" y="${C - R + 66}" text-anchor="middle" class="wh-n${pz.r ? " on-dark" : ""}">${pz.n}</text>`;
+      }
+      return path + `<g transform="rotate(${mid.toFixed(2)} ${C} ${C})" style="--cp-wear:#5B7FD6">${art}</g>`;
+    }).join("");
+    // lights round the rim, every other one lit
+    const bulbs = Array.from({length: 24}, (_, k) => { const [bx, by] = pt(k * 15, R + 9); return `<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="3.6" class="wh-bulb${k % 2 ? " b2" : ""}"/>`; }).join("");
+    return `<svg class="wh-svg" viewBox="0 0 320 320" aria-hidden="true"><defs>${defs.join("")}<radialGradient id="${id}rim" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#4A3A6A"/><stop offset="1" stop-color="#231B33"/></radialGradient>
+      <radialGradient id="${id}hub" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#FFF4C8"/><stop offset="1" stop-color="#E9A21C"/></radialGradient>
+      <radialGradient id="${id}sh" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>
+      <circle cx="${C}" cy="${C}" r="${R + 16}" fill="url(#${id}rim)"/><circle cx="${C}" cy="${C}" r="${R + 16}" fill="none" stroke="#F2C14E" stroke-width="3"/>${bulbs}
+      ${slices}<circle cx="${C}" cy="${C}" r="${R}" fill="url(#${id}sh)" pointer-events="none"/><circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="#2B2233" stroke-width="3"/>
+      <circle cx="${C}" cy="${C}" r="30" fill="url(#${id}hub)" stroke="#2B2233" stroke-width="3"/><image href="${COIN_SRC}" x="${C - 22}" y="${C - 22}" width="44" height="44"/></svg>`;
+  }
+  const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
+  const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
+  const RNAME = {legendary: "Legendary", exotic: "Epic", rare: "Rare"};
+  function spinSoon(){
+    if (!spinQueue().length || screensOff()) return;
+    const ae = document.activeElement;
+    // (the welcome spin doesn't wait for an empty box the app put the cursor in: the welcome setup's Add My First Task)
+    const typing = ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable) && !(spinQueue()[0].welcome && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && !ae.value);
+    if (rOpen || studying() || document.hidden || document.querySelector("dialog[open]") || typing) { setTimeout(spinSoon, 2500); return; }
+    showWheel(spinQueue()[0]);
+  }
+  function showWheel(sp, after){
+    rOpen = true;
+    const still = calm(), prizes = wheelPrizes(), o = document.createElement("div");
+    o.className = "scr-rw scr-wh" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrWhT");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const list = prizes.slice().sort((a, b) => a.p - b.p), x2 = proNow(), X2 = `<span class="wh-x2">(x2) <span class="pro-badge">PRO</span></span>`;
+    o.innerHTML = `<div class="scr-dim"></div><div class="scr-card wh-card">
+      <div class="scr-head">${sp.welcome ? `<span class="scr-kick">Welcome to Studyboard!</span><h2 id="scrWhT">A free spin to start you off</h2>` : sp.pro ? `<span class="scr-kick scr-kick-pro">Weekly Pro Spin</span><h2 id="scrWhT">Your free spin this week</h2>` : `<span class="scr-kick">Great Exam Grade!</span><h2 id="scrWhT">${sp.pct}% on ${esc(sp.title || "your work")}</h2><p class="mini wh-sub">Spin the prize wheel. ${spinsLeftThisWeek() ? "" : "That's this week's last spin."}</p>`}</div>
+      <div class="wh-stage"><span class="wh-ptr" aria-hidden="true"></span><div class="wh-clip"><div class="wh-rot">${wheelSvg(prizes)}</div></div></div>
+      <div class="wh-result" aria-live="polite"></div>
+      ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
+      <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
+      <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
+    mount(o);
+    setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
+    let state0 = "ready", won = null;
+    const spin = () => {
+      state0 = "spinning";
+      // the prize, by its chance; then a landing spot inside its slice
+      let r = Math.random(); won = prizes[prizes.length - 1];
+      for (const pz of prizes) { if (r < pz.p) { won = pz; break; } r -= pz.p; }
+      const half = (360 / prizes.length) / 2 * 0.7, land = won.mid + (Math.random() * 2 - 1) * half, turns = still ? 0 : 5;
+      const rot = o.querySelector(".wh-rot"); rot.style.transition = still ? "none" : "transform 4.4s cubic-bezier(.12,.78,.18,1)";
+      rot.style.transform = `rotate(${turns * 360 - land}deg)`;
+      const b = o.querySelector(".wh-go"); b.disabled = true; b.textContent = "Spinning…"; if (!still) o.classList.add("spinning");
+      // the prize is the student's as soon as it's decided (closing the app mid-spin can't lose it)
+      if (won.k === "item") grant(won.id); else { setSc({ev: {[`spin:${todayISO()}:${sp.id}`]: won.n}}); invalidate(); }
+      setSc({wsq: spinQueue().filter(x => x.id !== sp.id)});
+      try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+      // a click each time the pointer passes a slice, read from the wheel's real turn, so the clicks slow down with it
+      if (!still) { sfx("whoosh"); const per = 360 / prizes.length; let last = null, until = performance.now() + 4600;
+        const watch = () => { if (!o.isConnected || performance.now() > until) return; const m = getComputedStyle(rot).transform; let a = 0;
+          if (m && m !== "none") { const v = m.match(/matrix\(([^)]+)\)/); if (v) { const p = v[1].split(",").map(Number); a = Math.atan2(p[1], p[0]) * 180 / Math.PI; } }
+          const slice = Math.floor(((a % 360) + 360) % 360 / per); if (last != null && slice !== last) sfx("tick"); last = slice; requestAnimationFrame(watch); };
+        requestAnimationFrame(watch); }
+      setTimeout(landed, still ? 50 : 4500);
+    };
+    const landed = () => {
+      state0 = "done"; o.classList.remove("spinning"); o.classList.add("wh-won", won.k === "item" ? "r-" + won.r : "r-coins");
+      sfx("win", won.k === "item" ? {rarity: won.r} : {coins: true});
+      try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+      const res = o.querySelector(".wh-result");
+      res.innerHTML = won.k === "item"
+        ? `<span class="wh-prize ch-${won.r}"><span class="wh-prize-ic">${prizeIcon(won)}</span></span><b>${esc(won.name)}</b><span class="cp-rar cp-rar-${won.r}">${RNAME[won.r]}</span><span class="mini">It's yours to keep.</span>`
+        : `${coin(30)}<b>+${won.n} credits</b>`;
+      const acts = o.querySelector(".scr-acts");
+      acts.innerHTML = won.k === "item" ? `<button type="button" class="btn" data-wh="done">Later</button><button type="button" class="btn primary scr-go" data-wh="wear">Put It On</button>` : `<button type="button" class="btn primary scr-go" data-wh="done">Collect</button>`;
+      setTimeout(() => { const b = acts.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+      seenTotal = totals().earned; paintPills();
+    };
+    const close = wear => {
+      if (wear && won && won.k === "item") { try { if (window.SBCOMP && SBCOMP.wearId) SBCOMP.wearId(won.id); } catch (e) {} }
+      o.classList.add("scr-out");
+      setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; invalidate(); seenTotal = totals().earned; paintPills(); if (after) try { after(); } catch (e) {} setTimeout(() => { try { checkPro(); } catch (e) {} spinSoon(); }, 800); setTimeout(showNext, 300); }, still ? 0 : 220);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-wh]"); if (!b) return; if (b.dataset.wh === "spin" && state0 === "ready") spin(); else if (state0 === "done") close(b.dataset.wh === "wear"); });
+    o.addEventListener("keydown", e => { if (e.key === "Escape" && state0 === "done") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button:not([disabled]),summary")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
+  }
+
   /* ---------- The reward screen ----------
      At the end of a focus session, a flashcard session, a quiz, a presentation run and a finished task: the credits it earned,
      counting up in a shower of coins, line by line (what earned what), the balance going up, and a bar filling toward the next
@@ -60686,29 +62376,124 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
-  const rq = []; let rOpen = false;
+  /* ---------- How much more ready for an exam this work made you ----------
+     Exam readiness (examReadiness, 01-helpers.js: the same number the exam shows everywhere) for each exam in the next 60 days,
+     noted while nothing is being earned (readyBase); a reward screen shows the exams it went up for since then, before and
+     after, with a soft chime. Readiness from somewhere else (another device, a slider) is noted quietly, never shown as earned. */
+  const READY_DAYS = 60;
+  let readyBase = null;
+  const readyNow = () => {
+    const m = {}, today = todayISO(), last = typeof addDays === "function" ? addDays(today, READY_DAYS) : "9999";
+    try { Object.values(state.tasks || {}).forEach(t => {
+      if (!t || !MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < today || t.due > last) return;
+      const r = examReadiness(t); m[t.id] = r && r.pct != null ? r.pct : 0;
+    }); } catch (e) {}
+    return m;
+  };
+  const readySet = () => { readyBase = readyNow(); };
+  function readyUps(){
+    const before = readyBase, now = readyNow(); readyBase = now;
+    if (!before) return [];
+    const today = todayISO();
+    return Object.keys(now).filter(id => before[id] != null && now[id] - before[id] >= 1).map(id => {
+      const t = state.tasks[id], days = Math.max(0, Math.round((parse(t.due) - parse(today)) / 864e5));
+      return {id, title: t.title || "Exam", from: before[id], to: now[id], days};
+    }).sort((a, b) => (b.to - b.from) - (a.to - a.from) || a.days - b.days).slice(0, 2);
+  }
+  // A soft, short rising chime (two bell-like notes), quiet, only when Reward Sounds is on (Settings, Appearance)
+  const FX_KEY = "studyboard:fx";
+  const fxOn = () => { try { return localStorage.getItem(FX_KEY) !== "off"; } catch (e) { return true; } };
+  let fxAc = null;
+  function chime(force){
+    try {
+      if ((!fxOn() && !force) || document.hidden || (window.__SB_TEST && !window.__SB_FX)) return;
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      fxAc = fxAc || new C(); if (fxAc.state === "suspended") fxAc.resume();
+      const t0 = fxAc.currentTime + 0.02, out = fxAc.createGain(); out.gain.value = 0.11; out.connect(fxAc.destination);
+      [[659.25, 0], [987.77, 0.11]].forEach(([f, at]) => {
+        [[1, 1], [2.01, 0.18]].forEach(([mul, lv]) => {
+          const o = fxAc.createOscillator(), g = fxAc.createGain(), s = t0 + at;
+          o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(lv, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0008, s + (mul > 1 ? 0.35 : 0.9));
+          o.connect(g); g.connect(out); o.start(s); o.stop(s + 1);
+        });
+      });
+    } catch (e) {}
+  }
+  window.SBSC_FX = force => chime(force);
+  const TARGET = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+  const whenTxt = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+  const readyHtml = ups => !ups || !ups.length ? "" : `<div class="scr-ready" role="group" aria-label="Exam readiness">
+      <div class="scr-ready-h">${TARGET}<span>Exam Readiness</span></div>
+      ${ups.map(u => `<div class="scr-rd" data-from="${u.from}" data-to="${u.to}" aria-label="${esc(u.title)}: ${u.from} percent ready, now ${u.to} percent">
+        <div class="scr-rd-top"><span class="scr-rd-t"><b>${esc(u.title)}</b><span class="mini">${whenTxt(u.days)}</span></span><span class="scr-rd-n"><b data-rn>${u.from}</b>%</span></div>
+        <div class="scr-rd-bar" aria-hidden="true"><i class="scr-rd-was" style="width:${u.from}%"></i><i class="scr-rd-gain" style="left:${u.from}%;width:0"></i></div>
+        <span class="scr-rd-up" aria-hidden="true">+${u.to - u.from}% ready</span></div>`).join("")}</div>`;
+  // the bars fill to their new readiness, the numbers count up, and the chime plays once
+  function readyPlay(o, still, at){
+    const rows = [...o.querySelectorAll(".scr-rd")]; if (!rows.length) return;
+    setTimeout(() => {
+      if (!o.isConnected) return;
+      rows.forEach((row, i) => setTimeout(() => {
+        const a = Number(row.dataset.from), b = Number(row.dataset.to), g = row.querySelector(".scr-rd-gain");
+        if (g) g.style.width = (b - a) + "%";
+        countUp(row.querySelector("[data-rn]"), a, b, still ? 0 : 900);
+        row.classList.add("on");
+      }, still ? 0 : i * 260));
+      chime();
+      try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
+    }, still ? 0 : at);
+  }
+  const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
+  // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    // the Focus timer's alarm comes first (Start Break, Mark Done); this screen follows once it's put away
+    const al = document.getElementById("alarmDlg");
+    // (meanwhile the quiet count waits, so it doesn't take this work's credits as arriving from elsewhere)
+    if (al && al.open && !screensOff()) { rWait++; al.addEventListener("close", () => setTimeout(() => { rWait--; reward(spec); }, 300), {once: true}); return; }
+    const ch = spec.compact ? [] : takeChests();
+    if (!ch.length) { rewardNow(spec, []); return; }
+    // the coins are added as the chests are opened (or at once, where the screens aren't shown)
+    const credit = () => { setSc({ev: Object.fromEntries(ch.map(c => [`chest:${todayISO()}:${c.id}`, c.c]))}); invalidate(); };
+    if (screensOff() || document.hidden) { credit(); rewardNow(spec, ch); return; }
+    // while chests are being opened nothing else counts or shows (the session's own credits belong on the screen that follows)
+    rOpen = true;
+    openChests(ch, () => { rOpen = false; credit(); rewardNow(spec, ch); });
+  }
+  // sound effects (01-sfx.js): quiet when the effects are off or the app is in the background
+  const sfx = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
+  // coins tinkling while a number counts up: a few for a small amount, more for a big one, over the count's time
+  const coinRun = (n, ms) => { const k = Math.max(2, Math.min(14, Math.round(n / 3))); for (let i = 0; i < k; i++) setTimeout(() => sfx("coin", {i}), Math.round(i * ms / k)); };
+  function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
-    const gained = Math.max(0, now - before);
+    let gained = Math.max(0, now - before);
     seenTotal = now; lastBy = Object.assign({}, totals().by);
     keepHigh();
-    const lines = (spec.lines || []).filter(l => l && (l.n || l.s));
+    const chestLines = (ch || []).map(c => ({t: `${CHEST[c.t].name} Chest`, n: c.c, s: "Found while you studied", chest: c.t}));
+    const chestSum = chestLines.reduce((a, l) => a + l.n, 0);
+    const lines = (spec.lines || []).filter(l => l && (l.n != null || l.s));
+    // A single line shows what really counted: daily limits can make it less; it's never more than the work itself can earn (a
+    // "fill" line, focus minutes or cards, takes what was added up to that most)
+    if (lines.length === 1 && lines[0].n != null) lines[0].n = Math.max(0, Math.min(lines[0].fill || lines[0].n, gained - chestSum));
+    lines.push(...chestLines);
     const sum = lines.reduce((a, l) => a + (l.n || 0), 0);
-    // rounding (cards and minutes earn fractions) and daily limits: the lines always add up to what was really added
-    if (lines.length === 1 && lines[0].n != null) lines[0].n = gained;
-    else if (gained > sum) lines.push({t: "Other studying", n: gained - sum});
+    // Credits that arrived some other way since the last count (another device, work counted after the app opened) were already
+    // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
+    if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    if (!gained && !spec.showZero) return;
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers); a pass, a good session or a mastered talk
+    // still gets its sound
+    if (!gained) { readySet(); if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
     let welcome = 0;
     if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
-    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome, ready: readyUps()}));
     showNext();
   }
   // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
@@ -60730,15 +62515,6 @@ var SBSC = (() => {
     quiz: '<path d="M9 9a3 3 0 1 1 4 2.8c-.7.3-1 .9-1 1.7V15"/><circle cx="12" cy="18.5" r=".6"/><circle cx="12" cy="12" r="9.5"/>', task: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
     pres: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/>', hello: '<path d="M12 3l2.6 5.6L20 9.4l-4 4.1.9 5.8L12 16.6 7.1 19.3l.9-5.8-4-4.1 5.4-.8z"/>'};
   const icon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ICON.hello}</svg>`;
-  const goalHtml = r => {
-    const g = r.tgt; if (!g) return "";
-    const p0 = Math.min(1, r.bal0 / g.price), p1 = Math.min(1, r.bal / g.price), ready = r.bal >= g.price;
-    return `<div class="scr-goal${ready ? " ready" : ""}" data-p0="${p0}" data-p1="${p1}">
-      <span class="scr-goal-ic cp-r-${esc(g.rarity || "common")}" aria-hidden="true">${g.icon || ""}</span>
-      <span class="scr-goal-t"><b>${esc(g.name)}</b><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span>
-        <span class="mini">${ready ? "You can buy it now!" : `${(g.price - r.bal).toLocaleString()} more credits`}</span></span>
-      ${ready ? `<button type="button" class="btn small scr-goal-go" data-scr="wardrobe">Get It</button>` : ""}</div>`;
-  };
   function showBig(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrRwT");
@@ -60749,17 +62525,23 @@ var SBSC = (() => {
       <div class="scr-big" aria-live="polite"><span class="scr-big-coin"><img src="${COIN_SRC}" alt="" width="84" height="84"><i class="scr-shine"></i></span>
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
-      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"><span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
-      ${goalHtml(r)}
-      <div class="scr-acts"><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
+    mount(o);
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    // the screen's sound: a stinger for how it went (r.sfx: 1 nice, 2 passed or on time, 3 perfect or mastered; 0 for a focus session,
+    // whose timer has just chimed), then coins while the credits count up and a ding when they land
+    const lvl = r.sfx != null ? r.sfx : r.kind === "focus" ? 0 : 1;
+    if (lvl) sfx("reward", {level: lvl});
+    const cMs = Math.min(1600, 500 + r.gained * 25);
+    setTimeout(() => coinRun(r.gained, cMs), (still ? 0 : 350) + (lvl >= 2 ? 450 : 150));
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
-    setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
-    setTimeout(() => { countUp(balEl, r.bal0, r.bal, 900); const gb = o.querySelector(".scr-goal-bar i"), g = o.querySelector(".scr-goal"); if (gb && g) gb.style.width = Math.round(Number(g.dataset.p1) * 100) + "%"; if (g && g.classList.contains("ready")) setTimeout(() => g.classList.add("pop"), 700); }, still ? 0 : tickAt * 1000 + 200);
+    readyPlay(o, still, tickAt * 1000 + 700);
+    setTimeout(() => countUp(big, 0, r.gained, cMs, () => { o.classList.add("scr-landed"); sfx("coinLand"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
+    setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let closed = false;
@@ -60771,24 +62553,26 @@ var SBSC = (() => {
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-scr]"); if (b) close(b.dataset.scr === "wardrobe"); else if (e.target.classList && e.target.classList.contains("scr-dim")) close(false); });
     o.addEventListener("keydown", e => { if (e.key === "Escape") { e.preventDefault(); close(false); } if (e.key === "Tab") { const bs = [...o.querySelectorAll("button")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); } });
   }
-  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner)
+  // A finished task: a smaller card near the bottom that counts up and goes away by itself (tap it to close sooner); it shows only
+  // what was earned, not what it's saving toward
   function showCompact(r){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-mini scr-k-" + r.kind + (still ? " scr-still" : ""); o.setAttribute("role", "status"); o.setAttribute("aria-live", "polite");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    const g = r.tgt, p0 = g ? Math.min(1, r.bal0 / g.price) : 0, p1 = g ? Math.min(1, r.bal / g.price) : 0;
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-      ${g ? `<span class="scr-mini-goal"><span class="scr-goal-bar"><i style="width:${Math.round(p0 * 100)}%"></i></span><span class="mini">${r.bal >= g.price ? `${esc(g.name)}: ready to buy!` : `${(g.price - r.bal).toLocaleString()} to ${esc(g.name)}`}</span></span>` : ""}</span>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+      ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
+    mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
-    setTimeout(() => { countUp(o.querySelector("[data-n]"), 0, r.gained, 600); const b = o.querySelector(".scr-goal-bar i"); if (b) b.style.width = Math.round(p1 * 100) + "%"; }, still ? 0 : 250);
+    sfx("pop");
+    // (focus time kept from a skipped or reset session: a coin lands when the count finishes, so the credits are heard as well as seen)
+    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600, r.kind === "focus" ? () => sfx("coinLand") : null), still ? 0 : 250);
+    if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
-    setTimeout(close, 3600);
+    setTimeout(close, r.ready && r.ready.length ? 5200 : 3600);
   }
   function openWardrobe(){
     try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
@@ -60797,28 +62581,25 @@ var SBSC = (() => {
   /* ---------- Each kind of work's ending ---------- */
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
-    if (!e || e.type !== "end" || e.mode !== "focus" || !e.minutes) return;
+    // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest and the big screen only at a
+    // session's real end, a small card that goes by itself for one stopped part way
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes || e.why === "switch") return;
+    if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: "Focus Session Done", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
-        lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every minute"}]});
-    }, 60);
-  });
-  // Focus stopped early (Skip or Reset): the minutes already focused still count, so a small card says what they earned
-  hook("focus", e => {
-    if (!e || e.type !== "early" || e.mode !== "focus" || !(Number(e.minutes) >= 1)) return;
-    setTimeout(() => {
-      const m = Math.round(e.minutes);
-      reward({kind: "focus", compact: true, kick: e.why === "skip" ? "Focus Skipped: Time Kept" : "Focus Reset: Time Kept", title: `${m} focused minute${m === 1 ? "" : "s"} counted`, lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0}]});
+      reward({kind: "focus", compact: e.type !== "end", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+        lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
-  function cardsDone(n){
+  // good: most of the session's cards were known (01-flashcards.js), which gets a happier sound
+  function cardsDone(n, good){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
     flushCards();
     const today = dayCards(todayISO());
-    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
-      lines: [{t: `${n} card${n === 1 ? "" : "s"} reviewed`, n: 0, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : `1 credit for every card (${today.toLocaleString()} of ${CARDS_A_DAY} today)`}]});
+    reward({kind: "cards", sfx: good ? 2 : 1, kick: good ? "Great Session!" : "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
+      lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, fill: n + 1, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
   function quizDone(right, total, key){
@@ -60826,12 +62607,12 @@ var SBSC = (() => {
     const day = todayISO(), id = String(key || "quiz").replace(/:/g, "_"), ev = sc().ev || {};
     const tries = Object.keys(ev).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length;
     const pass = total >= 3 && right / total >= 0.7, perfect = pass && right >= total;
-    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} right`, n: right, s: "1 credit for each right answer"}].concat(pass ? [{t: "Passed", n: QUIZ_PASS, s: "70% or more"}] : [], perfect ? [{t: "Perfect score!", n: QUIZ_PERFECT}] : []);
+    const lines = tries >= QUIZ_TRIES_A_DAY ? [] : [{t: `${right} of ${total} answers right`, n: right}].concat(pass ? [{t: "For passing", n: QUIZ_PASS}] : [], perfect ? [{t: "For a perfect score!", n: QUIZ_PERFECT}] : []);
     const pts = lines.reduce((a, l) => a + l.n, 0);
     // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
     if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
     if (pts) { setSc({ev: {[`quiz:${day}:${id}:${uid()}`]: pts}}); invalidate(); }
-    reward({kind: "quiz", kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
+    reward({kind: "quiz", sfx: perfect ? 3 : pass ? 2 : 1, kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
       lines: tries >= QUIZ_TRIES_A_DAY ? [{t: "No credits this time", n: 0, s: `This quiz has earned credits ${QUIZ_TRIES_A_DAY} times today. Try another, or come back tomorrow.`}] : lines, showZero: true});
   }
   // Presentations: each slide inside its time, and the whole talk on target (99-present.js, on a finished run)
@@ -60845,46 +62626,74 @@ var SBSC = (() => {
       const ok = idx.filter(k => { const t = Number(run.times[k]) || 0, b = Number((run.budgets || [])[k]) || 0; return b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000); }).length;
       const tgt = (Number(run.target) || 0) * 1000, whole = !run.sec && tgt > 0 && run.total <= tgt + 10000 && run.total >= tgt * 0.75;
       const first = whole && !ev[`pres:master:${pid}`] && !Object.keys(ev).some(k => k === `pres:${pid}:master`);
-      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `${ok} of ${idx.length} slide${idx.length === 1 ? "" : "s"} on time`, n: ok * PRES_SLIDE, s: `${PRES_SLIDE} credits a slide`}]
-        .concat(whole ? [{t: "Whole talk on target", n: PRES_WHOLE, s: "Within your time goal"}] : [], first ? [{t: "Mastered!", n: PRES_MASTER, s: "The first time on target"}] : []);
+      const lines = runsToday >= PRES_RUNS_A_DAY ? [] : [{t: `You practiced ${idx.length} slide${idx.length === 1 ? "" : "s"}, ${ok} on time`, n: ok * PRES_SLIDE}]
+        .concat(whole ? [{t: "For finishing the whole talk on target", n: PRES_WHOLE}] : [], first ? [{t: "Mastered! The first time on target", n: PRES_MASTER}] : []);
       const add = {}, pts = lines.reduce((a, l) => a + l.n, 0);
       if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
       if (first) add[`pres:master:${pid}`] = PRES_MASTER;
       if (Object.keys(add).length) { setSc({ev: add}); invalidate(); }
-      reward({kind: "pres", kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
+      reward({kind: "pres", sfx: first ? 3 : whole ? 2 : 1, kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
         lines: runsToday >= PRES_RUNS_A_DAY ? [{t: "No credits this time", n: 0, s: `This presentation has earned credits ${PRES_RUNS_A_DAY} times today. Come back tomorrow!`}] : lines, showZero: true});
     } catch (e) { console.warn("study credits: presentation", e); }
   });
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
-  function notice(){
+  // nothing to show: readiness as it is now is the new starting point for the next reward screen
+  function notice(){ if (!notice0()) readySet(); }
+  function notice0(){
+    try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return false; }
     const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
     doneSeen = done;
-    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return false; }
     const gained = t.earned - seenTotal;
     // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
-    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return false; }
     if (fresh.length) {
       const top = fresh.slice(0, 3);
       reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
-      return;
+      return true;
     }
-    reward({kind: "hello", compact: true, kick: "Credits Earned", title: "From your studying", lines: [{t: "Studying", n: gained}]});
+    // credits with no one piece of work behind them (counted quietly): the balance just goes up
+    seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
+    return false;
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
   let noticeT = 0;
   function noticeSoon(){
     clearTimeout(noticeT);
-    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen || rWait) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); });
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); readySet(); }, 3000); setTimeout(openLeftovers, 12000);
+    // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
+    setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
+  /* ---------- "+7 credits": a little chip while studying ----------
+     Shown during a focus session (the timer), a flashcard session, a quiz and a presentation run: what it has earned so far, going
+     up as you go (tasks show theirs when they're done). The final screen still adds what only the end can tell (passing, on target). */
+  function liveHtml(n, note, id){
+    n = Math.max(0, Math.round(Number(n) || 0));
+    return `<span class="scr-live"${id ? ` id="${id}"` : ""} role="status" aria-live="polite" title="Studyboard Credits earned so far">${coin(18)}<b>+${n.toLocaleString()}</b><span class="scr-live-t">${n === 1 ? "credit" : "credits"}</span>${note ? `<span class="scr-live-n">${esc(note)}</span>` : ""}<span class="scr-live-ch" data-scr-chests>${chestsHtml()}</span></span>`;
+  }
+  // focus: a credit for every 2 minutes of this session so far, as far as today's 3 hours allow
+  function focusLive(){
+    const el = typeof pomoElapsedMin === "function" ? Math.floor(pomoElapsedMin()) : 0;
+    const today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
+    return {n: Math.floor(Math.max(0, Math.min(el, FOCUS_MIN_A_DAY - today)) / 2), full: today >= FOCUS_MIN_A_DAY};
+  }
+  // flashcards: how many more cards count today
+  const cardsLeftToday = () => Math.max(0, CARDS_A_DAY - dayCards(todayISO()));
+  // a quiz: does it still earn today (QUIZ_TRIES_A_DAY tries each)
+  const quizTriesLeft = key => { const id = String(key || "quiz").replace(/:/g, "_"), day = todayISO(); return Math.max(0, QUIZ_TRIES_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`quiz:${day}:${id}:`) === 0).length); };
+  // a presentation: runs left today, and what a run's slides so far have earned (each slide inside its time)
+  const presRunsLeft = pid => { const id = String(pid || "").replace(/:/g, "_"), day = todayISO(); return Math.max(0, PRES_RUNS_A_DAY - Object.keys(sc().ev || {}).filter(k => k.indexOf(`pres:${day}:${id}:`) === 0).length); };
+  const presSlideOk = (t, b) => b > 0 && t > 0 && (t <= b * 1.17 || t - b <= 3000);
+
   // A little "+12 Credits" pop (kept for other parts of the app)
   function pop(n, why){ n = Math.round(n); if (n < 1) return; rq.push({kind: "hello", compact: true, kick: "Credits Earned", title: why || "", lines: [], gained: n, bal: balance(), bal0: balance() - n, day: todayN(), tgt: target()}); showNext(); }
 
@@ -60898,10 +62707,10 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 75 credits: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Epic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -73108,7 +74917,7 @@ var COMP_EXTRA = [];
 })();
 /* ===== module: 98-comp-acc.js ===== */
 /* Companion wardrobe: 90 more things to wear, 30 each for the head, the face and the neck.
-   Common: plain, everyday shapes in one colour. Uncommon: a touch of detail or a second colour. Rare: a second colour, a detail or two. Exotic: unusual materials and shapes.
+   Common: plain, everyday shapes in one colour. Uncommon: a touch of detail or a second colour. Rare: a second colour, a detail or two. Epic: unusual materials and shapes.
    Legendary: gold, gems and light, with twinkles.
    Each one fits the companion the way the Tiny Hat, Round Glasses and Cozy Scarf do:
    - head: drawn around (0,0) at anchors.top in the hat's space (its band sits at y 0 to 4, about 34 wide)
@@ -73159,10 +74968,10 @@ var COMP_ACC_MORE = K => {
       `<path d="M-16 -1L0 -22L16 -1Z" ${WF} ${OUT(2.2)}/><path d="M-7.5 -7h5.5M-5.5 -11h8M-2.5 -15h4M1.5 -7h6" stroke="#8C87A8" stroke-width="1.2" stroke-linecap="round"/><path d="M0 -22L-3.5 -1" stroke="${INK}" stroke-opacity=".18" stroke-width="1.4"/>
       <path d="M-18 -3H18L17 4.5H-17Z" ${WF} ${OUT(2.2)}/><path d="M-18 -3H18L17 4.5H-17Z" fill="${INK}" opacity=".08"/><path d="M-13 .6h6M-4 .6h9M9 .6h4" stroke="#8C87A8" stroke-width="1.1" stroke-linecap="round"/>`},
     // Rare
-    {id: "tophat", name: "Top Hat", rarity: "rare", def: "#E5484D", icon: [12, .85], art: () =>
-      `<path d="M-11 -1V-26Q0 -28.5 11 -26V-1Z" fill="#3A3450" ${OUT(2.4)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" fill="#4A4366" ${OUT(2)}/><path d="M-7 -22.5V-12" stroke="#fff" stroke-opacity=".22" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M-11 -9.5Q0 -7.5 11 -9.5V-3Q0 -1 -11 -3Z" ${WF} ${OUT(2)}/><path d="M6 -8.6v5.2" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" fill="#3A3450" ${OUT(2.4)}/>`},
+    {id: "tophat", name: "Top Hat", rarity: "rare", def: "#3A3450", icon: [12, .85], art: () =>
+      `<path d="M-11 -1V-26Q0 -28.5 11 -26V-1Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" ${WF} ${OUT(2)}/><ellipse cx="0" cy="-26" rx="11" ry="2.5" fill="#fff" opacity=".12"/><path d="M-7 -22.5V-12" stroke="#fff" stroke-opacity=".22" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-11 -9.5Q0 -7.5 11 -9.5V-3Q0 -1 -11 -3Z" fill="#E5484D" ${OUT(2)}/><path d="M6 -8.6v5.2" stroke="#fff" stroke-opacity=".5" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" ${WF} ${OUT(2.4)}/>`},
     {id: "cowboy", name: "Cowboy Hat", rarity: "rare", def: "#B07A45", art: () =>
       `<path d="M-10 -1Q-11.5 -15 -7 -19.5Q-3.4 -16.2 0 -18Q3.4 -16.2 7 -19.5Q11.5 -15 10 -1Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -16Q-8.4 -10 -8 -4" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       <path d="M-10.6 -6Q0 -4 10.6 -6V-2Q0 0 -10.6 -2Z" fill="#5A3B22" ${OUT(1.6)}/>${star(0, -3.6, 2.4, "#F2C14E", 1)}
@@ -73171,25 +74980,25 @@ var COMP_ACC_MORE = K => {
       `<path d="M-10.5 0V-8.5Q-17.5 -10 -15.5 -16.5Q-13 -22.5 -6.5 -20.5Q-3 -27.5 4 -25.8Q10.5 -24.5 10.4 -19.4Q17.5 -18.5 16.2 -12Q15 -7.5 10.5 -8.5V0Z" ${WF} ${OUT(2.4)}/><path d="M-4.5 -9V-1M1 -10V-1M6 -9V-1" stroke="#C9C3D6" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 -15.5Q-9 -19 -5 -18M1 -23Q5 -23.6 7 -21" fill="none" stroke="#E4DEEE" stroke-width="1.6" stroke-linecap="round"/>
       <path d="M-11.5 -2.6H11.5V4H-11.5Z" ${WF} ${OUT(2.2)}/><path d="M-11.5 -2.6H11.5V4H-11.5Z" fill="#B9B2C4" opacity=".25"/>`},
     {id: "propeller", name: "Propeller Beanie", rarity: "rare", def: "#5A95FF", icon: [12, .9], art: () =>
-      `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/>
-      <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" fill="#4CB782" ${OUT(2)}/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
+      `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/><path d="M-16 -1.6H16V4H-16Z" fill="none"/>
+      <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" ${WF} ${OUT(2)}/><path d="M-16 -1.6H16V4H-16Z" fill="${INK}" opacity=".18"/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
       <g class="cp-spin"><ellipse cx="-6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#E5484D" ${OUT(1.6)}/><ellipse cx="6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#FFD35A" ${OUT(1.6)}/></g><circle cx="0" cy="-23.4" r="1.9" fill="#fff" ${OUT(1.3)}/>`},
     {id: "tricorn", name: "Pirate Hat", rarity: "rare", def: "#3A3450", art: () =>
       `<path d="M-20 -6.5Q-12 2.2 0 1.2Q12 2.2 20 -6.5Q16.5 -14.5 8.5 -12.5Q4.5 -20.5 0 -20.5Q-4.5 -20.5 -8.5 -12.5Q-16.5 -14.5 -20 -6.5Z" ${WF} ${OUT(2.4)}/><path d="M-18 -5.6Q-11 .4 0 -.6Q11 .4 18 -5.6" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/>
       <path d="M-4.2 -5.6L4.2 -1.4M4.2 -5.6L-4.2 -1.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-9.5" r="3.4" fill="#fff"/><path d="M-1.8 -7.6h3.6v1.6h-3.6Z" fill="#fff"/><circle cx="-1.2" cy="-9.6" r=".9" fill="${INK}"/><circle cx="1.2" cy="-9.6" r=".9" fill="${INK}"/>`},
-    // Exotic
+    // Epic
     {id: "wizard", name: "Wizard Hat", rarity: "exotic", def: "#5B4BC4", icon: [14, .72], art: () =>
       `<path d="M-12 0Q-8 -14 -3 -26Q1 -35 10 -36.5Q4.5 -31 4.4 -24Q7 -12 12 0Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -10Q-4 -19 -.5 -25" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       ${star(-2.5, -12, 2.6, "#FFD35A", 1)}${star(3.5, -20.5, 1.9, "#FFD35A", .9)}<path d="M-1.4 -27.5a3 3 0 1 0 3.2 -3.6a2.3 2.3 0 1 1 -3.2 3.6Z" fill="#FFF3B0" ${OUT(.9)}/>${star(10, -36.5, 2.2, "#FFD35A", 1)}
       <path d="M-22 2.5Q0 -4.5 22 2.5Q0 9 -22 2.5Z" ${WF} ${OUT(2.4)}/><path d="M-12 -.6Q0 2.5 12 -.6L11.3 -4.6Q0 -1.8 -11.3 -4.6Z" fill="#F2C14E" ${OUT(1.6)}/>`},
-    {id: "viking", name: "Viking Helmet", rarity: "exotic", def: "#8B6A4F", art: () =>
+    {id: "viking", name: "Viking Helmet", rarity: "exotic", def: "#B9C0CC", art: () =>
       `<path d="M-12 -6Q-22.5 -8 -24.5 -23Q-18.5 -15 -10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M12 -6Q22.5 -8 24.5 -23Q18.5 -15 10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M-17 -9.6l-1.4 2.6M-20.6 -13.6l-2 2M17 -9.6l1.4 2.6M20.6 -13.6l2 2" stroke="#C9B48E" stroke-width="1.3" stroke-linecap="round"/>
-      <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" fill="#B9C0CC" ${OUT(2.4)}/><path d="M0 -17V0" stroke="#8E96A6" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
+      <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" ${WF} ${OUT(2.4)}/><path d="M0 -17V0" stroke="${INK}" stroke-opacity=".2" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" fill="#8B6A4F" ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
     {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
-    {id: "plume", name: "Plumed Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
+    {id: "plume", name: "Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
       `<path d="M3 -11Q10 -31 28 -27Q21 -25 19 -18.5Q15 -11.5 6.5 -7.5Z" fill="#FF7A9C" ${OUT(2)}/><path d="M7 -10.5Q13 -22 24 -25.5M11 -18l-2.6 -1.4M14.5 -21.5l-2 -2M17 -16.5l-2.2 -.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.3" stroke-linecap="round"/>
       <path d="M-11 -1Q-12.5 -13.5 0 -14.5Q12.5 -13.5 11 -1Z" ${WF} ${OUT(2.4)}/><path d="M-22.5 -3.5Q-12 3 0 2Q12 3 22.5 -3.5Q24.5 4.5 0 6.4Q-24.5 4.5 -22.5 -3.5Z" ${WF} ${OUT(2.4)}/><path d="M-21 .4Q-12 4.4 0 4.4Q12 4.4 21 .4Q18 5.4 0 5.8Q-18 5.4 -21 .4Z" fill="${INK}" opacity=".15"/>
       <path d="M-11.2 -5.4Q0 -3.4 11.2 -5.4V-1.8Q0 .2 -11.2 -1.8Z" fill="#F2C14E" ${OUT(1.4)}/><circle cx="0" cy="-3.5" r="2.1" fill="#2FB5C9" ${OUT(1.2)}/>`},
@@ -73197,7 +75006,7 @@ var COMP_ACC_MORE = K => {
       const pts = [[-16, -.5], [-9.5, -5], [0, -6.8], [9.5, -5], [16, -.5]];
       return `<path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><path d="M-18 1.5Q0 -11 18 1.5" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
         ${[[-13, -4.4, -30], [-4.5, -8, -10], [4.5, -8, 10], [13, -4.4, 30]].map(([x, y, a]) => `<ellipse cx="${x}" cy="${y}" rx="3.4" ry="1.8" transform="rotate(${a} ${x} ${y})" fill="#7ED19B" ${OUT(1.2)}/>`).join("")}
-        ${pts.map(([x, y], i) => flower(x, y, i === 2 ? 5.6 : 4.6, i % 2 ? `fill="#FFF8F0"` : WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}`; }},
+        ${pts.map(([x, y], i) => flower(x, y, i === 2 ? 5.6 : 4.6, WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}`; }},
     // Legendary
     {id: "phoenix", name: "Phoenix Crest", rarity: "legendary", def: "#FF5A2B", icon: [13, .78], art: () => {
       const fan = [[-42, 19], [-21, 25], [0, 30], [21, 25], [42, 19]];
@@ -73224,7 +75033,7 @@ var COMP_ACC_MORE = K => {
     {id: "unicorn", name: "Unicorn Horn", rarity: "legendary", def: "#FFD8EE", icon: [12, .85], art: () =>
       `<path d="M-4 -2Q-11 -8 -16.5 -3.5" fill="none" stroke="#FF7A9C" stroke-width="3" stroke-linecap="round"/><path d="M-4 -.4Q-11.4 -4.6 -15 1" fill="none" stroke="#FFD35A" stroke-width="3" stroke-linecap="round"/><path d="M4 -2Q11 -8 16.5 -3.5" fill="none" stroke="#5A95FF" stroke-width="3" stroke-linecap="round"/><path d="M4 -.4Q11.4 -4.6 15 1" fill="none" stroke="#4CB782" stroke-width="3" stroke-linecap="round"/>
       <path d="M-5.4 -1.5L0 -33L5.4 -1.5Q0 1 -5.4 -1.5Z" ${WF} ${OUT(2.2)}/><path d="M-4.4 -6.6L4.4 -9.6M-3.5 -12.4L3.5 -15.4M-2.6 -18.2L2.6 -21M-1.6 -24L1.6 -26.4" stroke="#F2B63A" stroke-width="1.8" stroke-linecap="round"/><path d="M-1.8 -8L-.6 -26" stroke="#fff" stroke-opacity=".7" stroke-width="1.1" stroke-linecap="round"/>
-      ${flower(-7.5, 0, 4.4, `fill="#FFB3D1"`, "#FFE07A")}${flower(7.5, 0, 4.4, `fill="#BFD8FF"`, "#FFE07A")}${tw(-11, -22, 3.2, 0)}${tw(11, -29, 3.4, .9)}${tw(13.5, -12, 2.4, 1.7)}`}
+      ${flower(-7.5, 0, 4.4, WF, "#FFE07A")}${flower(7.5, 0, 4.4, WF, "#FFE07A")}${tw(-11, -22, 3.2, 0)}${tw(11, -29, 3.4, .9)}${tw(13.5, -12, 2.4, 1.7)}`}
   ];
 
   /* ---------------- Face ---------------- */
@@ -73260,7 +75069,7 @@ var COMP_ACC_MORE = K => {
     {id: "cateye", name: "Cat-Eye Glasses", rarity: "rare", def: "#E5484D", art: g => {
       const lens = R => `M${f(-R)} ${f(-R * .32)}Q${f(-R * .1)} ${f(-R * .95)} ${f(R * 1.38)} ${f(-R * 1.08)}Q${f(R * 1.08)} ${f(R * .2)} ${f(R * .6)} ${f(R * .68)}Q${f(-R * .4)} ${f(R * 1.08)} ${f(-R * .95)} ${f(R * .36)}Q${f(-R * 1.15)} ${f(-R * .05)} ${f(-R)} ${f(-R * .32)}Z`;
       return `${bridge(g, 2, 1.8, WS("#E5484D"))}${pair(g, R => `<path d="${lens(R)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4.2" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#E5484D")} stroke-width="2.3" stroke-linejoin="round"/><circle cx="${f(R * 1.08)}" cy="${f(-R * .82)}" r="1.1" fill="#fff"/><circle cx="${f(R * .7)}" cy="${f(-R * .86)}" r=".8" fill="#fff"/>`)}`; }},
-    // Exotic
+    // Epic
     {id: "steampunk", name: "Steampunk Goggles", rarity: "exotic", def: "#F2994A", art: g =>
       `<path d="M${f(g.lx - g.R * 1.2 - Math.min(7, g.ext))} ${f(g.y - g.R * .3)}H${f(g.rx + g.R * 1.2 + Math.min(7, g.ext))}V${f(g.y + g.R * .3)}H${f(g.lx - g.R * 1.2 - Math.min(7, g.ext))}Z" fill="#7A4E2D" ${OUT(1.8)}/>${line2(`M${f(g.lx + g.R)} ${g.y}H${f(g.rx - g.R)}`, 2.4, "#C98A3A")}
       ${pair(g, R => `<circle r="${f(R * 1.2)}" fill="#C98A3A" ${OUT(2)}/><circle r="${f(R * .96)}" fill="#8A5A26" ${OUT(1.2)}/><circle r="${f(R * .78)}" ${WF} fill-opacity=".85" ${OUT(1.2)}/>${[45, 135, 225, 315].map(a => `<circle cx="${f(R * 1.08 * Math.cos(a * Math.PI / 180))}" cy="${f(R * 1.08 * Math.sin(a * Math.PI / 180))}" r=".9" fill="#F3D08A"/>`).join("")}${shine(R * .8)}`)}`},
@@ -73327,24 +75136,24 @@ var COMP_ACC_MORE = K => {
     {id: "necktie", name: "School Tie", rarity: "common", def: "#2F4A8A", pat: true, icon: [-11, .8], art: () =>
       `<path d="M-2.5 7L-4.6 21.5L0 26.4L4.6 21.5L2.5 7Z" ${WF} ${OUT(2)}/><path d="M-3.4 1.2H3.4L2.5 7H-2.5Z" ${WF} ${OUT(2)}/><path d="M-3.6 13l7 -3.4M-4.2 18.4l8.2 -4M-3.4 23.4l6.6 -3.2" stroke="#fff" stroke-opacity=".45" stroke-width="1.3" stroke-linecap="round"/>`},
     // Rare
-    {id: "pearls", name: "Pearl Necklace", rarity: "rare", def: "#FF7A9C", art: hw => {
+    {id: "pearls", name: "Pearl Necklace", rarity: "rare", def: "#FFF8F0", art: hw => {
       const n = Math.max(8, Math.round(hw / 2.4));
-      const pearl = ([x, y], r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="${f(x - r * .35)}" cy="${f(y - r * .35)}" r="${f(r * .3)}" fill="#fff"/>`;
-      return `${along(hw, -2.5, 4.5, n, .88).map(p => pearl(p, 1.9)).join("")}${along(hw, 0, 7.6, n + 1, .84).map(p => pearl(p, 2.1)).join("")}<path d="M0 9.6Q-3.4 13.4 0 17Q3.4 13.4 0 9.6Z" ${WF} ${OUT(1.4)}/><path d="M-.9 12.2l.6 -1.2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }},
+      const pearl = ([x, y], r) => `<circle cx="${x}" cy="${y}" r="${r}" ${WF} ${OUT(1.1)}/><circle cx="${f(x - r * .35)}" cy="${f(y - r * .35)}" r="${f(r * .3)}" fill="#fff"/>`;
+      return `${along(hw, -2.5, 4.5, n, .88).map(p => pearl(p, 1.9)).join("")}${along(hw, 0, 7.6, n + 1, .84).map(p => pearl(p, 2.1)).join("")}<path d="M0 9.6Q-3.4 13.4 0 17Q3.4 13.4 0 9.6Z" fill="#FF7A9C" ${OUT(1.4)}/><path d="M-.9 12.2l.6 -1.2" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }},
     {id: "lei", name: "Flower Lei", rarity: "rare", def: "#FF7A9C", art: hw => {
       const n = Math.max(5, Math.round(hw / 5.2)), pts = along(hw, -1.5, 6, n, .86), lv = along(hw, -.5, 6.4, n - 1, .66);
-      return `${lv.map(([x, y], i) => `<ellipse cx="${x}" cy="${f(y + 2.2)}" rx="3.2" ry="1.6" transform="rotate(${i % 2 ? 25 : -25} ${x} ${f(y + 2.2)})" fill="#7ED19B" ${OUT(1.1)}/>`).join("")}${pts.map(([x, y], i) => flower(x, y, 4, i % 3 === 1 ? `fill="#FFD35A"` : i % 3 === 2 ? `fill="#FFF8F0"` : WF, i % 3 === 1 ? "#FF9A3C" : "#FFD35A")).join("")}`; }},
+      return `${lv.map(([x, y], i) => `<ellipse cx="${x}" cy="${f(y + 2.2)}" rx="3.2" ry="1.6" transform="rotate(${i % 2 ? 25 : -25} ${x} ${f(y + 2.2)})" fill="#7ED19B" ${OUT(1.1)}/>`).join("")}${pts.map(([x, y], i) => flower(x, y, 4, WF, i % 3 === 1 ? "#FF9A3C" : "#FFD35A")).join("")}`; }},
     {id: "sailor", name: "Sailor Collar", rarity: "rare", def: "#2F4A8A", art: hw => {
       const e = f(hw + 1.5);
       return `<path d="M${-e} -4Q0 3 ${e} -4L${f(e + 1)} 4.6Q${f(hw * .45)} 6.8 0 14.5Q${f(-hw * .45)} 6.8 ${f(-e - 1)} 4.6Z" ${WF} ${OUT(2.2)}/><path d="M${f(e - 1.6)} 2.6Q${f(hw * .45)} 4.4 0 10.6Q${f(-hw * .45)} 4.4 ${f(-e + 1.6)} 2.6" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/>
         <path d="M0 13L-5.4 10.4L-5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M0 13L5.4 10.4L5 16.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M-1 13.6L-3 20.4M1 13.6L3 20.4" stroke="#E5484D" stroke-width="2.4" stroke-linecap="round"/><circle cx="0" cy="13" r="2" fill="#E5484D" ${OUT(1.3)}/>`; }},
     {id: "headphones", name: "Headphones", rarity: "rare", def: "#E5484D", art: hw => {
       const c = f(Math.max(8, hw * .78));
-      return `${line2(`M${-c} 3Q0 ${f(16 + hw * .12)} ${c} 3`, 2.6, "#3A3450")}${[-1, 1].map(s => `<g transform="translate(${f(s * c)} 2)"><ellipse rx="5.2" ry="6.6" ${WF} ${OUT(2)}/><ellipse cx="${f(-s * 1.4)}" rx="3" ry="4.6" fill="#3A3450"/><path d="M${f(s * 2.2)} -4.4q${f(s * 1.4)} 2 ${f(s * 1.2)} 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/></g>`).join("")}`; }},
+      return `${line2(`M${-c} 3Q0 ${f(16 + hw * .12)} ${c} 3`, 2.6, WS("#E5484D"))}${[-1, 1].map(s => `<g transform="translate(${f(s * c)} 2)"><ellipse rx="5.2" ry="6.6" ${WF} ${OUT(2)}/><ellipse cx="${f(-s * 1.4)}" rx="3" ry="4.6" fill="#3A3450"/><path d="M${f(s * 2.2)} -4.4q${f(s * 1.4)} 2 ${f(s * 1.2)} 4.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.3" stroke-linecap="round"/></g>`).join("")}`; }},
     {id: "ruff", name: "Ruffled Collar", rarity: "rare", def: "#FFF8F0", art: hw => {
       const n = Math.max(7, Math.round(hw * 2 / 5.2) + 1), pts = along(hw, -1, 4, n, .92);
       return `${pts.map(([x, y]) => `<ellipse cx="${x}" cy="${f(y + .6)}" rx="3.8" ry="5.2" ${WF} ${OUT(1.5)}/><path d="M${x} ${f(y - 2.6)}V${f(y + 3.4)}" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>`).join("")}`; }},
-    // Exotic
+    // Epic
     {id: "boa", name: "Feather Boa", rarity: "exotic", def: "#FF7AC8", icon: [-8, .9], art: hw => {
       const pts = along(hw, -1.5, 5, Math.max(8, Math.round(hw / 2.6)), 1).concat([[f(hw * .55 + 1), 12], [f(hw * .55 + 2), 17], [f(hw * .55 + 2.4), 22]]);
       return `${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" fill="${INK}" stroke="${INK}" stroke-width="3.4"/>`).join("")}${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" ${WF}/>`).join("")}${pts.map(([x, y], i) => `<path d="M${f(x - 2)} ${f(y - 1.2)}q1.2 -1.8 3 -1.4M${f(x + .4)} ${f(y + 2)}q1.4 -.6 2 -2" fill="none" stroke="#fff" stroke-opacity="${i % 2 ? .55 : .35}" stroke-width="1.1" stroke-linecap="round"/>`).join("")}`; }},
@@ -73359,7 +75168,7 @@ var COMP_ACC_MORE = K => {
       const n = 7, pts = along(hw, -2, 3.2, n, .86), w = hw * .86 * 2 / (n - 1) * .62;
       return `${pts.map(([x, y], i) => { const tx = f(x * 1.12), ty = f(y + 11 - Math.abs(x / hw) * 2); return `<path d="M${f(x - w)} ${f(y - .5)}L${tx} ${ty}L${f(x + w)} ${f(y - .5)}Z" ${i % 2 ? `fill="#FFD35A"` : WF} ${OUT(1.6)}/><circle cx="${tx}" cy="${f(ty + 1.2)}" r="1.7" fill="${GOLD}" ${OUT(1)}/>`; }).join("")}${band(hw, -4, 3.2, -.6, 3.2, WF, 1.8)}`; }},
     {id: "fairylights", name: "Fairy Lights", rarity: "exotic", def: "#FFD35A", art: hw => {
-      const pts = along(hw, -2, 6, Math.max(6, Math.round(hw / 4.2)), .9), cols = [null, "#FF7A9C", "#5A95FF", "#4CB782"];
+      const pts = along(hw, -2, 6, Math.max(6, Math.round(hw / 4.2)), .9), cols = [null, null, null, null];
       return `<path d="${arcP(hw, -2, 6, 1)}" fill="none" stroke="#3E7A4A" stroke-width="1.5"/>${pts.map(([x, y], i) => { const c = cols[i % 4], fl = c ? `fill="${c}"` : WF, a = f(-x / hw * 25); return `<g transform="translate(${x} ${f(y + 1)}) rotate(${a})"><circle cy="3" r="4.4" ${fl} opacity=".3"/><rect x="-1.1" y="-.6" width="2.2" height="1.8" rx=".4" fill="#3E7A4A"/><ellipse cy="3.2" rx="1.9" ry="2.6" ${fl} ${OUT(1)}/><circle cx="-.6" cy="2.4" r=".6" fill="#fff"/></g>`; }).join("")}`; }},
     // Legendary
     {id: "pharaoh", name: "Pharaoh's Collar", rarity: "legendary", def: "#2F6FD6", icon: [-8, .9], art: hw => {
@@ -73368,17 +75177,17 @@ var COMP_ACC_MORE = K => {
         <path d="M${f(-hw)} -1.6Q0 7.4 ${f(hw)} -1.6" fill="none" ${WS("#2F6FD6")} stroke-width="2.8"/><path d="M${f(-hw)} 1.8Q0 13 ${f(hw)} 1.8" fill="none" stroke="#2FC9B5" stroke-width="2.4"/><path d="M${f(-hw)} -3.4Q0 4.6 ${f(hw)} -3.4M${f(-hw)} .1Q0 10.2 ${f(hw)} .1M${f(-hw)} 3.6Q0 15.6 ${f(hw)} 3.6" fill="none" stroke="${GOLD_D}" stroke-width=".8"/>
         ${drops.map(([x, y], i) => `<path d="M${x} ${f(y - 1.6)}Q${f(x - 2)} ${f(y + 1.6)} ${x} ${f(y + 3.4)}Q${f(x + 2)} ${f(y + 1.6)} ${x} ${f(y - 1.6)}Z" ${i % 2 ? `fill="#E5484D"` : WF} ${OUT(.9)}/>`).join("")}
         ${tw(f(-hw - 3), -7, 2.8, 0)}${tw(f(hw + 3), 6, 3, .9)}${tw(0, 19, 2.2, 1.7)}`; }},
-    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#E5484D", icon: [-9, .9], art: hw => {
+    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#F5C542", icon: [-9, .9], art: hw => {
       let rays = ""; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; rays += `M${f(6.4 * Math.cos(a - .22))} ${f(13 + 6.4 * Math.sin(a - .22))}L${f(9.2 * Math.cos(a))} ${f(13 + 9.2 * Math.sin(a))}L${f(6.4 * Math.cos(a + .22))} ${f(13 + 6.4 * Math.sin(a + .22))}Z`; }
-      return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, GOLD).replace(`stroke="${GOLD}" stroke-width="1.6"`, `stroke="${GOLD}" stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" fill="${GOLD}" ${OUT(1)}/>
-        <circle cx="0" cy="13" r="6.4" fill="${GOLD}" ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" ${WF} ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
+      return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, WS("#F5C542")).replace(`stroke-width="1.6"`, `stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" ${WF} ${OUT(1)}/>
+        <circle cx="0" cy="13" r="6.4" ${WF} ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" fill="#E5484D" ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
         ${tw(-10, 6, 2.8, 0)}${tw(10.5, 19, 2.6, 1)}${tw(f(hw * .7), -6, 2.2, 1.7)}`; }},
     {id: "phoenixstole", name: "Phoenix Feather Stole", rarity: "legendary", def: "#FF5A2B", icon: [-7, .85], art: hw => {
       // plumes fanned along the neck from the sides in, each a fire-red feather with a gold heart, then two long tail plumes
       const n = Math.max(6, Math.round(hw / 3.4)), pts = along(hw, -.5, 4.5, n, .9).map((p, i) => [p, i]).sort((a, b) => Math.abs(b[0][0]) - Math.abs(a[0][0]));
       const plume = ([x, y], len, wd) => `<g transform="translate(${x} ${y}) rotate(${f(180 - 62 * x / hw)})">${feather(len, wd, WF, 1.6)}${feather(len * .62, wd * .5, `fill="#FFD35A"`)}<path d="M0 -1V${f(-len * .78)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/></g>`;
       const tail = (x, l, a) => `<g transform="translate(${f(x)} ${ny(hw, -.5, 4.5, x)}) rotate(${a})">${feather(l, 4.6, WF, 1.6)}${feather(l * .68, 2.2, `fill="#FFD35A"`)}<path d="M0 -1V${f(-l * .82)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9"/><circle cy="${f(-l * .86)}" r="1.5" fill="#FFF3B0"/></g>`;
-      return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, `fill="#C2361C"`, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
+      return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, WF, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
     {id: "ermine", name: "Royal Ermine Collar", rarity: "legendary", def: "#FFF8F0", art: hw => {
       const spots = along(hw, 0, 3.6, Math.max(4, Math.round(hw / 5)), .78);
       return `${line2(`M${f(-hw * .62)} ${ny(hw, 2.6, 3.6, -hw * .62)}Q0 ${f(17 + hw * .05)} ${f(hw * .62)} ${ny(hw, 2.6, 3.6, hw * .62)}`, 2, GOLD).replace(`stroke="${GOLD}" stroke-width="2"`, `stroke="${GOLD}" stroke-width="2" stroke-dasharray="2.6 1.2"`)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF} ${OUT(1.8)}/>`).join("")}${band(hw + 1, -5, 3.3, 4.4, 3.8, WF, 2.2)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF}/>`).join("")}<path d="M${f(-hw + 2)} -1.6Q0 4 ${f(hw - 2)} -1.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
@@ -73387,7 +75196,7 @@ var COMP_ACC_MORE = K => {
     {id: "galaxyscarf", name: "Galaxy Scarf", rarity: "legendary", def: "#3B2A7A", icon: [-6, 1], art: hw => {
       const k = f(hw * .45 - 9.5), e = f(hw + 4), h = f(hw - 2), G = `fill="url(#cpgGalaxy)"`;
       const dots = along(hw, 0, 3.4, Math.max(5, Math.round(hw / 4)), .82);
-      return `<defs><linearGradient id="cpgGalaxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#3B2A7A)"/><stop offset=".55" stop-color="#6A3FC4"/><stop offset="1" stop-color="#D95FB0"/></linearGradient></defs>
+      return `<defs><linearGradient id="cpgGalaxy" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--cp-wear,#3B2A7A)"/><stop offset=".55" style="stop-color:color-mix(in srgb,var(--cp-wear,#3B2A7A) 55%,#7B3FC4)"/><stop offset="1" style="stop-color:color-mix(in srgb,var(--cp-wear,#3B2A7A) 35%,#D95FB0)"/></linearGradient></defs>
         <path d="M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z" ${G} ${OUT(2.4)}/><path d="M${-h} -1.5Q0 5 ${h} -1.5" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2.2" stroke-linecap="round"/>
         ${dots.map(([x, y], i) => i % 2 ? star(x, y, 1.5, "#FFF3B0") : `<circle cx="${x}" cy="${y}" r=".8" fill="#fff"/>`).join("")}
         <g${k ? ` transform="translate(${k} 0)"` : ""}><path d="M6 4L9 21L18 19.5L13 3Z" ${G} ${OUT(2.4)}/><circle cx="12" cy="11" r=".8" fill="#fff"/>${star(13.6, 16.2, 1.5, "#FFF3B0")}<path d="M10 21.4l-.4 2.6M13.4 20.8l-.2 2.6M16.6 20.2l.2 2.6" stroke="#FFD35A" stroke-width="1.8" stroke-linecap="round"/><circle cx="9.5" cy="4" r="4.4" ${G} ${OUT(2.4)}/>${tw(20.5, 24, 2.6, 1)}</g>
@@ -73416,14 +75225,14 @@ var COMP_ACC_MORE = K => {
     {id: "fez", name: "Tasseled Fez", rarity: "uncommon", def: "#C0283C", icon: [11, .95], art: () =>
       `<path d="M-10 2L-8 -15Q0 -17.4 8 -15L10 2Q0 4.6 -10 2Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-15" rx="8" ry="2" fill="${INK}" opacity=".25"/><path d="M-5.6 -12L-6.8 0" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       ${line2("M0 -16.4Q8 -16 9.4 -12.6L9.8 -5.6", 1.2, GOLD)}<path d="M8.4 -6L11.2 -6L12.4 1.6L7.2 1.6Z" fill="${GOLD}" ${OUT(1.1)}/><path d="M8.6 -2v3M10.2 -2v3" stroke="${GOLD_D}" stroke-width=".8"/><circle cx="0" cy="-16.6" r="1.4" fill="${GOLD}" ${OUT(1)}/>`},
-    {id: "bunnyears", name: "Bunny Ears", rarity: "uncommon", def: "#FF7A9C", icon: [12, .85], art: () => {
-      const ear = sc => `<g transform="scale(${sc} 1) rotate(-8)"><path d="M-9 1Q-15.5 -16 -10 -27Q-4.6 -25 -4 -13Q-3.8 -5 -3.6 1Z" fill="#FFF8F0" ${OUT(2.2)}/><path d="M-8.2 -3.6Q-12.4 -16 -9.4 -23Q-6.6 -20.4 -6.2 -11Q-6 -6 -5.8 -3.6Z" fill="#FFB3C7"/></g>`;
-      return `${ear(1)}${ear(-1)}${line2("M-16.5 4Q0 -5 16.5 4", 2.6, WS("#FF7A9C"))}`; }},
-    {id: "sailorcap", name: "Sailor Cap", rarity: "uncommon", def: "#2F4A8A", art: () =>
-      `<path d="M-12.5 0Q-13.5 -12 0 -13Q13.5 -12 12.5 0Z" fill="#FFFFFF" ${OUT(2.4)}/><path d="M-7 -9.6Q-8.6 -5 -8.6 -1" fill="none" stroke="#DCE4F0" stroke-width="2" stroke-linecap="round"/><path d="M0 -13V-1" stroke="#DCE4F0" stroke-width="1.2"/>
-      <path d="M-15.5 -1.6Q0 1.6 15.5 -1.6V4Q0 7.2 -15.5 4Z" fill="#FFFFFF" ${OUT(2.2)}/><path d="M-15 1.2Q0 4.4 15 1.2" fill="none" ${WS("#2F4A8A")} stroke-width="1.8" stroke-linecap="round"/>
-      <g transform="translate(0 -6)" fill="none" ${WS("#2F4A8A")} stroke-width="1.2" stroke-linecap="round"><circle cy="-2.4" r="1"/><path d="M0 -1.4V2.6M-1.6 -.2H1.6M-2.4 1Q-2 2.8 0 2.8Q2 2.8 2.4 1"/></g>`},
-    // Exotic
+    {id: "bunnyears", name: "Bunny Ears", rarity: "uncommon", def: "#FFF8F0", icon: [12, .85], art: () => {
+      const ear = sc => `<g transform="scale(${sc} 1) rotate(-8)"><path d="M-9 1Q-15.5 -16 -10 -27Q-4.6 -25 -4 -13Q-3.8 -5 -3.6 1Z" ${WF} ${OUT(2.2)}/><path d="M-8.2 -3.6Q-12.4 -16 -9.4 -23Q-6.6 -20.4 -6.2 -11Q-6 -6 -5.8 -3.6Z" fill="#FFB3C7"/></g>`;
+      return `${ear(1)}${ear(-1)}${line2("M-16.5 4Q0 -5 16.5 4", 2.6, "#FF7A9C")}`; }},
+    {id: "sailorcap", name: "Sailor Cap", rarity: "uncommon", def: "#FFFFFF", art: () =>
+      `<path d="M-12.5 0Q-13.5 -12 0 -13Q13.5 -12 12.5 0Z" ${WF} ${OUT(2.4)}/><path d="M-7 -9.6Q-8.6 -5 -8.6 -1" fill="none" stroke="${INK}" stroke-opacity=".12" stroke-width="2" stroke-linecap="round"/><path d="M0 -13V-1" stroke="${INK}" stroke-opacity=".12" stroke-width="1.2"/>
+      <path d="M-15.5 -1.6Q0 1.6 15.5 -1.6V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/><path d="M-15 1.2Q0 4.4 15 1.2" fill="none" stroke="#2F4A8A" stroke-width="1.8" stroke-linecap="round"/>
+      <g transform="translate(0 -6)" fill="none" stroke="#2F4A8A" stroke-width="1.2" stroke-linecap="round"><circle cy="-2.4" r="1"/><path d="M0 -1.4V2.6M-1.6 -.2H1.6M-2.4 1Q-2 2.8 0 2.8Q2 2.8 2.4 1"/></g>`},
+    // Epic
     {id: "jesterhat", name: "Jester Hat", rarity: "exotic", def: "#8E6BE0", icon: [12, .78], art: () => {
       const bell = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><path d="M${x - 1.2} ${y + .6}h2.4" stroke="${GOLD_D}" stroke-width=".9"/>`;
       return `<path d="M-14 -1Q-21 -9 -24.5 -20Q-16 -17 -8 -12Q-6 -6 -6 -1Z" ${WF} ${OUT(2.2)}/><path d="M14 -1Q21 -9 24.5 -20Q16 -17 8 -12Q6 -6 6 -1Z" ${WF} ${OUT(2.2)}/><path d="M-7.5 -1Q-6 -14 0 -26.5Q6 -14 7.5 -1Z" fill="#FFD35A" ${OUT(2.2)}/>
@@ -73433,16 +75242,26 @@ var COMP_ACC_MORE = K => {
       const yA = x => f(2 - 2.5 * (1 - (x / 15) * (x / 15)));
       const gem = (x, h, w, fill) => `<path d="M${x} ${yA(x)}L${f(x + w)} ${f(yA(x) - h * .45)}L${x} ${f(yA(x) - h)}L${f(x - w)} ${f(yA(x) - h * .45)}Z" ${fill} ${OUT(1.2)}/><path d="M${f(x - w * .45)} ${f(yA(x) - h * .45)}L${x} ${f(yA(x) - h * .9)}" stroke="#fff" stroke-opacity=".8" stroke-width=".9" stroke-linecap="round"/>`;
       return `${[[-11, 6, 2.2], [-5.6, 9.5, 2.6], [5.6, 9.5, 2.6], [11, 6, 2.2]].map(([x, h, w]) => gem(x, h, w, WF)).join("")}${gem(0, 14, 3.4, WF)}<circle cx="0" cy="${f(yA(0) - 6)}" r="1.8" fill="#FF7AC8" ${OUT(.9)}/>
-        ${line2("M-16 3Q0 -3 16 3", 2.2, "#DDE2EA")}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
+        ${line2("M-16 3Q0 -3 16 3", 2.2, WS("#9AD8FF"))}${[-13, -8, -2.8, 2.8, 8, 13].map(x => `<circle cx="${x}" cy="${f(+yA(x) + .4)}" r=".9" fill="#fff"/>`).join("")}${star(-16, -6, 1.6, "#fff")}${star(15, -10, 1.4, "#fff")}`; }}
   );
+  // The Christmas gift (98-companion.js): never sold, only found in the present that pops up from Dec 25
+  HEAD.push({id: "santahat", name: "Santa Hat", rarity: "legendary", def: "#D7263D", gift: true, icon: [11, .82], art: () => {
+    // fluff: overlapping puffs drawn twice (an ink outline, then white), so they read as one soft roll
+    const puffs = pts => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#FFFDF8"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${f(x - r * .3)}" cy="${f(y - r * .35)}" r="${f(r * .32)}" fill="#fff"/>`).join("")}`;
+    // a few big puffs, wide apart, so the cotton rolls in long soft arches
+    const band = [[-15, 1, 4], [-10, .4, 4.2], [-5, 0, 4.3], [0, -.1, 4.3], [5, 0, 4.3], [10, .4, 4.2], [15, 1, 4]];
+    return `<path d="M-13.5 -1.5Q-15 -17 -2 -23.5Q10 -28.5 19.5 -19.5Q24.5 -14 23.8 -6L16.8 -6.6Q16.6 -12.6 12.2 -13.4Q14.8 -8 13.8 -1.5Z" ${WF} ${OUT(2.4)}/>
+      <path d="M-8.4 -12.6Q-6.4 -19.6 1 -21.6" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="2" stroke-linecap="round"/>
+      ${puffs(band)}${puffs([[20.2, -4.6, 3.6], [23.2, -2.6, 3.2], [19.4, -1.2, 3], [22.2, .4, 2.6]])}
+      ${tw(-18, -16, 2.8, 0)}${tw(6, -31, 2.4, .9)}${tw(27, -14, 2.2, 1.6)}`; }});
   FACE.push(
     // Common
     {id: "ovalglasses", name: "Oval Glasses", rarity: "common", def: "#8B6A4F", art: g =>
       `${bridge(g, 2.2, 1.4, WS("#8B6A4F"))}${temples(g, 1.4, WS("#8B6A4F"))}${pair(g, R => `<ellipse rx="${f(R * 1.04)}" ry="${f(R * .76)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="3.4"/><ellipse rx="${f(R * 1.04)}" ry="${f(R * .76)}" fill="none" ${WS("#8B6A4F")} stroke-width="1.6"/>${shine(R * .8)}`)}`},
-    {id: "sportshades", name: "Sport Shades", rarity: "common", def: "#E5484D", art: g => {
+    {id: "sportshades", name: "Sport Shades", rarity: "common", def: "#3A3450", art: g => {
       const R = g.R, y = g.y, m = g.mx, e = Math.min(2, g.ext), L = f(g.lx - R * 1.05 - e), Rr = f(g.rx + R * 1.05 + e);
       const d = `M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}Q${f(Rr + 1.2)} ${f(y)} ${f(Rr - 1)} ${f(y + R * .55)}Q${g.rx} ${f(y + R * .95)} ${f(m + R * .35)} ${f(y + R * .45)}Q${m} ${f(y + R * .15)} ${f(m - R * .35)} ${f(y + R * .45)}Q${g.lx} ${f(y + R * .95)} ${f(+L + 1)} ${f(y + R * .55)}Q${f(L - 1.2)} ${f(y)} ${L} ${f(y - R * .6)}Z`;
-      return `<path d="${d}" fill="#3A3450" ${OUT(2.2)}/>${line2(`M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}`, 2, WS("#E5484D"))}<path d="M${f(g.lx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0M${f(g.rx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round"/>`; }},
+      return `<path d="${d}" ${WF} ${OUT(2.2)}/>${line2(`M${L} ${f(y - R * .6)}Q${m} ${f(y - R * .85)} ${Rr} ${f(y - R * .6)}`, 2, "#E5484D")}<path d="M${f(g.lx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0M${f(g.rx - R * .5)} ${f(y - R * .2)}l${f(R * .7)} 0" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round"/>`; }},
     {id: "labgoggles", name: "Lab Goggles", rarity: "common", def: "#7FB8D9", art: g => {
       const R = g.R, e = Math.min(2.5, g.ext), x0 = g.lx - R * 1.05 - e * .4, x1 = g.rx + R * 1.05 + e * .4, d = rr(x0, g.y - R * .85, x1 - x0, R * 1.7, R * .7);
       return `${line2(`M${f(x0 - e)} ${g.y}H${f(x0)}M${f(x1)} ${g.y}H${f(x1 + e)}`, 2, "#3A3450")}<path d="${d}" fill="#DFF4FF" fill-opacity=".4" stroke="${INK}" stroke-width="5"/><path d="${d}" fill="none" ${WS("#7FB8D9")} stroke-width="3"/>${[-.5, 0, .5].map(t => `<circle cx="${f(g.mx + t * (g.gap * .45))}" cy="${f(g.y - R * .85)}" r=".8" fill="${INK}" opacity=".5"/>`).join("")}<path d="M${f(x0 + R * .4)} ${f(g.y - R * .35)}l${f(R * .6)} -${f(R * .2)}" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>`; }},
@@ -73462,7 +75281,7 @@ var COMP_ACC_MORE = K => {
       const hw = Math.min(g.R * 1.1, g.gap / 2 - .6), hh = g.R * .78, lens = rr(-hw, -hh, hw * 2, hh * 2, g.R * .4), n = Math.max(3, Math.round(hh * 2 / 2.6));
       let sl = ""; for (let i = 1; i < n; i++) { const y = -hh + i * (hh * 2 / n); sl += `M${f(-hw)} ${f(y)}H${f(hw)}`; }
       return `${bridge(g, 1.6, 2, WS("#FF4F8B"))}${temples(g, 1.8, WS("#FF4F8B"))}${[g.lx, g.rx].map(x => `<g transform="translate(${x} ${g.y})"><path d="${lens}" fill="#fff" fill-opacity=".1" stroke="${INK}" stroke-width="4.4"/><path d="${sl}" ${WS("#FF4F8B")} stroke-width="1.5"/><path d="${lens}" fill="none" ${WS("#FF4F8B")} stroke-width="2.4"/></g>`).join("")}`; }},
-    // Exotic
+    // Epic
     {id: "xray", name: "X-Ray Specs", rarity: "exotic", def: "#E5484D", art: g => {
       const spiral = R => { let p = "", n = 40; for (let i = 0; i <= n; i++) { const t = i / n, a = t * Math.PI * 5, r = R * .82 * t; p += (i ? "L" : "M") + f(r * Math.cos(a)) + " " + f(r * Math.sin(a)); } return p; };
       return `${bridge(g, 2.4, 1.8, WS("#E5484D"))}${temples(g, 1.6, WS("#E5484D"))}${pair(g, R => `<circle r="${f(R)}" fill="#FFF8F0" stroke="${INK}" stroke-width="5"/><path d="${spiral(R)}" fill="none" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/><circle r="${f(R)}" fill="none" ${WS("#E5484D")} stroke-width="3"/>`)}`; }},
@@ -73492,13 +75311,13 @@ var COMP_ACC_MORE = K => {
       const pts = along(hw, -2, 6.5, Math.max(5, Math.round(hw / 4.4)), .84);
       // a scallop shell hanging from its hinge: the fan opens downward
       const shell = (x, y, s, fill) => `<path d="M${f(x)} ${f(y - s * 1.1)}L${f(x - s)} ${f(y + s * .3)}Q${f(x)} ${f(y + s * 1.5)} ${f(x + s)} ${f(y + s * .3)}Z" ${fill} ${OUT(1.1)}/><path d="M${f(x)} ${f(y - s)}V${f(y + s * .85)}M${f(x)} ${f(y - s)}L${f(x - s * .55)} ${f(y + s * .6)}M${f(x)} ${f(y - s)}L${f(x + s * .55)} ${f(y + s * .6)}" stroke="#fff" stroke-opacity=".75" stroke-width=".8"/><rect x="${f(x - s * .35)}" y="${f(y - s * 1.3)}" width="${f(s * .7)}" height="${f(s * .45)}" rx=".4" ${fill} ${OUT(.8)}/>`;
-      return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#8B6A4F" stroke-width="1.2"/>${pts.map(([x, y], i) => Math.abs(x) < .5 ? "" : i % 2 ? `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF8F0" ${OUT(.8)}/>` : shell(x, y + 2, 2.4, i % 4 ? WF : `fill="#FFC2D4"`)).join("")}${shell(0, 4.5 + 4.6, 3.8, `fill="#FFC2D4"`)}`; }},
+      return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#8B6A4F" stroke-width="1.2"/>${pts.map(([x, y], i) => Math.abs(x) < .5 ? "" : i % 2 ? `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF8F0" ${OUT(.8)}/>` : shell(x, y + 2, 2.4, WF)).join("")}${shell(0, 4.5 + 4.6, 3.8, WF)}`; }},
     {id: "cravat", name: "Frilly Cravat", rarity: "uncommon", def: "#FFF8F0", icon: [-9, .95], art: () =>
       `<path d="M-6.5 7Q0 11 6.5 7L5.6 15Q2.4 18.4 0 16.4Q-2.4 18.4 -5.6 15Z" ${WF} ${OUT(1.8)}/><path d="M-3 9.4Q-2 13 -3.2 15.4M3 9.4Q2 13 3.2 15.4M0 10V16" fill="none" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>
       <path d="M-5.4 .6Q0 3.6 5.4 .6L7.4 8.4Q3.2 11.6 0 9.8Q-3.2 11.6 -7.4 8.4Z" ${WF} ${OUT(1.8)}/><path d="M-3.2 3.6Q-3.4 6.6 -5 8.4M3.2 3.6Q3.4 6.6 5 8.4" fill="none" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/><circle cx="0" cy="4.4" r="1.8" fill="#FF7AC8" ${OUT(1)}/><circle cx="-.5" cy="3.9" r=".5" fill="#fff"/>`},
     {id: "locket", name: "Heart Locket", rarity: "uncommon", def: "#F5C542", art: hw =>
-      `${line2(arcP(hw, -2.5, 8, .9), 1.2, GOLD).replace(`stroke="${GOLD}" stroke-width="1.2"`, `stroke="${GOLD}" stroke-width="1.2" stroke-dasharray="1.4 .9"`)}<circle cx="0" cy="6.6" r="1.2" fill="none" stroke="${INK}" stroke-width="1.1"/>${heart(0, 10.6, 4, WF, 1.6)}<path d="M-1.6 9.4q-.4 1.6 .6 2.8" fill="none" stroke="${GOLD_D}" stroke-width=".9" stroke-linecap="round"/><path d="M-2.4 8.4q.8 -1.2 2 -1" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`},
-    // Exotic
+      `${line2(arcP(hw, -2.5, 8, .9), 1.2, WS("#F5C542")).replace(`stroke-width="1.2"`, `stroke-width="1.2" stroke-dasharray="1.4 .9"`)}<circle cx="0" cy="6.6" r="1.2" fill="none" stroke="${INK}" stroke-width="1.1"/>${heart(0, 10.6, 4, WF, 1.6)}<path d="M-1.6 9.4q-.4 1.6 .6 2.8" fill="none" stroke="${GOLD_D}" stroke-width=".9" stroke-linecap="round"/><path d="M-2.4 8.4q.8 -1.2 2 -1" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`},
+    // Epic
     {id: "bubbles", name: "Bubble Necklace", rarity: "exotic", def: "#9AD8FF", art: hw => {
       const pts = along(hw, -2, 6.5, Math.max(6, Math.round(hw / 3.6)), .88), sz = [2.2, 3, 2.4, 3.4];
       return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#B9C0CC" stroke-width=".9"/>${pts.map(([x, y], i) => { const r = Math.abs(x) < .5 ? 4.4 : sz[i % 4]; return `<circle cx="${x}" cy="${f(y + (Math.abs(x) < .5 ? 2 : 0))}" r="${r}" ${WF} fill-opacity=".3" stroke="${INK}" stroke-width="1"/><path d="M${f(x - r * .6)} ${f(y + r * .3)}a${f(r * .7)} ${f(r * .7)} 0 0 0 ${f(r * 1.1)} ${f(r * .3)}" fill="none" stroke="#FF9AD5" stroke-width=".9"/><path d="M${f(x - r * .45)} ${f(y - r * .45 + (Math.abs(x) < .5 ? 2 : 0))}q${f(r * .3)} ${f(-r * .3)} ${f(r * .7)} ${f(-r * .2)}" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }).join("")}`; }},
@@ -73523,26 +75342,117 @@ var COMP_ACC_MORE = K => {
     {id: "aplus", name: "A+ Sticker", rarity: "common", at: "pin", def: "#FF5C8A", art: () => `${sticker(7.6, WF)}<circle r="5.4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width=".8" stroke-dasharray="1.4 1.2"/>${txt("A+", 0, 2.6, 7, "#fff")}`},
     {id: "applepin", name: "Apple Pin", rarity: "common", at: "pin", def: "#E5484D", art: () => `<path d="M0 -3.4Q-4 -7 -7 -3.4Q-9.2 1 -6 5.6Q-3 8.8 0 7.2Q3 8.8 6 5.6Q9.2 1 7 -3.4Q4 -7 0 -3.4Z" ${WF} ${OUT(1.6)}/><path d="M0 -3.6Q.4 -6.6 1.6 -8" fill="none" stroke="${INK}" stroke-width="1.4" stroke-linecap="round"/><path d="M1.2 -6.4Q4.4 -9.2 6.4 -6.8Q3.8 -4.6 1.2 -6.4Z" fill="#4CB782" ${OUT(1)}/><path d="M-5 -1.6q.4 -2 2.2 -2.4" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/>`},
     {id: "pawpatch", name: "Paw Print Patch", rarity: "common", at: "pin", def: "#8B6A4F", art: () => `<circle r="7.8" ${WF} ${OUT(1.6)}/><circle r="6.4" fill="none" stroke="#FFF1DC" stroke-width=".8" stroke-dasharray="1.3 1.1"/><ellipse cx="0" cy="1.8" rx="2.6" ry="2.2" fill="#FFF1DC"/><circle cx="-2.8" cy="-1.6" r="1.1" fill="#FFF1DC"/><circle cx="-1" cy="-3.4" r="1.1" fill="#FFF1DC"/><circle cx="1" cy="-3.4" r="1.1" fill="#FFF1DC"/><circle cx="2.8" cy="-1.6" r="1.1" fill="#FFF1DC"/>`},
-    {id: "rainbowpatch", name: "Rainbow Patch", rarity: "common", at: "pin", def: "#8E6BE0", art: () => `<rect x="-9" y="-7" width="18" height="13" rx="4" fill="#FFF8F0" ${OUT(1.6)}/><rect x="-7.6" y="-5.6" width="15.2" height="10.2" rx="3" fill="none" ${WS("#8E6BE0")} stroke-width=".9" stroke-dasharray="1.3 1.1"/>${[["#E5484D", 5.6], ["#FFC93C", 4.2], ["#4CB782", 2.8], ["#5A95FF", 1.5]].map(([c, r]) => `<path d="M${-r} 2.6A${r} ${r} 0 0 1 ${r} 2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`).join("")}<circle cx="-5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/><circle cx="5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/>`},
+    {id: "rainbowpatch", name: "Rainbow Patch", rarity: "common", at: "pin", def: "#FFF8F0", art: () => `<rect x="-9" y="-7" width="18" height="13" rx="4" ${WF} ${OUT(1.6)}/><rect x="-7.6" y="-5.6" width="15.2" height="10.2" rx="3" fill="none" stroke="#8E6BE0" stroke-width=".9" stroke-dasharray="1.3 1.1"/>${[["#E5484D", 5.6], ["#FFC93C", 4.2], ["#4CB782", 2.8], ["#5A95FF", 1.5]].map(([c, r]) => `<path d="M${-r} 2.6A${r} ${r} 0 0 1 ${r} 2.6" fill="none" stroke="${c}" stroke-width="1.4"/>`).join("")}<circle cx="-5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/><circle cx="5.2" cy="3" r="1.4" fill="#fff" ${OUT(.6)}/>`},
     // Rare
     {id: "rosette", name: "Prize Rosette", rarity: "rare", at: "pin", def: "#2563EB", art: () => { let p = ""; for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; p += `<circle cx="${f(5.4 * Math.cos(a))}" cy="${f(5.4 * Math.sin(a))}" r="2.6" ${WF} ${OUT(1)}/>`; }
       return `<path d="M-2 3L-6.4 14L-3.4 12.6L-1.6 15L.6 4Z" ${WF} ${OUT(1.3)}/><path d="M2 3L6.4 14L3.4 12.6L1.6 15L-.6 4Z" ${WF} ${OUT(1.3)}/>${p}<circle r="4.4" fill="${GOLD}" ${OUT(1.3)}/>${txt("1", 0, 2.2, 6, INK)}`; }},
     {id: "sheriff", name: "Sheriff Star", rarity: "rare", at: "pin", def: "#F5C542", art: () => { let p = "", tips = ""; for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i * Math.PI / 6, q = i % 2 ? 4.4 : 8; p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); if (!(i % 2)) tips += `<circle cx="${f(8.6 * Math.cos(a))}" cy="${f(8.6 * Math.sin(a))}" r="1.3" ${WF} ${OUT(.9)}/>`; }
       return `${tips}<path d="${p}Z" ${WF} ${OUT(1.6)}/><circle r="3.2" fill="none" stroke="${GOLD_D}" stroke-width="1"/><circle r="1" fill="${GOLD_D}"/><path d="M-2.6 -4.6L-.8 -6.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>`; }},
-    {id: "pocketwatch", name: "Pocket Watch", rarity: "rare", at: "pin", def: "#F5C542", art: () => `${line2("M-8 -8Q-8 1 -1 1.6", 1, GOLD).replace(`stroke="${GOLD}" stroke-width="1"`, `stroke="${GOLD}" stroke-width="1" stroke-dasharray="1.2 .8"`)}<circle cx="-8" cy="-8" r="1.3" fill="${GOLD}" ${OUT(.8)}/><rect x="1.2" y="-4.2" width="2.6" height="2.4" rx=".6" ${WF} ${OUT(1)}/><circle cx="2.5" cy="4.4" r="6.4" ${WF} ${OUT(1.6)}/><circle cx="2.5" cy="4.4" r="4.8" fill="#FFF8F0" ${OUT(.9)}/><path d="M2.5 4.4V1.4M2.5 4.4L4.6 5.6" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><circle cx="2.5" cy="4.4" r=".6" fill="${INK}"/>`},
+    {id: "pocketwatch", name: "Pocket Watch", rarity: "rare", at: "pin", def: "#F5C542", art: () => `${line2("M-8 -8Q-8 1 -1 1.6", 1, WS("#F5C542")).replace(`stroke-width="1"`, `stroke-width="1" stroke-dasharray="1.2 .8"`)}<circle cx="-8" cy="-8" r="1.3" ${WF} ${OUT(.8)}/><rect x="1.2" y="-4.2" width="2.6" height="2.4" rx=".6" ${WF} ${OUT(1)}/><circle cx="2.5" cy="4.4" r="6.4" ${WF} ${OUT(1.6)}/><circle cx="2.5" cy="4.4" r="4.8" fill="#FFF8F0" ${OUT(.9)}/><path d="M2.5 4.4V1.4M2.5 4.4L4.6 5.6" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><circle cx="2.5" cy="4.4" r=".6" fill="${INK}"/>`},
     {id: "boltpin", name: "Lightning Pin", rarity: "rare", at: "pin", def: "#FFC93C", art: () => `<path d="M2.4 -9.4L-6.4 1.2H-1L-3.4 9.6L6.4 -2H1Z" ${WF} ${OUT(1.8)}/><path d="M1 -6L-3.4 -.6" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linecap="round"/>`},
     {id: "cameo", name: "Cameo Brooch", rarity: "rare", at: "mid", def: "#F2B5C4", art: () => `<ellipse rx="7.6" ry="9.4" fill="${GOLD}" ${OUT(1.6)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<circle cx="${f(7.6 * Math.cos(a))}" cy="${f(9.4 * Math.sin(a))}" r=".9" fill="#FFF8F0"/>`; }).join("")}<ellipse rx="5.6" ry="7.4" ${WF} ${OUT(1)}/><path d="M1.4 -5Q-2.6 -5 -2.6 -1.4L-4 .4L-2.6 1.2Q-2.8 3 -1.2 3.4L-.8 5.6H3Q2.6 2.6 3.4 .6Q4.2 -4.6 1.4 -5Z" fill="#FFF8F0"/>`},
-    // Exotic
+    // Epic
     {id: "rune", name: "Glowing Rune", rarity: "exotic", at: "mid", def: "#7CF5FF", art: () => `<circle r="10.4" ${WF} opacity=".28"/><circle r="7.6" fill="#2A1F5C" ${OUT(1.6)}/><circle r="6" fill="none" ${WS("#7CF5FF")} stroke-width="1.1"/><path d="M0 -4.6L4 2.4H-4ZM0 4.6L-4 -2.4H4Z" fill="none" ${WS("#7CF5FF")} stroke-width="1" stroke-linejoin="round"/><circle r="1.2" ${WF}/>${[0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<path d="M${f(6.9 * Math.cos(a))} ${f(6.9 * Math.sin(a))}l${f(.01 + Math.cos(a))} ${f(Math.sin(a))}" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }).join("")}`},
     {id: "mechcore", name: "Power Core", rarity: "exotic", at: "mid", def: "#4FD6FF", art: () => { let h = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; h += (i ? "L" : "M") + f(8.6 * Math.cos(a)) + " " + f(8.6 * Math.sin(a)); }
       return `<path d="${h}Z" fill="#8E96A6" ${OUT(1.6)}/>${[0, 2, 4].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<circle cx="${f(6.8 * Math.cos(a))}" cy="${f(6.8 * Math.sin(a))}" r=".9" fill="#DDE2EA" ${OUT(.6)}/>`; }).join("")}<circle r="6.6" ${WF} opacity=".35"/><circle r="4.6" ${WF} ${OUT(1.2)}/><circle r="2.8" fill="none" stroke="#fff" stroke-width=".9"/><circle r="1.1" fill="#fff"/>`; }},
     {id: "butterflybrooch", name: "Jeweled Butterfly", rarity: "exotic", at: "pin", def: "#8E6BE0", art: () => `${[[-1, 1], [1, 1]].map(([sx]) => `<g transform="scale(${sx} 1)"><ellipse cx="4.6" cy="-3" rx="4.8" ry="3.8" transform="rotate(-25 4.6 -3)" ${WF} ${OUT(1.3)}/><ellipse cx="3.6" cy="3.4" rx="3.2" ry="2.6" transform="rotate(30 3.6 3.4)" ${WF} ${OUT(1.3)}/><circle cx="5.4" cy="-3.6" r="1.2" fill="#7CF5FF" ${OUT(.6)}/><circle cx="3.6" cy="3.6" r=".9" fill="#FF9AD5"/></g>`).join("")}<ellipse rx="1.3" ry="5" fill="${GOLD}" ${OUT(1)}/>${line2("M-.4 -4.6q-1 -2.4 -2.8 -3M.4 -4.6q1 -2.4 2.8 -3", .6, GOLD)}`},
     // Legendary
     {id: "wingedheart", name: "Winged Heart Crest", rarity: "legendary", at: "mid", def: "#E5484D", art: () => `${[-1, 1].map(sx => `<g transform="scale(${sx} 1)">${[[-58, 9], [-82, 10.5], [-106, 9]].map(([a, l]) => `<g transform="translate(4 -1) rotate(${-a})">${feather(l, 2.6, `fill="#FFF8F0"`, 1.2)}</g>`).join("")}</g>`).join("")}${heart(0, 0, 6.4, `fill="${GOLD}"`, 1.6)}${heart(0, .3, 4.6, WF)}<path d="M-2.8 -2.4q.8 -1.4 2.2 -1.2" fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>${tw(-12, -8, 2.6, 0)}${tw(12, 6, 2.4, 1)}`},
-    {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#2563EB", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
-      return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" fill="#DDE2EA" ${OUT(1.5)}/><circle r="5.4" fill="${GOLD}" ${OUT(1.3)}/><circle r="3.9" ${WF} ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
+    {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#DDE2EA", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
+      return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" ${WF} ${OUT(1.5)}/><path d="${p}Z" fill="#fff" opacity=".25"/><circle r="5.4" ${WF} ${OUT(1.3)}/><circle r="3.9" fill="#2563EB" ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
   ];
   CHEST.forEach(a => { a.slot = "chest"; });
+  /* ---------------- Holiday gifts for 2027 (98-companion.js GIFTS): never sold, each found in its holiday's present ---------------- */
+  const shamrock = (x, y, sz, fill) => `<g transform="translate(${x} ${y})">${[0, 120, 240].map(a => `<g transform="rotate(${a})">${heart(0, -sz * 1.1, sz, fill, .9)}</g>`).join("")}<path d="M0 .6L${f(sz * .6)} ${f(sz * 2)}" stroke="#2F7A44" stroke-width="1.1" stroke-linecap="round"/></g>`;
+  HEAD.push(
+    // New Year's Day: a black party cone with gold Happy New Year, a 2027 band, a gold fringe and a tinsel burst on top
+    {id: "newyearhat", name: "New Year's Hat", rarity: "legendary", def: "#1E1B26", gift: true, icon: [16, .64], art: () => {
+      const CONE = "M-14 3L0 -37L14 3Q0 6 -14 3Z";
+      // the words in a gold hand-lettered script, slanted up like the party hats, kept inside the cone (clipped to it)
+      const script = (t, x, y, sz) => `<text x="${x}" y="${y}" text-anchor="middle" font-family="Kalam,Caveat,'Gochi Hand',cursive" font-weight="700" font-size="${sz}" fill="#FFD24A" stroke="#7A5200" stroke-width=".45" paint-order="stroke">${t}</text>`;
+      const words = `<g clip-path="url(#cpaNyCone)" transform="rotate(-8 0 -12)">${script("Happy", 0, -15.6, 4.8)}${script("New Year", .4, -9.4, 4.3)}<path d="M-5.6 -7.6Q.4 -6.2 6.4 -7.8" fill="none" stroke="#FFD24A" stroke-width=".6" stroke-linecap="round"/></g>`;
+      const TOPPER = "burst";
+      const tops = {
+        // tinsel burst: gold and silver strands around a gold bead
+        burst: () => { let a = "", b = ""; for (let i = 0; i < 18; i++) { const r = i * Math.PI / 9 + .1, l = i % 2 ? 5.6 : 7.4, d = `M0 -38L${f(l * Math.cos(r))} ${f(-38 + l * Math.sin(r))}`; a += `<path d="${d}" stroke="${INK}" stroke-width="2.8" stroke-linecap="round"/>`; b += `<path d="${d}" stroke="${i % 3 ? GOLD : "#E4E8EF"}" stroke-width="1.4" stroke-linecap="round"/>`; } return `${a}${b}<circle cy="-38" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><circle cx="-.8" cy="-38.8" r=".8" fill="#fff"/>`; },
+        // a gold star on the tip
+        star: () => `${star(0, -41, 6.4, GOLD, 1.8)}<path d="M-1.6 -43.4l1 -2" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>`,
+        // a fluffy pom-pom of gold and silver puffs
+        pom: () => { const pts = [[0, -41, 3.2], [-3, -39, 2.6], [3, -39, 2.6], [-2.2, -43.2, 2.4], [2.2, -43.2, 2.4], [0, -37.6, 2.4]];
+          return `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="2.6"/>`).join("")}${pts.map(([x, y, r], k) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${k % 2 ? "#E4E8EF" : GOLD}"/>`).join("")}<circle cx="-1" cy="-42" r=".8" fill="#fff"/>`; },
+        // a little disco ball
+        disco: () => `<circle cy="-41.6" r="5" fill="#C9D0DA" ${OUT(1.6)}/><path d="M-5 -41.6H5M-4.4 -44H4.4M-4.4 -39.2H4.4M0 -46.6V-36.6M-2.8 -46Q-4 -41.6 -2.8 -37.2M2.8 -46Q4 -41.6 2.8 -37.2" stroke="#8E96A6" stroke-width=".6" fill="none"/><path d="M-3 -44.4h2v1.6h-2Z" fill="#fff"/><path d="M1.2 -40.6h1.8v1.6h-1.8Z" fill="#FFF3B0"/><path d="M0 -46.6V-48" stroke="${INK}" stroke-width="1.2"/>`,
+        // curly gold and silver streamers spilling from the tip
+        // corkscrew ribbons hanging down one side of the tip
+        cascade: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
+          return `${c("M0 -37.6Q4 -39 5 -36Q5.6 -33.6 3.6 -34Q2 -34.6 4 -32.4Q6 -30.4 7.4 -31.6", GOLD)}${c("M0 -37.6Q-4 -39.4 -5.2 -36.4Q-5.8 -34 -3.8 -34.4Q-2.2 -35 -4.2 -32.6Q-6.2 -30.6 -7.6 -31.8", "#E4E8EF")}${c("M0 -37.6Q1.6 -41.6 -.4 -43.2Q-2.4 -44.4 -2.6 -42.4", GOLD)}<circle cy="-37.6" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // springy coils standing up from the tip
+        springs: () => { const coil = (a, col) => { let d = "M0 -37"; for (let k = 0; k < 4; k++) d += `q${k % 2 ? -2.2 : 2.2} -1.1 0 -2.2`; return `<g transform="rotate(${a} 0 -37)"><path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.2" stroke-linecap="round"/><circle cy="-46" r="1.2" fill="${col}" ${OUT(.8)}/></g>`; };
+          return `${coil(-38, "#E4E8EF")}${coil(38, "#E4E8EF")}${coil(-12, GOLD)}${coil(14, GOLD)}<circle cy="-37" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // a fountain of thin streamers arcing out and down both sides, each ending in a little curl
+        fountain: () => { const st = (s, h, col) => { const d = `M0 -38Q${f(s * 4)} ${f(-44 - h)} ${f(s * 8)} -38.6q${f(s * 1.4)} 2 0 3q${f(-s * 1.2)} .4 ${f(-s * .8)} -1`; return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.1" stroke-linecap="round"/>`; };
+          return `${st(-1, 2, GOLD)}${st(1, 2, GOLD)}${st(-.7, 5, "#E4E8EF")}${st(.7, 5, "#E4E8EF")}${st(-.3, 7, GOLD)}${st(.3, 7, "#E4E8EF")}<circle cy="-38" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        // ribbon loops gathered into a rosette, gold and silver
+        loops: () => { const lp = (a, col) => `<g transform="rotate(${a} 0 -39)"><path d="M0 -39C-2.6 -42 -2 -46.4 0 -46.4C2 -46.4 2.6 -42 0 -39Z" fill="${col}" ${OUT(1.2)}/></g>`;
+          return `${[-80, -40, 0, 40, 80].map((a, k) => lp(a, k % 2 ? "#E4E8EF" : GOLD)).join("")}<circle cy="-39" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; },
+        streamers: () => { const c = (d, col) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="1.3" stroke-linecap="round"/>`;
+          return `${c("M0 -37Q-4 -42 -7 -38Q-9 -35 -6 -34Q-3 -34 -5 -37", GOLD)}${c("M0 -37Q4 -43 7.6 -39.4Q9.6 -36.4 6.6 -35.4Q3.6 -35 5.4 -38", "#E4E8EF")}${c("M0 -37Q-1 -43 2 -45Q5 -46 4.6 -43Q4 -41 2 -42.6", GOLD)}<circle cy="-37.4" r="2" fill="${GOLD}" ${OUT(1.1)}/>`; }
+      };
+      return `<clipPath id="cpaNyCone"><path d="${CONE}"/></clipPath><path d="${CONE}" ${WF} ${OUT(2.4)}/><g clip-path="url(#cpaNyCone)"><path d="M-2.6 -31Q-6.4 -20 -10.6 -3L-7.4 -3Q-4.6 -19 -1.4 -30.6Z" fill="#fff" opacity=".13"/><path d="M-2.2 -29.6Q-3.6 -26 -4.8 -21.8" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/></g>
+        ${words}${star(-1.4, -27.4, 1, GOLD)}${star(1.8, -31, .8, "#E4E8EF")}${star(3.4, -23.6, .8, GOLD)}<circle cx="3.6" cy="-19.8" r=".5" fill="#E4E8EF"/>
+        <path d="M-12.6 -4.4Q0 -2.2 12.6 -4.4L14 3Q0 6 -14 3Z" fill="${GOLD}" ${OUT(1.6)}/><path d="M-12.4 -3.2Q0 -1 12.4 -3.2" fill="none" stroke="#FFF3B0" stroke-width=".7"/>${txt("2027", 0, 2.6, 5, INK)}
+        ${tops[TOPPER]()}${tw(-16, -24, 2.6, 0)}${tw(15, -36, 2.4, .9)}`; }},
+    // Valentine's Day: two springy hearts on a headband
+    {id: "heartboppers", name: "Heart Boppers", rarity: "legendary", def: "#FF4F8B", gift: true, icon: [12, .85], art: () => {
+      const spring = `M-6 -9.6Q-9.4 -11 -7.2 -13Q-5 -14.8 -8.6 -16.2Q-11.4 -17.6 -10.6 -19.8`;
+      const side = `${line2(spring, 1.1, "#C9D0DA")}${heart(-10.6, -24.4, 5.2, WF, 1.8)}<path d="M-14 -27.2q1 -1.8 2.8 -1.8" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`;
+      return `${side}<g transform="scale(-1 1)">${side}</g>${line2("M-17 3Q-15 -9.4 0 -10.2Q15 -9.4 17 3", 3, WS("#FF4F8B"))}${tw(-18, -30, 2.6, 0)}${tw(18, -21, 2.4, .9)}`; }},
+    // St. Patrick's Day: a green hat that flares at the top, with a gold buckle and a shamrock
+    {id: "leprechaun", name: "Leprechaun Hat", rarity: "legendary", def: "#2E9E5B", gift: true, icon: [12, .85], art: () =>
+      `<path d="M-10 -1L-12.6 -23Q0 -25.6 12.6 -23L10 -1Z" ${WF} ${OUT(2.4)}/><ellipse cx="0" cy="-23" rx="12.6" ry="2.6" ${WF} ${OUT(2)}/><ellipse cx="0" cy="-23" rx="12.6" ry="2.6" fill="#fff" opacity=".14"/>
+      <path d="M-7.6 -19.6V-12" stroke="#fff" stroke-opacity=".28" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M-11 -10.4Q0 -8.4 11 -10.4L10.6 -4Q0 -2 -10.6 -4Z" fill="${INK}"/><rect x="-3.6" y="-10.6" width="7.2" height="6.8" rx="1.2" fill="none" stroke="${GOLD}" stroke-width="1.9"/><path d="M0 -9.6V-4.8" stroke="${GOLD}" stroke-width="1.3"/>
+      ${shamrock(7.6, -13.6, 2.2, `fill="#7ED19B"`)}
+      <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-16 1.6Q0 4 16 1.6" fill="none" stroke="${INK}" stroke-opacity=".2" stroke-width="1.4"/>
+      ${tw(-18, -20, 2.6, 0)}${tw(17, -29, 2.4, 1)}`},
+    // Independence Day: Uncle Sam's tall striped hat, with a band of stars
+    {id: "unclesam", name: "Uncle Sam Hat", rarity: "legendary", def: "#FFFFFF", gift: true, icon: [13, .78], art: () => {
+      const crown = "M-10 -1L-11.2 -29Q0 -31.4 11.2 -29L10 -1Z";
+      const stripes = [-7.6, -2.6, 2.6, 7.6].map(x => `<path d="M${f(x - 1.3)} -1L${f(x * 1.12 - 1.3)} -30L${f(x * 1.12 + 1.3)} -30L${f(x + 1.3)} -1Z" fill="#E5484D"/>`).join("");
+      return `<clipPath id="cpaSam"><path d="${crown}"/></clipPath><path d="${crown}" ${WF}/><g clip-path="url(#cpaSam)">${stripes}</g><path d="${crown}" fill="none" ${OUT(2.4)}/>
+        <ellipse cx="0" cy="-29" rx="11.2" ry="2.6" ${WF} ${OUT(2)}/><path d="M-7.4 -25V-15" stroke="#fff" stroke-opacity=".4" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-10.8 -11Q0 -9 10.8 -11L10.4 -3.6Q0 -1.6 -10.4 -3.6Z" fill="#2F4A9E" ${OUT(1.6)}/>${[-6.6, -2.2, 2.2, 6.6].map(x => star(x, -6.8 + Math.abs(x) * .05, 1.5, "#fff")).join("")}
+        <path d="M-18.5 1Q-18.5 -3.2 -11 -2.2Q0 0 11 -2.2Q18.5 -3.2 18.5 1Q18.5 5 0 5Q-18.5 5 -18.5 1Z" fill="#2F4A9E" ${OUT(2.4)}/><path d="M-16 1.4Q0 3.8 16 1.4" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.3" stroke-linecap="round"/>
+        ${tw(-19, -22, 2.8, 0)}${tw(18, -33, 2.4, .9)}${tw(20, -10, 2, 1.6)}`; }},
+    // Christmas: reindeer antlers on a headband, with jingle bells
+    {id: "antlers", name: "Reindeer Antlers", rarity: "legendary", def: "#C08A5B", gift: true, icon: [13, .78], art: () => {
+      const side = `${line2("M-7 -8Q-10.4 -15 -12 -21Q-13.6 -26.6 -11.6 -32", 3.2, WS("#C08A5B"))}${line2("M-11.2 -18.4Q-16 -20 -18.6 -25.6", 2.6, WS("#C08A5B"))}${line2("M-12.6 -25.4Q-9.2 -27.6 -8 -31.6", 2.4, WS("#C08A5B"))}${line2("M-13.6 -26Q-17 -28 -17.6 -32", 2.2, WS("#C08A5B"))}`;
+      const bell = x => `<g transform="translate(${x} -6.8)"><path d="M-2.8 2.2Q-3 -2.8 0 -3Q3 -2.8 2.8 2.2Z" fill="${GOLD}" ${OUT(1.3)}/><circle cy="2.4" r=".9" fill="${INK}"/><path d="M-1.4 -1q.6 -.9 1.4 -1" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/></g>`;
+      return `${side}<g transform="scale(-1 1)">${side}</g>${line2("M-17 3Q-15 -9 0 -9.8Q15 -9 17 3", 3, "#7A4E2D")}${bell(-7.4)}${bell(7.4)}${tw(-21, -14, 2.8, 0)}${tw(21, -30, 2.4, .9)}${tw(0, -20, 2, 1.6)}`; }}
+  );
+  FACE.push(
+  );
+  NECK.push(
+    // Halloween: a bow tie that's a little bat
+    {id: "batbowtie", name: "Bat Bow Tie", rarity: "legendary", def: "#3A2A5C", gift: true, icon: [-4, 1.15], art: () => {
+      const wing = `<path d="M-2.6 0Q-8 -8 -16 -6.4Q-15 -2.4 -17 1.6Q-13.6 .4 -12.4 4Q-9.6 1.6 -7.6 5.4Q-5 2 -2.6 3Z" ${WF} ${OUT(2)}/><path d="M-4.4 0Q-9 -4.4 -14 -4.2" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.2" stroke-linecap="round"/>`;
+      return `<g transform="translate(0 3)">${wing}<g transform="scale(-1 1)">${wing}</g><path d="M-2.8 -2L-2.2 -6L-.6 -2.8ZM2.8 -2L2.2 -6L.6 -2.8Z" ${WF} ${OUT(1.3)}/><ellipse cx="0" cy="1" rx="3.8" ry="4.4" ${WF} ${OUT(2)}/>
+        <circle cx="-1.4" cy=".2" r=".95" fill="#FFD35A"/><circle cx="1.4" cy=".2" r=".95" fill="#FFD35A"/><path d="M-1 2.6l.45 1.2l.45 -1.2M.1 2.6l.45 1.2l.45 -1.2" fill="#fff"/>${tw(-19, -6, 2.4, 0)}${tw(19, 6, 2.2, 1)}</g>`; }},
+    // Thanksgiving: a garland of autumn leaves and acorns
+    {id: "leafgarland", name: "Harvest Garland", rarity: "legendary", def: "#E8742A", gift: true, art: hw => {
+      const pts = along(hw, -1.5, 6, Math.max(6, Math.round(hw / 3.6)), .9);
+      const leaf = ([x, y], i) => `<g transform="translate(${x} ${y}) rotate(${f(-x / hw * 35)})"><path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" ${WF} ${OUT(1.3)}/>${i % 3 === 1 ? `<path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" fill="#fff" opacity=".28"/>` : i % 3 === 2 ? `<path d="M0 -1C-3.4 1 -4 5.6 0 9.4C4 5.6 3.4 1 0 -1Z" fill="${INK}" opacity=".18"/>` : ""}<path d="M0 0V8M0 3.4L-1.6 2M0 5.4L1.6 4" stroke="${INK}" stroke-opacity=".35" stroke-width=".8" stroke-linecap="round"/></g>`;
+      const acorn = ([x, y]) => `<g transform="translate(${x} ${f(+y + 1.4)})"><ellipse cy="2.2" rx="1.9" ry="2.3" fill="#C9935A" ${OUT(1)}/><path d="M-2.3 1Q0 -1.6 2.3 1Z" fill="#7A4E2D" ${OUT(1)}/></g>`;
+      const mids = pts.slice(1).map((p, i) => [f((+p[0] + +pts[i][0]) / 2), f((+p[1] + +pts[i][1]) / 2)]).filter((p, i) => i % 2 === 0);
+      return `<path d="${arcP(hw, -1.5, 6, .95)}" fill="none" stroke="#7A4E2D" stroke-width="1.3"/>${pts.map(leaf).join("")}${mids.map(acorn).join("")}${tw(f(-hw - 2), -5, 2.4, 0)}${tw(f(hw + 2), 6, 2.2, 1)}`; }}
+  );
+  CHEST.push(
+    // Easter: a chick peeking out of its egg
+    {id: "chickpin", name: "Hatching Chick Pin", rarity: "legendary", at: "pin", def: "#C9B6F2", gift: true, slot: "chest", art: () =>
+      `<g transform="scale(1.25)"><circle cx="0" cy="-3.4" r="5" fill="#FFD35A" ${OUT(1.5)}/><circle cx="-1.8" cy="-4" r=".85" fill="${INK}"/><circle cx="1.8" cy="-4" r=".85" fill="${INK}"/><path d="M-1 -2.4L0 -1L1 -2.4Z" fill="#F28C28"/><circle cx="-3" cy="-2.4" r=".8" fill="#FF9AB3"/><circle cx="3" cy="-2.4" r=".8" fill="#FF9AB3"/>
+      <path d="M-7 0L-4.6 -2.4L-2.4 0L0 -2.4L2.4 0L4.6 -2.4L7 0Q7.6 9 0 10Q-7.6 9 -7 0Z" ${WF} ${OUT(1.6)}/><circle cx="-3.4" cy="4" r="1" fill="#fff" opacity=".75"/><circle cx="2.6" cy="6.4" r="1.2" fill="#fff" opacity=".75"/><circle cx="3.6" cy="2.4" r=".7" fill="#fff" opacity=".75"/>
+      <path d="M-4.4 -7.2L-3 -10L-1.4 -7.8L0 -10.6L1.6 -7.8L3 -10L4.4 -7.2Q0 -5.6 -4.4 -7.2Z" ${WF} ${OUT(1.2)}/>${tw(-8.6, -8, 2.2, 0)}${tw(8.4, 4, 2, 1)}</g>`}
+  );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
   return HEAD.concat(FACE, NECK, CHEST);
 };
@@ -73571,7 +75481,8 @@ var COMP_ACC_MORE = K => {
   // Bought with Studyboard Credits (98-0study-credits.js), the coins students earn by studying: focus time, flashcards, practice
   // quizzes, tasks and presentations, each by how hard it is. The price is set by the prop's rarity (PRICE). Once bought, a prop is kept for
   // good, with or without Pro. The Festive Beanie is only sold between Dec 1 and Jan 6 (and worn any time after).
-  // Props earned the old way (cfg().earned, before credits) stay yours.
+  // Credits are the only way to get one: props once unlocked by study milestones (cfg().earned, which older versions of the app
+  // still write) don't count, so an out-of-date device can't hand out free props. Past studying earned credits to buy them back.
   const ACC = [
     {id: "scarf", rarity: "common", name: "Cozy Scarf"},
     {id: "hat", rarity: "common", name: "Tiny Hat"},
@@ -73707,7 +75618,7 @@ var COMP_ACC_MORE = K => {
   /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
      its price in Studyboard Credits (PRICE); none of them needs Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
-  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary"};
   // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
   const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
@@ -73718,7 +75629,7 @@ var COMP_ACC_MORE = K => {
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot});
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift});
   });
   // every prop is priced by its rarity, bought with earned credits, never Pro
   ACC.forEach(a => { a.price = PRICE[RARITY.includes(a.rarity) ? a.rarity : "common"]; });
@@ -73865,7 +75776,28 @@ var COMP_ACC_MORE = K => {
   // a prop's art with its fabric patterned: the fill that follows the prop's colour becomes the pattern
   const withPat = (art, id, kind, col) => { if (!kind || !col) return art; const pid = `cpp-${id}-${kind}-${col.replace("#", "")}`; return `<defs>${patDef(pid, kind, col)}</defs>` + String(art).split(WEAR).join(`style="fill:url(#${pid})"`); };
   // A prop's picture on its own, centred (the wardrobe's tiles and the new-prop reveal)
+  /* Every accessory's icon is fitted to its circle or tile: what it draws is measured once (twinkles left out), then centred and
+     scaled to fill about the same space, so a tall hat, a wide scarf and a small pin all sit in the middle at a matching size */
+  const ICON_FIT = {}, ICON_W = 40, ICON_H = 36;
+  function iconFit(id, inner){
+    if (ICON_FIT[id]) return ICON_FIT[id];
+    try {
+      const NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
+      sv.setAttribute("viewBox", "-26 -26 52 52"); sv.setAttribute("width", "52"); sv.setAttribute("height", "52");
+      sv.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none";
+      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw").forEach(t => t.remove());
+      document.body.appendChild(sv); const bb = sv.firstChild.getBBox(); sv.remove();
+      if (!(bb.width > 0 && bb.height > 0)) return null;
+      const k = Math.min(1.6, ICON_W / bb.width, ICON_H / bb.height);
+      return (ICON_FIT[id] = {k: f1(k), x: f1(-(bb.x + bb.width / 2) * k), y: f1(-(bb.y + bb.height / 2) * k)});
+    } catch (e) { return null; }
+  }
   function propIcon(a, tints){
+    const svg = propIconRaw(a, tints), m = /^(<svg[^>]*>)([\s\S]*)<\/svg>$/.exec(svg); if (!m) return svg;
+    const fit = iconFit(a.id, m[2]);
+    return fit ? `${m[1]}<g transform="translate(${fit.x} ${fit.y}) scale(${fit.k})">${m[2]}</g></svg>` : svg;
+  }
+  function propIconRaw(a, tints){
     tints = tints || tintsNow();
     const lift = {hat: 10, cap: 10, crown: 10, beanie: 10, scarf: -6, medal: -6}[a.id], m = MORE_BY[a.id];
     // one of the 60 more: lifted by its slot (or its own [lift, scale]), centred in the tile
@@ -73919,11 +75851,11 @@ var COMP_ACC_MORE = K => {
   /* Getting props: bought with Studyboard Credits */
   const SC = () => (typeof SBSC !== "undefined" ? SBSC : null);
   const credits = () => { try { return SC() ? SC().balance() : 0; } catch (e) { return 0; } };
-  const wasEarned = a => !!(cfg().earned || {})[a.id];
-  const isEarned = a => !!a && (wasEarned(a) || !!(SC() && SC().owns(a.id)));
+  const isEarned = a => !!a && !!(SC() && SC().owns(a.id));
   // the Festive Beanie is on sale between Dec 1 and Jan 6
   const inSeason = () => { const d = new Date(), m = d.getMonth(); return m === 11 || (m === 0 && d.getDate() <= 6); };
-  const forSale = a => !!a && (!a.festive || inSeason());
+  // a gift (from a holiday present: the Santa Hat and the 2027 holidays') is never sold
+  const forSale = a => !!a && !a.gift && (!a.festive || inSeason());
   const coinHtml = px => SC() ? SC().coin(px) : "";
   const creditsTxt = n => `${(+n || 0).toLocaleString()} ${+n === 1 ? "credit" : "credits"}`;
   const canWear = a => !!a && isEarned(a);
@@ -74658,6 +76590,9 @@ var COMP_ACC_MORE = K => {
     if (!box || !cur) return;
     if (press) return;
     if (dockFrozen()) return;
+    // a sheet open over the page (the Style Shop, Settings): it stays where it stood, behind the sheet's dimmed backdrop like the
+    // page, rather than finding its spot "covered" by the sheet and walking to one beside it (half behind the sheet's edge)
+    if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
     const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot" || s.kind === "drop") && !travelAnim && !glideAnim;
@@ -75073,12 +77008,13 @@ var COMP_ACC_MORE = K => {
     else { say(r && r.why ? r.why : "I can't think of an answer right now. Try again later?", {ms: 5000}); askFlow = true; }
   }
 
-  /* Moods: idle, study (a tiny book), doze (sleepy characters during focus), nap */
+  /* Moods: idle, study (looking down at the work), doze (sleepy characters during focus), nap. No prop in the hands: a companion
+     shows only what it's wearing, now that accessories are bought, so a book it doesn't own never appears */
   function setMood(m){
     mood = m;
     if (!act) return;
     const zzz = m === "doze" || m === "nap";
-    act.prop(m === "study" ? "book" : "");
+    act.prop("");
     act.eyes(zzz ? "sleepy" : "open");
     act.mouth(zzz ? "sleepy" : "neutral");
     act.look(0, m === "study" ? 0.8 : 0);
@@ -75311,6 +77247,8 @@ var COMP_ACC_MORE = K => {
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
      (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  // sound effects (01-sfx.js)
+  const sfxPlay = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
   const revealQ = [];
   let revealOn = false, revealT = 0, pressing = false;
   document.addEventListener("pointerdown", () => { pressing = true; }, true);
@@ -75324,6 +77262,134 @@ var COMP_ACC_MORE = K => {
     if (revealBusy()) { revealT = setTimeout(revealSoon, 1500); return; }
     revealProp(revealQ.shift());
   }
+  /* Holiday presents: on each holiday (or the next time the app is opened, until the window ends), a wrapped present pops up at
+     the first calm moment. Open It lifts the lid and the holiday's accessory (never sold) is inside: it's added to the wardrobe
+     and shown with Put It On. Later keeps it for the next time the app is opened. Each comes once (comp.gift[key]).
+     The Santa Hat (Christmas 2026) and the New Year's Hat (2027) are for everyone; every other holiday's gift is for Pro (a paid plan, a code, a promotion or a
+     grant; not the free weeks of a trial, and none while the paywall is off). The wrapping paper fits the holiday */
+  const GIFTS = [
+    {key: "2026", item: "santahat", from: "2026-12-25", to: "2027-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas", all: true, join: 14},
+    {key: "ny2027", item: "newyearhat", from: "2026-12-31", to: "2027-01-10", wrap: "newyear", hi: "Happy New Year!", what: "New Year's", all: true, join: 14, proNext: true},
+    {key: "val2027", item: "heartboppers", from: "2027-02-14", to: "2027-02-21", wrap: "valentine", hi: "Happy Valentine's Day!", what: "Valentine's Day"},
+    {key: "stp2027", item: "leprechaun", from: "2027-03-17", to: "2027-03-24", wrap: "stpat", hi: "Happy St. Patrick's Day!", what: "St. Patrick's Day"},
+    {key: "eas2027", item: "chickpin", from: "2027-03-28", to: "2027-04-04", wrap: "easter", hi: "Happy Easter!", what: "Easter"},
+    {key: "jul2027", item: "unclesam", from: "2027-07-04", to: "2027-07-11", wrap: "july4", hi: "Happy Fourth of July!", what: "Fourth of July"},
+    {key: "hal2027", item: "batbowtie", from: "2027-10-31", to: "2027-11-07", wrap: "halloween", hi: "Happy Halloween!", what: "Halloween"},
+    {key: "thx2027", item: "leafgarland", from: "2027-11-25", to: "2027-12-02", wrap: "harvest", hi: "Happy Thanksgiving!", what: "Thanksgiving"},
+    {key: "xm2027", item: "antlers", from: "2027-12-25", to: "2028-01-06", wrap: "xmas", hi: "Merry Christmas!", what: "Christmas"}
+  ];
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const md = iso => `${MON[+iso.slice(5, 7) - 1]} ${+iso.slice(8, 10)}`;
+  // how each gift is got, in words, for the Wardrobe and the chat
+  GIFTS.forEach(g => { const a = ACC.find(x => x.id === g.item); if (a) { a.giftOf = g; a.giftNote = `inside the ${g.what} present that pops up between ${md(g.from)} and ${md(g.to)}, ${g.to.slice(0, 4)}${g.all ? "" : " (a Studyboard Pro gift)"}`; } });
+  // Pro, but not a free trial (the free weeks): a paid plan, a code, a promotion or a grant all count
+  const paidPro = () => { try { if (typeof PLAN === "undefined" || !PLAN || !PLAN.paywall() || !PLAN.isPro()) return false; const e = PLAN.entitlement(); if (!e) return true;
+    const live = t => !!t && Date.parse(t) > Date.now();
+    const trial = e.plan !== "lifetime" && !(e.plan === "pro" && (!e.pro_until || live(e.pro_until))) && live(e.trial_until);
+    return !trial; } catch (e) { return false; } };
+  // (browser tests see them only when they ask; giftPro is the tests' stand-in for a paid plan)
+  const giftOff = () => { try { return !!window.__SB_TEST && localStorage.getItem("studyboard:gift-test") !== "1"; } catch (e) { return false; } };
+  const giftProNow = () => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:gift-pro")) return localStorage.getItem("studyboard:gift-pro") === "1"; } catch (e) {} return paidPro(); };
+  // when this student joined: the account's creation, or (with no account) when their first welcome setup was finished
+  const joinedISO = () => { try { const t = Date.parse((typeof sbUser !== "undefined" && sbUser && sbUser.created_at) || "") || Number(localStorage.getItem("sb:onboarded:first")) || Number(localStorage.getItem("sb:onboarded:at")) || 0;
+    if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; } catch (e) { return ""; } };
+  const plusDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  // in its window; or, for a gift with join (Christmas, New Year's), a student who joined within that many days of the holiday
+  // (before or after) gets it the next time they open the app from the holiday on, even after the window
+  const giftOpen = (g, t) => (t >= g.from && t <= g.to) || (!!g.join && (j => !!j && j >= plusDays(g.from, -g.join) && j <= plusDays(g.from, g.join) && t >= g.from)(joinedISO()));
+  const giftNow = () => { if (giftOff() || !SC()) return null; const t = todayISO(), done = cfg().gift || {};
+    return GIFTS.find(g => giftOpen(g, t) && !done[g.key] && (g.all || giftProNow()) && (a => a && !isEarned(a))(ACC.find(x => x.id === g.item))) || null; };
+  let giftOn = false, giftT = 0, giftLater = false;
+  // the wrapping paper: box, its shade, ribbon and knot colours, and a little motif scattered over it
+  const WRAP = {
+    xmas: {box: "#E5484D", dark: "#B8323F", rib: "#FFD35A", knot: "#F5B700", m: "snow", mc: "#fff"},
+    newyear: {box: "#1E1B26", dark: "#0E0C14", rib: "#F5C542", knot: "#E0A82E", m: "confetti", mc: "#F5C542"},
+    valentine: {box: "#FF8FB1", dark: "#E56A92", rib: "#E5484D", knot: "#B8323F", m: "heart", mc: "#fff"},
+    stpat: {box: "#2E9E5B", dark: "#1F7A44", rib: "#F5C542", knot: "#E0A82E", m: "clover", mc: "#BFF0CF"},
+    easter: {box: "#C9B6F2", dark: "#A892DE", rib: "#7ED9B0", knot: "#4FBF8E", m: "egg", mc: "#FFF3B0"},
+    july4: {box: "#2F4A9E", dark: "#22377A", rib: "#E5484D", knot: "#B8323F", m: "star", mc: "#fff"},
+    halloween: {box: "#F28C28", dark: "#C96A12", rib: "#5B3FA0", knot: "#3F2A78", m: "bat", mc: "#2B2233"},
+    harvest: {box: "#B5652E", dark: "#8A4A1F", rib: "#F5C542", knot: "#E0A82E", m: "leaf", mc: "#FFD08A"}
+  };
+  const MOTIF = {
+    snow: (x, y, c) => `<path d="M${x} ${y - 3.2}V${y + 3.2}M${x - 2.8} ${y - 1.6}L${x + 2.8} ${y + 1.6}M${x - 2.8} ${y + 1.6}L${x + 2.8} ${y - 1.6}" stroke="${c}" stroke-width="1.3" stroke-linecap="round" opacity=".9"/>`,
+    star: (x, y, c) => `<path d="${starPath(x, y, 3.4)}" fill="${c}" opacity=".9"/>`,
+    heart: (x, y, c) => `<path d="M${x} ${y + 2.6}C${x - 4.2} ${y} ${x - 3} ${y - 3} ${x} ${y - 1.1}C${x + 3} ${y - 3} ${x + 4.2} ${y} ${x} ${y + 2.6}Z" fill="${c}" opacity=".9"/>`,
+    clover: (x, y, c) => `<g fill="${c}" opacity=".9"><circle cx="${x}" cy="${y - 1.6}" r="1.6"/><circle cx="${x - 1.6}" cy="${y + .6}" r="1.6"/><circle cx="${x + 1.6}" cy="${y + .6}" r="1.6"/></g><path d="M${x} ${y + 1}l1 2.6" stroke="${c}" stroke-width=".9" opacity=".9"/>`,
+    egg: (x, y, c, k) => `<ellipse cx="${x}" cy="${y}" rx="2.4" ry="3.1" fill="${["#FFF3B0", "#FFB3D1", "#fff", "#BDEFFF"][k % 4]}" opacity=".95"/><path d="M${x - 2.2} ${y}l1.1 -.9l1.1 .9l1.1 -.9l1.1 .9" fill="none" stroke="#A892DE" stroke-width=".7"/>`,
+    bat: (x, y, c) => `<path d="M${x} ${y}q-2 -2 -5 -1q1 1.4 0 2.6q1.6 -.6 2.4 .8q1 -1.2 2.6 -.4q1.6 -.8 2.6 .4q.8 -1.4 2.4 -.8q-1 -1.2 0 -2.6q-3 -1 -5 1z" fill="${c}" opacity=".85"/>`,
+    // gold and silver streamers and dots on black, for New Year's
+    confetti: (x, y, c, k) => `<path d="M${x - 3} ${y + 1}q1.5 -2.4 3 0t3 0" fill="none" stroke="${k % 2 ? "#E4E8EF" : c}" stroke-width="1.2" stroke-linecap="round" transform="rotate(${k % 3 ? -25 : 20} ${x} ${y})"/><circle cx="${x + 2.4}" cy="${y - 2.6}" r=".9" fill="${k % 2 ? c : "#E4E8EF"}"/><circle cx="${x - 2.6}" cy="${y + 2.8}" r=".7" fill="${k % 3 ? "#FF7AC8" : c}"/>`,
+    leaf: (x, y, c, k) => `<path d="M${x} ${y - 3.2}C${x - 3} ${y - 1} ${x - 2.4} ${y + 2.4} ${x} ${y + 3.2}C${x + 2.4} ${y + 2.4} ${x + 3} ${y - 1} ${x} ${y - 3.2}Z" fill="${["#FFD08A", "#F5C542", "#FF9A5A"][k % 3]}" transform="rotate(${k % 2 ? 30 : -30} ${x} ${y})" opacity=".9"/>`
+  };
+  function giftBox(wrap){
+    // the paper: the motif tiled in an even half-drop (two per tile, the second a half step down and across), clipped to the box
+    const w = WRAP[wrap] || WRAP.xmas, mo = MOTIF[w.m], T = 15, pid = "cpgw-" + (WRAP[wrap] ? wrap : "xmas");
+    const tile = `<pattern id="${pid}" patternUnits="userSpaceOnUse" x="-3" y="-2" width="${T}" height="${T}"><rect width="${T}" height="${T}" fill="${w.box}"/>${mo(T / 4, T / 4, w.mc, 0)}${mo(T * 3 / 4, T * 3 / 4, w.mc, 1)}</pattern>`;
+    return `<svg class="cpg-box" viewBox="-50 -62 100 110" aria-hidden="true"><defs>${tile}</defs><ellipse cx="0" cy="44" rx="40" ry="5" fill="#000" opacity=".22"/>
+    <path d="M-34 -8H34V36Q34 42 28 42H-28Q-34 42 -34 36Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-34 -8H34V2Q0 7 -34 2Z" fill="${w.dark}" opacity=".5"/>
+    <path d="M-7 -8H7V42H-7Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/><path d="M-3 -6V40" stroke="#fff" stroke-opacity=".6" stroke-width="1.6"/>
+    <g class="cpg-lid"><path d="M-39 -22H39V-6Q39 -2 35 -2H-35Q-39 -2 -39 -6Z" fill="url(#${pid})" stroke="#2B2233" stroke-width="3" stroke-linejoin="round"/><path d="M-36 -19H36" stroke="#fff" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M-8 -22H8V-2H-8Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.4"/>
+      <path d="M0 -24Q-18 -46 -26 -34Q-30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/><path d="M0 -24Q18 -46 26 -34Q30 -24 0 -24Z" fill="${w.rib}" stroke="#2B2233" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M-4 -23L-14 -10L-9 -11L-7 -6L0 -21ZM4 -23L14 -10L9 -11L7 -6L0 -21Z" fill="${w.knot}" stroke="#2B2233" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="0" cy="-24" r="5" fill="${w.knot}" stroke="#2B2233" stroke-width="2.4"/><path d="M-19 -36q3 -3 7 -1M12 -37q4 -2 7 1" stroke="#fff" stroke-opacity=".7" stroke-width="1.8" fill="none" stroke-linecap="round"/></g></svg>`;
+  }
+  const GIFT_AFTER_SETUP = 5 * 60000;
+  // how long until the first welcome setup (sb:onboarded:first: a replay from Settings doesn't count) is 5 minutes old (0 once it is, or with no setup on record)
+  const setupJustDone = () => { try { const at = Number(localStorage.getItem("sb:onboarded:first")) || 0, left = at ? at + GIFT_AFTER_SETUP - Date.now() : 0; return left > 0 && left <= GIFT_AFTER_SETUP ? left + 500 : 0; } catch (e) { return 0; } };
+  function giftSoon(){
+    clearTimeout(giftT);
+    if (giftOn || giftLater || !giftNow()) return;
+    // a new student: presents wait until 5 minutes after the welcome setup is finished, so they don't arrive with the welcome spin
+    const fresh = setupJustDone(); if (fresh) { giftT = setTimeout(giftSoon, fresh); return; }
+    if (revealOn || revealBusy() || document.querySelector(".scr-rw, .cpu") || (window.SBTOUR && SBTOUR.active())) { giftT = setTimeout(giftSoon, 2500); return; }
+    showGift(giftNow());
+  }
+  function showGift(gf){
+    giftOn = true;
+    const o = document.createElement("div");
+    o.className = "cpu cpu-legendary cpu-gift" + (still() ? " cpu-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "cpgT"); o.setAttribute("aria-describedby", "cpgD");
+    if (o.showPopover) o.setAttribute("popover", "manual");
+    const sp = (x, y, d, z) => `<span class="cpu-spark" style="left:${x}%;top:${y}%;animation-delay:${d}s;width:${z}px;height:${z}px" aria-hidden="true">${SPARK}</span>`;
+    o.innerHTML = `<div class="cpu-dim"></div><div class="cpu-box">
+      <button type="button" class="cpu-stage cpg-stage" data-cpg="open" aria-label="Open the present"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
+        ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}${giftBox(gf.wrap)}</button>
+      <span class="cpu-kick">${esc(gf.hi)}</span><h2 class="cpu-name" id="cpgT">A Gift for You</h2>
+      <p class="cpu-how" id="cpgD">Something to wear is wrapped up inside. Open it to see.</p>${gf.all ? "" : `<span class="cpg-pro">${PRO_BADGE}<span>A thank-you for being Pro</span></span>`}
+      <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
+    document.body.appendChild(o);
+    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("present");
+    const back = document.activeElement;
+    setTimeout(() => { const b = o.querySelector('.cpu-acts [data-cpg="open"]'); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
+    let done = false;
+    const gone = () => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); giftOn = false; };
+    const close = open => {
+      if (done) return; done = true;
+      if (!open) {
+        // Later: it waits for the next time the app is opened
+        giftLater = true; o.classList.add("cpu-out"); setTimeout(gone, still() ? 0 : 260);
+        try { if (back && back.isConnected && back.focus) back.focus({preventScroll: true}); } catch (e) {}
+        return;
+      }
+      const hat = ACC.find(x => x.id === gf.item);
+      // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
+      try { SC().grant(hat.id); } catch (e) {}
+      setCfg({gift: {[gf.key]: 1}});
+      try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("unwrap");
+      o.classList.add("cpg-opening");
+      setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
+    };
+    o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpg]"); if (b) close(b.dataset.cpg === "open"); });
+    o.addEventListener("keydown", e => {
+      if (e.key === "Escape") { e.preventDefault(); close(false); return; }
+      if (e.key === "Tab") { const bs = [...o.querySelectorAll(".cpu-acts [data-cpg]")], i = bs.indexOf(document.activeElement); e.preventDefault(); const n = bs[(i + (e.shiftKey ? -1 : 1) + bs.length) % bs.length]; if (n) n.focus(); }
+    });
+  }
+  // after the app opens, and whenever it's opened again (back from the background on a phone, a new tab, the next day)
+  setTimeout(giftSoon, 4500);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { giftLater = false; clearTimeout(giftT); giftT = setTimeout(giftSoon, 2500); } });
   const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c.6 6.2 5.8 11.4 12 12-6.2.6-11.4 5.8-12 12-.6-6.2-5.8-11.4-12-12C6.2 11.4 11.4 6.2 12 0z"/></svg>';
   function revealProp(a){
     revealOn = true;
@@ -75338,12 +77404,13 @@ var COMP_ACC_MORE = K => {
       <div class="cpu-stage" aria-hidden="true"><span class="cpu-rays"></span><span class="cpu-rays b"></span><span class="cpu-glow"></span>
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
-      <span class="cpu-kick">New Accessory!</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
-      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : ""}${esc(how)}</p>
+      <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
+      ${a.proNext ? `<p class="cpu-next">${PRO_BADGE}<span>${giftProNow() ? "You'll get a gift every holiday this year." : "This year's other holiday gifts are for Pro."}</span></p>` : ""}
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); if (!a.paid && !a.gift) sfxPlay("reveal", {rarity: rarityOf(a)});
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let closed = false;
@@ -75357,7 +77424,7 @@ var COMP_ACC_MORE = K => {
       // the companion celebrates too
       if (act && cur) {
         hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5);
-        if (talkOn()) say(wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
+        if (talkOn()) say(a.gift ? (wear ? `${a.hi || "Thank you!"} How do I look in my ${a.name}?` : `${a.hi || "Ooh!"} The ${a.name} is in my wardrobe whenever you want it.`) : wear ? `How do I look in the ${a.name}? Your hard work paid for it!` : `Ooh, the ${a.name}! It's in my wardrobe whenever you want it.`);
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
@@ -75661,7 +77728,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     aiBusy = true;
     const req = build();
     try {
-      const r = mode === "lite" ? await liteCall(req) : await aiCall({task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
+      const r = mode === "lite" ? await liteCall(req) : await aiCall({quiet: true, task: mode === "studyboard" ? (kind === "ask" ? "explain" : "line") : "rewrite", auto: mode !== "manual", fast: true, maxTokens: req.maxTokens || 2000, temperature: 0.8, schema: req.schema, system: req.system, parts: [{text: req.text}]});
       const s2 = aiRead(); delete s2.err; s2.model = r && r.model; aiWrite(s2);
       return r && r.data;
     } catch (e) {
@@ -75963,6 +78030,27 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     placeSoon(newTab ? 0 : 400, first || wander);
     if (newTab) { lastTab = tab; if (!first && wander) later(curious, 500); }
   });
+  // Props unlocked by study milestones (cfg().earned) before credits stay yours: they become owned for good (sc.own, at no cost).
+  // Unlocks after credits went in (the wardrobe expansion and credits reached main on Nov 27, 06:47 UTC, but some devices and
+  // sites kept running the old milestone code) were a mistake and are taken back, as is any of the newer props it unlocked
+  // (none of those existed before). Whatever a taken-back prop was worn on comes off. Runs a little after start-up and after
+  // each sync, since an out-of-date device can still write new unlocks.
+  const CREDITS_FROM = Date.UTC(2026, 10, 27, 6, 47, 0);
+  const ORIGINAL = ["scarf", "hat", "bowtie", "glasses", "medal", "cape", "star", "beanie", "cap", "crown"];
+  function revokeUnbought(){
+    try {
+      const c = cfg(), earned = c.earned; if (!earned || typeof earned !== "object" || !SC()) return;
+      const keep = Object.keys(earned).filter(id => { const v = Number(earned[id]) || 0; return ORIGINAL.includes(id) && ACC.some(a => a.id === id) && (v === 1 || (v > 1 && v < CREDITS_FROM)); });
+      keep.forEach(id => SC().grant(id));
+      const wear = {};
+      Object.entries(c.wear || {}).forEach(([cid, list]) => { wear[cid] = wornList(list).filter(id => canWear(ACC.find(x => x.id === id))); });
+      const next = Object.assign({}, c, {wear}); delete next.earned;
+      state.settings = Object.assign({}, state.settings, {comp: next}); saveSettings();
+      curSig = ""; build(); try { refreshPicker(); } catch (e) {}
+    } catch (e) { console.warn("companion: revoke", e); }
+  }
+  hook("boot", () => setTimeout(revokeUnbought, 4000));
+  hook("render", () => { if (cfg().earned) setTimeout(revokeUnbought, 2000); });
   hook("boot", () => { lastTab = ui.tab; refresh(0); BR.knownTasks = new Set(Object.keys(state.tasks || {})); BR.doneIds = new Set(Object.values(state.tasks || {}).filter(t => t && t.status === "done").map(t => t.id)); });
   hook("plan-changed", () => { curSig = ""; refresh(0); });
   hook("stats-focus", () => later(checkUnlocks, 2500));
@@ -76247,23 +78335,38 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
-      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Epic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
-      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
+      ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id)) && (!a.gift || isEarned(a))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
         return list.length ? `<h4 class="cp-acc-grp">${label} <span class="mini">${list.filter(isEarned).length} of ${list.length}</span></h4><div class="cp-accs">${list.map(accTile).join("")}</div>` : ""; }).join("")}
       <p class="mini" style="margin:0">Wear one prop each on the head, face, neck and chest. A new one in the same spot swaps it.</p>
       ${wear.length ? `<h3 class="fsec">Colors</h3><div class="cp-tints">${wear.map(tintRow).join("")}</div>` : ""}
       ${(pw => pw.length ? `<h3 class="fsec">Patterns${pro() && !tagPro() ? "" : " " + PRO_BADGE}</h3><div class="cp-tints">${pw.map(id => patRow(id, ACC.find(x => x.id === id), colOf(id))).join("")}</div>` : "")(wear.filter(id => PAT_PROPS.includes(id)))}
-      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
+      <h3 class="fsec">How to Earn Credits</h3><p class="mini" style="margin:0">${nGot === ACC.filter(a => !a.gift || isEarned(a)).length ? "Your companion has every accessory. Wow! " : ""}Harder work earns more. Credits are separate from Studyboard Bucks, which buy themes in the Style Shop.</p>${SC() ? SC().howHtml() : ""}
       <h3 class="fsec">Options</h3>
       <div class="cap-row"><span style="flex:1;font-weight:600">Show Companion<span class="sub">Turn it off to hide it everywhere.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on" ${isOn() ? "checked" : ""}> On</label></div>
       <div class="cap-row"><span style="flex:1;font-weight:600">Speech Bubbles<span class="sub">Friendly words when you tap it, a cheer when you finish a task, and a hello about once an hour. Never while you're focusing or typing.</span></span><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="talk" ${talkOn() ? "checked" : ""}> On</label></div>
       ${smartRow()}`;
   }
   /* Buying a prop with Studyboard Credits: the companion trying it on, its price and your credits, then Buy (or how to earn the rest) */
-  let buyBack = "";
+  let buyBack = "", buyKeep = null;
+  // The browser gives focus back (scrolling to it) as the sheet closes, before the close event: a scroll listener puts the page back
+  // before that frame is drawn (scroll events come just before painting), so the page never visibly jumps
+  let keepHold = null;
+  const holdScroll = () => { const k = keepHold; if (k && k.se && !dlg.open && k.se.scrollTop !== k.top) k.se.scrollTop = k.top; };
+  window.addEventListener("scroll", holdScroll, {passive: true, capture: true});
+  dlg.addEventListener("close", () => { const k = buyKeep; buyKeep = null; if (!k || !k.se) return;
+    setTimeout(() => { if (keepHold === k) keepHold = null; }, 400);
+    // focus goes back to the tapped tile without scrolling (with it focused, the app's own refocus after a sheet leaves it be)
+    const put = () => { k.se.scrollTop = k.top; };
+    try { if (k.el && k.el.isConnected && k.el.focus) k.el.focus({preventScroll: true}); } catch (e) {}
+    put(); requestAnimationFrame(put); setTimeout(put, 60); setTimeout(put, 160); });
   function buyProp(a){
     if (!a) return;
+    // opened from the page (the Companion tab's Wardrobe): closing the sheet puts the page back exactly where it was (the browser
+    // would otherwise scroll the tapped tile into view as it gets focus back)
+    if (!dlg.open) { const se = document.scrollingElement; buyKeep = keepHold = {se, top: se ? se.scrollTop : 0, el: document.querySelector(`.cp-acc-tile[data-acc="${CSS.escape(a.id)}"]`) || document.activeElement}; }
     if (!(dlg.open && dlg.querySelector(".cp-buy"))) buyBack = dlg.open && dlg.querySelector(".cp-pickbody") ? "picker" : dlg.open && dlg.querySelector(".sheet.shop .cp-shop") ? "shop" : "";
     stopPreviews();
     const c = current(), bal = credits(), sale = forSale(a), enough = bal >= a.price;
@@ -76273,7 +78376,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       <div class="cp-buy-stage" aria-hidden="true">${c ? previewHtml(c, wear, 150) : `<span class="cp-acc-ic">${propIcon(a)}</span>`}</div>
       <div class="cp-buy-price">${coinHtml(44)}<span><b>${esc(creditsTxt(a.price))}</b><span>Studyboard Credits, earned by studying</span></span></div>
       <div class="cp-buy-wallet" role="status"><span>Your credits</span><b>${coinHtml(18)}${bal.toLocaleString()}</b>${chip}</div>
-      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 25 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
+      ${sale && !enough ? `<p class="mini" style="margin:0">Earn the rest by studying: a 25-minute focus session is 12 credits, 20 flashcards 20, a passed 10-question quiz 13 to 20, and an exam you've taken 40.</p>` : ""}
       ${!sale || !enough ? `<details class="cp-buy-how"><summary>How to Earn Credits</summary>${SC() ? SC().howHtml() : ""}</details>` : ""}
     </div><div class="sheet-foot"><button type="button" class="btn" data-act="comp-buy-back">${buyBack ? "Back" : "Not Now"}</button><span class="spacer"></span>${sale && enough ? `<button type="button" class="btn primary cp-buy-go" data-act="comp-buy" data-acc="${a.id}">Buy for ${coinHtml(18)}${a.price.toLocaleString()}</button>` : ""}</div></div>`);
     if (!dlg.open) try { dlg.showModal(); } catch (e) {}
@@ -76288,7 +78391,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // it goes straight on
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); sfxPlay("buy");
     if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
     if (back) {
@@ -76362,6 +78465,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
 
   hook("act", (a, el) => {
     if (a === "comp-open") { openPicker(); return true; }
+    if (a === "wh-pro-spin") { if (SC() && SC().spinPro) SC().spinPro(() => { try { refreshPicker(); } catch (e) {} try { render(); } catch (e) {} }); return true; }
     if (a === "comp-change") { openChange(); return true; }
     if (a === "comp-theme") {
       const k = el.dataset.skin, slot = Number(el.dataset.slot) || 0, pickC = REG[k] && REG[k].list[slot];
@@ -76739,11 +78843,17 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // null for no such accessory (whole words only: "what do i have tomorrow" has "hat" inside "what", and isn't about the Tiny Hat)
     earnInfo: name => { try { const n = String(name || "").toLowerCase(), wd = s => new RegExp("\\b" + String(s).toLowerCase().replace(/[^a-z ]/g, "") + "s?\\b").test(n); const a = ACC.find(x => wd(x.name) || wd(x.name.split(" ").pop()) || wd(x.id)); if (!a) return null;
       if (isEarned(a)) return `You already have the ${a.name}. Open Companion, then Wardrobe, to put it on.`;
+      if (a.gift) return `The ${a.name} isn't sold: it's ${a.giftNote || "a holiday gift"}.`;
       const bal = credits();
       return `The ${a.name} costs ${creditsTxt(a.price)} (Studyboard Credits, the gold coins you earn by studying)${a.festive ? ", and it's only sold between Dec 1 and Jan 6" : ""}. You have ${creditsTxt(bal)}${bal >= a.price ? ", so you can buy it now" : `, so ${(a.price - bal).toLocaleString()} to go`}. Credits come from focus time, flashcards, practice quizzes, finished tasks and presentation practice, more for harder work. Open Companion, then Wardrobe, to buy it.`; } catch (e) { return null; } },
     accessoryNames: () => ACC.map(x => x.name),
+    // a holiday present's wrapping, drawn (for previews and tests): its SVG
+    giftBox: wrap => giftBox(wrap), gifts: () => GIFTS.map(g => Object.assign({}, g)),
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
+    // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
+    accList: () => ACC.filter(a => !a.gift).map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
+    wearId: id => { try { const a = ACC.find(x => x.id === id), c = current(); if (!a || !c || !canWear(a)) return false; const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} return true; } catch (e) { return false; } },
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
     wardrobe: () => { try { const b = pickerBody(), i = b.indexOf('<h3 class="fsec cp-acc-h">'), j = b.indexOf('<h3 class="fsec">Options</h3>'); if (i < 0) return ""; let w = b.slice(i, j > i ? j : undefined); const k = w.indexOf('<h3 class="fsec">How to Earn Credits</h3>'); if (k >= 0) w = w.slice(0, k) + '<details class="cpt3-how"><summary>How to Earn Credits</summary>' + w.slice(k + '<h3 class="fsec">How to Earn Credits</h3>'.length) + '</details>'; return w; } catch (e) { return ""; } },
@@ -76770,7 +78880,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       const a = ACC.slice().sort((x, y) => sc(y) - sc(x))[0]; if (!a || sc(a) < 2) return `I don't have an accessory called "${name}". Open the Wardrobe to see them all.`;
       if (!on) { if (!now.includes(a.id)) return `I'm not wearing my ${a.name}.`; setCfg({wear: {[c.id]: now.filter(x => x !== a.id)}}); curSig = ""; build(); return `I took off my ${a.name}.`; }
       if (now.includes(a.id)) return `I'm already wearing my ${a.name}!`;
-      if (!canWear(a)) return `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
+      if (!canWear(a)) return a.gift ? `I don't have the ${a.name} yet. It's ${a.giftNote || "a holiday gift"}.` : `I haven't unlocked the ${a.name} yet. It's ${creditsTxt(a.price)} in the Wardrobe (you have ${credits().toLocaleString()}).`;
       setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {}
       return `I put on my ${a.name}!`;
     } catch (e) { return "I couldn't change my outfit just now."; } },
@@ -76794,7 +78904,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [`Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
     // Studyboard Credits for the chat ("how many credits do I have")
     credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
@@ -77040,6 +79150,8 @@ window.SBLOCALANS = (() => {
     } catch (e) {}
     const view = document.getElementById("view");
     let text = ""; try { text = view ? view.innerText : ""; } catch (e) {}
+    // a course's Grades tab keeps Breakdown, Outlook and What If in tabs: what's in the hidden ones is on the page too
+    try { if (view) view.querySelectorAll(".gi-pan[hidden]").forEach(p => { const t = (p.textContent || "").replace(/\s+/g, " ").trim(); if (t) text += "\n" + t; }); } catch (e) {}
     let sheet = "";
     try { if (dlg && dlg.open) { const h = dlg.querySelector("h2"); sheet = `${h ? h.textContent.trim() + ": " : ""}${clip(dlg.innerText, 2500)}`; } } catch (e) {}
     return {tab, name: NAMES[tab] || tab, detail: bits.join("; "), text: clip(text, 5000), sheet, at: Date.now()};
@@ -77349,7 +79461,7 @@ Use dates and refs exactly as listed. Don't invent refs that aren't listed.`;
         case "grade": {
           // the course's Grades tab, with the row picked out (no course: the Grades page for every course)
           const k = state.tasks[t.id], cid = k.courseId && state.courses[k.courseId] ? k.courseId : null;
-          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; render(); await frame(); await wait(60);
+          go("courses"); ui.courseId = cid; ui.courseTab = "grades"; ui.courseTabFor = cid; ui.grTab = "marks"; render(); await frame(); await wait(60);
           const row = document.querySelector(`#view .gr-row-main[data-id="${CSS.escape(t.id)}"]`);
           if (!flash(row && (row.closest("li") || row))) taskView(k);
           return true;
@@ -78022,7 +80134,7 @@ Pages (the sidebar; keys 1 to 7 switch pages):
 - Review: flashcard decks (study with spaced repetition; keys 1 to 4 rate a card) and quizzes, including AI practice quizzes made from course materials.
 - Notes: sticky-note boards (several boards, one per course if you like) and whiteboards (draw, write, add pictures; handwriting can be turned into typed text).
 - Courses: each course's page with its tasks and class times, a Grades tab (marks, weights, and what you need on the rest), a Lectures tab (each class with its notes and files, recordings and transcripts), and Files (upload or link files, Google Drive and OneDrive) and Emails.
-- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per focus minute up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Exotic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
+- Companion: this chat (attach photos, PDFs or slides to make notes, flashcards, quizzes or tasks from them) and the Wardrobe to dress the companion up. Accessories are bought with Studyboard Credits (gold coins earned by studying: 1 per 2 focus minutes up to 3 hours a day, 1 per flashcard reviewed up to 150 a day, 1 per right answer on a practice quiz plus 5 for passing and 5 for a perfect score, 4 to 40 per finished task by its size up to 8 tasks a day, 3 per presentation slide finished on time plus 20 when the whole talk is on target; accessories cost 100 Common, 200 Uncommon, 300 Rare, 500 Epic, 1,000 Legendary). Studyboard Bucks (green bills, bought on the website) are different: they keep Style Shop themes and items for good.
 - Study Groups: share decks, quizzes and deadlines, plan sessions together, and a weekly challenge.
 Tools: Search Everywhere (Ctrl+K or Cmd+K) finds tasks, cards, notes and text inside files, and can answer with AI; the Focus timer (pomodoro sessions on a task); the Calculator (sidebar; its corner button reads an equation selected anywhere on screen and solves it); the Style Shop (themes, flashcard styles, note shapes, pins and stickers); ? lists keyboard shortcuts; Ctrl+Z undoes.
 Settings, by section:
@@ -79518,6 +81630,8 @@ window.SBTRUTH = (() => {
     if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
+    // (a hello or a question about the app isn't a planner question to follow on from: "hi!" then "what's left in BSNC 1055?")
+    { const H = window.SBAPPHELP; try { if (H && H.answer(L)) return ""; } catch (e) {} }
     if (AFTER.test(s)) return "__AFTER__";
     // "who teaches that class", "what's my grade in that course": the course the last answer was about
     if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
@@ -80161,7 +82275,7 @@ window.SBMATHAI = (() => {
     if (/\bhypotenuse\b|\bpythag/.test(s) || (k.legs && /\blegs?\b/.test(s))) { if (N.length >= 2) { const [a, b] = N, c = Math.sqrt(a * a + b * b); return {answer: `The hypotenuse is ${fmt(c)}: √(${fmt(a)}² + ${fmt(b)}²) = √(${fmt(a * a)} + ${fmt(b * b)}) = √${fmt(a * a + b * b)} = ${fmt(c)}.`, value: c, legs: true}; } }
     // circles: radius or diameter, then area or circumference
     const circ = /\bcircle\b|\bradius\b|\bdiameter\b/.test(s) || (k.r != null && /\b(area|circumference|perimeter|diameter)\b/.test(s));
-    if (circ) { let r = (m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s)) ? Number(m[1]) : (m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s)) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
+    if (circ) { let r = ((m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s))) ? Number(m[1]) : ((m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s))) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
       if (r != null && isFinite(r)) { if (/\bcircumference|perimeter\b/.test(s)) { const v = 2 * Math.PI * r; return {answer: `The circumference is ${fmt(2 * r)}π, about ${fmt4(v)}: C = 2πr = 2 × π × ${fmt(r)}.`, value: v, r}; }
         if (/\barea\b/.test(s)) { const v = Math.PI * r * r; return {answer: `The area is ${fmt(r * r)}π, about ${fmt4(v)} square units: A = πr² = π × ${fmt(r)}².`, value: v, r}; } } }
     // cubes, boxes, rectangles, triangles
@@ -80174,7 +82288,7 @@ window.SBMATHAI = (() => {
       if (/\bperimeter\b/.test(s)) return {answer: `The perimeter is ${fmt(2 * (a + b))}: 2 × (${fmt(a)} + ${fmt(b)}).`, value: 2 * (a + b)};
       if (/\barea\b/.test(s)) return {answer: `The area is ${fmt(a * b)} square units: ${fmt(a)} × ${fmt(b)}.`, value: a * b}; }
     // the angles of a polygon
-    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : (m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s)) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
+    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : ((m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s))) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
       if (n >= 3 && /\bangles?\b/.test(s)) { const sum = (n - 2) * 180, name = nm || `${n}-sided shape`;
         if (/\b(each|one|regular|every)\b/.test(s) && !/\bsum\b/.test(s)) return {answer: `Each interior angle of a regular ${name} is ${fmt(sum / n)}°: the angles add up to (${n} − 2) × 180 = ${sum}°, shared equally by ${n} angles.`, value: sum / n, ngon: n};
         if (/\bexterior\b/.test(s)) return {answer: `The exterior angles of any convex polygon add up to 360°${n ? `, so each one of a regular ${name} is ${fmt(360 / n)}°` : ""}.`, value: 360 / n, ngon: n};
@@ -81068,7 +83182,7 @@ window.SBCARDS = (() => {
     "start_timer", "stop_timer", "pause_timer", "resume_timer", "undo", "make_flashcards", "make_quiz", "make_map", "find_notes",
     "delete_item", "rename_item", "open_item", "edit_item", "change_setting", "set_theme", "wear_accessory", "remove_accessory",
     "add_card", "make_deck", "study_deck", "add_mark", "new_group", "join_group", "open_page", "cant"];
-  const KINDS = ["", "task", "event", "course", "deck", "quiz", "note", "board", "file"];
+  const KINDS = ["task", "event", "course", "deck", "quiz", "note", "board", "file"];
   const ISCHEMA = {type: "OBJECT", properties: {
     intent: {type: "STRING", enum: INTENTS},
     task: {type: "STRING", description: "the existing task it's about, in the student's words or as listed; \"it\" if they only say it/that"},
@@ -81081,7 +83195,7 @@ window.SBCARDS = (() => {
     end: {type: "STRING", description: "24-hour HH:MM end time"},
     where: {type: "STRING"},
     minutes: {type: "NUMBER"},
-    priority: {type: "STRING", enum: ["", "urgent", "high", "med", "low"]},
+    priority: {type: "STRING", enum: ["urgent", "high", "med", "low"]},
     text: {type: "STRING", description: "a note's exact words; PHOTO_TEXT if the note should say what the attached picture says"},
     board: {type: "STRING", description: "the note board named, if any"},
     topic: {type: "STRING", description: "the topic for flashcards, a quiz, a map or a note search"},
@@ -81437,7 +83551,7 @@ Examples:
     // the smaller on-device models (Chrome's or Edge's built-in AI, Gemma 4 E2B, Apple's) get worked examples of the requests they
     // mix up most in Studyboard's tests; Gemma 4 E4B and the cloud models read the shorter list
     const small = typeof DEVAI !== "undefined" && typeof aiOnDevice === "function" && aiOnDevice() && DEVAI.kind !== "litert";
-    const ask = extra => aiCall({task: "quickadd", system: ISYS + (small ? ISYS_SMALL : "") + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
+    const ask = extra => aiCall({quiet: true, task: "quickadd", system: ISYS + (small ? ISYS_SMALL : "") + (extra || ""), parts: [{text: `${ctx}\n\nThe message: "${q}"`}], schema: ISCHEMA, maxTokens: 400, temperature: 0});
     let r = await ask(), d = r && r.data && typeof r.data === "object" ? r.data : {};
     // the shape is checked here, whatever the model or its mode: an intent that isn't one of Studyboard's is asked for once more
     if (!INTENTS.includes(d.intent)) { try { r = await ask(`\n\nIMPORTANT: "intent" must be exactly one of: ${INTENTS.join(", ")}. Reply with only the JSON object.`); d = r && r.data && typeof r.data === "object" ? r.data : {}; } catch (e) {} }
@@ -82645,7 +84759,7 @@ ANSWERING
     const CARE = window.SBCARE, careMode = !!CARE && (CARE.distress(q) || past.slice(-4).some(x => x.a && x.a.care)), integ = !!CARE && [q].concat(past.slice(-3).map(x => x.q || "")).some(x => CARE.integrity(x));
     const system = `You are ${me.name || "a study companion"}${me.kind ? ", a " + me.kind : ""}, the student's friendly study companion living inside their Studyboard planner. Stay in character; if they sincerely ask whether you're an AI, real or alive, say honestly and warmly that you're an AI study companion in Studyboard, with no feelings or life of your own, and carry on in character.${me.bio ? "About you: " + clip(me.bio, 160) + " " : ""}${worn.length ? `RIGHT NOW YOU'RE WEARING: ${worn.join(", ")} (nothing else). ` : "RIGHT NOW YOU'RE WEARING NOTHING: no hat, no accessories at all. "}${owned.length ? `Accessories you've unlocked (in your wardrobe, NOT being worn unless listed as worn just above): ${owned.join(", ")}. ` : ""}Recolouring an accessory doesn't put it on. ${(() => { try { const u = (SBCOMP.unlockWays ? SBCOMP.unlockWays() : []).filter(x => !x.have && x.ways.length); return u.length ? `Accessories you don't have yet are bought in the Wardrobe with Studyboard Credits, gold coins the student earns by studying (focus time, flashcards, practice quizzes, finished tasks, presentation practice; harder work earns more). The student has ${SBCOMP.credits ? SBCOMP.credits() : 0} credits. Prices: ${u.map(x => `${x.name} ${x.price} credits`).join("; ")}. Studyboard Bucks (green bills bought with money) are only for the Style Shop, not accessories. ` : ""; } catch (e) { return ""; } })()}${pals.length ? `The other study companions in Studyboard (the student can switch in Companion settings): ${pals.join(", ")}. If they call you by one of those names, they're greeting you (maybe used to that one): answer warmly as yourself, and if they ask about one, say who it is in a sentence. ` : ""}When they ask your opinion or favourite, pick one and say why, in character.\n\n${AGENT_RULES}${careMode ? CARE.CARE_RULE : ""}${integ ? CARE.INTEGRITY_RULE : ""}`;
     const text = `${agCalendar()}\n${agTimer()}\n${agLook()}\nNOTE BOARDS: ${boards}${skins.length ? `\nTHEMES THEY HAVE: ${skins.join(", ")}` : ""}\n\nTHE STUDENT'S PLANNER (everything, with refs):\n${cat.text}${facts ? "\n\n" + facts : ""}${guide}\n\n${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT'S NEW MESSAGE: ${q}\n\n(Reply to exactly this, as the next line of the conversation. Small talk or feelings: answer them alone, with no tasks, deadlines or plans unless they bring up school. A request: do it in the JSON. A short follow-up ("like what", "guess", "another one", "of me?") continues what you just said: "another one" right after you explained or gave an example of something is another example of that same thing. "Ask me" or "quiz me": ask the question only. Answering a quiz question you asked: first work out the right answer to that exact question, then say right or wrong. A plan: only the days before things are due, about what they asked. Never write ref codes like T3 or N1 in the answer.)`;
-    const call = extra => aiCall({task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
+    const call = extra => aiCall({quiet: true, task: "agent", system: system + (extra || ""), parts: [{text}], schema: AGENT_SCHEMA, maxTokens: 8000, onStatus: s => { T.status = s; drawStatus(); }});
     // (a dropped connection or a busy moment: tried once more before anything else)
     // (too many requests this minute: waited for a free slot, a few times, rather than given up)
     const tryCall = async () => { for (let i = 0; ; i++) { try { return await call(); } catch (e) { if (stopsHere(e) || usedUp(e) || i >= 3) throw e; const rate = !!(e && (e.rate || e.code === "limit" || /requests already|too many|a minute/i.test(String(e.message || "")))); if (rate) { T.status = "Lots of questions at once. One moment…"; drawStatus(); } await new Promise(res => setTimeout(res, rate ? 8000 : 1500)); } } };
@@ -82748,7 +84862,7 @@ ANSWERING
     const tm0 = d.timer && typeof d.timer === "object" ? d.timer : null, td = tm0 ? String(tm0.do || "").toLowerCase() : "";
     if (td && td !== "none") { const tt = tm0.task ? refs.get(String(tm0.task).trim().toUpperCase()) : null, task = tt && tt.kind === "task" ? state.tasks[tt.id] : null;
       if (td === "start") { const mins = Number(tm0.minutes) > 0 && Number(tm0.minutes) <= 180 ? Math.round(Number(tm0.minutes)) : 25; if (A.startTimer(mins, task)) log.push(`started a ${mins}-minute focus timer${task ? " for " + task.title : ""}`); else fails.push("start the timer"); }
-      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { pomo.taskId = task.id; try { pomoSave(); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
+      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { try { pomoRetask(task.id); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
       else { const k = A.control(`${td} the timer`); if (k && k.done) log.push(k.answer.replace(/\.$/, "").toLowerCase()); else if (k) extra.push(k.answer); } }
     if (d.theme) { const was = agLook().replace(/^LOOK NOW: |\.$/g, ""), r = themeAct({value: d.theme}); if (/^(Switched|Studyboard now)/.test(r.answer)) log.push(`${r.answer.replace(/\.$/, "")} (before: ${was})`); else extra.push(r.answer); }
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
@@ -83012,7 +85126,9 @@ ANSWERING
       // a day or time on its own, said right after something was added or named ("thursday" after "Added History quiz ... no due
       // date", "dec 10"): that item's day
       const bareWhen = q.split(/\s+/).length <= 6 && !ISQ(q) && !String(q).toLowerCase().replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun|today|tonight|tomorrow|tmrw|next|this|week|the|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|\d{1,2}(st|nd|rd|th)?|\d{1,2}(:\d\d)?\s*(am|pm)?|\d{1,2}\/\d{1,2}|at|on|by|due|it'?s|its|it|is|make|then|instead|actually|no|nah|ok|okay|please|pls|maybe|morning|afternoon|evening|night|noon)\b/g, " ").replace(/[^a-z]+/g, "").length && (() => { const x = whenOf("move it to " + q, {}); return !!(x.date || x.time); })();
-      if (!made && !fix && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
+      // (not in a message of several steps, "move my essay to march 14 and make it high priority": there "it" is what the step
+      // before it named, and each step is done in turn below)
+      if (!made && !fix && !multi && last && !att.length && q.split(/\s+/).length <= 12 && (/\b(it|its|it's|that|this one|that one)\b/i.test(q) || bareVal || bareWhen) && !ISQ(q) && !/^\s*(undo|thanks|thank you|ok|cool|nice|lol)\b[\s!.]*$/i.test(q)) {
         const a0 = last.a || {}, pick = r => { const nm = refName(r); return nm && /^(task|event)$/.test(r.kind) ? {kind: r.kind, name: nm} : null; };
         let LI = a0.ref ? pick(a0.ref) : null;
         if (!LI && a0.did && a0.did.task) { const t = taskOf0(a0.did.task, null, true); if (t) LI = {kind: "task", name: t.title}; }
@@ -83374,7 +85490,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       const PERSONA = `\n\nWhen they ask your opinion, favourite or choice ("which class would you take", "would you rather", "what's your favourite"), pick one and say why in a sentence, as ${me.name || "their companion"}. When they start a game or role-play (20 questions, a riddle, a mock interview, talking like a pirate), play it: take your turn, ask your question, keep score. Never say you are an AI, a language model or a chatbot, or that you have no feelings or preferences.`;
       const system = system0 + PERSONA + CONVO + TALK + (careMode ? CARE.CARE_RULE : "") + (integ ? CARE.INTEGRITY_RULE : "");
       // free: no answer format enforced, just asked for (decoded differently, so a placeholder can't come back the same way)
-      const call = (fmt, free) => aiCall({onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
+      const call = (fmt, free) => aiCall({quiet: true, onPartial: dev ? t => { T.live = t; drawStatus(); } : undefined, task: att.length ? "tutor" : "chat", maxTokens: dev ? (att.length ? 1200 : 700) : att.length ? 12000 : 6000, schema: free ? null : fmt || format, system: free ? system + FREE_RULE : system, temperature: free ? 0.5 : undefined, onStatus: s => { T.status = s; drawStatus(); },
         parts: att.map(x => x.part).concat([{text: `THE STUDENT'S PLANNER (only what's relevant):\n${ctx.text}\n\n${cat ? "ITEMS YOU CAN SHOW OR CHANGE (with refs):\n" + cat.text + "\n\n" : ""}${seen ? seen.trim() + "\n\n" : ""}${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}${att.length ? "THE STUDENT ATTACHED: " + att.map(x => x.name + " (" + x.kind + ")").join(", ") + "\n\n" : ""}STUDENT'S QUESTION: ${q}${plan ? "\n\nFirst list the key points in points, then write the answer covering each one in order, with a short concrete example where it helps." : ""}`}])});
       // Always a real answer: the full format, then the simplest one, then a free reply; a moment between tries after an
       // error (busy, slow). If the AI still can't be reached, an answer is made on this device from what was found.
@@ -83391,7 +85507,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
         const given = `${ctx.text}\n${cat ? cat.text : ""}\n${seen}\n${hist}\n${q}\n${att.map(x => (x.part && x.part.text) || "").join("\n")}`;
         let bad = TR.unsupported(d.answer, given);
         if (bad.length && !att.some(x => x.part && !x.part.text)) {
-          try { const x = await aiCall({task: "chat", maxTokens: 4000, temperature: 0.1, schema: PLAIN, system: system + `\n\nIMPORTANT: use ONLY facts in what you were given. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in it. If the answer isn't there, say you couldn't find it.`,
+          try { const x = await aiCall({quiet: true, task: "chat", maxTokens: 4000, temperature: 0.1, schema: PLAIN, system: system + `\n\nIMPORTANT: use ONLY facts in what you were given. Don't mention ${bad.slice(0, 6).join(", ")}: they aren't in it. If the answer isn't there, say you couldn't find it.`,
             parts: [{text: `THE STUDENT'S PLANNER AND SOURCES:\n${ctx.text}\n\n${cat ? cat.text + "\n\n" : ""}THE STUDENT ASKS: ${q}`}]});
             if (x && x.data && !junk(x.data.answer) && !TR.unsupported(x.data.answer, given).length) { d.answer = x.data.answer; bad = []; } } catch (e) {}
           if (bad.length) d.answer = "I couldn't find a reliable answer to that in your Studyboard" + (ctx.src.some(x => /^Wikipedia/.test(x)) ? " or on Wikipedia" : "") + ". Try asking it another way, or add a key in AI Features for a stronger AI.";
@@ -83417,7 +85533,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
           if (a1.split(/\s+/).length < 4 || (prevA && same(a1, prevA))) {
             try { const x = await call(null, true).catch(() => null), y = x && x.data ? x.data : null;
               // (asked once more, told what not to say)
-              const z = y && !junk(y.answer) && !(prevA && same(y.answer, prevA)) ? y : (await aiCall({task: "chat", maxTokens: 500, temperature: 0.7, schema: PLAIN, system: system + `\n\nStay in character as ${me.name || "their companion"}: never say you are an AI or that you have no feelings or hobbies; answer as yourself. Reply to what they JUST said; your last reply was "${clip(prevA, 300)}", so say something new.`,
+              const z = y && !junk(y.answer) && !(prevA && same(y.answer, prevA)) ? y : (await aiCall({quiet: true, task: "chat", maxTokens: 500, temperature: 0.7, schema: PLAIN, system: system + `\n\nStay in character as ${me.name || "their companion"}: never say you are an AI or that you have no feelings or hobbies; answer as yourself. Reply to what they JUST said; your last reply was "${clip(prevA, 300)}", so say something new.`,
                 parts: [{text: `${hist ? "CONVERSATION SO FAR:\n" + hist + "\n\n" : ""}THE STUDENT SAYS: ${q}`}]}).catch(() => null) || {}).data;
               if (z && z.answer && !junk(z.answer)) { const a2 = fixAns(z.answer); if (a2.split(/\s+/).length >= 4 && !(prevA && same(a2, prevA))) a1 = a2; }
             } catch (e) {}
@@ -83672,7 +85788,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
     const head = me ? `<div class="cpt-head cpt3" style="--c:var(--accent-band,var(--accent))" data-wear="${esc(wc)}"><div class="cpt3-band"><div class="cpt3-acts"><button type="button" class="btn cpt-dress" data-act="comp-change">Change</button></div></div>
         <div class="cpt3-mini sm-skip" aria-hidden="true">${AI_ICON}<b>${esc(me.name)}</b></div>
         <div class="cpt3-ring">${SBCOMP.tab.faceHtml(104)}</div>
-        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}${meta ? `<span class="mini">${esc(meta)}</span>` : ""}</div>`
+        <div class="cpt-id"><h2>${esc(me.name)}</h2>${me.bio ? `<p class="cpt-bio">${esc(me.bio)}</p>` : ""}<span class="mini cpt-meta" title="${esc(meta)}">${esc(meta || "Not wearing anything")}</span></div>`
       : `<div class="cpt-head"><div class="cpt-id"><h2>Companion</h2><p class="mini">Your companion is turned off. Turn it on to chat and to see it beside the Add Task button.</p></div><div class="cpt-hbtn"><label class="anim-tog"><input type="checkbox" data-act="comp-set" data-key="on"> On</label></div>`;
     const tabs = `<div class="cpt3-tabs" role="tablist" aria-label="Companion">${[["chat", "Chat"], ["history", "History"]].concat(me ? [["wardrobe", "Wardrobe"]] : []).map(([k, l]) => `<button type="button" role="tab" data-act="cpt-tab" data-id="${k}" aria-selected="${tab === k}">${l}</button>`).join("")}</div>`;
     const pane = tab === "chat" ? chatHtml() : tab === "history" ? historyHtml() : `<section class="cpt3-ward">${SBCOMP.wardrobe()}</section>`;
@@ -83794,6 +85910,8 @@ You can also DO things in Studyboard, but only when the student asks or what the
 .cpt-id{flex:1 1 220px;min-width:0;display:grid;gap:3px}
 .cpt-id h2{margin:0;font:800 1.85rem/1.15 var(--display)}
 .cpt-id p{margin:0}
+/* always one line, so putting something on (or taking it off) never moves the Wardrobe below */
+.cpt-id .cpt-meta{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cpt-bio{font-size:1rem;line-height:1.4;color:var(--ink);opacity:.85}
 .cpt-tabs{max-width:none}
 .cpt-dress{min-height:46px;padding:11px 20px;font-size:1rem}
@@ -85997,7 +88115,7 @@ You can also DO things in Studyboard, but only when the student asks or what the
       try { const h = C[f](desc, px); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     if (typeof C.rigSvg === "function" && typeof desc.id === "string") {
-      try { const h = C.rigSvg(desc.id, Object.assign({prop: "book", look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
+      try { const h = C.rigSvg(desc.id, Object.assign({look: [0, 0.8]}, typeof desc.w === "string" && desc.w ? {wear: desc.w} : {})); if (typeof h === "string" && h && h.length < 60000 && !/<\s*script|\son\w+=/i.test(h)) return h; } catch(e) {}
     }
     return "";
   }
@@ -90323,14 +92441,14 @@ function previewHtml(ws, moves){
 function moveText(m){
   const slots = (m.slots || []).map(s => parse(s.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})).join(", ");
   const h = m.slots && m.slots.length ? m.slots[0].hours : 0;
-  return (m.mode === "start" ? `Start ${fmtShort(m.to)} (the school's due date stays)` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
+  return (m.mode === "start" ? `Start ${fmtShort(m.to)}; the due date stays` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
 }
 function itemHtml(it, ws, mv, today){
   const t = state.tasks[it.id]; if (!t) return "";
   const c = t.courseId && courseOf(t.courseId), dl = dayDiff(today, t.due);
   const prep = it.kind === "prep";
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
-  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
+  const bits = [c ? courseLabel(c) : "", `${MILESTONE(t.type) ? "on" : "due"} ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
   // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
   const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";
@@ -90360,7 +92478,7 @@ function showSheet(){
     const pv = SH.pv && SH.pv.length ? SH.pv : null, n = sug.moves.length;
     const bI = C.LEVELS.indexOf(sug.before.level), aI = C.LEVELS.indexOf(sug.after.level);
     box = `<div class="cr-box cr3-box${SH.focus ? " focus" : ""}" id="crSug"><div class="cr3-bh"><h3>Ease This Week</h3><span class="cr3-chg"><span class="cr-pill lv${bI}">${esc(LV_WORD[bI])}</span><span aria-hidden="true">→</span><span class="cr-pill lv${aI}">${esc(LV_WORD[aI])}</span></span></div>
-      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}. Due dates from your school stay as they are.</p>
+      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}${aI === bI ? " to make this week a little lighter" : ""}. Due dates stay as they are.</p>
       <ul class="cr3-moves">${sug.moves.map(x => { const t = state.tasks[x.id]; return `<li style="--c:${esc(colorOf(t && t.courseId))}"><b>${esc(x.title)}</b><span class="mini">${esc(moveText(x))}</span></li>`; }).join("")}</ul>
       ${pv ? previewHtml(ws, pv) : ""}
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;
@@ -91571,8 +93689,8 @@ function underBoost(t){
 function staleScan(){
   try {
     if (pomo.mode === "focus" && !pomo.running && pomo.left > 0 && pomo.pausedAt && Date.now() - pomo.pausedAt > 2 * 3600000) {
-      const done = Math.max(0, (modeMs("focus") - pomo.left) / 60000), tid = pomo.taskId;
-      pomo.left = 0; pomo.preset = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
+      const done = pomoElapsedMin(), tid = pomo.taskId;
+      pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
       early(done, tid, "abandoned");
     }
   } catch (e) { }
@@ -91864,9 +93982,15 @@ const EXAMPREP = (() => {
     (m.objectives || []).forEach(n => put(n, "learning objective"));
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
-    String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
     // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
     const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    // Nor is a word about the exam itself ("Cumulative.", "Closed book"), or a sentence naming chapters (already listed above)
+    const ABOUT = /^(non-?)?(cumulative|comprehensive|open[- ]?book|closed[- ]?book|open[- ]?notes?|closed[- ]?notes?|in[- ]?class|in[- ]?person|online|take[- ]?home|multiple[- ]choice|no calculators?|calculators? allowed|(\d+\s*)?(min(ute)?s?|hours?|hrs?|questions?|pages?)( long)?)$/i;
+    // the exam's notes, one sentence or line at a time ("Cumulative. Ch. 1-11. Bring model kit." is three)
+    // (a full stop after a short form such as "Ch." or "Dr." doesn't end a sentence)
+    String(m.examNotes || "").replace(/\b(ch|chs|chap|pp|pg|vs|dr|prof|fig|eq|sec|no|approx|e\.g|i\.e)\.(?=\s)/gi, "$1\u0001").split(/\n|;|•|\.\s+(?=[A-Z])/)
+      .map(s => s.replace(/\u0001/g, ".").replace(/^[\s\-*\d.)]+/, "").replace(/[.!]+$/, "").trim())
+      .filter(s => s.length > 2 && s.length < 70 && !chaptersIn(s).length && !REMIND.test(s) && !ABOUT.test(s)).forEach(n => put(n, "exam notes"));
     const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
     const notes = (m.notes || []).filter(studyNote);
     // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
@@ -92138,16 +94262,20 @@ const EXAMPREP = (() => {
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
-    const doneS = sess.filter(s => s.done), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
+    const doneS = sess.filter(s => s.done || Number(s.part) >= 5), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
     const byTopic = {}; let wsum = 0, rsum = 0;
     topics.forEach(t => {
-      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.filter(s => s.done).reduce((a, s) => a + (s.min || 0), 0);
+      // a session counts in full once it's done; before that, the time actually focused on it counts, up to its length
+      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.reduce((a, s) => a + (s.done ? (s.min || 0) : Math.min(s.min || 0, Math.max(0, Number(s.part) || 0))), 0);
       const cov = t.done && !planned ? 1 : planned ? Math.min(1, got / planned) : 0;
       const links = t.links || [], ds = links.filter(l => l.k === "deck" && decks[l.id] && decks[l.id].mastery > 0), qs = links.filter(l => l.k === "quiz" && quiz[l.id] != null);
       const mastery = ds.length ? ds.reduce((a, l) => a + decks[l.id].mastery, 0) / ds.length : null, qz = qs.length ? qs.reduce((a, l) => a + quiz[l.id], 0) / qs.length / 100 : null;
       if (mastery != null) ev.cards++; if (qz != null) ev.quizzes++;
       let parts = [[cov, 0.5]]; if (mastery != null) parts.push([mastery, 0.3]); if (qz != null) parts.push([qz, 0.2]);
-      const ws = parts.reduce((a, p) => a + p[1], 0), r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
+      // evidence that isn't there yet (no flashcards, no quiz) holds half its share back: doing the sessions shows the work, not
+      // what you can recall, so sessions alone top out in the mid-70s and the rest is shown with cards and quizzes
+      const missing = (mastery == null ? 0.3 : 0) + (qz == null ? 0.2 : 0);
+      const ws = parts.reduce((a, p) => a + p[1], 0) + missing / 2, r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
       const base = t.done ? 0.6 : prior[t.conf] != null ? prior[t.conf] : 0.2;
       const r = clamp(base + (1 - base) * r0, 0, 1);
       byTopic[t.id] = {cov: Math.round(cov * 100), pct: Math.round(r * 100), mastery: mastery == null ? null : Math.round(mastery * 100), quiz: qz == null ? null : Math.round(qz * 100)};
@@ -92266,13 +94394,20 @@ function inputFor(ex, P, topics, due){
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 // doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+// The topics readiness is measured over: the plan's own, or, for a plan made without named topics, the exam itself (the planner
+// puts its sessions on topic "t0", the exam's name), so those plans get a readiness too
+function readyTopics(ex, P){
+  if (P.topics.length) return P.topics;
+  return sessionsOf(ex.id).some(s => s.topicId === "t0") ? [{id: "t0", name: ex.title || "the exam", conf: "ok", weight: null, done: false, links: [], edited: false}] : [];
+}
 function readyFor(ex, doneOf){
-  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
-  P.topics.forEach(t => (t.links || []).forEach(l => {
-    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
+  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {}, topics = readyTopics(ex, P);
+  topics.forEach(t => (t.links || []).forEach(l => {
+    // a linked deck: how well its cards are known now, with forgetting (DR, the same score as everywhere else), not just its boxes
+    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).ready / 100};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), part: Number(s.focusMin) || 0, done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
@@ -92289,7 +94424,7 @@ function forecastOf(ex){
   const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
-  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const topics = readyTopics(ex, P).map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
   const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
@@ -93173,7 +95308,7 @@ function offer(){
     const ex = m.exam, nm = examTitle(ex), w = EXAMMODE.rel(m.days);
     const key = EXAMMODE.studyKey(EXAMMODE.dueMs(ex), laneOpts(m), planSessions(ex.id).filter(t => t.status !== "done" && t.due && t.due >= todayISO()).map(t => EXAMMODE.dueMs(t)));
     const first = m.also.find(t => { const x = FOCUS && FOCUS.info && FOCUS.info[t.id]; return EXAMMODE.leads({dueMs: EXAMMODE.dueMs(t), risk: !!x && riskOf(x)}, key); });
-    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: `${first.title} is due ${dueText(first)}, around ${nm}. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
+    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: dayDiff(todayISO(), first.due) < 0 ? `${first.title} is overdue (it was due ${fmtShort(first.due)}). Let's get it done first, then study for ${nm}.` : `${first.title} is due ${dueText(first)}, with ${nm} coming up. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
     const lines = m.days === 0
       ? [`${nm} is today. A calm review of the key ideas is all you need now.`, `Big day! ${nm} is today. Quick look over your notes, then trust what you know.`]
       : m.days === 1
@@ -93367,6 +95502,61 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
+// A picked deck's cards, to narrow it to some of them (after its row, shown with CSS beside it)
+function xrCardsPick(t, d){
+  const rc = t.readyCards && Array.isArray(t.readyCards[d.id]) ? new Set(t.readyCards[d.id]) : null, live = d.cards.filter(x => !x.draft);
+  const on = rc ? live.filter(x => rc.has(x.id)).length : live.length;
+  return `<details class="xr-cards" data-xrc="${esc(d.id)}"><summary>Choose Cards <span class="mini">${on === live.length ? "all cards" : `${on} of ${live.length} cards`}</span></summary><div class="xr-cards-in">${live.map(x =>
+    `<label class="mi-check"><input type="checkbox" name="c:${esc(d.id)}" value="${esc(x.id)}"${!rc || rc.has(x.id) ? " checked" : ""}> <span>${esc(String(x.front || "").slice(0, 90))}</span></label>`).join("")}</div></details>`;
+}
+/* Linking from the flashcards side (the Edit Card and Edit Deck sheets): which upcoming exams a card or deck counts toward.
+   An exam still on Automatic switches to the decks you pick, starting from what Automatic used, so its readiness doesn't drop. */
+const upcomingExams = courseId => { const today = todayISO(); return Object.values(state.tasks || {}).filter(t => isExam(t) && t.status !== "done" && t.due && t.due >= today)
+  .sort((a, b) => ((b.courseId === courseId) - (a.courseId === courseId)) || a.due.localeCompare(b.due)).slice(0, 12); };
+function manualOf(t){
+  if ((t.readyDecks || []).length) return {decks: t.readyDecks.slice(), cards: Object.assign({}, t.readyCards || {})};
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: [], readyCards: null})), by = {};
+  const owner = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { owner[c.id] = d.id; }));
+  (ev.cards || []).forEach(c => { const did = owner[c.id]; if (did) (by[did] = by[did] || []).push(c.id); });
+  const cards = {}; Object.keys(by).forEach(did => { const d = state.decks[did], live = d ? d.cards.filter(x => !x.draft).length : 0; if (by[did].length < live) cards[did] = by[did]; });
+  return {decks: Object.keys(by), cards};
+}
+const autoHas = (t, deckId, cardId) => { if ((t.readyDecks || []).length) return false; const ev = examEvidence(t); return cardId ? (ev.cards || []).some(c => c.id === cardId) : (ev.decks || []).some(d => d.id === deckId) || (ev.cards || []).some(c => (state.decks[deckId] || {cards: []}).cards.includes(c)); };
+// "manual", "auto" or "" (a card, or a deck when cardId is empty)
+function countsFor(t, deckId, cardId){
+  if ((t.readyDecks || []).length) {
+    if (!t.readyDecks.includes(deckId)) return "";
+    const ids = t.readyCards && Array.isArray(t.readyCards[deckId]) ? t.readyCards[deckId] : null;
+    if (!cardId) return ids ? "some" : "manual";
+    return !ids || ids.includes(cardId) ? "manual" : "";
+  }
+  return autoHas(t, deckId, cardId) ? "auto" : "";
+}
+// the change to an exam that makes a card (or, with no cardId, a whole deck) count toward it or not
+function linkChange(examId, deckId, cardId, on){
+  const t = state.tasks[examId], d = state.decks[deckId]; if (!t || !d) return null;
+  const m = manualOf(t), has = m.decks.includes(deckId), live = d.cards.filter(x => !x.draft).map(x => x.id);
+  if (!cardId) { if (on) { if (!has) m.decks.push(deckId); delete m.cards[deckId]; } else { m.decks = m.decks.filter(x => x !== deckId); delete m.cards[deckId]; } }
+  else if (on) { if (!has) { m.decks.push(deckId); m.cards[deckId] = [cardId]; } else if (m.cards[deckId] && !m.cards[deckId].includes(cardId)) { m.cards[deckId] = m.cards[deckId].concat(cardId); if (m.cards[deckId].length >= live.length) delete m.cards[deckId]; } }
+  else if (has) { const cur = m.cards[deckId] || live; m.cards[deckId] = cur.filter(x => x !== cardId); if (!m.cards[deckId].length) { delete m.cards[deckId]; m.decks = m.decks.filter(x => x !== deckId); } }
+  const n = clone(t); if (m.decks.length) n.readyDecks = m.decks.slice(0, 30); else delete n.readyDecks;
+  const rc = {}; Object.keys(m.cards).forEach(k => { if (m.decks.includes(k)) rc[k] = m.cards[k]; }); if (m.decks.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
+  return {kind: "task", id: examId, after: n};
+}
+// the "Counts Toward" list for the Edit Card and Edit Deck sheets (empty with no upcoming exams)
+function countsHtml(d, cardId){
+  const xs = upcomingExams(d.courseId); if (!xs.length) return "";
+  return `<fieldset class="f xr-for"><legend class="lh">Counts Toward <span class="hint">the exams whose readiness ${cardId ? "this card" : "this deck"} counts for</span></legend>${xs.map(t => { const s = countsFor(t, d.id, cardId), c = courseOf(t.courseId), on = !!s && s !== "some";
+    // a deck with only some of its cards picked: unticked, with how many (ticking it makes the whole deck count)
+    const some = s === "some" ? (n => ` · ${n} of ${d.cards.filter(x => !x.draft).length} cards count`)((t.readyCards[d.id] || []).length) : "";
+    return `<label class="mi-check"><input type="checkbox" name="xrFor" value="${esc(t.id)}" data-was="${on ? 1 : 0}"${on ? " checked" : ""}> <span>${esc(t.title)} <span class="mini">${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}${s === "auto" ? " · picked automatically" : ""}${some}</span></span></label>`; }).join("")}</fieldset>`;
+}
+// the changes from that list, as the sheet is saved
+function countsChanges(form, deckId, cardId){
+  const out = []; form.querySelectorAll('input[name="xrFor"]').forEach(i => { const was = i.dataset.was === "1"; if (i.checked !== was) { const c = linkChange(i.value, deckId, cardId, i.checked); if (c) out.push(c); } });
+  return out;
+}
+window.SBXR = {countsHtml, countsChanges, countsFor, linkChange, upcomingExams};
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
    school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
 function decksSheet(id){
@@ -93382,20 +95572,29 @@ function decksSheet(id){
       <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>${!isQuizHolder(d) && d.cards.some(x => !x.draft) ? xrCardsPick(t, d) : ""}`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;
     const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
     if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    // the cards picked in each deck (all of them: the deck counts in full)
+    const rc = {}; ids.forEach(did => { const d = state.decks[did]; if (!d || isQuizHolder(d)) return; const live = d.cards.filter(x => !x.draft).map(x => x.id), on = fd.getAll("c:" + did).map(String).filter(x => live.includes(x));
+      if (dlg.querySelector(`[data-xrc="${CSS.escape(did)}"]`) && on.length < live.length) rc[did] = on; });
     const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    if (ids.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
     dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
     return false;
   });
   // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
   const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
   dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
-  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true;
+    const pk = i.closest("[data-xrc]");
+    if (pk && i.checked) { const di = box.querySelector(`input[name="d"][value="${CSS.escape(pk.dataset.xrc)}"]`); if (di) di.checked = true; }
+    if (pk) { const all = pk.querySelectorAll('input[type="checkbox"]'), on = [...all].filter(x => x.checked).length, s2 = pk.querySelector("summary .mini"); if (s2) s2.textContent = on === all.length ? "all cards" : `${on} of ${all.length} cards`; }
+    sync(); }));
   sync();
 }
 // Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
@@ -94725,6 +96924,14 @@ function autoLighter(S){
     });
   } catch (e) { console.warn("breakdown lighter days", e); }
 }
+// Move to Lighter Day's choice for one milestone: the lightest day within 3 days that keeps the order, or null
+function lighterFor(S, m){
+  const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
+  const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+  const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+  const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+  return BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -94739,7 +96946,8 @@ function draw(){
   list.innerHTML = S.ms.map((m, i) => {
     if (m.locked) return `<li class="bd-m is-done"><span class="bd-n" aria-hidden="true">${CHECK}</span><div class="bd-f"><span class="bd-t">${esc(m.title)}</span><span class="mini">Done · ${esc(fmtShort(m.due))} · ${esc(hm(m.hours))}</span></div></li>`;
     const k = open.indexOf(m);
-    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button></p>` : "";
+    // the button only shows when there is a lighter day to move to (in finals weeks every day can be full)
+    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.${lighterFor(S, m) ? "" : " The days around it are just as full."}</span>${lighterFor(S, m) ? ` <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button>` : ""}</p>` : "";
     const past = m.due < today && !S.allowPast ? `<p class="bd-w" role="status">This date is in the past.</p>` : m.due > S.due ? `<p class="bd-w" role="status">This is after the due date.</p>` : "";
     const uns = m.unsupported && m.unsupported.length ? `<p class="mini bd-u">The AI's wording mentioned ${esc(m.unsupported.slice(0, 2).join(", "))}, which isn't in your text, so it was left out.</p>` : "";
     return `<li class="bd-m" data-i="${i}"><span class="bd-n">${k + 1}</span><div class="bd-f">
@@ -94798,11 +97006,7 @@ function onList(e){
       draw(); const nb = dlg.querySelector(`[data-a="${a}"][data-i="${j}"]`); if (nb && !nb.disabled) nb.focus(); return;
     }
     if (a === "lighter") {
-      const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
-      const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
-      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
-      const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
-      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+      const d = lighterFor(S, m);
       if (!d) { toast("No lighter day nearby that keeps the order"); return; }
       m.due = d; toast(`Moved to ${fmtShort(d)}`); draw(); return;
     }
@@ -95170,7 +97374,13 @@ hook("changed", changes => {
         const mem = bdMem(); mem.asked = mem.asked || {};
         if (!mem.asked[a.id]) {
           mem.asked[a.id] = Date.now(); const ks = Object.keys(mem.asked); if (ks.length > 150) ks.sort((x, y) => mem.asked[x] - mem.asked[y]).slice(0, ks.length - 150).forEach(k => delete mem.asked[k]); bdMemSet(mem);
-          setTimeout(() => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return; toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); }, 3200);
+          // it waits for a toast with a button still showing ("Added … Undo"), so the offer never takes the Undo away
+          let tries = 0;
+          const offer = () => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return;
+            let busy = false; try { busy = toastEl().classList.contains("show") && !!(toastUndoFn || toastExtraFn); } catch (e) {}
+            if (busy && ++tries < 8) { setTimeout(offer, 1500); return; }
+            toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); };
+          setTimeout(offer, 3200);
         }
       }
     });
@@ -95323,7 +97533,9 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     draw();
     return true;
   }
-  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(t.text)}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
+  // a formula is read as words ("p K sub a"), as Learn does, not as its typed source
+  const spoken = x => { try { return typeof mathSpeech === "function" ? mathSpeech(x) : String(x || ""); } catch (e) { return String(x || ""); } };
+  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(spoken(t.text))}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
   function draw(){
     openSheet(`<div class="sheet mt-sheet${still() ? " mt-still" : ""}" data-mt-play>${head("Match")}<div class="sheet-body">
       <div class="mt-bar"><span class="mt-name">${esc(R.src.name || "Deck")}</span><span class="mt-clock"><span id="mtTime" role="timer" aria-label="Time in seconds">0.0</span><span class="mt-pen" id="mtPen" aria-hidden="true">+1s</span></span></div>
@@ -95812,7 +98024,7 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     const S = R.S, sm = LEARN.summary(S), byId = byIdOf(d), m = Math.round(sm.ms / 60000);
     drop(R.deckId);
     const miss = sm.missed.filter(id => byId[id]).slice(0, 3);
-    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); if (sm.total >= 10) fire("good-moment", "learn"); }
+    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); try { if (window.SBSFX) SBSFX.play("reward", {level: 2}); } catch (e) {} if (sm.total >= 10) fire("good-moment", "learn"); }
     openSheet(sheet("done", `<div class="lr-done" role="status"><span class="lr-done-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
         <b class="lr-done-t">You know all ${pl(sm.total, "card")}</b><span class="mini">${esc(d.name || "Deck")}</span></div>
       <div class="lr-tiles"><div class="lr-tile"><b>${sm.first}/${sm.total}</b><span>right first time</span></div><div class="lr-tile"><b>${sm.answers}</b><span>answers</span></div><div class="lr-tile"><b>${m < 1 ? "&lt;1" : m}</b><span>${m > 1 ? "minutes" : "minute"}</span></div></div>
@@ -97057,7 +99269,7 @@ function tryCelebrate(){
     const line = C._speech.choose(lines(c), "streak");
     if (!line) return;
     if (C.cheer) C.cheer("task");
-    if (c.kind !== "welcome") sbHaptic("success", {force: true});
+    if (c.kind !== "welcome") { sbHaptic("success", {force: true}); try { if (window.SBSFX) SBSFX.play("streak"); } catch (e) {} }
     C.say(line, {cheer: true, name: false, again: false, cat: "streak"});
     if (C.bubble && C.bubble() === line) {
       const s = saidRead(); s.m = s.m || {};
@@ -97282,6 +99494,12 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <h3>Optional: reminders, calendar link, study groups</h3>
 <p><b>Phone and desktop reminders</b> need your device's push address and your upcoming reminders (task titles and times for the next two weeks) to be stored on our server so a notification can arrive when Studyboard is closed. The notification itself is delivered by your browser or phone maker's push service (Google, Apple or Mozilla). <b>Calendar Sync</b> stores a private link token and your choices so your calendar app can fetch your deadlines. <b>Study groups, shared decks and Study Together rooms</b> share the display name and the decks, deadlines and messages you choose to share with the people in that group. Members of a group can see what is posted in it and who posted it, including messages, shared tasks, quiz scores, check-ins and focus time. Someone with a group's invite code can see only its name, course, member count and owner's name before joining. <b>Friends</b> see each other's display name and @username, and nothing else. A friend request needs your exact username or your friend link: nobody can search for you, Studyboard never reads your contacts, and blocking someone ends the friendship. If you report something in a group, the report keeps a short copy of what was reported so we can review it. Turn any of these off, or leave a group, and it stops. <b>Voice and shortcut capture</b> (optional, for example "Hey Siri, add a task") stores a private capture token (only a hash of it, shown to you once) and the short notes you send, in an inbox on our server until your app collects them; you can revoke the token any time, and everything is deleted with your account. <b>Email to Studyboard</b> (Pro, optional) gives you a private email address. An email you forward to it passes through our email service (Cloudflare) and waits in the same inbox on our server, as its subject, the sender's address and up to 6,000 characters of its text, until your app collects it (it is then deleted within 7 days, and after 30 days at the latest). Your app reads it, with your AI provider if you have agreed to that, and shows you what it found before anything is added. You can make a new address or turn it off at any time. <b>Two-way calendar sync</b> (Pro, optional) connects your Google or Outlook calendar when you ask it to. We keep that account's sign-in, encrypted, so Studyboard can keep a calendar called Studyboard up to date there; it only ever writes to that calendar. For Outlook, if you choose, it also reads your other events (with their titles, or as busy times only); for Google Calendar it doesn&rsquo;t read your other events so your plan can work around them, and they are saved in your planner like your other events. Disconnect any time, which also removes our access; it is deleted with your account. <b>Record a Lecture</b> (Pro, optional) uses your microphone only while you are recording. Live captions use your browser's own speech service, which may send the audio to the browser's maker (Google, in Chrome). A recording you choose to keep is stored with your files, and Transcribe with AI sends the audio to Studyboard AI Pro (with a paid Pro plan, transcribed by a model Cloudflare runs) or to Google or OpenAI with your own key, like other AI features. <b>Share links and the Course Library:</b> when you make a link for a deck, note or quiz, anyone who has the link can see its text and your display name, without an account, until you stop sharing it. If you have Pro, a shared deck can include its picture cards, with their pictures; anyone with the link can open and add them, and public pages never show them. A deck you list in the Course Library can be found by anyone who looks up that course code; it shows your display name, the school you picked and how many people saved a copy. <b>Published flashcards and quizzes:</b> if you choose Publish on a shared deck or quiz, it gets a public page on studyboardapp.com that anyone can find, including through search engines such as Google, showing its cards or questions, your username, your school and when it was updated, until you unpublish it. Your username is chosen by you, unique, and also visible to people you share with. Your study progress, photos and stickers are never shared. Shared items can be reported, and we review reports. When we remove something after a copyright notice, we keep a record of what was removed, the notice and the date, also after the account that shared it is deleted (without the account). The first time you share with a link or publish, we keep a record that you agreed to the sharing rules in the Terms, with the date and the version of the Terms.</p>
 
+<h3>Optional: sending to friends</h3>
+<p>If you send a deck, quiz or concept map to a friend, a copy of it is kept on our server until they add it or say No Thanks (then it is deleted at once), and for at most 30 days if they don't answer. Only that friend can receive it; nobody else can see it. A short note that it was sent (who, what and when) is kept for 7 days after they answer, then deleted.</p>
+
+<h3>Optional: Classmates and Course Hubs</h3>
+<p>If you turn on <b>Classmates</b>, Studyboard stores which of your courses synced from your school site you take, as a one-way scrambled code for each course (not the course&rsquo;s name, your school site&rsquo;s address or its course id), together with your age group (13 to 17, or 18 and older, worked out from the birthday you gave). Classmates who also turned it on, are in the same age group and haven&rsquo;t blocked you (or been blocked by you) can see your display name in the courses you share, and you can see theirs. Nothing else is shown: not your email, your other courses, your birthday or your work. If you join a course&rsquo;s <b>Course Hub</b>, it works like any study group. Turning Classmates off in Settings removes your courses straight away (Course Hubs you joined stay until you leave them); courses that haven&rsquo;t been synced for 120 days are removed on their own.</p>
+
 <h3>Optional: Google Drive and OneDrive</h3>
 <p>If you connect Google Drive or OneDrive, Studyboard can save your files, lecture recordings and (if you turn it on) automatic backups there instead of in Studyboard&rsquo;s storage, and open them again when you ask. Our server keeps the sign-in Google or Microsoft gives us, encrypted, and uses it only to give your own Studyboard a short-lived key; your files travel straight between your device and Google or Microsoft, never through our server. Studyboard keeps only each file&rsquo;s name, size, link and where you filed it, with your other data.</p>
 <p><b>Google Drive:</b> Studyboard asks only for access to the files it creates (in a folder called &ldquo;Studyboard&rdquo;) and the folders you pick for it; it can&rsquo;t see anything else in your Drive. <b>OneDrive:</b> Microsoft gives apps access to the whole OneDrive, but Studyboard only saves into the folders you choose and reads only the folders you ask it to watch. It never deletes anything in Google Drive or OneDrive. A file&rsquo;s contents are read only when you ask (to open, summarize or study from it), and go to an AI service only if you allowed AI for that account (a checkbox when you connect it, which you can change any time in Files, Cloud) and then use an AI feature on that file. Studyboard&rsquo;s use of information received from Google APIs follows the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Disconnect any time in Files, Cloud (or in your Google or Microsoft account settings); deleting your Studyboard account deletes the stored sign-in too.</p>
@@ -97315,6 +99533,7 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
 <li><b>After you delete your account:</b> your data is removed from our database and storage straight away. Encrypted backups can hold a copy for up to 30 days before they are overwritten; nothing is restored for a deleted account.</li>
 <li><b>Payment records:</b> Stripe and the app stores keep them as tax and accounting law requires. We keep a log of payment events (such as a renewal or a cancellation) linked to your account for up to 120 days so your plan stays right, then delete it. When you delete your account, your Stripe customer profile is deleted and any payment records we still hold lose their link to you.</li>
 <li><b>Crash reports:</b> kept for about 30 days, then deleted. They are anonymous and not linked to your account.</li>
+<li><b>Classmates:</b> while it&rsquo;s on, and at most 120 days after a course was last synced. A record of which scrambled course codes your account sent is kept for 30 days to stop misuse.</li>
 <li><b>Study group reports:</b> kept for up to a year. The copy of what was reported is cleared 90 days after the report is handled.</li>
 <li><b>Studyboard AI Pro usage (how much of your allowance you have used):</b> until you delete your account.</li>
 <li><b>Bug reports:</b> kept only as long as needed to fix the problem, and never longer than 180 days (screenshots attached to a report are deleted after 30 days). Reports sent while signed in are deleted with your account.</li>
@@ -98161,7 +100380,9 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
       ["Your Own Order", "Drag Concept Maps, Presentations and Writing cards into the order you like."]
     ]
   };
-  const isNewcomer = () => { try { return !tasksArr().length && !decksArr().length; } catch (e) { return true; } };
+  // (a brand-new install counts for its first two days, even once the welcome setup has added courses and tasks)
+  const freshInstall = () => { try { const e = window.SBESS && SBESS.state(); return !!e && e.why === "new" && Date.now() - (e.at || 0) < 2 * 864e5; } catch (e) { return false; } };
+  const isNewcomer = () => { try { return freshInstall() || (!tasksArr().length && !decksArr().length); } catch (e) { return true; } };
   function whatsNewDue(){
     const v = ver(), seen = ls.json(NEW_KEY) || {}, notes = NOTES[v];
     if (!notes || seen.v === v) return null;
@@ -98710,8 +100931,16 @@ window.SBSEM = {
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
         </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
+    // Term dates: the same First Class / Last Class as each course's Lectures tab (course.classDates), set for every course at once
+    const cs = coursesArr(), withT = cs.find(c => c.classDates && isDate(c.classDates.from) && isDate(c.classDates.until));
+    const t0 = withT ? withT.classDates : {from: "", until: ""};
+    const termHtml = cs.length ? `<section class="sd-sec sd-term"><h3 class="fsec">Term Dates</h3>
+          <p class="mini sd-why">Classes show on your Schedule between these days only, so finals week and the break stay clear.</p>
+          <div class="two"><label class="f"><span class="lh">First Class</span><input type="date" name="sdTermFrom" value="${esc(t0.from)}"></label><label class="f"><span class="lh">Last Class</span><input type="date" name="sdTermUntil" value="${esc(t0.until)}"></label></div>
+        </section>` : "";
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
+        ${termHtml}
         <section class="sd-sec"><h3 class="fsec">Days Off</h3>
           <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
@@ -98742,8 +100971,14 @@ window.SBSEM = {
     </form>`, fd => {
       const on = fd.get("sdMode") === "cycle";
       if (on && !draft.days.length) { toast("Pick at least one school day"); return false; }
+      const tf = String(fd.get("sdTermFrom") || ""), tu = String(fd.get("sdTermUntil") || "");
+      if (termHtml && (!!tf !== !!tu || (tf && tu < tf))) { toast(!tf || !tu ? "Pick both the first and the last class, or leave both empty" : "The last class needs to be on or after the first"); return false; }
       const cycle = on ? {n: draft.n, ref: refDay(), k: Math.min(draft.n, k), days: draft.days.slice().sort(), names: draft.names} : null;
-      save({off, cycle, pub, ans}, "School days saved");
+      // new term dates go on every course (Undo in the notice takes them back); empty ones clear them
+      const tch = !termHtml ? [] : coursesArr().filter(c => { const d = c.classDates || {}; return tf ? d.from !== tf || d.until !== tu : !!(d.from || d.until); })
+        .map(c => { const n = clone(c); if (tf) n.classDates = {from: tf, until: tu}; else delete n.classDates; return {kind: "course", id: c.id, after: n}; });
+      save({off, cycle, pub, ans}, tch.length ? "" : "School days saved");
+      if (tch.length) applyChanges(tch, tf ? `School days saved. Classes run ${fmtShort(tf)} to ${fmtShort(tu)}.` : "School days saved. Term dates cleared.");
     });
     const f = dlg.querySelector(".sd-sheet"), $f = q => f.querySelector(q);
     const drawK = () => { const sel = $f("#sdK"); k = Math.min(k, draft.n); sel.innerHTML = Array.from({length: draft.n}, (_, i) => `<option value="${i + 1}"${i + 1 === k ? " selected" : ""}>${esc(cycName(draft.names, i + 1))}</option>`).join(""); $f("#sdRefL").textContent = refText(); };
@@ -99154,6 +101389,8 @@ var SBPRO = null;
     const up = climbs.filter(x => x.t.cur - x.t.first >= 2).sort((a, b) => (b.t.cur - b.t.first) - (a.t.cur - a.t.first))[0];
     if (up) out.push({k: "Biggest Climb", big: courseLabel(up.c), line: `From ${Math.round(up.t.first)}% to ${Math.round(up.t.cur)}%${up.t.letter ? ` (${up.t.letter})` : ""}. That came from the work you put in.`});
     else { const best = climbs.sort((a, b) => b.t.cur - a.t.cur)[0]; if (best) out.push({k: "Top Course", big: courseLabel(best.c), line: `Finishing at ${Math.round(best.t.cur)}%${best.t.letter ? ` (${best.t.letter})` : ""}.`}); }
+    // the term in grades: GPA against last term, the best mark, and the study pattern that went with better marks (90-grade-habits.js)
+    try { if (window.SBGINS && SBGINS.recapSlides) out.push(...SBGINS.recapSlides(T)); } catch (e) { console.warn("recap: grades", e); }
     return out;
   }
   const seenRecap = () => Array.isArray(S().recapSeen) ? S().recapSeen : [];
@@ -99204,7 +101441,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (62 to 76%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI: 62 to 76% Right", pro: "99% Right, on Any Device", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -99233,7 +101470,8 @@ var SBPRO = null;
     smartremind: "Nudges at the start of your free time when a big task needs it.",
     "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
     examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
-    email: "Forward school emails and Studyboard finds the deadlines in them."
+    email: "Forward school emails and Studyboard finds the deadlines in them.",
+    present: "Record your practice talks, see your stats, get coaching, and use your phone as a remote. Timing, plans and group practice stay free."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
   const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
@@ -104679,7 +106917,7 @@ const HM = (() => {
   const legendHtml = () => `<div class="hm-legend" aria-hidden="true"><span>Less</span>${[0, 1, 2, 3, 4].map(l => `<i class="hm-c" data-l="${l}" title="${esc(RANGE[l])}"></i>`).join("")}<span>More</span></div>`;
   function tableHtml(V, from, to, caption){
     const rows = HM.months(V, from, to);
-    return `<table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table>`;
+    return `<div class="sr"><table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table></div>`;
   }
   const hasAny = V => Object.keys(V).some(d => V[d].study);
   const tipHtml = () => `<div class="hm-tip" aria-hidden="true" hidden></div><p class="sr hm-live" role="status" aria-live="polite"></p>`;
@@ -105117,6 +107355,7 @@ var SBEARLY = null;
    - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
    - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
    - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways: the flag is written before the popup is drawn (and the popup is skipped if it can't be written),
    the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -105155,8 +107394,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -105167,6 +107409,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
     } catch (e) { return false; }
@@ -105202,6 +107446,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     let has = false; try { has = typeof aiProAvail === "function" && !!aiProAvail(); } catch (e) {}
     qodPop(html(has), "aii qod-plain");
     return true;
@@ -105230,6 +107475,7 @@ var SBEARLY = null;
 /* "Join the Studyboard Discord": a one-time popup with a link to the community server.
    - People who started using Studyboard before 18 Nov 2026 see it once, the next time the app is quiet.
    - Everyone who starts later sees it once, 7 days after they started.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways, as in 99-ai-intro.js: the flag is written before the popup is drawn (and the popup is skipped if it
    can't be written), the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -105266,8 +107512,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -105278,6 +107527,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
       if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return false;
@@ -105310,6 +107561,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     qodPop(html(), "aii dci qod-plain");
     return true;
   }
@@ -113633,7 +115885,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const KK = "wb-ai:" + id;
     if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Notes and Cards From a Board"}); return; }
     W.flush();
     openSheet(`<form class="sheet ai-sheet wb-ai-sheet">${head("Notes and Cards From This Board")}
       <div class="sheet-body" id="wbaBody">
@@ -113735,7 +115987,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     if (a !== "ink-text" || reading) return;
     if (inkLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(INK_WHY); return; }
     const info = W.selInk(); if (!info) return;
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Turn Writing Into Text"}); return; }
     reading = true; const btn = document.querySelector('.wb-selbar [data-wb="ink-text"]'); if (btn) { btn.classList.add("busy"); btn.innerHTML = '<span class="spinner"></span>'; }
     try {
       const data = bytesToB64(new Uint8Array(await (await new Promise(r => info.canvas.toBlob(r, "image/png"))).arrayBuffer()));
@@ -115006,7 +117258,10 @@ var SBCLS = null;
       eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
       if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
-      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
+      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180);
+        // there are no lectures in finals week: classes end the day before the first final exam coming up
+        const fin = allTasks().filter(t => mine.has(t.courseId) && t.type === "Exam" && /\bfinal\b/i.test(t.title || "") && isDate(t.due) && t.due > today).map(t => t.due).sort()[0];
+        if (fin && addDays(fin, -1) < until && addDays(fin, -1) >= from) until = addDays(fin, -1); }
     }
     if (until < from) until = from;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
@@ -117069,14 +119324,20 @@ var SBCALCSKIN = null;
     typed = NAMES.some(n => n.startsWith(k)) ? {s: k, snap: snap(), at: now, named: false} : null;
     return false;
   }
+  // the key last pressed with a mouse or finger keeps the focus, but isn't one the keyboard chose (Tab moves on from it)
+  let ptrKey = null;
+  document.addEventListener("pointerdown", e => { ptrKey = W && e.target && e.target.closest ? e.target.closest(".cx-body [data-cx]") : null; }, true);
+  const kbFocus = el => el !== ptrKey;
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); menu(false); } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
+    if (e.key === "Tab") ptrKey = null;
     if (e.key === "Tab" || e.key === " ") return;
-    // Enter on a focused key presses that key; Enter elsewhere is =
-    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    // Enter on a key reached with Tab presses that key; Enter elsewhere is =, also right after a key was clicked (a clicked
+    // key keeps the focus, and Enter used to press it again: click sin, type 30, Enter gave "sin(30sin(")
+    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq" && kbFocus(e.target)) return;
     if (/^[a-z]$/i.test(e.key) && e.key !== "E" && typeLetter(e)) return;
     // "(" right after a typed name like sqrt is already on screen
     if (e.key === "(" && typed && typed.named) { e.preventDefault(); typed = null; return; }
@@ -120102,7 +122363,9 @@ const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke
 const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief|research|annotated|bibliography|literature)\b/i;
 // a paper that already has something in Writing Studio: sources, quotes or a saved draft
 const hasData = t => !!(t && t.ws && typeof t.ws === "object" && ((Array.isArray(t.ws.src) && t.ws.src.length) || (Array.isArray(t.ws.q) && t.ws.q.length) || (t.ws.draft && t.ws.draft.t)));
-const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
+// a problem set, worksheet or homework is an Assignment with nothing to write a paper for, unless its title says there's writing
+const NOT_WRITING = /\b(homework|hw\s*\d*|problem\s*sets?|psets?|p-?sets?|worksheets?|exercises?|problems?|quiz(z?es)?|practice)\b/i;
+const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && ((["Assignment", "Project", "Lab"].includes(t.type) && !(NOT_WRITING.test(String(t.title || "")) && !WRITING.test(String(t.title || "")))) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
 // The draft kept on the paper (t.ws.draft): its text (capped), where it came from and when; and the last check (t.ws.chk): when, on which version of
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
@@ -124158,7 +126421,7 @@ function panel(){
     const k = (KIND[n.kind] || KIND.file)[0], K = know(), kn = K.lv[n.id] || (M.know ? "" : n.conf), ks = K.stats[n.id], opens = n.kind !== "idea" && !(n.root && M.own.kind === "course");
     const res = ks && ks.right + ks.wrong ? `${ks.pct}% right (${ks.right} of ${ks.right + ks.wrong})` : ks && ks.cards.length ? "not studied yet" : "";
     P.innerHTML = `<div class="cm-row cm-ttl"><span class="cm-dot" style="background:${n.color && !M.know ? n.color : nodeColor(n, M.know ? K.lv : null)}"></span><b class="cm-sname">${esc(n.label || (n.emb ? embInfo(n.emb).tt || embName(n.emb) : ""))}</b><span class="mini">${esc(k)}${kn && CONF[kn] ? " · " + CONF[kn][0] : ""}${res ? " · " + res : ""}${(n.ev || []).length ? ` · ${n.ev.length} attached` : ""} · ${n.deg} connection${n.deg === 1 ? "" : "s"}</span><button type="button" class="icon-btn cm-pclose" data-cm="desel" aria-label="Done" title="Done">${CLOSE}</button></div>
-      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml"> To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml"> Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml"> Attach</span>`, "Attach a page, lecture, picture or video",
+      ${M.connect ? `<p class="mini" style="margin:0">Now tap the node to connect <b>${esc(n.label)}</b> to. <button type="button" class="link-btn" data-cm="con-x">Cancel</button></p>` : `<div class="cm-row cm-acts">${n.at ? `<button type="button" class="btn small primary cm-gob" data-cm="goat">${n.at.t != null ? mi('<path d="M8 5v14l11-7z"/>') + " Play from " : mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>') + " Go to "}${esc(atLabel(n.at))}</button>` : ""}${n.emb ? `<button type="button" class="btn small primary" data-cm="play">${EMB_VIDEO.has(n.emb.p) ? "Play" : "View"}</button>` : ""}${opens ? `<button type="button" class="btn small primary" data-cm="open">Open</button>` : ""}${ks && ks.cards.length ? `<button type="button" class="btn small${kn === "weak" ? " primary" : ""}" data-cm="study">Review ${ks.cards.length} Card${ks.cards.length === 1 ? "" : "s"}</button>` : ""}<button type="button" class="btn small" data-cm="connect" aria-label="Connect To…">Connect<span class="cm-ml">&nbsp;To…</span></button><button type="button" class="btn small" data-cm="rename">Rename</button><button type="button" class="btn small${M.styleOpen ? " on" : ""}" data-cm="style" aria-expanded="${!!M.styleOpen}">${mi('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2.5-2 3-3.5 3H16a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 22z"/>')}<span class="cm-ml">Style</span></button>${n.kind === "idea" ? menu("attach", `${mi('<path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>')}<span class="cm-ml">Attach</span>`, "Attach a page, lecture, picture or video",
         `<button type="button" role="menuitem" class="cm-mi" data-cm="evp">${mi('<rect x="3" y="6" width="14" height="12" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v10"/>')} Flashcards and Questions${(n.ev || []).length ? ` (${n.ev.length})` : ""}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atpdf">${mi('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>')} ${n.at && n.at.p ? "Change PDF Page" : "PDF Page"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="atlec">${mi('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>')} ${n.at && n.at.t != null ? "Change Lecture Moment" : "Lecture Moment"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="picon">${mi('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>')} ${n.img ? "Change Picture" : "Picture"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button><button type="button" role="menuitem" class="cm-mi" data-cm="emb">${mi('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z"/>')} ${n.emb ? "Change Video or Embed" : "Video or Embed"}${isLocked() ? ' <i class="pro-badge">PRO</i>' : ""}</button>${n.at || n.img || n.emb ? '<span class="cm-msep">Remove</span>' : ""}${n.at ? `<button type="button" role="menuitem" class="cm-mi" data-cm="atoff">${n.at.t != null ? "Lecture Moment" : "PDF Page"}</button>` : ""}${n.img ? `<button type="button" role="menuitem" class="cm-mi" data-cm="picoff">Picture</button>` : ""}${n.emb ? `<button type="button" role="menuitem" class="cm-mi" data-cm="emboff">Video or Embed</button>` : ""}`) : ""}${n.root ? "" : `<button type="button" class="icon-btn cm-delb" data-cm="${n.kind === "idea" ? "del" : "hide"}" aria-label="${n.kind === "idea" ? "Delete" : "Hide"}" title="${n.kind === "idea" ? "Delete" : "Hide"}">${n.kind === "idea" ? mi('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>') : mi('<path d="M3 3l18 18M10.6 6.2A9.9 9.9 0 0 1 12 6c5 0 9 6 9 6a17 17 0 0 1-3 3.6M6.6 6.6C4.3 8.1 3 12 3 12s4 6 9 6a9 9 0 0 0 4.4-1.2"/>')}</button>`}</div>
       ${M.styleOpen ? styleHtml(n) : ""}`}`;
     return;
@@ -124770,13 +127033,28 @@ async function scanDrawing(file, name, onStatus){
   const center = String(d.center || "").trim().slice(0, 80), mid = name || center;
   return {title: center, ov: CMAP.fromSpec(Object.assign({}, d, {scan: true}), mid)};
 }
+// The map's edit sheet: its name, and the course it belongs to (moving it takes it to that course's maps, where that course's
+// material draws itself in; its own ideas, links and layout go with it)
 function renameSheet(cid, mid){
   const c = state.courses[cid], m = mapsOf(c).find(x => x.id === mid); if (!m) return;
-  openSheet(`<form class="sheet">${bandHead("Rename Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(rootName(m, m.name))}" autocomplete="off"></label></div>
+  const cs = coursesLive().concat([state.courses[GEN_ID] || genRec()]);
+  openSheet(`<form class="sheet">${bandHead("Edit Map", ICON.replace('width="16" height="16"', ""), c.color || "#2F6FE4")}<div class="sheet-body"><label class="f"><span class="lh">Name</span><input type="text" id="cmName" maxlength="80" required value="${esc(rootName(m, m.name))}" autocomplete="off"></label>
+    <label class="f"><span class="lh">Course</span><select id="cmCourse">${cs.map(x => `<option value="${esc(x.id)}" ${x.id === c.id ? "selected" : ""}>${esc(isGen(x) ? "General (No Course)" : courseLabel(x))}</option>`).join("")}</select></label>
+    <p class="mini" id="cmEditErr" role="alert" style="margin:0;color:var(--danger,#C2412D)"></p></div>
     <div class="sheet-foot"><button type="button" class="btn" data-act="close">Cancel</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit>Save</button></div></form>`, () => {
     const name = String(dlg.querySelector("#cmName").value || "").trim().slice(0, 80); if (!name) return false;
-    const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => { if (x.id !== mid) return x; const y = Object.assign({}, x, {name, at: Date.now()}); if (y.names && y.names.root != null) { y.names = Object.assign({}, y.names); delete y.names.root; } return y; })}); delete after.cmap;
-    applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
+    const to = dlg.querySelector("#cmCourse").value || c.id;
+    const renamed = x => { const y = Object.assign({}, x, {name, at: Date.now()}); if (y.names && y.names.root != null) { y.names = Object.assign({}, y.names); delete y.names.root; } return y; };
+    if (to === c.id) {
+      const after = Object.assign(clone(c), {maps: mapsOf(c).map(x => x.id !== mid ? x : renamed(x))}); delete after.cmap;
+      applyChanges([{kind: "course", id: c.id, after}], `Renamed the map ${name}`, null, {quiet: true});
+      return;
+    }
+    const dest = state.courses[to] || (to === GEN_ID ? genRec() : null); if (!dest) return false;
+    if (mapsOf(dest).length >= MAX_MAPS) { const e = dlg.querySelector("#cmEditErr"); if (e) e.textContent = `${isGen(dest) ? "General" : courseLabel(dest)} already has ${MAX_MAPS} maps.`; return false; }
+    const from = Object.assign(clone(c), {maps: mapsOf(c).filter(x => x.id !== mid)}); delete from.cmap;
+    const into = Object.assign(clone(dest), {maps: mapsOf(dest).concat([renamed(m)])}); delete into.cmap;
+    applyChanges([{kind: "course", id: c.id, after: from}, {kind: "course", id: dest.id, after: into}], `Moved the map ${name} to ${isGen(dest) ? "General" : courseLabel(dest)}`, null, {quiet: true});
   });
   const nm = dlg.querySelector("#cmName"); if (nm) { nm.focus(); nm.select(); }
 }
@@ -124874,7 +127152,7 @@ function listHtml(){
       <button class="cm-peekb" ${open} aria-label="Open ${esc(x.name)}">${peekSvg(pk, colorOf(x.cid), {label: x.name})}<span class="cm-cchip"><span class="fc-ic" aria-hidden="true">${c && !isGen(c) ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(cl(x))}</span>${x.exam ? `<span class="cm-exam">Exam</span>` : x.rec && x.rec.g ? `<span class="cm-exam cm-grpb">Group</span>` : ""}</button>
       <div class="cm-cfoot cm-cfoot-bar">
       <div class="cm-crow"><span class="mini cm-csub">${esc(meta)}</span>
-      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Rename ${esc(x.name)}" title="Rename">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
+      <div class="cm-cacts">${x.exam ? "" : `<button class="icon-btn" data-act="cm-ren" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Edit ${esc(x.name)}" title="Edit">${ic('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>')}</button><button class="icon-btn cm-del" data-act="cm-del" data-course="${esc(x.cid)}" data-id="${esc(x.id)}" aria-label="Delete ${esc(x.name)}" title="Delete">${ic('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>')}</button>`}<button class="btn small primary cm-openb" ${open}>Open${pro}</button></div></div></div>
     </article>`;
   }).join("");
   // Sort is a small button like Flashcards' and Quizzes' (its menu is the device's own list); New Map is the floating + button
@@ -125117,6 +127395,8 @@ dialog:has(.cm-sheet){width:min(1180px,calc(100% - 24px));height:min(92vh,1000px
 .cm-tools .spacer{flex:1 1 0}
 .cm-mw{position:relative;flex:none}
 .cm-mb{display:inline-flex;align-items:center;gap:5px}
+/* a selected idea's buttons with an icon (Style, Attach): the same room between icon and word as the toolbar's */
+.cm-acts .btn:has(> svg){display:inline-flex;align-items:center;gap:5px}
 .cm-mb.on{background:color-mix(in srgb,var(--c) 14%,var(--surface));border-color:color-mix(in srgb,var(--c) 45%,var(--line))}
 .cm-car{opacity:.6;margin-left:-1px}
 .cm-menu{position:absolute;z-index:8;top:calc(100% + 6px);left:0;min-width:220px;display:flex;flex-direction:column;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px -10px rgb(0 0 0/.35);animation:cmMenuIn .12s ease-out}
@@ -126344,6 +128624,7 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
         <span class="pr-clock"><b id="prClock">0:00</b><span>of ${fmt(S.tgt)}</span></span>
         <span class="pr-pace" id="prPace" hidden></span>
         <span class="pr-livechip" id="prLiveChip" hidden></span>
+        <span class="pr-cr" id="prCredits"></span>
         <button type="button" class="pr-ib" data-act="pr-remote" aria-label="Use your phone as a remote" title="Phone Remote">${IC.phone}</button>
         <button type="button" class="pr-end" data-act="pr-end">${S.follow ? "Leave" : "End"}</button>
       </div>
@@ -126478,6 +128759,13 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
       lbl.textContent = k === S.i && S.started && !S.qa ? `${fmt(t[k])} · target ${fmt(S.b[k])}` : done ? fmt(t[k]) : fmt(S.b[k]);
       b.classList.toggle("done", done && k !== S.i);
     });
+    // Studyboard Credits this run has earned so far (98-0study-credits.js): each finished slide that stayed inside its time
+    const crb = S.el.querySelector("#prCredits");
+    if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
+      const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
+      const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+    }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
       const before = S.b.slice(0, S.i).reduce((a, x) => a + x, 0), d = el - (before + Math.min(t[S.i], S.b[S.i]));
@@ -126552,7 +128840,10 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     if (S.follow) { if (i !== S.i) liveCmd(S, i > S.i ? "next" : "prev"); return; }
     const lo = S.sec ? S.sec[0] : 0, hi = S.sec ? S.sec[1] : S.d.n - 1;
     i = clamp(i, lo, hi); if (i === S.i) return;
-    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t}); S.open = {i, a: t}; }
+    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t});
+      // a slide practiced (the first time it's left in this run) can turn up a chest (98-0study-credits.js)
+      if (S.open && !S.follow && typeof SBSC !== "undefined" && SBSC) { S.crCh = S.crCh || {}; if (!S.crCh[S.open.i] && S.open.i !== i) { S.crCh[S.open.i] = 1; SBSC.rollChest("pres"); } }
+      S.open = {i, a: t}; }
     vStop(S);
     S.i = i; S.k = atEnd ? stepsOf(S.p, S.d, i) : 0; drawCur(); paint();
     if (S.started && !atEnd) mediaCalls(S, 0);
@@ -127374,7 +129665,8 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); X.refreshReady(); fillSecs(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); }
+    fillSecs();   // always: the group's Shared tab says "Loading…" until the first load ends, even when it found nothing
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)
@@ -131452,13 +133744,19 @@ const AUTOPILOT = (() => {
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Sound Effects<span class="sub">Short, happy sounds when you earn credits, open a chest, spin the prize wheel, unlock an accessory, pass a quiz and a few other big moments. Never while you type or scroll. <button type="button" class="link-btn" data-act="sfx-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="sfx" ${window.SBSFX && SBSFX.on() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Reward Sounds<span class="sub">A soft chime when a study session makes you more ready for an exam. <button type="button" class="link-btn" data-act="fx-try">Play It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="fx-sounds" ${(() => { try { return localStorage.getItem("studyboard:fx") !== "off"; } catch (e) { return true; } })() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "fx-sounds") { ls("studyboard:fx", el.checked ? null : "off"); if (el.checked && window.SBSC_FX) window.SBSC_FX(); return true; }
+    if (act === "fx-try") { if (window.SBSC_FX) window.SBSC_FX(true); return true; }
+    if (act === "sfx-try") { if (window.SBSFX) { if (!SBSFX.on()) toast("Turn Sound Effects on to hear them."); else { SBSFX.play("chest", {rarity: "rare"}); setTimeout(() => SBSFX.play("coinLand"), 1300); } } return true; }
+    if (act === "sfx") { if (window.SBSFX) { SBSFX.set(el.checked); if (el.checked) SBSFX.play("coinLand"); } return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
@@ -131951,6 +134249,9 @@ setTimeout(async () => {
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
+      // not on the day of the welcome setup (it may finish while this waits): Getting Started offers backups already, and a new
+      // student has enough to read. It comes on a later visit.
+      try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if ((at && Date.now() - at < 864e5) || (window.SBOB && SBOB.pending())) return; } catch (e) {}
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
         {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
@@ -132034,6 +134335,12 @@ ui._day = todayISO();
       }
     } catch (e) {}
   };
+  // As it opens and again a frame later; a button the opener focused on purpose once it was open (the timer's Start) keeps the focus
+  // (a typing box still doesn't on a phone)
+  const quietOpen = d => {
+    quiet(d); const was = document.activeElement;
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a !== was && a.tagName === "BUTTON" && d.contains(a)) return; quiet(d); });
+  };
   // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
   // Close (X) first, as it's seen, rather than last after the whole sheet
   document.addEventListener("keydown", e => {
@@ -132057,7 +134364,7 @@ ui._day = todayISO();
     noAuto(this);
     const r = showModal0.apply(this, arguments);
     hold(this);
-    quiet(this); requestAnimationFrame(() => quiet(this));
+    quietOpen(this);
     return r;
   };
   // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
@@ -132115,7 +134422,7 @@ ui._day = todayISO();
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quietOpen(this); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
@@ -132174,7 +134481,7 @@ ui._day = todayISO();
 /* ===== module: 99-feature-intros.js ===== */
 /* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
    they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
-   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+   sheet, one intro a visit (the Discord invite counts), never within two minutes of the daily quote, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
 (() => {
   const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -132232,6 +134539,7 @@ ui._day = todayISO();
   }
   function show(f){
     const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    window.__sbPopAt = Date.now();
     openSheet(html(f, i));
     const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
     sheet.addEventListener("click", e => {
@@ -132246,7 +134554,10 @@ ui._day = todayISO();
   function check(){
     if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
     if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
-    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    // one intro a visit (after the Discord invite, say, this waits for the next visit), and never straight after the daily quote
+    if (window.__sbPopAt) return;
+    const quote = window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000;
+    if (quote || dlg.open || document.querySelector("dialog[open]") || document.getElementById("qod") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 12) setTimeout(check, 20000); return; }
     const f = due(); if (f) show(f);
   }
   hook("boot", () => setTimeout(check, 8000));

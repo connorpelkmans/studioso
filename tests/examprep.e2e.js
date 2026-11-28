@@ -133,7 +133,8 @@ const dlgScroll = page => page.evaluate(() => { const d = document.querySelector
       ok(days.length >= 5 && new Set(days).size === days.length, "agenda grouped by day: " + days.length + " days");
       ok(await vis(page, ".pp-day.is-today"), "today is highlighted");
       ok((await page.evaluate(() => document.querySelectorAll(".pp-cov").length)) >= 6, "per-topic coverage bars");
-      ok(/0 of \d+ sessions done/.test(await txt(page, ".pp-line")) && /Readiness shows once/.test(await txt(page, ".pp-head")), "no evidence yet: no readiness percentage (the evidence gate)");
+      // the linked Cardiac Drugs cards were already reviewed (and missed): that is evidence, so a low readiness shows before any session
+      ok(/0 of \d+ sessions done · readiness \d+%/.test(await txt(page, ".pp-line")) && Number((/readiness (\d+)%/.exec(await txt(page, ".pp-line")) || [])[1]) < 30, "flashcards already reviewed on a topic count as evidence: a low readiness shows before any session");
       ok(await noHScroll(page) && await dlgScroll(page), "agenda fits the width");
       await page.screenshot({path: path.join(OUT, `agenda-${tag}.png`)});
       await page.keyboard.press("Escape"); await page.waitForTimeout(200);

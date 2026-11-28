@@ -22,7 +22,7 @@
 /* Notes on a phone: a little smaller, held upright or turned sideways (a phone on its side is wider than 700px, and the notes
    used to grow and shift each time it turned) */
 @media (max-width:700px), (max-height:500px) and (pointer:coarse){
-  .note{transform:rotate(var(--rot)) scale(.88)}
+  .note{--note-s:.88;transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
 }
@@ -900,6 +900,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .av-strip .av-chips{order:1;margin:0}
 .pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
 .pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* no free time left (the day is over, or it's all taken): the message sits beside the Availability button, not under an empty row */
+.pt-panel .av-strip:not(:has(.av-chips)) .av-line{order:1;flex:1 1 220px;margin:0;font-size:.92rem;color:var(--ink)}
 .pt-panel .av-note{order:4;flex-basis:100%;margin:0}
 /* Phones: free windows as full-width rows (time on the left, length on the right) */
 @media (max-width:639px){
@@ -909,6 +911,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   .pt-panel .av-strip .av-top{margin:0;width:100%}
   .pt-panel .av-strip .av-acts{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
   .pt-panel .av-strip .av-acts .btn{width:100%;min-width:0;justify-content:center;white-space:nowrap}
+  .pt-panel .av-strip:not(:has(.av-chips)) .av-line{flex:none}
 }
 .pt-panel .plan-fixed ul{margin:0;gap:6px}
 .pt-panel .plan-fixed li{min-height:0;padding:8px 12px;border-radius:10px;border-left:4px solid var(--c,var(--line));background:var(--surface)}

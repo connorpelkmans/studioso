@@ -8474,7 +8474,6 @@ var COMP_KIT = (() => {
 
   /* Saved for the Pride theme: Rory, the rainbow foal, who was in St. Patrick's Day. Kept unchanged, with the same id so
      anyone who owned it keeps it once it is back. Not registered (Pride has no free slot yet), so it is not shown anywhere. */
-  // eslint-disable-next-line no-unused-vars
   const SAVED_PRIDE_FOAL = {
     id: "stpatricks-foal", name: "Rory", kind: "Rainbow Foal", pose: "stand",
     bio: "A little foal with a pastel rainbow mane who gallops after good luck.",
