@@ -5665,6 +5665,8 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
   .cpa-swing{transform-origin:50% 0%;animation:cpa-swing 1.3s cubic-bezier(.45,0,.55,1) infinite alternate}
 }
 .cp-still .cpa,.cpu-still .cpa,.cp-front.cp-still .cpa{animation:none!important}
+/* a glint is a flash of light: without its animation it isn't there at all */
+.cpa-glint{opacity:0}
 @keyframes cpa-wobble{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
 @keyframes cpa-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.2px)}}
 @keyframes cpa-drop{0%{transform:translateY(0);opacity:0}15%{opacity:.9}70%{opacity:.9}100%{transform:translateY(8px);opacity:0}}

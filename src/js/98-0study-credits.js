@@ -320,6 +320,8 @@ var SBSC = (() => {
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
   // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
   const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
+  // 1 in 100 Legendary slots is a wheel-only prize; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
+  const WHEEL_ONLY_P = (() => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:wheel-only")) return 1; } catch (e) {} return 0.01; })();
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
   const weekKey = () => mondayOf(todayISO());
@@ -381,9 +383,11 @@ var SBSC = (() => {
     const out = [], used = new Set();
     const x2 = proNow();
     WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
-      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
+      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !a.wheel && !used.has(a.id));
+      // the wheel-only prizes (the Holographic Top Hat): each Legendary slot has a WHEEL_ONLY_P chance of being one not yet won
+      const rare1 = list.filter(a => a.rarity === r && a.wheel && !a.owned && !used.has(a.id));
       for (let i = 0; i < count; i++) {
-        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        const a = rare1.length && Math.random() < WHEEL_ONLY_P ? rare1.splice(Math.floor(Math.random() * rare1.length), 1)[0] : pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
         if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }

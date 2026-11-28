@@ -62126,6 +62126,8 @@ var SBSC = (() => {
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
   // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
   const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
+  // 1 in 100 Legendary slots is a wheel-only prize; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
+  const WHEEL_ONLY_P = (() => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:wheel-only")) return 1; } catch (e) {} return 0.01; })();
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
   const weekKey = () => mondayOf(todayISO());
@@ -62187,9 +62189,11 @@ var SBSC = (() => {
     const out = [], used = new Set();
     const x2 = proNow();
     WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
-      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !used.has(a.id));
+      const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !a.wheel && !used.has(a.id));
+      // the wheel-only prizes (the Holographic Top Hat): each Legendary slot has a WHEEL_ONLY_P chance of being one not yet won
+      const rare1 = list.filter(a => a.rarity === r && a.wheel && !a.owned && !used.has(a.id));
       for (let i = 0; i < count; i++) {
-        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        const a = rare1.length && Math.random() < WHEEL_ONLY_P ? rare1.splice(Math.floor(Math.random() * rare1.length), 1)[0] : pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
         if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }
@@ -75468,6 +75472,63 @@ var COMP_ACC_MORE = K => {
   const orbit = (rx, ry, cy, dur, d, inner) => A("orbx", A("orby", inner, `--ry:${ry}px;animation-duration:${dur}s;animation-delay:${f(d - dur / 2)}s`), `--rx:${rx}px;animation-duration:${dur}s;animation-delay:${d}s`);
   const L = (o) => Object.assign({rarity: "legendary", anim: true}, o);
   HEAD.push(
+    // Only from the prize wheel: when the wheel's Legendary slot is picked, a 1 in 100 chance it's this (98-0study-credits.js)
+    {id: "holotophat", name: "Holographic Top Hat", rarity: "legendary", anim: true, wheel: true, def: "#D9B8FF", icon: [12, .85], art: () => {
+      // design preview (localStorage studyboard:holo-v = 1, 2 or 3) until one is picked
+      let v = 1; try { v = Number(localStorage.getItem("studyboard:holo-v")) || 1; } catch (e) {}
+      // the Holographic flashcard style's foil: pink, sky, mint, butter, lilac, as diagonal bands 48 px apart along x, so a
+      // 48 px slide (cpa-flow) loops without a seam
+      const HOLO = ["#FFB3E6", "#B3D4FF", "#B3FFE0", "#FFF1A8", "#D6B3FF", "#FFB3E6"];
+      const holo = (id, sat) => `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="36" y2="20.78" spreadMethod="repeat">${HOLO.map((c, k) => `<stop offset="${k / 5}" stop-color="${c}"${sat ? "" : ""}/>`).join("")}</linearGradient>`;
+      const gold = `<linearGradient id="cpaHtGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF0A8"/><stop offset=".35" stop-color="#F2C94C"/><stop offset=".7" stop-color="#D49A1E"/><stop offset="1" stop-color="#9C6A0E"/></linearGradient>`;
+      // roundness: a column of light and shade across a cylinder
+      const round = `<linearGradient id="cpaHtRound" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4B2E8A" stop-opacity=".35"/><stop offset=".22" stop-color="#fff" stop-opacity=".15"/><stop offset=".34" stop-color="#fff" stop-opacity=".7"/><stop offset=".44" stop-color="#fff" stop-opacity=".1"/><stop offset=".8" stop-color="#4B2E8A" stop-opacity=".12"/><stop offset="1" stop-color="#4B2E8A" stop-opacity=".4"/></linearGradient>`;
+      const foil = (clip, w) => `<g clip-path="url(#${clip})">${A("flow", `<rect x="-80" y="-40" width="160" height="52" fill="url(#cpaHt)"/>`, `animation-duration:${w || 6}s`)}</g>`;
+      const sweep = (clip, d) => `<g clip-path="url(#${clip})">${A("sweep", `<path d="M-3 -36L4 -36L-6 8L-13 8Z" fill="#fff" opacity=".85"/><path d="M6 -36L8 -36L-2 8L-4 8Z" fill="#fff" opacity=".6"/>`, `--sw:18px;animation-delay:${d || 0}s`)}</g>`;
+      if (v === 1) {
+        // Prism Foil: a classic, slightly waisted crown, the foil flowing on the diagonal, a dark lining inside the top
+        const crown = "M-10.4 -1.6C-10.2 -9 -11.6 -19 -11.8 -26.6L11.8 -26.6C11.6 -19 10.2 -9 10.4 -1.6Z";
+        const brim = "M-19.2 .2Q-20 -4.4 -14.4 -3.6Q0 -1 14.4 -3.6Q20 -4.4 19.2 .2Q18 4.8 0 5.2Q-18 4.8 -19.2 .2Z";
+        return `<defs>${holo("cpaHt")}${gold}${round}<clipPath id="cpaHtC"><path d="${crown}"/></clipPath><clipPath id="cpaHtB"><path d="${brim}"/></clipPath>
+          <linearGradient id="cpaHtUnder" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#4B2E8A" stop-opacity=".35"/></linearGradient></defs>
+          <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtC")}<path d="${crown}" fill="url(#cpaHtRound)"/>${sweep("cpaHtC")}<path d="${crown}" fill="none" ${OUT(2.6)}/>
+          <ellipse cx="0" cy="-26.6" rx="11.8" ry="2.9" fill="#3A2A5C" ${OUT(2.2)}/><ellipse cx="0" cy="-26.1" rx="9.6" ry="1.9" fill="#1E1630"/><path d="M-11 -27.4Q0 -30.2 11 -27.4" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width=".9" stroke-linecap="round"/>
+          <path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M-10.2 -9.4Q0 -7.3 10.2 -9.4" fill="none" stroke="#FFF7D6" stroke-width=".9" stroke-linecap="round"/>
+          <rect x="3.6" y="-9.6" width="4.6" height="5.6" rx=".9" fill="none" stroke="#9C6A0E" stroke-width="1.3"/><rect x="3.6" y="-9.6" width="4.6" height="5.6" rx=".9" fill="none" stroke="#FFF0A8" stroke-width=".5"/>
+          <path d="${brim}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtB")}<path d="${brim}" fill="url(#cpaHtUnder)"/><path d="${brim}" fill="none" ${OUT(2.6)}/><path d="M-16.4 -2Q-8 .6 0 .9" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width="1" stroke-linecap="round"/>
+          ${tw(-17, -22, 2.8, 0)}${tw(16, -31, 2.2, .9)}${tw(20, -12, 1.8, 1.7)}`;
+      }
+      if (v === 2) {
+        // Faceted Crystal: a crown cut into panels like a gem; each panel catches the light in turn
+        const X = [-11, -6.6, -2.2, 2.2, 6.6, 11], top = -27.4, bot = -1.6;
+        const crown = `M-11 ${bot}L-11.6 ${top}L11.6 ${top}L11 ${bot}Z`;
+        const brim = "M-19.6 .6L-15.6 -3.4L-6 -1.6H6L15.6 -3.4L19.6 .6L13 4.4H-13Z";
+        const xt = x => f(x * 11.6 / 11);
+        const panels = X.slice(0, 5).map((x, k) => { const x2 = X[k + 1], d = `M${f(x)} ${bot}L${xt(x)} ${top}L${xt(x2)} ${top}L${f(x2)} ${bot}Z`;
+          const shade = [.34, .1, 0, .12, .3][k];
+          return `<path d="${d}" fill="#4B2E8A" opacity="${shade}"/>${A("glint", `<path d="${d}" fill="#fff" opacity=".8"/>`, `animation-delay:${f(-3 + k * .32)}s`)}`; }).join("");
+        const edges = X.slice(1, 5).map(x => `<path d="M${f(x)} ${bot}L${xt(x)} ${top}" stroke="#fff" stroke-opacity=".85" stroke-width=".8"/>`).join("");
+        return `<defs>${holo("cpaHt")}${gold}<clipPath id="cpaHtC"><path d="${crown}"/></clipPath><clipPath id="cpaHtB"><path d="${brim}"/></clipPath></defs>
+          <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/><g clip-path="url(#cpaHtC)">${A("flow", `<rect x="-80" y="-40" width="160" height="52" fill="url(#cpaHt)"/>`, "animation-duration:8s")}${panels}</g>${edges}<path d="${crown}" fill="none" ${OUT(2.6)}/>
+          <path d="M-11.6 ${top}L-7.6 ${top - 2.8}H7.6L11.6 ${top}Z" fill="#F6EEFF" ${OUT(2.2)}/><path d="M-6.6 ${top - 1.9}H6.6" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>
+          <path d="M-11.2 -10.4H11.2V-4.4H-11.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M-10.4 -9.3H10.4" stroke="#FFF7D6" stroke-width=".9" stroke-linecap="round"/>
+          <path d="M0 -11.6L3 -7.4L0 -3.2L-3 -7.4Z" fill="#E9F6FF" ${OUT(1.3)}/><path d="M0 -11.6L1 -7.4L0 -3.2M-3 -7.4H3" stroke="#8FC4FF" stroke-width=".55" fill="none"/>${A("glint", `<path d="M0 -11.6L3 -7.4L0 -3.2L-3 -7.4Z" fill="#fff"/>`, "animation-delay:-1.4s")}
+          <path d="${brim}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtB", 8)}<path d="M-15.6 -3.4L-6 -1.6H6L15.6 -3.4L19.6 .6L13 4.4H-13L-19.6 .6Z" fill="#4B2E8A" opacity=".12"/><path d="M-19.6 .6H19.6M-6 -1.6L-13 4.4M6 -1.6L13 4.4" stroke="#fff" stroke-opacity=".8" stroke-width=".7"/><path d="${brim}" fill="none" ${OUT(2.6)}/>
+          ${tw(-17, -24, 2.8, 0)}${tw(16, -33, 2.4, .9)}${tw(20, -10, 1.8, 1.7)}`;
+      }
+      // Starlight: worn at a jaunty tilt, little stars twinkle inside the foil, a gold band with a star clasp and a bow
+      const crown = "M-10.6 -1.4C-10.8 -10 -11.4 -19 -11 -27.4Q0 -29.8 11 -27.4C11.4 -19 10.8 -10 10.6 -1.4Z";
+      const brim = "M-19 .4Q-19.4 -4 -13.6 -3.2Q0 -.6 13.6 -3.2Q19.4 -4 19 .4Q17.6 4.8 0 5Q-17.6 4.8 -19 .4Z";
+      const st = (x, y, r, d) => `<g transform="translate(${x} ${y})">${A("glint", `<path d="M0 ${-r}Q${r * .18} ${-r * .18} ${r} 0Q${r * .18} ${r * .18} 0 ${r}Q${-r * .18} ${r * .18} ${-r} 0Q${-r * .18} ${-r * .18} 0 ${-r}Z" fill="#fff"/>`, `animation-delay:${d}s`)}</g>`;
+      return `<defs>${holo("cpaHt")}${gold}${round}<clipPath id="cpaHtC"><path d="${crown}"/></clipPath><clipPath id="cpaHtB"><path d="${brim}"/></clipPath></defs>
+        <g transform="rotate(-9 0 2)">
+        <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtC", 7)}<path d="${crown}" fill="url(#cpaHtRound)"/><g clip-path="url(#cpaHtC)">${st(-5.5, -21, 2.2, 0)}${st(5, -24.5, 1.6, -1.1)}${st(6.2, -15.5, 2, -2)}${st(-6, -13, 1.4, -.6)}${st(0, -18.5, 1.2, -2.4)}</g>${sweep("cpaHtC", -1.2)}<path d="${crown}" fill="none" ${OUT(2.6)}/>
+        <ellipse cx="0" cy="-27.6" rx="11" ry="2.4" fill="#F6EEFF" ${OUT(2.2)}/><path d="M-8 -28.4Q0 -30 8 -28.4" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>
+        <path d="M-10.8 -10.2Q0 -8 10.8 -10.2L10.6 -4.4Q0 -2.2 -10.6 -4.4Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M-10.1 -9.1Q0 -7 10.1 -9.1" fill="none" stroke="#FFF7D6" stroke-width=".9" stroke-linecap="round"/>
+        <path d="M-10.4 -7.4Q-15.6 -11.6 -16.2 -6.8Q-15.4 -3.2 -10.4 -6.2Z" fill="#E7D2FF" ${OUT(1.6)}/><path d="M-10.4 -6.8Q-14.8 -5 -15.4 -1.6" fill="none" ${OUT(1.6)}/><path d="M-10.4 -6.8Q-14.8 -5 -15.4 -1.6" fill="none" stroke="#E7D2FF" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M5.8 -11.4L6.9 -8.6L9.8 -8.4L7.6 -6.5L8.3 -3.6L5.8 -5.2L3.3 -3.6L4 -6.5L1.8 -8.4L4.7 -8.6Z" fill="url(#cpaHtGold)" ${OUT(1.2)}/><path d="M5.8 -10L6.4 -8.2" stroke="#FFF7D6" stroke-width=".7" stroke-linecap="round"/>
+        <path d="${brim}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtB", 7)}<path d="${brim}" fill="#4B2E8A" opacity=".1"/><path d="M-15.8 -1.8Q-8 .8 0 1" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1" stroke-linecap="round"/><path d="${brim}" fill="none" ${OUT(2.6)}/>
+        </g>${tw(-18, -26, 2.8, 0)}${tw(15, -33, 2.4, .9)}${tw(21, -14, 1.8, 1.7)}`; }},
     L({id: "lavacrown", name: "Lava Crown", def: "#2A2026", icon: [12, .85], art: () => {
       // a crown of cooled black rock; molten lava glows in its cracks, pools along the band, and slowly drips from the points,
       // with embers rising off the top
@@ -75694,7 +75755,8 @@ var COMP_ACC_MORE = K => {
     if (a.pat) PAT_PROPS.push(a.id);
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift});
+    // a prize-wheel-only item (wheel: true) is never sold and stays hidden until won, like a gift
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift || !!a.wheel, wheel: !!a.wheel, giftNote: a.wheel ? "only won on the prize wheel (when the wheel's Legendary comes up, there's a 1 in 100 chance it's this one)" : undefined});
   });
   // every prop is priced by its rarity, bought with earned credits, never Pro
   ACC.forEach(a => { a.price = PRICE[RARITY.includes(a.rarity) ? a.rarity : "common"]; });
@@ -75850,7 +75912,8 @@ var COMP_ACC_MORE = K => {
       const NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
       sv.setAttribute("viewBox", "-26 -26 52 52"); sv.setAttribute("width", "52"); sv.setAttribute("height", "52");
       sv.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none";
-      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw").forEach(t => t.remove());
+      // (twinkles and the clipped strips that slide across a foil or lens are left out: they reach far past what shows)
+      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw,.cpa-flow,.cpa-sweep").forEach(t => t.remove());
       document.body.appendChild(sv); const bb = sv.firstChild.getBBox(); sv.remove();
       if (!(bb.width > 0 && bb.height > 0)) return null;
       const k = Math.min(1.6, ICON_W / bb.width, ICON_H / bb.height);
@@ -77457,7 +77520,7 @@ var COMP_ACC_MORE = K => {
         ${sp(8, 18, 0, 20)}${sp(84, 12, .5, 16)}${sp(90, 70, 1.1, 22)}${sp(4, 74, .8, 14)}${sp(48, -4, 1.4, 12)}
         <span class="cpu-prop"${col ? ` style="--cp-wear:${col}"` : ""}>${propIcon(a, tints)}</span></div>
       <span class="cpu-kick">${esc(a.kick || "New Accessory!")}</span><h2 class="cpu-name" id="cpuName">${esc(a.name)}</h2>${rarityTag(a)}
-      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
+      <p class="cpu-how" id="cpuHow">${a.paid ? `<span class="cpu-did">Bought with ${esc(creditsTxt(a.paid))}.</span> ` : a.wheel ? `<span class="cpu-did">Won on the prize wheel.</span> ` : a.gift ? (a.proGift ? `<span class="cpu-did">${PRO_BADGE} A gift for being Studyboard Pro.</span> ` : `<span class="cpu-did">A gift from Studyboard.</span> `) : ""}${esc(how)}</p>
       ${a.proNext ? `<p class="cpu-next">${PRO_BADGE}<span>${giftProNow() ? "You'll get a gift every holiday this year." : "This year's other holiday gifts are for Pro."}</span></p>` : ""}
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
@@ -78845,7 +78908,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // an accessory's picture and rarity, for the credits reward screens (98-0study-credits.js)
     propIcon: id => { const a = ACC.find(x => x.id === id); return a ? propIcon(a) : ""; }, rarityOf: id => rarityOf(ACC.find(x => x.id === id)),
     // every accessory with its rarity and whether it's owned (the prize wheel picks unowned ones), and putting one on by id
-    accList: () => ACC.filter(a => !a.gift).map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive})),
+    accList: () => ACC.filter(a => !a.gift || a.wheel).map(a => ({id: a.id, name: a.name, rarity: rarityOf(a), price: a.price, owned: isEarned(a), festive: !!a.festive, wheel: !!a.wheel})),
     wearId: id => { try { const a = ACC.find(x => x.id === id), c = current(); if (!a || !c || !canWear(a)) return false; const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); try { refreshPicker(); } catch (e) {} return true; } catch (e) { return false; } },
     aiName, face: () => faceFor(), faceOf: id => BYID[id] ? faceSvg(BYID[id]) : "",
     // For the Companion tab's Wardrobe
@@ -78897,7 +78960,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.wheel ? "Win it on the prize wheel (a 1 in 100 chance when the wheel's Legendary comes up)" : x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
     // Studyboard Credits for the chat ("how many credits do I have")
     credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },
