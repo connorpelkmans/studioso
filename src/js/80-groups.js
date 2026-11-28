@@ -1044,7 +1044,8 @@
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
+    // (friend requests waiting for you count too: 81-friends.js)
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal() + (globalThis.SBFRIENDS && SBFRIENDS.waiting ? SBFRIENDS.waiting() : 0);
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
@@ -4627,7 +4628,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(),
+  window.SBGROUPS = {myName: () => myFirst(), navBadge: () => updateNavBadge(),
     // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
     openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time

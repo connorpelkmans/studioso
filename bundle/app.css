@@ -4042,6 +4042,12 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
   .frd-row .grp-item-btns{grid-column:2 / -1;justify-content:flex-start}
   .frd-row .grp-item-btns:has(.frd-more){grid-column:auto}
 }
+/* a friend's ⋯ menu isn't cut off by the list's rounded box; with no room below it opens upward */
+.frd-sec .grp-list{overflow:visible}
+.frd-sec .grp-list > li:first-child{border-top-left-radius:14px;border-top-right-radius:14px}
+.frd-sec .grp-list > li:last-child{border-bottom-left-radius:14px;border-bottom-right-radius:14px}
+.frd-more .grp-menu{left:auto;right:0;z-index:30}
+.frd-more.frd-up .grp-menu{top:auto;bottom:calc(100% + 4px)}
 /* ===== module: 82-friend-share.css ===== */
 /* Send to Friends, and what a friend sent you */
 .fs-list{list-style:none;margin:0;padding:0;max-height:min(46vh,380px);overflow:auto}
