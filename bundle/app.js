@@ -61976,16 +61976,19 @@ var SBSC = (() => {
      answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
      credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
      How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
-     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
-     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 2 days,
+     an Uncommon every 4, a Rare a week, an Epic every 3 weeks and a Legendary about every 2 months.
+     What's inside grows with the rarity, roughly in step with the prices (Common 100 up to Legendary 1,000), a little better
+     for the rarer ones; on average a chest still holds about 24 credits, as before Uncommon chests. */
   const CHEST = {
-    common: {name: "Common", min: 5, max: 20, p: 0.70},
-    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
-    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
-    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+    common: {name: "Common", min: 8, max: 15, p: 0.54},
+    uncommon: {name: "Uncommon", min: 18, max: 30, p: 0.25},
+    rare: {name: "Rare", min: 30, max: 50, p: 0.145},
+    exotic: {name: "Epic", min: 55, max: 90, p: 0.05},
+    legendary: {name: "Legendary", min: 120, max: 200, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
-  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const RIM = {common: "#8A93A3", uncommon: "#15803D", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
   const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
   function rollChest(kind){
     try {
@@ -61995,7 +61998,7 @@ var SBSC = (() => {
       if (Math.random() >= chance) return null;
       const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
       let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
-      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "uncommon", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
       const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
       const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
       setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});
@@ -74997,7 +75000,7 @@ var COMP_ACC_MORE = K => {
       `${bridge(g, 2.4, 1.8)}${temples(g)}${[g.lx, g.rx].map(x => `${star(x, g.y + g.R * .1, g.R * 1.3, "", 2.1).replace('fill=""', WF)}<path d="M${f(x - g.R * .45)} ${f(g.y - g.R * .1)}l${f(g.R * .35)} ${f(-g.R * .4)}" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>`).join("")}`},
     {id: "monocle", name: "Monocle", rarity: "rare", def: "#E0B03A", art: g => {
       const R = g.R * 1.05, x = g.rx, y = g.y;
-      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.7)} ${f(y + R * 2.4)} ${f(x + R * .5)} ${f(y + R * 3.8)}`, 1.2, WS("#E0B03A"))}<circle cx="${x}" cy="${y}" r="${f(R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="4.6"/><circle cx="${x}" cy="${y}" r="${f(R)}" fill="none" ${WS("#E0B03A")} stroke-width="2.6"/><g transform="translate(${x} ${y})">${shine(R)}</g>`; }},
+      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.55)} ${f(y + R * 1.9)} ${f(x + R * .6)} ${f(y + R * 2.9)}`, 1.2, WS("#E0B03A"))}<circle cx="${x}" cy="${y}" r="${f(R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="4.6"/><circle cx="${x}" cy="${y}" r="${f(R)}" fill="none" ${WS("#E0B03A")} stroke-width="2.6"/><g transform="translate(${x} ${y})">${shine(R)}</g>`; }},
     {id: "cateye", name: "Cat-Eye Glasses", rarity: "rare", def: "#E5484D", art: g => {
       const lens = R => `M${f(-R)} ${f(-R * .32)}Q${f(-R * .1)} ${f(-R * .95)} ${f(R * 1.38)} ${f(-R * 1.08)}Q${f(R * 1.08)} ${f(R * .2)} ${f(R * .6)} ${f(R * .68)}Q${f(-R * .4)} ${f(R * 1.08)} ${f(-R * .95)} ${f(R * .36)}Q${f(-R * 1.15)} ${f(-R * .05)} ${f(-R)} ${f(-R * .32)}Z`;
       return `${bridge(g, 2, 1.8, WS("#E5484D"))}${pair(g, R => `<path d="${lens(R)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4.2" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#E5484D")} stroke-width="2.3" stroke-linejoin="round"/><circle cx="${f(R * 1.08)}" cy="${f(-R * .82)}" r="1.1" fill="#fff"/><circle cx="${f(R * .7)}" cy="${f(-R * .86)}" r=".8" fill="#fff"/>`)}`; }},
@@ -75490,9 +75493,9 @@ var COMP_ACC_MORE = K => {
     L({id: "embereyes", name: "Ember Eyes", def: "#C2361C", art: g =>
       `${bridge(g, 2.4, 1.8, "#3A3450")}${temples(g, 1.6, "#3A3450")}${pair(g, R => `${[-.4, .1, .5].map((x, i) => `<g transform="translate(${f(R * x)} ${f(-R * .6)})">${A("rise", `<circle r=".9" fill="#FFB347"/>`, `animation-delay:${-i * .8}s;animation-duration:1.8s`)}</g>`).join("")}<circle r="${f(R)}" fill="#2A1410" stroke="${INK}" stroke-width="4.6"/>${A("glow", `<circle r="${f(R * .7)}" ${WF}/><circle r="${f(R * .4)}" fill="#FFB347"/>`)}<circle r="${f(R)}" fill="none" stroke="#5B3A2E" stroke-width="2.4"/>${shine(R)}`)}`}),
     L({id: "crystalball", name: "Crystal Ball Monocle", def: "#B57BFF", art: g => {
-      const R = g.R * 1.15, x = g.rx, y = g.y;
-      const side = Math.min(R * 1.1, g.ext + 1);
-      return `${line2(`M${f(x + R * .96)} ${f(y + R * .3)}Q${f(x + R + side)} ${f(y + R * .9)} ${f(x + R * .5 + side * .6)} ${f(y + R * 2.1)}`, 1, GOLD).replace(`stroke="${GOLD}" stroke-width="1"`, `stroke="${GOLD}" stroke-width="1" stroke-dasharray="1.4 .8"`)}<circle cx="${f(x + R * .5 + side * .6)}" cy="${f(y + R * 2.1)}" r="1.1" fill="${GOLD}" ${OUT(.6)}/><g transform="translate(${x} ${y})">${aura(0, 0, f(R * 1.6), f(R * 1.6), "#B57BFF")}<clipPath id="cpaBall"><circle r="${f(R * .92)}"/></clipPath><circle r="${f(R)}" ${WF}/><g clip-path="url(#cpaBall)">${A("spin", `<circle r="${f(R)}" fill="none"/><path d="M${f(-R * .7)} 0Q${f(-R * .3)} ${f(-R * .7)} ${f(R * .3)} ${f(-R * .3)}Q${f(R * .8)} 0 ${f(R * .2)} ${f(R * .5)}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/><path d="M${f(R * .5)} ${f(R * .6)}Q0 ${f(R * .9)} ${f(-R * .5)} ${f(R * .3)}" fill="none" stroke="#FFD1F0" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"/>`, "animation-duration:5s")}</g><circle r="${f(R)}" fill="none" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R)}" fill="none" stroke="${GOLD}" stroke-width="2.2"/>${shine(R)}</g>${tw(x - R * 2.6, y - R, 2.4, 0)}`; }})
+      // sized and hung like the plain Monocle: the same lens size over the eye, and the same gold chain dangling from it
+      const R = g.R * 1.05, x = g.rx, y = g.y;
+      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.55)} ${f(y + R * 1.9)} ${f(x + R * .6)} ${f(y + R * 2.9)}`, 1.2, GOLD)}<g transform="translate(${x} ${y})">${aura(0, 0, f(R * 1.35), f(R * 1.35), "#B57BFF")}<clipPath id="cpaBall"><circle r="${f(R * .92)}"/></clipPath><circle r="${f(R)}" ${WF}/><g clip-path="url(#cpaBall)">${A("spin", `<circle r="${f(R)}" fill="none"/><path d="M${f(-R * .7)} 0Q${f(-R * .3)} ${f(-R * .7)} ${f(R * .3)} ${f(-R * .3)}Q${f(R * .8)} 0 ${f(R * .2)} ${f(R * .5)}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/><path d="M${f(R * .5)} ${f(R * .6)}Q0 ${f(R * .9)} ${f(-R * .5)} ${f(R * .3)}" fill="none" stroke="#FFD1F0" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"/>`, "animation-duration:5s")}</g><circle r="${f(R)}" fill="none" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R)}" fill="none" stroke="${GOLD}" stroke-width="2.2"/>${shine(R)}</g>${tw(x - R * 2.6, y - R, 2.4, 0)}`; }})
   );
   NECK.push(
     L({id: "dragonscale", name: "Dragon Scale Scarf", def: "#2E9E8A", art: hw => {
@@ -75513,6 +75516,9 @@ var COMP_ACC_MORE = K => {
       return `${line2(arcP(hw, -2, 6, .92), 1, WS("#F5C542"))}${pts.map(([x, y], i) => { const [c, r, ring] = P[i], l = 4 + (i % 2) * 2; return `<g transform="translate(${x} ${y})">${A("swing", `<path d="M0 0V${l}" stroke="${GOLD}" stroke-width=".8"/><circle cy="${f(l + r)}" r="${r}" fill="${c}" ${OUT(1)}/>${ring ? `<ellipse cy="${f(l + r)}" rx="${f(r * 1.8)}" ry="${f(r * .5)}" fill="none" stroke="#FFE58A" stroke-width=".8"/>` : ""}<circle cx="${f(-r * .35)}" cy="${f(l + r * .6)}" r="${f(r * .3)}" fill="#fff" opacity=".7"/>`, `animation-delay:${-i * .7}s`)}</g>`; }).join("")}${tw(f(-hw - 2), -6, 2.6, 0)}${tw(f(hw + 2), 8, 2.4, 1.2)}`; }})
   );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
+  // halos float just above the head, all at the same height: the bottom of each ring sits 5.3 above the top of the head
+  const LOWER = {halo: 4.5, orbithalo: 6.1, blackhole: 9.7};
+  HEAD.forEach(a => { const dy = LOWER[a.id]; if (dy) { const art = a.art; a.art = (...x) => `<g transform="translate(0 ${dy})">${art(...x)}</g>`; } });
   return HEAD.concat(FACE, NECK, CHEST);
 };
 /* ===== module: 98-companion.js ===== */
