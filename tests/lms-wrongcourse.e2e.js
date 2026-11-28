@@ -4,7 +4,7 @@
 const http = require("http"), fs = require("fs"), path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const root = path.join(__dirname, "..");
-const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString(), dateOf = d => iso(d).slice(0, 10);
+const DAY = 864e5, iso = d => new Date(Date.now() + d * DAY).toISOString(), dateOf = d => { const x = new Date(Date.now() + d * DAY); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };   // (the day here, as the app counts days)
 const server = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname); if (p === "/") p = "/index.html";
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
