@@ -75398,8 +75398,8 @@ var COMP_ACC_MORE = K => {
     {id: "stormcloud", name: "Storm Cloud", rarity: "exotic", def: "#9AA3B5", anim: true, icon: [11, .9], art: () => {
       const drops = [[-8, 0], [-2.6, .35], [3, .7], [8.4, .2], [0, .9]].map(([x, d]) => A("drop", `<path d="M${x} -11.4q-1.3 2 0 3q1.3 -1 0 -3Z" fill="#5A95FF"/>`, `animation-delay:${d}s`)).join("");
       return `${drops}${A("bob", `${A("flash", `<path d="M1 -14L-3.4 -6.6H0L-2 0L4 -8.6H.6L2.4 -14Z" fill="#FFD35A" ${OUT(1)}/>`)}${puffs2([[-9, -16, 5], [-2, -21, 6.6], [6, -19.6, 5.6], [11, -15, 4.2], [0, -14, 6]], WF)}<path d="M-13 -13Q0 -9.4 14 -13" fill="none" stroke="${INK}" stroke-opacity=".18" stroke-width="2.4" stroke-linecap="round"/><circle cx="-4" cy="-23" r="1.8" fill="#fff" opacity=".55"/>`)}`; }},
-    // Epic: a gold crown with a flame flickering on each point
-    {id: "flamecrown", name: "Flame Crown", rarity: "exotic", def: "#F5C542", anim: true, icon: [12, .85], art: () => {
+    // Legendary: a gold crown with a flame flickering on each point
+    {id: "flamecrown", name: "Flame Crown", rarity: "legendary", def: "#F5C542", anim: true, icon: [12, .85], art: () => {
       const flame = (x, y, s, d) => `<g transform="translate(${x} ${y}) scale(${s})">${A("flicker", `<path d="M0 0C-3.4 -1 -3.6 -5 -1.2 -8.4C-1 -6 .4 -5.4 .6 -7.4C2.8 -5.4 3.6 -1.4 0 0Z" fill="#FF7A2F" ${OUT(1)}/><path d="M0 -.6C-1.6 -1.2 -1.6 -3.2 -.4 -4.8C.2 -3.6 1.6 -3 1.4 -2C1.4 -1.2 .8 -.6 0 -.6Z" fill="#FFE07A"/>`, `animation-delay:${d}s`)}</g>`;
       return `${flame(-16, -10.6, 1, 0)}${flame(0, -13.6, 1.2, -.6)}${flame(16, -10.6, 1, -1.1)}<path d="M-14 3L-16 -10L-8 -4L0 -13L8 -4L16 -10L14 3Z" ${WF} ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="6.6" rx="3" fill="${GOLD_D}" ${OUT(2)}/>${[-7, 0, 7].map((x, i) => `<circle cx="${x}" cy="2.3" r="1.5" fill="${["#E5484D", "#5A95FF", "#4CB782"][i]}"/>`).join("")}<path d="M-9 -2.4L-11.6 -7.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>`; }},
     // Legendary: three tiny planets circling the head on a glowing ring
@@ -75442,10 +75442,6 @@ var COMP_ACC_MORE = K => {
         <circle cx="${f(+k + 9.5)}" cy="4" r="4.4" fill="#2A1F5C" ${OUT(2.4)}/><circle cx="${f(+k + 9.5)}" cy="4" r="2.2" ${WF}/>${tw(f(-hw - 3), -6, 2.8, 0)}${tw(f(+k + 20), 22, 2.6, 1)}${tw(f(hw * .2), 11, 2, 1.7)}`; }}
   );
   CHEST.push(
-    // Epic: a heart that beats over a heart-monitor line
-    {id: "heartbeat", name: "Heartbeat Pin", rarity: "exotic", at: "pin", slot: "chest", def: "#E5484D", anim: true, art: () =>
-      `${A("beat", `${heart(0, -1.2, 6, WF, 1.8)}<path d="M-4 -4.6q1.2 -1.8 3 -1.4" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/>`)}
-      <path d="M-11 7.6H-4.6L-3 4.4L-1 10.6L1.2 3.4L2.8 7.6H11" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>${A("ecg", `<path d="M-11 7.6H-4.6L-3 4.4L-1 10.6L1.2 3.4L2.8 7.6H11" fill="none" stroke="#4CFFB0" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round"/>`)}`}
   );
   /* ---------------- More animated Legendaries: the ones students ask for ---------------- */
   HEAD.push(
@@ -75491,27 +75487,26 @@ var COMP_ACC_MORE = K => {
       return `${line2(`M${f(g.lx - g.R * 1.1 - Math.min(5, g.ext))} ${g.y}H${f(g.rx + g.R * 1.1 + Math.min(5, g.ext))}`, 2.4, "#3A3450")}${pair(g, R => `${fl(-R * .5, R / 6.5, 0)}${fl(R * .1, R / 5, -.55)}${fl(R * .65, R / 7, -1)}<circle r="${f(R * 1.08)}" fill="#3A1A10" stroke="${INK}" stroke-width="5"/><circle r="${f(R * .82)}" fill="#FF9A3C" opacity=".55"/><circle r="${f(R * 1.08)}" fill="none" ${WS("#FF7A2F")} stroke-width="2.8"/>${shine(R)}`)}`; }}
   );
   NECK.push(
-    // Legendary: a ghostly blue scarf with flames rising off it
-    {id: "spiritflame", name: "Spirit Flame Scarf", rarity: "legendary", def: "#4FD6FF", anim: true, art: hw => {
-      const e = f(hw + 4), band = `M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z`;
-      const fl = along(hw, -3.6, 3.3, Math.max(6, Math.round(hw / 3.2)), .92).map(([x, y], i) => `<g transform="translate(${x} ${y}) scale(${i % 2 ? 1.3 : 1.75})">${A("rise", `${flameP} fill="#7CF5FF" opacity=".85"/><path d="M0 -.6C-1.6 -1.2 -1.6 -3.2 -.4 -4.8C.2 -3.6 1.6 -3 1.4 -2C1.4 -1.2 .8 -.6 0 -.6Z" fill="#fff"/>`, `animation-delay:${(-i * .41 % 2.6).toFixed(2)}s`)}</g>`).join("");
-      const k = f(hw * .45 - 9.5);
-      return `${aura(0, 2, f(hw + 6), 11, "#4FD6FF")}${fl}<path d="${band}" ${WF} ${OUT(2.4)}/><path d="${band}" fill="#fff" opacity=".18"/><path d="M${f(-hw + 2)} -1.5Q0 5 ${f(hw - 2)} -1.5" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
-        <g transform="translate(${k} 0)">${[[8, 22, 1], [13, 20, -.4]].map(([x, y, d]) => `<g transform="translate(${x} ${y}) scale(1.6)">${A("flicker", `${flameP} ${WF} ${OUT(.9)}/><path d="M0 -.6C-1.6 -1.2 -1.6 -3.2 -.4 -4.8C.2 -3.6 1.6 -3 1.4 -2C1.4 -1.2 .8 -.6 0 -.6Z" fill="#fff"/>`, `animation-delay:${d}s`)}</g>`).join("")}<path d="M6 4L8.6 19L14 18.4L13 3Z" ${WF} ${OUT(2.2)}/><circle cx="9.5" cy="4" r="4.2" ${WF} ${OUT(2.2)}/></g>${tw(f(-hw - 3), -8, 2.8, 0)}${tw(f(hw + 3), 6, 2.4, 1)}`; }}
   );
   CHEST.push(
-    // Rare: a pinwheel that spins
-    {id: "pinwheel", name: "Pinwheel Pin", rarity: "rare", at: "pin", slot: "chest", def: "#FF5C8A", anim: true, art: () =>
+    // Epic: a pinwheel that spins
+    {id: "pinwheel", name: "Pinwheel Pin", rarity: "exotic", at: "pin", slot: "chest", def: "#FF5C8A", anim: true, art: () =>
       `<g transform="scale(1.35)">${A("spin", `<circle r="9" fill="none"/>${[0, 90, 180, 270].map((a, i) => `<g transform="rotate(${a})"><path d="M0 0L0 -8.6Q5 -8.6 5.6 -3.4Z" ${i % 2 ? `fill="${["#FFD35A", "#5A95FF"][i >> 1]}"` : WF} ${OUT(1.3)}/></g>`).join("")}`, "animation-duration:3.6s")}<circle r="1.6" fill="#fff" ${OUT(1)}/></g>`},
     // Legendary: a plasma core, its rings spinning opposite ways round a pulsing heart
     {id: "plasmacore", name: "Plasma Core", rarity: "legendary", at: "mid", slot: "chest", def: "#4FD6FF", anim: true, art: () =>
       `${aura(0, 0, 13, 13, "#4FD6FF")}<circle r="9.6" fill="#1E1B26" ${OUT(1.8)}/>${A("spin", `<circle r="8" fill="none" ${WS("#4FD6FF")} stroke-width="2" stroke-dasharray="4 2.3"/>`, "animation-duration:7s")}
-      ${A("spinr", `<circle r="5.4" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.2" stroke-dasharray="2 1.6"/>`)}${A("aura", `<circle r="3.6" ${WF}/>`)}<circle r="2" fill="#fff"/>${tw(-12, -9, 2.8, 0)}${tw(12, 8, 2.4, 1)}`},
-    // Legendary: a gold star medal with rays of light turning behind it
-    {id: "supernova", name: "Supernova Medal", rarity: "legendary", at: "mid", slot: "chest", def: "#F5C542", anim: true, art: () => {
-      let rays = ""; for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; rays += `<path d="M0 0L${f(19 * Math.cos(a - .14))} ${f(19 * Math.sin(a - .14))}L${f(19 * Math.cos(a + .14))} ${f(19 * Math.sin(a + .14))}Z" fill="#FFE58A" opacity="${i % 2 ? .55 : .9}"/>`; }
-      return `<path d="M-3 4L-6 14L-3 12.4L-1.4 14.6L.4 6ZM3 4L6 14L3 12.4L1.4 14.6L-.4 6Z" fill="#E5484D" ${OUT(1.2)}/><g transform="translate(0 -1)">${A("spin", `<circle r="19" fill="none"/>${rays}`, "animation-duration:16s")}</g>
-        <circle cy="-1" r="7.4" ${WF} ${OUT(1.6)}/><circle cy="-1" r="5.6" fill="none" stroke="${GOLD_D}" stroke-width="1"/>${star(0, -1, 4.2, "#FFF3B0", .8)}${tw(-13, -12, 2.8, 0)}${tw(13, 9, 2.6, 1)}${tw(11, -14, 2, 1.7)}`; }}
+      ${A("spinr", `<circle r="5.4" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.2" stroke-dasharray="2 1.6"/>`)}${A("aura", `<circle r="3.6" ${WF}/>`)}<circle r="2" fill="#fff"/>${tw(-12, -9, 2.8, 0)}${tw(12, 8, 2.4, 1)}`}
+  );
+  NECK.push(
+    // Legendary: a midnight stole, its stars twinkling one after another, with a crescent moon that sways on a gold chain
+    {id: "moonstole", name: "Moonlight Stole", rarity: "legendary", def: "#1E2A5A", anim: true, art: hw => {
+      const e = f(hw + 4), band = `M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 6Q0 13 ${-hw} 6Q${-e} 0 ${-hw} -5Z`;
+      const stars = along(hw, .6, 3.4, Math.max(5, Math.round(hw / 4.2)), .82).map(([x, y], i) => A("glow", star(x, y, i % 2 ? 1.8 : 2.5, "#FFF3B0", .6), `animation-delay:${(-i * .55).toFixed(2)}s`)).join("");
+      const moon = `M0 0A6 6 0 1 0 4.6 -9.6A4.6 4.6 0 1 1 0 0Z`;
+      return `${aura(0, 15, 11, 11, "#FFE58A")}<path d="${band}" ${WF} ${OUT(2.4)}/><path d="M${f(-hw + 2)} -1.4Q0 5 ${f(hw - 2)} -1.4" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2" stroke-linecap="round"/>
+        <path d="M${f(-hw + 1)} 3.4Q0 10 ${f(hw - 1)} 3.4" fill="none" stroke="${GOLD}" stroke-width=".9" stroke-dasharray="1.6 1.4"/>${stars}
+        ${A("swing", `${line2("M0 7.2V9.4", 1, GOLD)}<circle cx="0" cy="15.4" r="8" fill="#FFE58A" opacity=".35"/><g transform="translate(-2 20.6) rotate(-18) scale(1.3)"><path d="${moon}" fill="#FFF3B0" ${OUT(1.2)}/><path d="${moon}" fill="#FFE58A" opacity=".5" transform="translate(.6 -.4) scale(.82)"/></g><circle cx="0" cy="9.4" r="1.2" fill="${GOLD}" ${OUT(.8)}/>`)}
+        ${tw(f(-hw - 3), -7, 2.6, 0)}${tw(f(hw + 3), 7, 2.4, 1.2)}`; }}
   );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
   return HEAD.concat(FACE, NECK, CHEST);

@@ -396,6 +396,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
   .cpa-spinr{transform-origin:50% 50%;animation:cpa-spin 9s linear infinite reverse}
   .cpa-rise{transform-origin:50% 100%;animation:cpa-rise 2.6s cubic-bezier(.25,.6,.4,1) infinite}
   .cpa-sweep{animation:cpa-sweep 5s cubic-bezier(.45,0,.55,1) infinite}
+  .cpa-swing{transform-origin:50% 0%;animation:cpa-swing 3.6s cubic-bezier(.45,0,.55,1) infinite alternate}
 }
 .cp-still .cpa,.cpu-still .cpa,.cp-front.cp-still .cpa{animation:none!important}
 @keyframes cpa-wobble{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
@@ -416,3 +417,4 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 @keyframes cpa-aura{0%,100%{transform:scale(.96);opacity:.6}50%{transform:scale(1.05);opacity:1}}
 @keyframes cpa-rise{0%{transform:translateY(1.5px) scale(.7);opacity:0}30%{opacity:.95}100%{transform:translateY(-6px) scale(1.05);opacity:0}}
 @keyframes cpa-sweep{0%,35%{transform:translateX(calc(var(--sw,8px) * -1));opacity:0}45%{opacity:.9}75%{transform:translateX(var(--sw,8px));opacity:.9}85%,100%{transform:translateX(var(--sw,8px));opacity:0}}
+@keyframes cpa-swing{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
