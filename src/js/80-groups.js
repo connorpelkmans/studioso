@@ -354,6 +354,10 @@
     if (!uid2) return "";
     let id = "";
     for (const k in S.members) { const m = (S.members[k] || []).find(x => x.user_id === uid2 && x.face); if (m) { id = m.face; break; } }
+    return faceHtml(id);
+  }
+  // A companion's face by its id (a friend's, from their profile)
+  function faceHtml(id){
     if (!id || !/^[a-z0-9-]{1,40}$/.test(id)) return "";
     if (faceCache[id] == null) {
       let h = ""; try { const C = window.SBCOMP; h = C && typeof C.head === "function" ? C.head(id) : ""; } catch(e) { h = ""; }
@@ -398,7 +402,7 @@
   };
   // A member's picture (their companion, or initials) in their colour
   const inkOn = c => { if (!okColor(c)) return "#fff"; const [r, g, b] = [1, 3, 5].map(i => parseInt(c.substr(i, 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#1F2430" : "#fff"; };
-  const av = (name, id, gid) => { const f = id && id === myId() ? myFace() : faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
+  const av = (name, id, gid, face) => { const f = id && id === myId() ? myFace() : faceHtml(face) || faceOfMember(id), raw = memberHue(gid != null ? gid : (ui.tab === "groups" ? ui.grp : ""), id, name), c = esc(raw);
     return f ? `<span class="grp-av is-comp" style="--c:${c}" data-mc="${c}" aria-hidden="true">${f}</span>` : `<span class="grp-av" style="--c:${c};color:${inkOn(raw)}" data-mc="${c}" aria-hidden="true">${esc(initials(name))}</span>`; };
   // Rows that belong to one person learn that person's colour (--mc)
   function paintRows(root){
@@ -1041,7 +1045,8 @@
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
+    // (friend requests waiting for you count too: 81-friends.js)
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal() + (globalThis.SBFRIENDS && SBFRIENDS.waiting ? SBFRIENDS.waiting() : 0);
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
@@ -1123,7 +1128,9 @@
 
   /* Pages */
   const groupOf = gid => (S.groups || []).find(g => g.id === gid);
-  const isOwner = g => g && g.owner_id === myId();
+  // A Course Hub (kind "course", supabase-classmates.sql) has no owner: whoever started it is just a member
+  const isOwner = g => g && g.kind !== "course" && g.owner_id === myId();
+  const isHub = g => !!g && g.kind === "course";
 
   function offlineView(){
     const local = !sbConfig(), preview = inPreview();
@@ -1139,16 +1146,17 @@
     return `<div class="grp-err" role="alert"><span>${esc(msg)}</span><button class="btn small" data-act="grp-retry">Try Again</button>${""}</div>`;
   }
   const isProj = g => !!g && g.kind === "project";
+  const I_PROFILE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="10" r="3.2"/><path d="M6.2 18.4c1.3-2.2 3.4-3.4 5.8-3.4s4.5 1.2 5.8 3.4"/></svg>';
   function listView(){
     const gOrd = (() => { try { return JSON.parse(localStorage.getItem("studyboard:grpOrder") || "[]"); } catch (e) { return []; } })();
     const gs = S.groups ? S.groups.slice().sort((a, b) => { const ia = gOrd.indexOf(a.id), ib = gOrd.indexOf(b.id); return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib); }) : S.groups;
     const cards = (gs || []).map(g => {
       const ms = S.members[g.id] || [], ch = S.changed[g.id] || 0;
-      const meta = [isProj(g) ? "Group Project" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
+      const meta = [isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group", plural(ms.length, "Member"), isOwner(g) ? "You Own It" : ""].filter(Boolean).join(" · ");
       const pill = isProj(g) && g.project_due ? `<span class="g2-pill due">Due ${esc(fmtShort(g.project_due))}</span>` : ch ? `<span class="g2-pill grp-upd">${plural(ch, "Update")} for Your Copies</span>` : "";
       return `<article class="grp-card g2-card k-${isProj(g) ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" data-sort-id="${esc(g.id)}" style="--c:${esc(grpColor(g))}">
         <button class="grp-main" data-act="grp-open" data-id="${esc(g.id)}">
-          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : "Study Group"))}</span></span>
+          <span class="g2-band"><span class="g2-kick">${esc(g.course || (isProj(g) ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"))}</span></span>
           <span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
           <span class="grp-name">${esc(g.name)}</span>
           <span class="g2-meta">${esc(meta)}</span>
@@ -1156,7 +1164,10 @@
         </button></article>`;
     }).join("");
     const name = S.name || (() => { try { return localStorage.getItem(NAMEK()); } catch(e) { return ""; } })();
-    return `<div class="view-head" data-grp-list><h2>Groups</h2></div>
+    // Profile (the name and picture classmates see), beside Friends at the top
+    const prof = `<button type="button" class="btn small grp-prof-btn" data-act="grp-name" title="${esc(name ? `Classmates see you as ${name}` : "Choose the name classmates see")}" aria-label="Profile${name ? `: classmates see you as ${esc(name)}` : ""}">${I_PROFILE}<span>Profile</span></button>`;
+    return `<div class="view-head" data-grp-list><h2>Groups</h2>${fire("groupsHead").filter(x => typeof x === "string").join("")}${prof}</div>
+      ${fire("groupsTop").filter(x => typeof x === "string").join("")}
       ${S.err ? errBox(S.err, S.setup) : offlineLine()}
       ${outHtml("")}
       ${gs == null ? (S.err ? "" : `<p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> Loading your groups…</p>`)
@@ -1166,8 +1177,7 @@
         <p class="hint-line">Kept for 30 days with everything in them. Restoring brings a group back for all its members.</p>
         <ul class="grp-list">${S.binned.map(b => `<li class="grp-item"><div class="grp-item-main"><b>${esc(b.name)}</b><span class="mini">Deleted ${esc(fmtShort(String(b.deleted_at).slice(0, 10)))} · gone for good after ${esc(fmtShort(String(b.purge_at).slice(0, 10)))}</span></div>
           <div class="grp-item-btns"><button class="btn small" data-act="grp-restore" data-id="${esc(b.id)}">Restore</button></div></li>`).join("")}</ul></section>` : ""}
-      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>
-      <p class="hint-line">${name ? `Classmates see you as <b>${esc(name)}</b>. <button class="link-btn" data-act="grp-name">${window.SBUNAME && SBUNAME.live && SBUNAME.live() ? "Edit Profile" : "Change"}</button>` : `You'll pick the name classmates see the first time you share or join.`}</p>`;
+      <section class="grp-shares" id="grpShares">${sharesHtml()}</section>`;
   }
   function sharesHtml(){
     const list = S.shares;
@@ -1309,8 +1319,8 @@
     const bits = [plural(ms.length, "Member")].concat(proj ? (GTL.isDay(g.project_due) ? ["Due " + fmtShort(g.project_due)] : [])
       : [[n("deck"), "Deck", "Decks"], [n("quiz"), "Quiz", "Quizzes"], [n("qa"), "Question", "Questions"], [n("task"), "Deadline", "Deadlines"]].filter(x => x[0]).map(x => plural(x[0], x[1], x[2])));
     return `<div class="deck-head grp-head g2-head k-${proj ? "project" : "study"}${iconKey(g) ? " has-ic" : ""}" id="grpHead" style="--c:${esc(grpColor(g))}">
-      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : "Study Group"}</span>
-        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
+      <div class="g2-band"><span class="g2-kick">${proj ? "Group Project" : isHub(g) ? "Course Hub" : "Study Group"}</span>
+        <div class="row-actions">${proj || !featOn(g, "together") ? "" : `<button class="btn g2-session" data-act="room-start">Study Together Now</button>`}${isHub(g) ? "" : `<button class="btn primary" data-act="grp-invite" data-id="${esc(g.id)}">${proj ? "Invite Teammates" : "Invite Classmates"}</button>`}${isOwner(g) ? `<button class="btn" data-act="grp-edit" data-id="${esc(g.id)}" aria-label="${proj ? "Edit project" : "Edit group"}">Edit</button>` : `<button class="btn" data-act="grp-leave" data-id="${esc(g.id)}" aria-label="Leave group">Leave</button>`}</div></div>
       <div class="g2-low"><span class="g2-ring" aria-hidden="true">${ringIcon(g)}</span>
         <div class="g2-txt"><h2>${esc(g.name)}</h2>
           <div class="g2-meta">${g.course ? `<span class="g2-code">${esc(g.course)}</span>` : ""}<span class="grp-avs">${ms.slice(0, 8).map(m => av(m.display_name, m.user_id)).join("")}${ms.length > 8 ? `<span class="grp-av more">+${ms.length - 8}</span>` : ""}</span><span>${esc(bits.join(" · "))}</span></div>
@@ -2091,7 +2101,7 @@
 </li>`; };
     const DOT = {todo: "#8A94A6", doing: "#2C55D6", done: "#1E9E74"};
     const col = (k, label, list, empty) => `<section class="kb-col k-${k}" data-kbcol="${k}" aria-label="${label}, ${list.length}" style="--sc:${DOT[k]}"><h4><span class="sd" aria-hidden="true"></span>${label}<small>${list.length}</small></h4><ul>${list.map(card).join("") || `<li class="kb-none">${empty}</li>`}</ul></section>`;
-    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Done", cols.done, "Nothing finished yet")}</div>`;
+    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Complete", cols.done, "Nothing finished yet")}</div>`;
   }
 
   /* Q&A board (study groups) */
@@ -2311,10 +2321,10 @@
 
   /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
-  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Complete"]];
   const PT_BFILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
-  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Done"]];
+  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Complete"]];
   const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, view: "list", busy: false, err: "", setup: false});
   const ptX = gid => { const x = S.pt[gid]; return x && x.ok ? x : null; };
   const ptTaskOf = id => { for (const k in S.pt) { const t = (S.pt[k].tasks || []).find(x => x.id === id); if (t) return t; } return null; };
@@ -2334,7 +2344,7 @@
     const me = myId(), done = t.status === "done", late = !done && GTL.due(t.due_at, today).late, ms = S.members[g.id] || [];
     const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
-    const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
+    const mini = done ? `Completed${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
     const pend = t._out || outPend(g.id, o => o.task === t.id);
     return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
@@ -2716,7 +2726,7 @@
       case "grp-pt-view": if (x) { x.view = el.dataset.v === "board" ? "board" : "list"; ptRefresh(g.id); } return true;
       case "grp-pt-status": { const t = x && x.tasks.find(k => k.id === id); if (t && !t._tmp && PT_STATUS.some(k => k[0] === el.dataset.s)) ptMutate(g.id, id, {status: el.dataset.s}); return true; }
       case "grp-pt-plan": if (g && isProj(g)) planSheet(g); return true;
-      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true), 40); return true;
+      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true, {feature: "Start From a Plan", alt: {text: "add the project's tasks one at a time.", label: "Add a Task", act: "grp-pt-new"}}), 40); return true;
       case "grp-pt-new": if (g && isProj(g)) ptAddSheet(g); return true;
       case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
       case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
@@ -2787,19 +2797,22 @@
     d.started = true;
     sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
-    d.dx = d.x - r.left; d.dy = d.y - r.top;
+    d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
-    document.body.appendChild(gh); d.ghost = gh; d.el.classList.add("kb-lifted");
+    document.body.appendChild(gh); d.ghost = gh;
+    // as on the Task Board: the card leaves a gap where it will land, which moves as it's carried and the other cards make room
+    const ph = document.createElement("li"); ph.className = "kb-ph sm-skip"; ph.setAttribute("aria-hidden", "true"); ph.style.height = r.height + "px";
+    d.el.after(ph); d.el.classList.add("kb-lifted"); d.ph = ph; d.hCol = d.el.closest(".kb-col");
     const kb = d.el.closest(".kb"); if (kb) kb.classList.add("kb-dragging");
     kbTick();
   }
   function kbCol(x, y){ const u = document.elementFromPoint(x, y), c = u && u.closest && u.closest("#grpPT .kb-col"); return c || null; }
   function kbTick(){
     const d = kbDrag; if (!d || !d.started) return;
-    d.ghost.style.transform = `translate(${d.x - d.dx - parseFloat(d.ghost.style.left)}px, ${d.y - d.dy - parseFloat(d.ghost.style.top)}px) rotate(2deg)`;
+    d.ghost.style.translate = (d.x - d.dx - d.gl) + "px " + (d.y - d.dy - d.gt) + "px";
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
-    if (c) c.classList.add("over");
+    if (c) { c.classList.add("over"); if (d.hCol && d.hCol !== c) sbHaptic("tick"); d.hCol = c; kbPlace(d, c); }
     kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
   }
@@ -2819,17 +2832,68 @@
     const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
     if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
+  /* Motion, the same as the Task Board's (01-events.js bfPlay, bfLanded): cards that change places slide there, and on a drop the
+     card glides from the finger into its slot */
+  const KB_EASE = "cubic-bezier(.2,.8,.2,1)";
+  const kbStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+  const kbCards = () => [...document.querySelectorAll("#grpPT .kb-card[data-id]:not(.kb-lifted)")];
+  function kbRects(){ const m = new Map(); if (kbStill()) return m; kbCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+  function kbSlide(before, skip){
+    if (!before.size) return;
+    kbCards().forEach(c => {
+      const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+      const b = c.getBoundingClientRect(); if (!b.width) return;
+      const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: 260, easing: KB_EASE});
+    });
+  }
+  // The column's own order (GTL.order) decides where a card goes, so the gap opens where the card will really land
+  const kbTo = (d, col) => col === "doing" ? (d.from === "doing" || d.from === "review" ? d.from : "doing") : col;
+  function kbPlace(d, c){
+    const x = ptX(ui.grp), list = c.querySelector("ul"); if (!x || !list || !d.ph) return;
+    const col = c.dataset.kbcol, moved = x.tasks.map(t => t.id === d.id ? Object.assign({}, t, {status: kbTo(d, col)}) : t);
+    const order = (GK.board(moved)[col] || []).map(t => t.id), at = order.indexOf(d.id); if (at < 0) return;
+    const others = [...list.querySelectorAll(":scope > .kb-card[data-id]")].filter(n => n !== d.el), before = others[at] || null;
+    const next = n => { let m = n.nextElementSibling; while (m && m === d.el) m = m.nextElementSibling; return m; };
+    if (d.ph.parentNode === list && (before ? next(d.ph) === before : !next(d.ph) || !next(d.ph).matches(".kb-card[data-id]"))) return;
+    const was = kbRects();
+    if (before) list.insertBefore(d.ph, before); else list.appendChild(d.ph);
+    list.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = true; });
+    if (d.lastList && d.lastList !== list && !d.lastList.querySelector(".kb-card[data-id]:not(.kb-lifted)")) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
+    d.lastList = list;
+    kbSlide(was);
+    if (d.ph.animate && was.size) d.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: KB_EASE});
+  }
+  function kbLand(id, ghost, before){
+    const gr = ghost && ghost.isConnected ? ghost.getBoundingClientRect() : null;
+    kbSlide(before, id);
+    if (ghost) ghost.remove();
+    const el = document.querySelector(`#grpPT .kb-card[data-id="${CSS.escape(id)}"]`);
+    if (!el || !gr || !el.animate || kbStill()) return;
+    const f = el.getBoundingClientRect(); if (!f.width) return;
+    const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+    el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+    const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+      {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+    a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+  }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);
     if (!d.started) { kbDrag = null; return; }
-    const c = ok ? kbCol(d.x, d.y) : null, to = c ? c.dataset.kbcol : "";
-    if (d.ghost) d.ghost.remove(); d.el.classList.remove("kb-lifted");
+    // it lands where its gap is (as on the Task Board), so a drop between columns or just past one still goes where it showed
+    const c = ok ? ((d.ph && d.ph.closest("#grpPT .kb-col")) || kbCol(d.x, d.y)) : null, col = c ? c.dataset.kbcol : "", to = col ? kbTo(d, col) : "";
+    if (ok) sbHaptic("drop", {force: true});
+    const before = kbRects();
+    if (d.ph) d.ph.remove(); d.el.classList.remove("kb-lifted");
+    if (d.lastList) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
     $$("#grpPT .kb-col.over").forEach(k => k.classList.remove("over")); const kb = d.el.closest(".kb"); if (kb) kb.classList.remove("kb-dragging");
     d.justDragged = true; kbDrag = d; setTimeout(() => { if (kbDrag === d) kbDrag = null; }, 350);
     d.started = false;
     const g = groupOf(ui.grp);
+    // the board redraws at once (ptMutate, then swapPT), then the card glides from where it was let go into its new slot
     if (g && to && to !== d.from && PT_STATUS.some(k => k[0] === to)) ptMutate(g.id, d.id, {status: to});
     else if (g && d.dirty) ptRefresh(g.id);
+    kbLand(d.id, d.ghost, before);
   }
   document.addEventListener("pointermove", e => {
     const d = kbDrag; if (!d || d.justDragged || e.pointerId !== d.pid) return;
@@ -3085,10 +3149,11 @@
 
   /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
-  function needOnline(){
+  // title: what needs the account ("Study Groups Need a Free Account"); sharing by default
+  function needOnline(title){
     if (online()) return true;
     const local = !sbConfig();
-    openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
+    openSheet(`<div class="sheet">${head(title || "Sharing Needs a Studyboard Account")}<div class="sheet-body">
       <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
@@ -3117,7 +3182,7 @@
           <p style="margin:0">Make a link and short code for this deck. Anyone with the link can open it in a browser, no account needed, and add a copy. They get your cards, not your progress.</p>
           ${qBox}${picNote(d, "link")}${rightsBox()}
           <p class="mini" style="margin:0">They'll see your name as <b>${esc(S.name || "")}</b>. You can update the shared copy or stop sharing any time.</p></div>
-          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
+          <div class="sheet-foot"><button type="button" class="btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<span class="spacer"></span><button type="button" class="btn primary" data-submit id="grpMake">Create Link</button></div></form>`, () => {
           if (!rightsOk()) return false;
           const wq = !!($("#grpWithQ") || {}).checked;
           doShare(d, wq, $("#grpMake")); return false;
@@ -3133,7 +3198,7 @@
         ${window.SBSHARE ? SBSHARE.libRow(d, row.code) : ""}
         ${changed ? `<div class="grp-note">You've changed this deck since you shared it. Update the shared copy so new people get the latest cards.</div>` : ""}
         ${qBox}${picNote(d, "link")}${changed ? rightsBox() : ""}
-        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button><button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
+        <div class="grp-sub"><button type="button" class="link-btn" data-act="grp-file-deck" data-id="${esc(d.id)}">Share as File</button>${window.SBFSHARE ? `<button type="button" class="link-btn" data-act="fs-send" data-kind="deck" data-ref="${esc(d.id)}">Send to Friends</button>` : ""}<button type="button" class="link-btn grp-stop" id="grpStop">Stop Sharing</button></div></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn${changed ? " primary" : ""}" id="grpUpd"${changed ? "" : " hidden"}>Update Shared Copy</button>${changed ? "" : `<button type="button" class="btn primary" id="grpSend">Send</button>`}</div></form>`);
       // nothing changed: Update appears only if the practice-quiz choice is changed
       const wqBox = $("#grpWithQ"); if (wqBox && !changed) wqBox.addEventListener("change", () => { $("#grpUpd").hidden = wqBox.checked === withQ; });
@@ -3543,7 +3608,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
   // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
   window.SBGRPNEW = (name, project) => {
-    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+    try { if (typeof needOnline === "function" && !needOnline("Study Groups Need a Free Account")) return false; newGroupSheet(null);
       setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
         if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
@@ -3608,7 +3673,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
       case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
-          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          ${window.SBFSHARE && SBFSHARE.menuOpt ? SBFSHARE.menuOpt() : ""}<button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
         </div></div></div>`); return true;
@@ -3618,13 +3683,13 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
         S.groups = null; loadGroups(); })(); return true;
       case "grp-import": importDeckFile(); return true;
-      case "grp-name": if (needOnline()) nameSheet(false, null); return true;
+      case "grp-name": if (needOnline("Your Name Needs a Free Account")) nameSheet(false, null); return true;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
-      case "grp-new": if (needOnline()) newGroupSheet(null); return true;
+      case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-more-feats": { const gg = groupOf(id); if (!gg || !isOwner(gg)) return true; newGroupSheet(gg); setTimeout(() => { const f = dlg.querySelector(".grp-feats"); if (f) f.scrollIntoView({block: "start", behavior: "smooth"}); }, 60); return true; }
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
-      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, "You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. You can rejoin with the invite code.", "Leave Group", async () => {
+      case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
       case "grp-member-del": { const m = g && (S.members[g.id] || []).find(x => x.user_id === id); if (!m) return true;
         confirmSheet(`Remove ${m.display_name || "This Member"}?`, `They'll stop seeing ${g.name}. What they shared stays unless you remove it. They could rejoin with the invite code, so make a new code in Edit Group if needed.`, "Remove", async () => {
@@ -3678,7 +3743,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
         if (!online()) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Sign in to share ${deck ? "decks" : "quizzes"}`); return true; }
         if (S.groups == null && !el.dataset.tried) { el.dataset.tried = "1"; loadGroups(true).then(() => { if (el.isConnected) el.click(); }).catch(() => {}); return true; }
         if (!gs.length) { if (window.SBSHARE) SBSHARE.shareRef(deck ? "deck" : "quiz", ref); else toast(`Join or start a study group to share ${deck ? "decks" : "quizzes"}`, null, {label: "Study Groups", fn: () => openGroup(null)}); return true; }
-        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
+        const friendRow = window.SBFSHARE ? `<button type="button" data-act="fs-send" data-kind="${deck ? "deck" : "quiz"}" data-ref="${esc(ref)}"><span><b>Your Friends</b><span class="sub">Send it straight to friends, no code needed</span></span></button>` : "";
+        openSheet(`<div class="sheet">${head(deck ? "Share Deck" : "Share Quiz")}<div class="sheet-body"><div class="menu-list">${window.SBSHARE ? linkRow : ""}${friendRow}${gs.map(x => `<button type="button" data-act="qz-share-to" data-id="${esc(x.id)}" data-ref="${esc(ref)}" data-kind="${deck ? "deck" : "quiz"}"><span><b>${esc(x.name)}</b>${x.course ? `<span class="sub">${esc(x.course)}</span>` : ""}</span></button>`).join("")}</div></div></div>`);
         return true;
       }
       case "qz-share-to": { const gg = groupOf(el.dataset.id); if (gg) (el.dataset.kind === "deck" ? shareDeckToGroupSheet(gg, el.dataset.ref) : shareQuizSheet(gg, el.dataset.ref)); return true; }
@@ -4025,9 +4091,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
     let cur = ""; try { cur = (window.SBCOMP && SBCOMP.current && SBCOMP.current()) || ""; } catch(e) {}
     if (!/^[a-z0-9-]{1,40}$/.test(cur)) cur = "";
     const mine = Object.values(S.members).flat().filter(m => m && m.user_id === myId());
-    if (!mine.length || !mine.some(m => "face" in m) || faceSent === cur || mine.every(m => (m.face || "") === cur)) return;
+    // also kept on your profile, so friends you share no group with see it: sent once per change, even with no groups
+    const PK = "studyboard:faceSent:" + myId(), prof = (() => { try { return localStorage.getItem(PK); } catch(e) { return null; } })();
+    const groupsOk = !mine.length || !mine.some(m => "face" in m) || mine.every(m => (m.face || "") === cur);
+    if (faceSent === cur || (groupsOk && prof === cur)) return;
     faceSent = cur;
-    api.setFace(cur).then(() => mine.forEach(m => { m.face = cur || null; })).catch(() => { faceSent = null; });
+    api.setFace(cur).then(() => { mine.forEach(m => { m.face = cur || null; }); try { localStorage.setItem(PK, cur); } catch(e) {} }).catch(() => { faceSent = null; });
   }
   hook("render", tab => { if (tab === "groups") setTimeout(syncMyFace, 1200); });
   async function gxLoad(ids){
@@ -4647,7 +4716,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(), known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
+  window.SBGROUPS = {myName: () => myFirst(), navBadge: () => updateNavBadge(),
+    // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
+    openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time
     // visitor sees what was shared first, then the welcome and setup
     sharePending: () => { const p = takePending(); return !!p && (p.kind === "deck" || p.kind === "share") && !!window.SBSHARE && SBSHARE.can(); }};
@@ -4657,9 +4728,9 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // members of a group (for who has a shared whiteboard) and the groups you're in
     members: gid => (S.members[gid] || []).map(m => ({id: m.user_id, name: m.display_name || "", color: m.color || ""})),
     // a member's picture as the group shows it (their companion in their colour, or initials)
-    avatar: (gid, id, name) => av(name, id, gid),
+    avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
-    profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
+    profile: () => { if (needOnline("Your Name Needs a Free Account")) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
     hue: (gid, id, name) => memberHue(gid, id, name),
     // open a group on its Whiteboards tab

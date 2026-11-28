@@ -68,7 +68,8 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
         await tab(p, "courses");
         const cards = await p.evaluate(() => [...document.querySelectorAll("#view .c2-card")].map(c => { const r = c.getBoundingClientRect(), ring = c.querySelector(".c2-ring").getBoundingClientRect(), vis = s => { const e = c.querySelector(s); return !!e && e.getBoundingClientRect().height > 0; }; return {h: r.height, ring: [ring.width, ring.height], code: vis(".c2-code"), mini: vis(".c2-mini"), prog: vis(".body > .prog"), next: vis(".next"), act: c.dataset.act}; }));
         ok(cards.length === 5 && cards.every(c => c.h <= 112 && c.ring[0] === 48 && c.code && c.mini && !c.prog && c.next && c.act === "open-course"), `08 (${tag}): five compact cards with a 48px ring, code, Next line and a mini progress bar: ` + JSON.stringify(cards[0]));
-        ok(await p.evaluate(() => { const c = document.querySelector("#view .c2-card"), b = c.querySelector(".c2-band").getBoundingClientRect(); return b.width <= 8 && b.height > 60; }), `08 (${tag}): the colour band is a stripe down the side`);
+        const band = await p.evaluate(() => { const c = document.querySelector("#view .c2-card"), cr = c.getBoundingClientRect(), b = c.querySelector(".c2-band").getBoundingClientRect(), r = c.querySelector(".c2-ring").getBoundingClientRect(); return {left: b.left - cr.left, w: b.width, h: b.height, card: cr.width, ringMid: r.left + r.width / 2 - b.right}; });
+        ok(band.left <= 2 && band.h > 60 && band.w < band.card / 4 && Math.abs(band.ringMid) <= 2, `08 (${tag}): the colour band is a stripe down the side, reaching to the middle of the ring: ` + JSON.stringify(band));
         await p.click("#view .c2-card"); await wait(400);
         ok(await p.evaluate(() => !!document.querySelector("#view .c2-head")), `08 (${tag}): tapping a card still opens the course`);
         await noOverflow(p, `08 (${tag})`);
@@ -78,9 +79,11 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 09 Settings as one grouped list, 11 header, 12 segmented */
       {
         const {ctx, p} = await open(browser, {dark});
+        const head = () => p.evaluate(() => { const h = document.querySelector("header.top"), r = h.getBoundingClientRect(); return {on: document.body.classList.contains("sb-scrolled"), top: Math.round(r.top), h: Math.round(r.height), date: Math.round(document.getElementById("todayLabel").getBoundingClientRect().height), logo: Math.round(h.querySelector(".brand").getBoundingClientRect().width)}; });
+        const atTop = await head();
         await p.evaluate(() => scrollTo(0, 600)); await wait(400);
-        const hd = await p.evaluate(() => { const h = document.querySelector("header.top"), s = h.querySelector(".top-sec"), bg = getComputedStyle(h).backgroundColor; return {on: document.body.classList.contains("sb-scrolled"), sec: s && s.textContent, secVis: !!s && s.getBoundingClientRect().width > 0, date: document.getElementById("todayLabel").getBoundingClientRect().height, logo: h.querySelector("img.logo").getBoundingClientRect().width, line: getComputedStyle(h).borderBottomWidth, bg}; });
-        ok(hd.on && hd.secVis && hd.sec === "Today's Plan" && hd.date === 0 && hd.logo < 110 && hd.line === "1px", `11 (${tag}): scrolled, the header shows a small logo and the page name instead of the date: ` + JSON.stringify(hd));
+        const hd = await head();
+        ok(!hd.on && hd.top === 0 && hd.date > 0 && hd.logo > 110 && JSON.stringify(hd) === JSON.stringify(atTop), `11 (${tag}): scrolled, the header stays pinned and looks the same as at the top, logo and date included: ` + JSON.stringify({atTop, hd}));
         await p.evaluate(() => scrollTo(0, 0)); await wait(300);
         ok(await p.evaluate(() => !document.body.classList.contains("sb-scrolled") && document.getElementById("todayLabel").getBoundingClientRect().height > 0), `11 (${tag}): at the top the date is back`);
         await p.evaluate(() => [...document.querySelectorAll("#view .bview-tabs button")].find(b => /Task Board/.test(b.textContent)).click()); await wait(400);
@@ -122,13 +125,16 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
       /* 15 first-run welcome */
       {
         const {ctx, p} = await open(browser, {dark, fresh: true});
-        await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
-        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector("#sbSignUp").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
-        ok(/Hi! I'm Mochi\.\s*Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Sign Up and I Already Have an Account: ` + JSON.stringify(w));
+        await p.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
+        const w = await p.evaluate(() => { const d = document.querySelector("dialog[open] .sb-welc"); return {h: d.querySelector("h3").textContent + " " + (d.querySelector("h3 + p") || {}).textContent, li: d.querySelectorAll("li").length, mochi: !!d.querySelector(".sb-welc-m svg"), alt: (d.querySelector('[data-sbm="signin"]') || {}).textContent, go: d.querySelector(".sb-welc-skip").getBoundingClientRect().height, email: !!document.querySelector("dialog[open] input[name=email]")}; });
+        ok(/Hi! I'm Mochi\.\s*What are you studying\? Let's plan your semester\./.test(w.h) && w.li === 3 && w.mochi && w.alt === "I Already Have an Account" && w.go >= 48 && !w.email, `15 (${tag}): a first-time student sees Mochi, three points, Plan My Semester and I Already Have an Account: ` + JSON.stringify(w));
         await noOverflow(p, `15 (${tag})`);
-        await p.click("dialog[open] #sbSignUp");
+        // (no Sign Up on the welcome any more: an account is made from I Already Have an Account > Create Account)
+        ok(!(await p.locator("dialog[open] .sb-welc [data-sbm=signup]").count()), `15 (${tag}): the welcome has no Sign Up link`);
+        await p.click('dialog[open] .sb-welc [data-sbm="signin"]'); await p.waitForTimeout(400);
+        await p.click('dialog[open] [data-sbm="signup"]');
         await p.waitForSelector("dialog[open] form.sb-acct[data-mode=signup] input[name=email]", {timeout: 8000});
-        ok(!(await p.locator("dialog[open] #sbLater").count()), `15 (${tag}): Sign Up opens the sign-up form, with no Use Without an Account link`);
+        ok(!(await p.locator("dialog[open] #sbLater").count()), `15 (${tag}): Create Account opens the sign-up form, with no Use Without an Account link`);
         await p.click('dialog[open] .sheet-head [data-act="close"]');
         await p.waitForSelector(".sheet.ob", {timeout: 8000});
         ok(await p.evaluate(() => localStorage.getItem("studioso:sb") === '"local"' && !!localStorage.getItem("studioso:welcomed") && SBGUEST.is()), `15 (${tag}): closing it works on this device and starts the welcome setup`);
@@ -146,7 +152,7 @@ const noOverflow = async (p, tag) => ok(await p.evaluate(() => document.document
     /* 15 on a computer, and I Already Have an Account */
     {
       const {ctx, p} = await open(browser, {w: 1280, fresh: true});
-      await p.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+      await p.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
       const d = await box(p, "dialog[open] .sb-acct");
       const mid = await p.evaluate(() => document.documentElement.clientWidth / 2);
       ok(d && Math.abs(d.x + d.w / 2 - mid) <= 10 && d.w < 700, "15 (1280): the welcome is a centred card: " + JSON.stringify(d));

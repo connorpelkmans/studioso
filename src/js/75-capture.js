@@ -156,7 +156,9 @@ const CAP = (() => {
       if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
       if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
+    // "next week" with no day: the Monday it starts (the earliest it could be), flagged so the date is checked before it's added
+    take(/\bnext\s+week\b/i, () => { out.due = weekdayDate(today, 1, "next"); out.flags.push("week"); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -165,6 +167,10 @@ const CAP = (() => {
 
   /* courses */
   const alnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Everyday names for a subject: "orgo" for Organic Chemistry, "english" for ENGL, "chemistry" for CHEM (l: the code's letters, n: the name)
+  const NICK = [[/^(orgo|ochem)$/, (l, n) => /organic/.test(n)], [/^english$/, (l, n) => /^eng/.test(l) || /english/.test(n)], [/^chemistry$/, l => /^chem/.test(l)], [/^biology$/, l => /^bio/.test(l)],
+    [/^psychology$/, l => /^psy/.test(l)], [/^physics$/, l => /^phys/.test(l)], [/^(economics|econ)$/, l => /^ec/.test(l)], [/^history$/, l => /^hist/.test(l)], [/^(math|maths)$/, l => /^math/.test(l)],
+    [/^spanish$/, l => /^span/.test(l)], [/^french$/, l => /^fr/.test(l)], [/^(stats|statistics)$/, l => /^stat/.test(l)], [/^(philosophy|philo)$/, l => /^phil/.test(l)], [/^sociology$/, l => /^soc/.test(l)]];
   // Finds the course a sentence mentions
   function matchCourse(text, courses){
     const low = String(text || "").toLowerCase(), words = low.match(/[a-z]+|\d+/g) || [];
@@ -182,6 +188,7 @@ const CAP = (() => {
         const nameW = String(c.name || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !["intro", "introduction", "principles", "fundamentals", "with", "and", "topics", "advanced", "general"].includes(w));
         const w = words.find(x => x.length >= 4 && nameW.some(n => n.startsWith(x) || x.startsWith(n))); if (w) { s = 2; used = [w]; }
       }
+      if (s < 2.6) { const nm = String(c.name || "").toLowerCase(), w = words.find(x => NICK.some(([re, ok]) => re.test(x) && ok(letters, nm))); if (w) { s = 2.6; used = [w]; } }
       if (s >= 2) scored.push({course: c, score: s, used});
     });
     if (!scored.length) return null;
@@ -189,6 +196,141 @@ const CAP = (() => {
     const top = scored.filter(x => x.score === scored[0].score);
     if (top.length > 1) return {course: null, ambiguous: top.map(x => x.course.id), used: [], score: scored[0].score};
     return {course: scored[0].course, ambiguous: null, used: scored[0].used, score: scored[0].score};
+  }
+
+  /* repeats: "every monday", "every other thu", "weekdays until dec 12", "every 2 weeks fri", "daily", "mon wed fri", "MWF", "TTh"
+     A rule is {every: days between ("1", "7", "14", "21"...) or "m" (monthly), days: [weekdays, 0 = Sunday], until: "YYYY-MM-DD" | "", label}.
+     every and until mean what the New Task form's Repeat and Repeat Until fields mean; days adds the weekdays a rule falls on.
+     Anything unclear ("biweekly", "every chapter", "Everything Bagel essay") is left in the sentence. */
+  const WDNAME = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], WDSHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const MONSHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const NUMR = "\\d{1,2}|two|three|four|five|six|seven|eight|nine|ten";
+  const numOf = w => NUMW[String(w).toLowerCase()] || Number(w) || 0;
+  // one weekday word, singular or plural ("mon", "Tuesdays", "thurs")
+  const WD1 = `(?:(?:sun|mon|tues|wednes|thurs|fri|satur)days|${WDRE})(?![a-z])`;
+  const wdIndex = w => { const x = String(w).toLowerCase().replace(/\.$/, ""); let k = WD.findIndex(a => a.includes(x)); if (k < 0 && /days$/.test(x)) k = WD.findIndex(a => a.includes(x.slice(0, -1))); return k; };
+  // a run of weekday words: "mon wed fri", "Mon, Wed and Fri", "tue/thu", "tuesdays and thursdays"
+  const WDSEQ = `${WD1}\\.?(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1}\\.?)*`;
+  const seqDays = s => { const out = []; (String(s).match(new RegExp(WD1, "gi")) || []).forEach(w => { const k = wdIndex(w); if (k >= 0 && !out.includes(k)) out.push(k); }); return out; };
+  // letter codes from timetables: MWF, TTh, M/W/F, T/Th, MTWRF; MW, WF and TR only in capitals
+  const CODES = {mwf: [1, 3, 5], tth: [2, 4], tuth: [2, 4], mtwrf: [1, 2, 3, 4, 5], mtwthf: [1, 2, 3, 4, 5], "m/w/f": [1, 3, 5], "m/w": [1, 3], "t/th": [2, 4], "tu/th": [2, 4], "tu/thu": [2, 4], "tue/thu": [2, 4]};
+  const CODES_UP = {MW: [1, 3], WF: [3, 5], TR: [2, 4]};
+  const monOrder = d => (d + 6) % 7;
+  const sortDays = a => a.slice().sort((x, y) => monOrder(x) - monOrder(y));
+  const andList = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+  const dateLabel = (s, from) => { const [y, m, d] = parts(s); return `${MONSHORT[m - 1]} ${d}${from && diff(from, s) > 300 ? ", " + y : ""}`; };
+  function ruleLabel(r, from){
+    const days = sortDays(r.days || []), ev = r.every, k = ev === "m" ? 0 : Number(ev);
+    let t;
+    if (days.length) {
+      const names = days.join() === "1,2,3,4,5" ? "weekday" : days.join() === "6,0" ? "weekend" : days.length === 1 ? WDNAME[days[0]] : andList(days.map(d => WDSHORT[d]));
+      t = k === 7 ? `Every ${names}` : k === 14 ? `Every other ${names}` : `Every ${k / 7} weeks on ${names}`;
+    } else t = ev === "m" ? "Every month" : k === 1 ? "Every day" : k === 2 ? "Every other day" : k === 7 ? "Every week" : k % 7 === 0 ? `Every ${k / 7} weeks` : `Every ${k} days`;
+    return t + (r.until ? " until " + dateLabel(r.until, from) : "");
+  }
+  // The first day a rule falls on, on or after from
+  function repeatFirst(r, from){
+    if (!r || !(r.days || []).length || !validISO(from)) return from;
+    for (let i = 0; i < 7; i++) { const d = addDays(from, i); if (r.days.includes(dow(d))) return d; }
+    return from;
+  }
+  // Every date of a rule from first (included) to until, at most max
+  function ruleDates(r, first, until, max){
+    max = max || 121; const out = [];
+    if (!r || !validISO(first) || !validISO(until) || until < first) return validISO(first) ? [first] : [];
+    const days = (r.days || []).length ? r.days : null;
+    if (!days) {
+      if (r.every === "m") {
+        const [y, m, d] = parts(first);
+        for (let n = 0; n < max; n++) { const mm = m - 1 + n, yy = y + Math.floor(mm / 12), mo = mm % 12 + 1, last = new Date(Date.UTC(yy, mo, 0)).getUTCDate(), x = isoOf(yy, mo, Math.min(d, last)); if (x > until) break; out.push(x); }
+        return out;
+      }
+      const k = Math.max(1, Number(r.every) || 7);
+      for (let n = 0; n < max; n++) { const x = addDays(first, k * n); if (x > until) break; out.push(x); }
+      return out;
+    }
+    const k = Math.max(7, Number(r.every) || 7);
+    days.forEach(dd => { const s = addDays(first, (dd - dow(first) + 7) % 7); for (let n = 0; n < max; n++) { const x = addDays(s, k * n); if (x > until) break; out.push(x); } });
+    return out.sort().slice(0, max);
+  }
+  // Reads a repeat out of a sentence: {rule, rest} or null. today is "YYYY-MM-DD".
+  function readRepeat(text, today){
+    let s = " " + String(text || "") + " ", rule = null;
+    const take = (re, fn) => { if (rule) return false; const m = s.match(re); if (!m) return false; const r = fn(m); if (!r) return false; rule = r; s = s.slice(0, m.index) + " " + s.slice(m.index + m[0].length); return true; };
+    const ON = `(?:\\s+on)?\\s+(${WDSEQ})`;
+    const EVERY = "(?:every|each)";
+    // "every 2 weeks on fri", "every three weeks", "every 3 days", "every 2 months"
+    take(new RegExp(`\\b${EVERY}\\s+(${NUMR})\\s+(days?|weeks?|wks?|months?)\\b(?:${ON})?`, "i"), m => {
+      const n = numOf(m[1]), u = m[2].toLowerCase(); if (!n || n > 30) return null;
+      if (/^m/.test(u)) return n === 1 ? {every: "m", days: []} : null;
+      if (/^d/.test(u)) return m[3] ? null : {every: String(n), days: []};
+      if (n > 8) return null;
+      return {every: String(n * 7), days: m[3] ? seqDays(m[3]) : []};
+    }) ||
+    // "every other thu", "every other day", "every other week (on mon)"
+    take(new RegExp(`\\b${EVERY}\\s+other\\s+(?:(day)\\b|(week)\\b(?:${ON})?|(${WDSEQ}))`, "i"), m => m[1] ? {every: "2", days: []} : m[2] ? {every: "14", days: m[3] ? seqDays(m[3]) : []} : {every: "14", days: seqDays(m[4])}) ||
+    // "every day", "every weekday", "every weekend", "every week (on fri)", "every month", "every monday", "every mon and wed"
+    take(new RegExp(`\\b${EVERY}\\s+(?:(day)\\b|(weekdays?)\\b|(weekends?)\\b|(week)\\b(?:${ON})?|(month)\\b|(${WDSEQ}))`, "i"), m =>
+      m[1] ? {every: "1", days: []} : m[2] ? {every: "7", days: [1, 2, 3, 4, 5]} : m[3] ? {every: "7", days: [6, 0]} : m[4] ? {every: "7", days: m[5] ? seqDays(m[5]) : []} : m[6] ? {every: "m", days: []} : {every: "7", days: seqDays(m[7])}) ||
+    take(/\b(?:on\s+)?weekdays\b/i, () => ({every: "7", days: [1, 2, 3, 4, 5]})) ||
+    take(/\b(daily)\b/i, () => ({every: "1", days: []})) ||
+    take(new RegExp(`\\bweekly\\b(?:${ON})?`, "i"), m => ({every: "7", days: m[1] ? seqDays(m[1]) : []})) ||
+    take(/\b(fortnightly)\b/i, () => ({every: "14", days: []})) ||
+    take(/\b(monthly)\b/i, () => ({every: "m", days: []})) ||
+    // plural weekdays mean every week: "mondays", "tuesdays and thursdays"
+    take(new RegExp(`\\b(?:on\\s+)?((?:sun|mon|tues|wednes|thurs|fri|satur)days(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1})*)\\b`, "i"), m => ({every: "7", days: seqDays(m[1])})) ||
+    // two or more weekdays in a row: "mon wed fri", "tue/thu" (a capital "SAT" is the test, not Saturday)
+    take(new RegExp(`\\b(?:on\\s+)?(${WD1}\\.?(?:\\s*(?:,|\\/|&|\\+|\\band\\b)?\\s*${WD1}\\.?)+)(?![a-z])`, "i"), m => {
+      if (/\bSAT\b/.test(m[1])) return null;
+      const d = seqDays(m[1]); return d.length >= 2 ? {every: "7", days: d} : null;
+    }) ||
+    take(/(?:^|\s)(?:on\s+)?(mwf|tth|tuth|mtwrf|mtwthf|m\/w\/f|m\/w|t\/th|tu\/th|tu\/thu|tue\/thu)(?=\s|$|[,.;])/i, m => ({every: "7", days: CODES[m[1].toLowerCase()].slice()})) ||
+    take(/(?:^|\s)(?:on\s+)?(MW|WF|TR)(?=\s|$|[,.;])/, m => ({every: "7", days: CODES_UP[m[1]].slice()}));
+    if (!rule) return null;
+    rule.days = sortDays(rule.days);
+    // how long: "until dec 12", "till 1/15", "through the end of the month", "for 4 weeks"
+    rule.until = ""; rule.flags = [];
+    const DATE = `(?:(?:${WDRE})\\.?,?\\s+)?(?:(?:${MONRE})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,?\\s+20\\d\\d)?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${MONRE})(?:,?\\s+20\\d\\d)?|\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|20\\d\\d-\\d{1,2}-\\d{1,2}|(?:the\\s+)?end\\s+of\\s+(?:the\\s+)?(?:month|term|semester|year)|(?:next\\s+)?(?:${WDRE}))`;
+    const um = s.match(new RegExp(`\\b(?:until|till|til|thru|through|ending(?:\\s+on)?|ends(?:\\s+on)?)\\s+(${DATE})\\b`, "i"));
+    if (um) {
+      const w = um[1];
+      if (/term|semester/i.test(w)) rule.until = "";
+      else if (/end\s+of\s+(?:the\s+)?year/i.test(w)) rule.until = parts(today)[0] + "-12-31";
+      else {
+        const r = readWhen(w, today);
+        // a day already gone is a slip, not next year: it's left for the check
+        if (r.due && r.due >= today) rule.until = r.due; else rule.flags.push("date");
+      }
+      s = s.replace(um[0], " ");
+    } else {
+      const fm = s.match(new RegExp(`\\bfor\\s+(?:the\\s+next\\s+)?(${NUMR})\\s+(weeks?|wks?|months?)\\b`, "i"));
+      if (fm) { const n = numOf(fm[1]); if (n > 0 && n <= 30) { rule.forDays = /^m/i.test(fm[2]) ? n * 30 : n * 7; s = s.replace(fm[0], " "); } }
+    }
+    // "starting dec 1", "from monday": the date is the first one, the word goes
+    s = s.replace(new RegExp(`\\b(?:starting|beginning|from)(?:\\s+on)?(?=\\s+(?:next\\s+|this\\s+)?(?:${MONRE}|${WDRE}|\\d|today|tomorrow|tmrw)\\b)`, "i"), " ");
+    return {rule, rest: s.replace(/\s+/g, " ").trim()};
+  }
+
+  /* pages: "30 pages", "30pg", "pp. 45-80", "pages 12 to 40", "pages 30" */
+  // -> {pages, reading ("pp. 45–80" for a range), rest} or null
+  function readPages(text){
+    let s = " " + String(text || "") + " ";
+    let m = s.match(/(?:^|[\s,(])((?:pp\.?|pgs?\.?|pages?|p\.)\s*(\d{1,4})\s*(?:-|–|—|to|through|thru)\s*(\d{1,4}))\b/i);
+    if (m) {
+      const a = Number(m[2]); let b = Number(m[3]);
+      // "pp. 145-62" is 145 to 162
+      if (b < a && m[3].length < m[2].length) b = Number(m[2].slice(0, m[2].length - m[3].length) + m[3]);
+      if (a >= 1 && b >= a && b - a + 1 <= 2000) return {pages: b - a + 1, reading: `pp. ${a}–${b}`, rest: s.replace(m[1], " ").replace(/\s+/g, " ").trim()};
+      return null;
+    }
+    // "30 pages", "30pg", "a 30-page reading"; not the number of a chapter or unit ("chapter 4 pages 30" is 30 pages)
+    const NUMBERED = /\b(?:ch|chap|chapter|unit|section|sec|module|lecture|lec|week|wk|part|lesson|act|book|vol|volume)\.?\s*$/i;
+    m = null;
+    for (const x of s.matchAll(/\b((\d{1,4})\s*-?\s*(?:pages?|pgs?|pp)\b\.?)/gi)) if (!NUMBERED.test(s.slice(0, x.index))) { m = x; break; }
+    m = m || s.match(/\b(pages\s+(\d{1,4}))\b(?!\s*(?:-|–|—|to\b|through\b|thru\b|and\b|,))/i);
+    // ("read 5 pages of ch 2": the "of" goes with them)
+    if (m) { const n = Number(m[2]), at = s.indexOf(m[1]); if (n >= 1 && n <= 2000) return {pages: n, reading: "", rest: (s.slice(0, at) + " " + s.slice(at + m[1].length).replace(/^\s*of\b/i, "")).replace(/\s+/g, " ").trim()}; }
+    return null;
   }
 
   /* one sentence -> one draft */
@@ -213,18 +355,33 @@ const CAP = (() => {
     let s = " " + raw + " ";
     const um = s.match(/\bhttps?:\/\/[^\s<>"']+/i);
     if (um) { const l = safeLink(um[0]); if (l) { d.link = l; const li = lmsInfo(l); if (li) d.platform = li.platform; } s = s.replace(um[0], " "); }
+    // a repeat and a page count come out first, so their words and numbers are never read as a date ("every monday", "pp. 45-80").
+    // An exam never repeats (as in the New Task form), and pages only count for a reading (an essay's "5 pages" is how much to write)
+    const ty0 = guessType(s);
+    if (ty0 !== "Exam") { const rp = readRepeat(s.trim(), today); if (rp) { d.repeat = rp.rule; s = " " + rp.rest + " "; } }
+    if (!ty0 || ty0 === "Reading") { const pg = readPages(s.trim()); if (pg) { d.pages = pg.pages; if (pg.reading) d.reading = pg.reading; s = " " + pg.rest + " "; } }
     const w = readWhen(s.trim(), today, {termStart: ctx.termStart});
     d.due = w.due; d.time = w.time; d.hours = w.hours; d.weight = w.weight; d.priority = w.priority; w.flags.forEach(f => d.flags.push(f));
     s = " " + w.rest + " ";
     const ty = guessType(s); if (ty) { d.type = ty; d.typeGuess = true; }
+    else if (d.pages) { d.type = "Reading"; d.typeGuess = true; }
     if (MSG_RE.test(s) && d.hours == null) d.hours = 0.25;
+    // the first one is the first day the rule falls on, from the date given or today (today included)
+    if (d.repeat) {
+      const r = d.repeat; r.flags.forEach(f => { if (!d.flags.includes(f)) d.flags.push(f); }); delete r.flags;
+      if (validISO(today)) d.due = repeatFirst(r, d.due || today);
+      if (r.forDays) { if (d.due) r.until = addDays(d.due, r.forDays - 1); delete r.forDays; }
+      if (r.until && d.due && r.until < d.due) { r.until = ""; d.flags.push("date"); }
+      r.label = ruleLabel(r, today);
+    }
     const cm = matchCourse(s, ctx.courses);
     if (cm) {
       if (cm.ambiguous) d.flags.push("course");
       else {
         d.courseId = cm.course.id;
         const tok = cm.used.join("[\\s\\-]*"), codey = cm.used.some(u => /\d/.test(u));
-        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$`, "i"), " ");
+        // a course word leaves the title at its start or end, or right after "read", "study" or "review" ("read psych ch 14" is Read Chapter 14)
+        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$|(?<=^\\s*(?:read|study|review)\\s+)${tok}\\b`, "i"), " ");
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
@@ -491,7 +648,7 @@ const CAP = (() => {
   }
 
   return {TYPES, validISO, addDays, dow, diff, lastOfMonth, WEEKDAY_RULE, weekdayDate, clean, safeLink, lmsInfo, readWhen, matchCourse, parseLine, bareTime, score, splitLines, fromText, fromShare, normTitle, dupKey, dedupe, sanitizeDraft,
-    parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType};
+    parseUrl, rateLimiter, queuePush, SOURCES, TRUSTED_SOURCES, NATIVE_SOURCES, VISION_SCHEMA, SHOT_SCHEMA, SHOT_KINDS, visionSystem, shotSystem, visionUser, gateVision, datesIn, guessType, readRepeat, readPages, ruleDates, ruleLabel, repeatFirst};
 })();
 /* CAPTURE-END */
 
@@ -518,22 +675,41 @@ function mk(d){
   const type = TYPES.includes(d.type) ? d.type : "Assignment", due = isDate(d.due) ? d.due : "";
   let start = due ? addDays(due, -(SPAN[type] ?? 3)) : todayISO();
   if (start < todayISO()) start = todayISO(); if (due && start > due) start = due;
+  // a reading with pages keeps no hours of its own: its time comes from the pages and the course's reading pace (localEstimate)
+  const pages = !MILESTONE(type) && Number(d.pages) >= 1 ? Math.min(5000, Math.round(Number(d.pages))) : 0;
   let hours = MILESTONE(type) ? null : (isNum(d.hours) && d.hours !== null ? Number(d.hours) : null);
-  if (hours === null && !MILESTONE(type)) { try { hours = localEstimate({type, courseId: d.courseId || "", difficulty: "med", title: d.title}).hours; } catch (e) {} }
-  return newTask({title: String(d.title).trim().slice(0, 200), type, courseId: d.courseId || "", due, time: d.time || "", start, hours: hours == null ? null : hours, weight: d.weight || null,
-    priority: type === "Exam" ? "high" : d.priority || "med", link: d.link || "", notes: d.notes || ""});
+  if (hours === null && !MILESTONE(type) && !pages) { try { hours = localEstimate({type, courseId: d.courseId || "", difficulty: "med", title: d.title}).hours; } catch (e) {} }
+  const t = newTask({title: String(d.title).trim().slice(0, 200), type, courseId: d.courseId || "", due, time: d.time || "", start, hours: hours == null ? null : hours, weight: d.weight || null,
+    priority: type === "Exam" ? "high" : d.priority || "med", link: d.link || "", notes: d.notes || "", reading: String(d.reading || "").slice(0, 200)});
+  if (pages) t.pages = pages;
+  return t;
 }
+// A draft with a repeat ("every monday") becomes a series, as the New Task form's Repeat field makes it: the first task plus copies
+// that share a seriesId. -> {tasks, rule} (rule.until filled in)
+function series(d){
+  const t = mk(d), r = d.repeat;
+  if (!r || !t.due || t.type === "Exam") return {tasks: [t], rule: null};
+  t.seriesId = uid();
+  const {copies, until} = ruleCopies(t, r), rule = Object.assign({}, r, {until});
+  rule.label = CAP.ruleLabel(rule, todayISO());
+  return {tasks: [t].concat(copies.map(c => c.after)), rule};
+}
+// A repeat in plain words, with the end it will get: "Every Monday until Dec 15"
+const repeatText = (r, due, cid) => CAP.ruleLabel(Object.assign({}, r, {until: r.until || (isDate(due) ? repeatEnd(CAP.repeatFirst(r, due), cid || "") : "")}), todayISO());
+// "Added Math Homework: every Monday until Dec 14 (3 tasks)"
+const seriesLabel = (t, rule, n) => (l => `Added ${t.title}: ${l.charAt(0).toLowerCase()}${l.slice(1)} (${n} tasks)`)(CAP.ruleLabel(rule, todayISO()));
 let last = null;
 function commit(drafts, o){
   o = o || {};
-  const made = drafts.filter(d => d && String(d.title || "").trim()).map(mk);
+  const parts = drafts.filter(d => d && String(d.title || "").trim()).map(series), made = [].concat(...parts.map(p => p.tasks));
   if (!made.length) return [];
-  const t0 = made[0], single = made.length === 1;
-  const inv = applyChanges(made.map(t => ({kind: "task", id: t.id, after: t})), o.inline ? "" : single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`,
-    single && !o.inline ? [MILESTONE(t0.type) && t0.due > todayISO() && window.SBPREP ? {label: "Plan My Prep", fn: () => SBPREP.open(t0.id)} : null,
+  const t0 = made[0], single = parts.length === 1, rule = single ? parts[0].rule : null;
+  const label = rule ? seriesLabel(t0, rule, made.length) : single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`;
+  const inv = applyChanges(made.map(t => ({kind: "task", id: t.id, after: t})), o.inline ? "" : label,
+    single && !o.inline ? [MILESTONE(t0.type) && t0.due > todayISO() && window.SBPREP && !rule ? {label: "Plan My Prep", fn: () => SBPREP.open(t0.id)} : null,
       {label: "Edit", fn: () => { if (state.tasks[t0.id]) taskForm(state.tasks[t0.id]); }}] : undefined);
-  last = {inv, ids: made.map(t => t.id), label: single ? `Added: ${t0.title}${dueLabel(t0.due, t0.time)}` : `Added ${made.length} tasks`};
-  if (single && !o.inline && MILESTONE(t0.type) && t0.due >= todayISO()) setTimeout(() => { if (!dlg.open && !(el && el.open)) remoteAsk(t0.id); }, 120);
+  last = {inv, ids: made.map(t => t.id), label};
+  if (single && !rule && !o.inline && MILESTONE(t0.type) && t0.due >= todayISO()) setTimeout(() => { if (!dlg.open && !(el && el.open)) remoteAsk(t0.id); }, 120);
   return made;
 }
 
@@ -602,7 +778,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : d.flags && d.flags.includes("week") && d.due ? `<p class="mini cap-warn">No day was given, so it's set to the Monday. Check the date.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -655,7 +831,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${Number(d.weight) > 0 ? " · " + Number(d.weight) + "%" : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 
@@ -912,6 +1088,7 @@ async function ingest(x, o){
       setTimeout(() => { if (navigator.onLine !== false && aiReady() && prefs().ai) readQueuedOnce(); else toast(`Photo saved. Open Quick Capture to read it${n > 1 ? " (" + n + " waiting)" : ""}.`); }, 200);
       return true;
     }
+    if (videoShare({title: x.title, text: x.text, url: x.url})) { if (id) markSeen(id); return true; }
     const text = CAP.clean(x.text, 2000, true); if (!text) return false;
     const r = CAP.fromText(text, ctx(), {source: src});
     if (r.drafts.length === 1) {
@@ -947,16 +1124,20 @@ async function pullInbox(){
 function settingsExtra(fn){ if (typeof fn === "function") settingsFns.push(fn); }
 
 /* links */
+// A share that is just a YouTube video goes to Make Flashcards with AI (src/js/99-cards-from-link.js), not to a task
+const videoShare = s => { try { return !!(window.SBLINKCARDS && SBLINKCARDS.fromShare && SBLINKCARDS.fromShare(s)); } catch (e) { return false; } };
 function handleUrl(raw, o){
   o = o || {};
-  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   const r = CAP.parseUrl(raw, {today: todayISO()});
+  // a shared YouTube video goes to Make Flashcards with AI, even while Quick Capture is off
+  if (r.ok && r.params && r.params.sw) { stagedShare(r.params.sw); return {ok: true, action: "share"}; }
+  if (r.ok && r.action === "share" && videoShare({title: r.params.title, text: r.params.text, url: r.params.link})) return {ok: true, action: "video"};
+  if (CAPTURE_OFF) { if (!o.quiet) toast("Adding tasks from shares and links isn't available right now."); return {ok: false, reason: "off"}; }
   if (!r.ok) { if (!o.quiet) toast("That link can't be used for capture."); return {ok: false, reason: r.reason}; }
   const p = r.params;
   if (p.err) { toast({type: "That share wasn't a photo or text I can read.", big: "Photos over 15 MB can't be shared in.", many: "You can share up to 10 photos at a time.", fail: "Couldn't receive what you shared. Try again."}[p.err] || "Couldn't receive what you shared."); }
   if (r.action === "photo") { openCapture({fresh: true}); CS.view = "photo"; draw(); return {ok: true, action: "photo"}; }
   if (r.action === "open") { openCapture({shortcut: true}); return {ok: true, action: "open"}; }
-  if (p.sw) { stagedShare(p.sw); return {ok: true, action: "share"}; }
   if (!limiter.take()) { toast("Too many captures at once. Wait a moment and try again."); return {ok: false, reason: "rate"}; }
   const c = ctx(), trusted = false;
   const res = r.action === "share" ? CAP.fromShare({title: p.title, text: p.text, url: p.link}, c, {source: p.source}) : CAP.fromText(p.text || p.title, c, {source: p.source});
@@ -979,6 +1160,8 @@ async function stagedShare(id){
     for (const k of await c.keys()) if (k.url.indexOf("/__share/" + id + "/") >= 0) await c.delete(k);
     if (meta.skipped) toast("Only photos can be shared in. Other files were left out.");
     const hint = [meta.title, meta.text].map(x => CAP.clean(x, 600)).filter(Boolean).join(" ");
+    if (!files.length && videoShare({title: meta.title, text: meta.text, url: meta.url})) return;
+    if (CAPTURE_OFF) { toast("Adding tasks from shares and links isn't available right now."); return; }
     if (files.length) photoFiles(files, {source: "share", hint});
     else present(CAP.fromShare({title: meta.title, text: meta.text, url: meta.url}, ctx(), {source: "share"}).drafts, {trusted: false, external: true});
   } catch (e) { toast("Couldn't receive what you shared. Try again."); }
@@ -1094,7 +1277,7 @@ function boot(){
   window.addEventListener("online", () => { queueNudge(); pullInbox(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pullInbox(); });
 }
-const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
+const api = {ingest, registerInbox, pullInbox, handleUrl, settingsExtra, open: openCapture, photo: () => { ensureDom(); camInput.click(); }, photoFiles, fast, commit, repeatText, seriesLabel, parse: (t, c) => CAP.fromText(t, c || ctx()), line: t => { const c = ctx(); return CAP.bareTime(CAP.parseLine(t, c), c); }, preview: t => previewLine(t),
   prefs, core: CAP, queueCount: async () => { try { return (await qList()).length; } catch (e) { return 0; } }};
 window.SBCAPTURE = api;
 hook("boot", boot);

@@ -30,7 +30,7 @@ const SEED = {v: 2, updated: 1, settings: {}, notes: [], files: [], events: [], 
       if (label === "phone") {
         ok(g.band <= 170 && g.gpa <= 140, `phone: the summary is slim (band ${Math.round(g.band)}px, GPA strip ${Math.round(g.gpa)}px; were about 230 and 220)`);
         ok(/^\d+(\.\d)?%$/.test(g.avg) && g.sub === "3 courses · all on track", "phone: the average and a one-line summary: " + g.sub);
-        ok(g.tiles.join("|") === "0 Need attention|1 Awaiting mark|3 Still to come" && new Set(g.tileTops).size === 1, "phone: three tiles on one row with short labels: " + g.tiles.join(" | "));
+        ok(g.tiles.join("|") === "0 At risk|1 Awaiting mark|3 Still to come" && new Set(g.tileTops).size === 1, "phone: three tiles on one row with short labels: " + g.tiles.join(" | "));
         ok(g.gpaTiles.every(t => /^(Term GPA|Projected Term GPA) \d\.\d\d \/ 4\.0$/.test(t)), "phone: GPA tiles show the number and its scale: " + g.gpaTiles.join(" | "));
         ok(Math.abs(g.btnTop - g.noteTop) < 30, "phone: Add Credits sits beside the credits note");
       } else {

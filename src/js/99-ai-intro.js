@@ -1,8 +1,9 @@
 /* ===== module: 99-ai-intro.js ===== */
-/* "Introducing Studyboard AI": a one-time popup, for a limited time only.
+/* "Introducing Studyboard AI Pro": a one-time popup, for a limited time only.
    - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
    - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
    - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways: the flag is written before the popup is drawn (and the popup is skipped if it can't be written),
    the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -41,8 +42,11 @@
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -53,6 +57,8 @@
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
     } catch (e) { return false; }
@@ -73,13 +79,13 @@
     const li = ([b, s]) => `<li><span class="aii-tick">${CHECK}</span><span><b>${esc(b)}</b> ${esc(s)}</span></li>`;
     return `<div class="aii-badge" aria-hidden="true">${SPARK}</div>
       <div class="qod-eyebrow">New</div>
-      <h2 id="qodT">Introducing Studyboard AI!</h2>
+      <h2 id="qodT">Introducing Studyboard AI Pro!</h2>
       <p class="aii-sub">Now included with Studyboard Pro.</p>
       <p class="aii-vs">Compared to free Gemini:</p>
       <ul class="aii-list">${POINTS.map(li).join("")}</ul>
       <div class="qod-foot">${has
         ? `<button type="button" class="btn primary" data-qod-close>Got It</button>`
-        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
+        : `<button type="button" class="btn" data-qod-close>Maybe Later</button><button type="button" class="btn primary aii-pro" data-qod-close data-act="plan-open" data-reason="Studyboard AI Pro is included with Pro: higher quality, faster, more private AI for every AI feature, with nothing to set up.">See Studyboard Pro</button>`}</div>
       <p class="aii-fine">Only for users with paid Pro.</p>`;
   }
 
@@ -88,6 +94,7 @@
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     let has = false; try { has = typeof aiProAvail === "function" && !!aiProAvail(); } catch (e) {}
     qodPop(html(has), "aii qod-plain");
     return true;

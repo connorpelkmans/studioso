@@ -13,9 +13,13 @@
 .acc-log .btn{min-height:44px}
 .acc-log-btns{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acc-hint{margin:0;color:var(--muted)}
-body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
-@media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
+/* it steps up above a message (#toast only: the Syncing and download pills used to push it up and down too), gliding rather than
+   jumping; on computers it sits in line with the message (beside the sidebar) all the time, so it never slides sideways when one shows */
+.acc-chip{transition:bottom .2s ease,background-color .15s,color .15s,border-radius .15s}
+body:has(#toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
+@media (min-width:980px){.acc-chip{bottom:24px;left:calc(50% + 68px);width:min(620px,calc(100vw - 300px))}body:has(#toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}html[dir="rtl"] .acc-chip{left:calc(50% - 68px)}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+html[data-motion="static"] .acc-chip{transition:none}
 /* The check-in: how much is left? */
 .acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
 .acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
@@ -39,6 +43,6 @@ body:has(#toast.show) .acc-chip:not([hidden]) .acc-opt:not(.link){background:col
 body:has(#toast.show) .acc-chip:not([hidden]) :is(.acc-x,.acc-opt.link){color:inherit;opacity:.85}
 body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px));max-width:none;border-radius:0 0 16px 16px;box-shadow:0 12px 30px -8px rgba(8,20,50,.45)}
 @media (min-width:980px){
-  body:has(#toast.show) .acc-chip:not([hidden]){left:calc(50% + 68px);bottom:calc(32px + var(--toast-h,44px));width:min(620px,calc(100vw - 300px))}
+  body:has(#toast.show) .acc-chip:not([hidden]){bottom:calc(32px + var(--toast-h,44px))}
   body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 300px))}
 }

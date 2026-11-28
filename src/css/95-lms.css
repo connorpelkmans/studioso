@@ -115,3 +115,8 @@
 .cn-more[open] > summary::after{transform:rotate(-135deg);margin-top:3px}
 .cn-more[open] > summary{display:none}
 .c2-news{padding-bottom:10px}
+/* "How to find your calendar link", folded into the Connect sheet */
+.bs-how{margin-top:8px}
+.bs-how>summary{cursor:pointer;font-weight:700;font-size:.92rem;padding:4px 0}
+.bs-how[open]>summary{margin-bottom:6px}
+.bs-how .bs-steps{margin:0 0 8px}

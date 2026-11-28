@@ -74,6 +74,7 @@ window.SBTRUTH = (() => {
     q = norm(q);
     const s = low(q).replace(/[?!.]+$/, ""), today = todayISO(), L = window.SBLOCALANS;
     if (!s || s.length > 160) return null;
+    if (/^\s*(?:yo|hey|hi|hello|ok|so)?[,\s]*(?:what'?s|whats|wats|wuts|wassup|sup)(?: up| good| new)?(?: with you| packy| mochi| bramble)?\s*$/.test(s)) return null; // ("whats up" is hello)
     // plain arithmetic ("what is 3x3", "12% of 80", "(4+5)*2"): worked out here, exactly
     { const m = /^\s*(?:what(?:'s| is)|whats|calculate|compute|solve|how much is)?\s*([-+*/x×÷^().\d\s]+|[\d.]+\s*%\s*of\s*[\d.]+)\s*[=?]*\s*$/i.exec(s);
       if (m && /\d\s*[-+*/x×÷^%]\s*[\d(]|%\s*of/i.test(m[1])) {
@@ -173,6 +174,8 @@ window.SBTRUTH = (() => {
     if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
+    // (a hello or a question about the app isn't a planner question to follow on from: "hi!" then "what's left in BSNC 1055?")
+    { const H = window.SBAPPHELP; try { if (H && H.answer(L)) return ""; } catch (e) {} }
     if (AFTER.test(s)) return "__AFTER__";
     // "who teaches that class", "what's my grade in that course": the course the last answer was about
     if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);
@@ -199,9 +202,12 @@ window.SBTRUTH = (() => {
   /* ---------- steps: one request per thing to do ---------- */
   function steps(q){
     const s = String(q || "").trim(); if (s.length < 12 || s.length > 400) return [s];
-    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
+    // "psych midterm high priority + move it to dec 3", "rename the lab report to Cardiac Lab and push it 2 days", "journal done, ch7 done,
+    // and got 9/10 on the journal", "got 17/20 on a&p quiz 4 and 40/50 on the lab report"
+    const parts = s.split(/\s*(?:;|,?\s+and\s+(?=(?:what|what's|whats|when|when's|where|which|who|how|is|are|do|does|am)\b)|\.\s+(?=[A-Z])|,?\s+(?:and then|then|and also|also|after that|plus)\s+|,\s+(?:and\s+)?(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule|stop|pause)\b)|\s+and\s+(?=(?:add|create|make|start|set|remind|move|change|show|open|delete|mark|schedule)\b)|\s+\+\s+|,?\s+and\s+(?=(?:push|bump|rename|record|got|get|put|tick|record|log|then)\b)|,\s+(?:and\s+)?(?=(?:got|get|scored|push|bump|rename|record|log|tick)\b)|,\s+(?!(?:both|all|them|these|those|each|everything)\b)(?=[\w&' ]{2,40}\s+(?:done|finished|complete[d]?|submitted|handed in)\b)|\s+and\s+(?=\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+\s+(?:on|for)\b)|(?<=\d\s*(?:\/|out of)\s*\d+(?:\.\d+)?)\s*,?\s+and\s+(?=[\w&' ]{2,40}?\s+(?:got\s+|was\s+|is\s+|=\s*)?\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+))\s*/i).map(x => x.trim()).filter(x => x.length > 3);
     // only a real split: every part asks for something
-    return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
+    // ("push it 2 days", "40/50 on the lab report", "psych midterm high priority" ask for a change too)
+    return parts.length > 1 && parts.length <= 5 && parts.every(p => ACTION.test(p) || /\b(push|bump|tick|record|log|priority|urgent|high|low|rename|due)\b|\d+(?:\.\d+)?\s*(?:\/|out of)\s*\d+|\d+\s*%/i.test(p) || /\?$|^(what|when|how|why|which|who)\b/i.test(p)) ? parts : [s];
   }
 
   /* ---------- check: nothing in the answer that wasn't given ---------- */
@@ -370,12 +376,14 @@ window.SBTRUTH = (() => {
   async function own(q, o, level){
     // never about their own things ("who wrote my bio syllabus?", "what's in my notes"): only their data can answer that
     if (/\b(my|mine|our|i|i'm|i've)\b/i.test(q) && !/\b(how (do|can|should) i|can i|should i|i don'?t (get|understand)|explain)\b/i.test(q)) return null;
-    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
-    const r = await aiCall({task: "assist", fast: true, maxTokens: 600, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
+    const prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
+    const r = await aiCall({task: "assist", fast: true, maxTokens: 450, temperature: 0, quiet: true, signal: o.signal, onPartial: o.onPartial, schema: {type: "OBJECT", properties: {answer: {type: "STRING"}, sure: {type: "BOOLEAN"}}, required: ["answer", "sure"]},
       system: "You answer a student's school question from your own knowledge, like a good teacher. The first sentence answers exactly what they asked. Then add 1 to 3 sentences with the most useful detail, or list every item when they ask for several things (types, stages, examples, each one). Only state facts you are certain of. If you are not sure, set sure to false. Plain text, no markdown." + (level || ""),
       parts: [{text: `${prevTxt}THE STUDENT ASKS: ${q}`}]});
     const d = (r && r.data) || {}, a = String(d.answer || "").trim();
-    if (!a || d.sure === false || nonAnswer(q, a) || /\b(i'?m not sure|i don'?t know|i cannot|i can'?t answer)\b/i.test(a.slice(0, 80))) return null;
+    // (a small model says "not sure" about basics it knows well: "what is lithium for", "where did van gogh paint the starry night".
+    // A real answer is kept; only a refusal or a non-answer isn't)
+    if (!a || nonAnswer(q, a) || /\b(i'?m not sure|i don'?t know|i cannot|i can'?t answer|i'?m unable|no information|not certain)\b/i.test(a.slice(0, 120)) || (d.sure === false && (o.strict || a.split(/\s+/).length < 8))) return null;
     return {answer: a, sources: [], found: true, own: true};
   }
   /* The lines of their own notes that a question is about, word for word, when the AI's answer didn't hold up ("who came up with
@@ -391,9 +399,10 @@ window.SBTRUTH = (() => {
     Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).forEach(n => { const head = String(n.text).split("\n")[0].trim();
       String(n.text).split(/\n|(?<=[.!?])\s+(?=[A-Z])/).map(l => l.trim()).filter(l => l.length > 6).forEach(l => {
         // ("REBT" is "Rational-emotive behavior therapy": the initials of the line's words count as the word)
-        const ini = ((head + " " + l).match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join("");
-        const L = low(head + " " + l) + " " + ini, sc = keys.filter(k => L.includes(stem(k)) || (/^[a-z]{3,5}$/.test(k) && ini.includes(k))).length;
-        if (sc >= need && L.includes(stem(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
+        // (only the heading's own initials, from its start: the initials of a whole line spell almost anything, "pure" included)
+        const ini = (head.match(/[A-Za-z]+/g) || []).map(x => x[0].toLowerCase()).join(""), acr = k => /^[a-z]{3,5}$/.test(k) && ini.startsWith(k);
+        const L = low(head + " " + l), sc = keys.filter(k => L.includes(stem(k)) || acr(k)).length;
+        if (sc >= need && (L.includes(stem(longest)) || acr(longest))) hits.push({head, l, sc, own: low(l).includes(stem(longest))}); }); });
     if (!hits.length) return null;
     hits.sort((a, b) => b.sc - a.sc || b.own - a.own);
     const top = hits.filter(h => h.sc === hits[0].sc).slice(0, 3);
@@ -402,17 +411,54 @@ window.SBTRUTH = (() => {
   async function knowledge(q, o){
     o = o || {};
     { const fn = fromNotes(q); if (fn) return fn; }
+    // pointed at their own notes ("the ABC thing in my notes", "what do my notes say about projection", "from my lecture notes"):
+    // answered from their notes only, and searched without those words, so a web page about another meaning never answers it
+    // (only "in my notes" goes: "the ABC thing in my notes" is searched as "ABC", never as "whats")
+    { const NQ = /\s*\b(?:(?:in|from|on|of|according to) (?:my|the|our) (?:\w+ )?(?:notes?|lecture|slides)|(?:my|the) (?:class |lecture )?notes? (?:say|said|says|on|about|for))\b/i;
+      if (NQ.test(q) && !o.noWeb) { const s = String(o.search || q).replace(NQ, " ").replace(/^\s*(?:what'?s|whats|what is|what are|explain|tell me|summari[sz]e)\s+/i, " ").replace(/\b(the|that|this|thing|things|stuff|part|bit)\b/gi, " ").replace(/[?!.]+/g, " ").replace(/\s+/g, " ").trim(); o = Object.assign({}, o, {noWeb: true, search: s.length > 1 ? s : o.search}); } }
     // their own material first; when it covers every key word of the question, the web waits (faster, and theirs wins) unless
     // the answer from the notes alone doesn't hold up
-    const keys = (low(q).replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
+    // (filler isn't the topic: "whats MAIN again" looked up "again" and found the film Singham Again)
+    const keys = (low(q).replace(/\b(again|still|now|exactly|anyway|tho|though|remind me|real quick|quickly|pls|please)\b/g, " ").replace(/\b(ww ?(1|i)|world war (1|i|one))\b/g, "wwi").replace(/\b(ww ?(2|ii)|world war (2|ii|two))\b/g, "wwii").match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego)$/.test(w)));
     // a follow-up ("in feet?", "who wrote it?", "give an example of each"): looked up with the earlier question's topic
-    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that.\n\n` : "";
+    const look = o.search || q, prevTxt = o.prev && o.prev.q ? `EARLIER IN THIS CHAT the student asked "${clip(o.prev.q, 200)}" and was told "${clip(o.prev.a, 500)}". The new question follows on from that: answer the new question itself (an example, a name, a list, the next part), and never repeat the earlier answer.\n\n` : "";
     const mine = window.SBSEARCH ? await SBSEARCH.retrieve(look, Object.assign({max: 5, chars: 900, wait: 800, readWait: 2, semWait: 2500}, typeof DEVAI !== "undefined" && DEVAI.kind === "litert" ? {max: 8, chars: 1500} : {})).catch(() => null) : null;
-    const notes = mine && mine.text ? mine.text : "", covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    // (the search finding nothing on it, or not the note that has it: their notes read directly, a word spelled a little differently
+    // counting, "countertransfrence", "peplau's phases", "my freud notes")
+    let notes0 = mine && mine.text ? mine.text : "";
+    { const lk = (low(look).match(/[a-z0-9]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(notes?|summari[sz]e|summary|explain|tell|give|help|what|thing|stuff|using|wut|about|from|with|this|that|does|mean|means)$/.test(w));
+      const fz = (txt, k) => { const t = low(txt); if (t.includes(k.length > 5 ? k.slice(0, k.length - 2) : k)) return true; return k.length >= 7 && (t.match(/[a-z]{6,}/g) || []).some(x => x.slice(0, 6) === k.slice(0, 6) && Math.abs(x.length - k.length) <= 3); };
+      if (lk.length && !(notes0 && lk.some(k => fz(notes0, k)))) {
+        const hits = Object.values(state.notes || {}).filter(n => n && !n.archived && n.text).map(n => ({n, s: lk.filter(k => fz(n.text, k)).length + lk.filter(k => fz(String(n.text).split("\n")[0], k)).length})).filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 2);
+        if (hits.length) notes0 = hits.map(x => String(x.n.text).slice(0, 1500)).join("\n\n") + (notes0 ? "\n\n" + notes0 : ""); } }
+    const notes = notes0, covered = notes && keys.length && keys.every(k => low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
     let web = [], useNotes = "", useWeb = [];
     let webP = null;
-    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(look).then(R => (R && R.list) || [], () => []); return webP; };
-    if (!o.noWeb) getWeb();
+    // a word with several meanings that their own notes use ("sublimation", "projection", "conduction"): looked up on the web in the
+    // sense of those notes (the note's heading, or its course), not the chemistry or the film
+    let sense = "";
+    { const k0 = keys.slice().sort((a, b) => b.length - a.length)[0];
+      if (k0 && k0.length >= 6) { const st = k0.slice(0, k0.length - 2), n = Object.values(state.notes || {}).find(x => x && !x.archived && low(x.text || "").includes(st));
+        if (n) { const head = String(n.text).split("\n")[0].trim(), cs = state.courses || {}, c = n.courseId ? (Array.isArray(cs) ? cs.find(x => x.id === n.courseId) : cs[n.courseId]) : null;
+          sense = head && head.length <= 50 && !low(head).includes(st) ? head : c && c.name ? c.name : "";
+          if (sense && low(look).includes(low(sense))) sense = ""; } } }
+    // a web passage that never mentions what was asked about is another meaning of a word in it ("bro" -> Bro culture, "eastern half"
+    // -> New South Wales, "outline" -> the Outline app): left out, so it can't become the answer or be tacked on after a good one
+    const lkeys = (low(look).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w.length >= 4 && !/^(work|works|happen|happens|mean|means|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|thing|things|really|exactly|actually|basically|called|more|detail|detailed|shorter|simpler|again|another|please|about|tell|give|list|name|other|same|kind|type|types|part|parts|good|best|first|last|main)$/.test(w));
+    const onTopic = x => !lkeys.length || lkeys.some(k => low(`${x.title} ${String(x.text || "").slice(0, 700)}`).includes(k.length > 5 ? k.slice(0, k.length - 2) : k));
+    const getWeb = () => { if (o.noWeb) return Promise.resolve([]); if (!webP) webP = research(sense ? `${look} (${sense})` : look).then(R => ((R && R.list) || []).filter(onTopic), () => []); return webP; };
+    // a question their notes don't touch ("who was US president in 1945", "what's the largest organ", "how does dialysis work", "what's
+    // lithium for", and a follow-up with its topic): what the AI knows, when it's sure, first. The eval: web passages about another meaning of
+    // a word ("bro" culture, a pipe organ, Big Brother the show) were a fifth of all failures, and each web answer is two slow steps more.
+    // The web when the AI isn't sure, or when they ask for it (look it up, sources, research, the latest)
+    const wantsWeb = /\b(look (it |this |that )?up|search|google|online|on the web|internet|sources?|cite|citation|reference|research|stud(y|ies) (show|found|say)|evidence|latest|current(ly)?|recent(ly)?|news|this year|today'?s|2025|2026|statistics|stats|wikipedia)\b/i.test(q + " " + (o.search || ""));
+    // (a short fact question or a follow-up; "explain osmosis", "how does dialysis work" keep Wikipedia as their source, on-topic passages only)
+    const shortFact = String(q).split(/\s+/).length <= 12 && /^\s*(?:and\s+|so\s+|but\s+)?(what|what's|whats|who|who's|whos|which|when|where|how (many|much|long|old|far|big|tall)|is|are|was|were|did|does|do|name)\b/i.test(q) && !/^\s*(what|how) (is|are|does|do)\b[^?]{0,40}\b(work|happen|cause|mean|function)s?\b/i.test(q);
+    // (the web starts loading now for what will use it: an explanation, or what they asked to look up)
+    if (!o.noWeb && (wantsWeb || !(shortFact || (o.prev && o.prev.q)))) getWeb();
+    { const fact = !o.noWeb && !wantsWeb && (shortFact || !!(o.prev && o.prev.q)) && !/\b(my|mine|i'm|i've|our)\b/i.test(q) && !/\b(i|me)\b(?![^?]*\b(how|why|explain|understand|remember)\b)/i.test(q.replace(/^\s*(?:can|could|would) you\b/i, ""))
+        && !(notes && keys.length && keys.some(k => k.length >= 4 && low(notes).includes(k.length > 5 ? k.slice(0, k.length - 2) : k)));
+      if (fact) { const ow = await own(q, Object.assign({}, o, {strict: true}), level0(q)).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow; } }
     if (!notes) web = await getWeb();
     if (!notes && !web.length) { const ow = await own(q, o, level0(q)).catch(e => { if (e && /^(nokey|key|cancelled|no-consent|blocked)$/.test(String(e.code || ""))) throw e; return null; }); if (ow) return ow;
       return {answer: o.noWeb ? "I couldn't find anything about that in your Studyboard." : "I couldn't find anything about that in your notes, your files or on the web, and I'm not sure enough to answer from memory. Try other words, or add your notes on it.", sources: [], found: false}; }
@@ -422,7 +468,7 @@ window.SBTRUTH = (() => {
     // the level they ask for: "like I'm 12", "simply", "ELI5", "in plain English", "dumb it down"
     const simple = /\blike i'?m (a )?(\d{1,2}|five|ten|a kid|a child|in (middle|elementary) school)\b|\beli5\b|\bsimpl(e|y|er)( terms| words| way)?\b|\bplain english\b|\bdumb(ed)? (it )?down\b|\bfor (a )?(kid|beginner|dummies)\b|\bbasic terms\b/i.test(q);
     const level = simple ? "\n\nThe student asked for it simply: use short sentences and everyday words a 12-year-old knows, explain any term you have to use, and give one everyday comparison (\"it's like...\"). Keep every fact correct and from the sources." : "";
-    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 900 : 700, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
+    const call = (src, extra) => aiCall({task: "assist", fast: true, maxTokens: deep ? 700 : 420, temperature: 0.2, schema: KSCHEMA, quiet: true, signal: o.signal, onPartial: o.onPartial, system: sys + level + (extra || ""), parts: [{text: `${src}\n\n${prevTxt}THE STUDENT ASKS: ${q}`}]});
     // a list question gets a list; an explanation gets more than a definition
     const listQ = /^\s*(what|which|name|list)\b[^?]*\b(are the|are some|types?|kinds?|phases?|stages?|steps?|causes?|parts?|examples?|mechanisms?|functions?|symptoms?|signs?|principles?|components?|features?|factors?)\b/i.test(q) && !/\b(example of)\b/i.test(q);
     const shape = x => { const a = String(x.answer || ""); if (listQ && (a.match(/,|;|\n- |\n\d\./g) || []).length < 2) return false; if (deep && (a.split(/(?<=[.!?])\s+/).length < 3 || a.split(/\s+/).length < 35)) return false;
@@ -444,7 +490,7 @@ window.SBTRUTH = (() => {
       const SHAPE = listQ ? "\n\nIMPORTANT: name every one the sources give, as a list (separated by commas or on their own lines), each with a few words on what it is." : deep ? "\n\nIMPORTANT: write at least 4 full sentences: what it is, then each main part or step from the sources in order, then why it matters." : "";
       let d = await tryOnce();
       if (aiFail) return d;
-      if (!d && fallback && typeof DEVAI !== "undefined" && DEVAI.kind === "litert") return fallback;
+      if (!d && fallback && (typeof DEVAI === "undefined" || DEVAI.kind === "litert" || typeof aiOnDevice !== "function" || aiOnDevice())) return fallback; // (on the device: the first answer that holds up, not 2 more slow tries for a better shape)
       if (!d && fallback) d = (SHAPE ? await tryOnce(SHAPE) : null) || fallback;
       if (!d && !aiFail) { d = await tryOnce(`\n\nIMPORTANT: answer the question itself in your first sentence, using only facts in the sources. If the sources don't answer it, set found to false.${SHAPE}`); if (!d && fallback) d = fallback; }
       return d;
@@ -453,10 +499,14 @@ window.SBTRUTH = (() => {
     // (only when the notes mention what was asked at all: otherwise straight to the web)
     // the notes are about it when they hold the question's own topic words (not just "work", "use" or "different"): most of them,
     // and the most specific (longest) one always
-    const GENERIC = /^(work|works|working|happen|happens|mean|means|use|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|function|functions|process|role|cause|causes|effect|effects|type|types|kind|kinds|part|parts|step|steps|thing|things|way|ways|good|bad|best|need|needs|help|really|exactly|actually|basically|called|happening|affect|affects)$/;
+    // (what they ask to have done to it isn't the topic: "summarize my Freud notes" is about Freud, not "summarize")
+    const GENERIC = /^(work|works|working|happen|happens|mean|means|use|used|uses|make|makes|made|different|difference|important|example|examples|explain|describe|function|functions|process|role|cause|causes|effect|effects|type|types|kind|kinds|part|parts|step|steps|thing|things|way|ways|good|bad|best|need|needs|help|really|exactly|actually|basically|called|happening|affect|affects|summarize|summarise|summary|summarized|sum|bullet|bullets|points|point|list|three|two|four|five|short|shorter|brief|briefly|key|main|define|definition|meaning|notes|note|using|wut|tell|give|quick|quickly|simple|simply|detail|detailed|more)$/;
     const topic = keys.filter(k => !GENERIC.test(k)), stem = k => k.length > 5 ? k.slice(0, k.length - 2) : k;
     const longest = topic.slice().sort((a, b) => b.length - a.length)[0];
-    const touches = notes && (topic.length ? low(notes).includes(stem(longest)) && topic.filter(k => low(notes).includes(stem(k))).length >= Math.ceil(topic.length / 2) : keys.some(k => low(notes).includes(stem(k))));
+    // (spelled a little differently counts: "countertransfrence" is the note's "countertransference")
+    const nWords = notes ? [...new Set(low(notes).match(/[a-z]{6,}/g) || [])] : [];
+    const has = k => low(notes).includes(stem(k)) || (k.length >= 7 && nWords.some(x => x.slice(0, 6) === k.slice(0, 6) && Math.abs(x.length - k.length) <= 3));
+    const touches = notes && (topic.length ? has(longest) && topic.filter(has).length >= Math.ceil(topic.length / 2) : keys.some(has));
     if (notes && !touches && !o.noWeb) { web = web.length ? web : await getWeb(); }
     if (notes && (touches || o.noWeb || !web.length)) {
       useNotes = notes; useWeb = [];
@@ -468,9 +518,13 @@ window.SBTRUTH = (() => {
         const add = lines.filter(l => !low(fromN.answer).includes(low(l).slice(0, 40))).slice(0, 5);
         if (add.length) fromN = Object.assign({}, fromN, {answer: `${String(fromN.answer).trim()}\n${add.map(l => "- " + l).join("\n")}`});
       }
+      // their notes are about it but the AI's answer from them didn't hold up (a small model's paraphrase, or "found: false"): the
+      // note's own lines on it, never "Your notes don't cover this" (E2B round 2: the REBT goal, the AV node delay, WWI's causes)
+      if (!fromN && !aiFail) { const nl = noteLines(look) || (look !== q ? noteLines(q) : null); if (nl) fromN = {answer: nl.answer.split("\n").slice(1).map(x => x.replace(/^-\s*/, "").trim().replace(/([^.!?])$/, "$1.")).join(" ")}; }
     }
     // the notes answer it fully (every key word is in them, and the answer holds up and has the right shape): no web needed
-    const full = fromN && covered && shape(fromN);
+    // (an answer from their notes that holds up and has the right shape is the answer: nothing from the web tacked on after it)
+    const full = fromN && shape(fromN);
     if (!full && !o.noWeb) {
       if (!web.length) web = await getWeb();
       if (web.length) { useNotes = ""; useWeb = web; fromW = await solve(); }
@@ -497,6 +551,12 @@ window.SBTRUTH = (() => {
   // "what is osmosis", "osmosis?", "can you tell me more about osmosis" and "I'm confused about osmosis" all count the same.
   const general = q0 => { const q = asked(norm ? norm(q0) : q0);
     if (String(q).replace(/[^a-z]/gi, "").length < 4) return false;
+    // nothing to look up: a short reply that leans on the chat ("why", "on what", "which one", "guess", "pleeease", "next question",
+    // "so after thursday?", "which notes", "what's the easiest section"), jokes, tastes and live things (weather, news) are talk
+    if (/\b(jokes?|joke|laugh|funny|puns?|riddles?|knock knock|favou?rite|meaning of life|weather|forecast|news|score last night|coffee order|bored|boring)\b/i.test(q)) return false;
+    { const ws = String(q).toLowerCase().match(/[a-z][a-z']+/g) || [];
+      const content = ws.filter(w => !QSTOP.has(w) && !/^(what|whats|what's|which|when|where|how|who|why|so|and|but|or|then|ok|okay|oh|wait|hmm|um|yeah|yes|no|nah|pls|please|ple+ase+|one|ones|part|section|bit|thing|things|stuff|next|question|guess|again|easiest|hardest|best|worst|first|last|after|before|that|this|it|its|it's|they|them|those|these|notes?|tho|though|really|sure|more|else|other|another|same|like|just|lol|haha|now|still|actually|is|are|was|were|do|does|did|can|could|should|would|will|the|a|an|on|in|at|of|to|for|with|about|from|me|my|you|your|i|i'm|im|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mean|means)$/.test(w));
+      if (!content.length) return false; }
     // advice ("how should I study", "tips to remember", "best way to")
     if (/\b(should i|how (do|can|should|would) i (study|prepare|prep|remember|memori[sz]e|focus|manage|balance|stay|stop|get better|improve|deal|cope|start)|tips?|advice|best way|ways to|help me|study plan|motivat|procrastinat|stress|anxious|overwhelm)\b/i.test(q)) return false;
     // the planner and the app: a planner word counts when the question is about the student ("my", "I", "am I"), or when nothing
@@ -505,8 +565,20 @@ window.SBTRUTH = (() => {
     // Studyboard's own features are always about the app
     if (/\b(studyboard|mochi|companion|timer|pomodoro|focus (session|mode|time)|settings?|theme|dark mode|planner|streak|daily goal|study goal|widgets?|wardrobe|accessor(y|ies)|the app|this app|sync|notifications?|reminders?)\b/i.test(q)) return false;
     // their own courses and work: "is my bio course hard", "when is the midterm", "how long is my essay"
-    if (/\b(my|mine|am i|i'm|im|i have|i've)\b/i.test(q) && /\b(course|courses|class|classes|prof|professor|teacher|instructor|ta|exam|exams|test|tests|midterm|final|finals|quiz|quizzes|lab|labs|essay|project|assignment|homework|syllabus|semester|term|schedule|lecture|lectures)\b/i.test(q) && !/\b(my )?(notes?|files?|slides?|readings?|textbook)\b/i.test(q)) return false;
+    if (/\b(my|mine|am i|i'm|im|i have|i've)\b/i.test(q) && /\b(course|courses|class|classes|profs?|professors?|teachers?|instructors?|tas?|course codes?|codes?|rooms?|office hours|exam|exams|test|tests|midterm|final|finals|quiz|quizzes|lab|labs|essay|project|assignment|homework|syllabus|semester|term|schedule|lecture|lectures)\b/i.test(q) && !/\b(my )?(notes?|files?|slides?|readings?|textbook)\b/i.test(q)) return false;
     if (/^\s*(when|where|what time|what day|how long until|how many days)\b/i.test(q) && /\b(exam|exams|test|midterm|final|finals|quiz|lab|essay|project|assignment|homework|class|lecture|office hours)\b/i.test(q) && !/\b(war|revolution|era|period|century|dynasty|treaty|invented|discovered|founded)\b/i.test(q)) return false;
+    // one of their own courses or instructors by name ("who teaches BIOS 230", "what's dr chen's email", "where is psych nursing", "is
+    // hist 1010 online"): their planner, never a web page about the words
+    { const lq = low(q), cs = Array.isArray(state.courses) ? state.courses : Object.values(state.courses || {});
+      if (cs.some(c => c && !c.gen && ((c.code && new RegExp("\\b" + String(c.code).toLowerCase().replace(/[^a-z0-9]+/g, "\\s*") + "\\b").test(lq)) || (c.name && c.name.length > 5 && lq.includes(String(c.name).toLowerCase())) || (String(c.instructor || "").toLowerCase().match(/[a-z]{4,}/g) || []).some(w => !/^(prof|professor|doctor)$/.test(w) && new RegExp("\\b" + w + "('?s)?\\b").test(lq))))) return false;
+      if (/\b(instructors?|professors?|profs?|teachers?|tas?|course codes?|office hours|syllabus)\b/i.test(lq) && /^\s*(who|what|whats|what's|when|where|which|list|show|tell|do|does|is|are|how)\b/i.test(lq)) return false;
+      // one of their own tasks or events by name ("a&p quiz 4" found the Big Fat Quiz, "care plan 2" a care-plan
+      // article), a priority ("medium priority") or a day said as a reply ("tuesday is fine", "the 24th", "two sundays before"):
+      // their planner, not a subject
+      const named = list => (Array.isArray(list) ? list : Object.values(list || {})).some(x => { const t = low(String((x && (x.title || x.name)) || "")); return t.length >= 5 && !/^(general|notes?|my notes|untitled)$/.test(t) && new RegExp("(?<![a-z0-9])" + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z0-9])").test(lq); });
+      // (tasks and events only: a note or deck's name, "defense mechanisms", "heart", is a subject they ask about)
+      if (named(state.tasks) || named(state.events)) return false;
+      if (/\b(priority|reschedule|postpone)\b/.test(lq) || (lq.split(/\s+/).length <= 5 && /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays|tomorrow|tonight|today|next week|weekend|\d{1,2}(st|nd|rd|th)|am|pm)\b/.test(lq))) return false; }
     if (PLAN.test(q)) {
       const mine = /\b(my|mine|me|i|i'm|im|i've|ive|am i|we|our|us)\b/i.test(q);
       const rest = (q.toLowerCase().replace(new RegExp(PLAN.source, "gi"), " ").match(/[a-z]{3,}/g) || []).filter(w => !QSTOP.has(w) && !/^(what|whats|which|when|where|how|who|why|does|any|anything|there|tell|explain|about|more|show|list|all|left|got|have|get|need|the|and|for|are|is|you|change|set|turn|use|find|open|add|see|switch|edit|do)$/.test(w));

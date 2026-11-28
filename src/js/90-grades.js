@@ -326,7 +326,8 @@
     }
     const loose = mine.filter(t => wOf(t) == null && !excused(t) && markPct(t) != null);
     const gr = {c, g, R, xc: xcs, xcGot, xcOpen, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
-      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01,
+      finish: fill => GRULES.finalWith(items, RU, D, fill)};
     // an unweighted average says where you are, not what's left: there's no total to finish
     if (gr.unw) Object.assign(gr, {done: false, need: () => null, projected: null, remaining: 0, minFinal: 0, maxFinal: 100});
     // every listed item marked isn't a final grade: more can still be added until classes are over
@@ -335,6 +336,21 @@
     gr.risk = riskOf(gr);
     return gr;
   }
+  /* How much of its course a task counts for: its share of a category weight (Grade Settings, "Quizzes 20%") when its course
+     has one for its type, otherwise its own weight. 0 when it has neither. Used outside the grade itself (the mark sheet, Today's
+     Plan, Rough Week Rescue), so work weighted by category counts there as it does on the Grades page. */
+  let SHARE_AT = null;
+  function gradeShare(t){
+    if (!t) return 0;
+    const c = t.courseId && !t.prepFor ? courseOf(t.courseId) : null;
+    if (c && catsOf(c).length) {
+      if (!SHARE_AT || SHARE_AT.st !== state || SHARE_AT.at !== state.updated) SHARE_AT = {st: state, at: state.updated, done: new Set()};
+      if (!SHARE_AT.done.has(c.id)) { courseGrade(c); SHARE_AT.done.add(c.id); }
+      const e = EFFW.get(t.id); if (e && e.how === "cat") return e.w;
+    }
+    return hasWeight(t) ? Number(t.weight) : 0;
+  }
+  const shareCat = t => { const e = gradeShare(t) > 0 && EFFW.get(t.id); return e && e.how === "cat" ? e.cat : ""; };
   /* "Must pass" parts (Grade Settings): an average on one type of work, or the final exam alone, that has to reach its own minimum.
      avg: on what's marked; need: the average still needed on the rest of that part (0 once it's safe, over 100 out of reach). */
   const mustName = cat => cat === "Final" ? "Final Exam" : typePl(cat);
@@ -426,7 +442,7 @@
     const pen0 = t.mark && t.mark.pen ? penTxt(t.mark.pen) : "";
     openSheet(`<form class="sheet">${head(t.mark ? "Edit Your Mark" : "Add Your Mark")}
       <div class="sheet-body">
-        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
+        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${shareCat(t) ? `Worth ${fmtW(gradeShare(t))} of your course grade (a share of ${esc(shareCat(t) === "Final" ? "the Final Exam" : typePl(shareCat(t)))}).` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
         <label class="f"><span class="lh">Your Mark <span class="hint">a score like 43/50, a percent like 86%, or a letter like B+</span></span><input type="text" id="gmIn" autocomplete="off" maxlength="24" value="${esc(baseInput(t.mark))}" placeholder="e.g. 43/50" autofocus></label>
         <div class="chips gr-mk-chips" role="group" aria-label="Other kinds of mark"><button type="button" class="chip" data-gm="Pass">Pass</button><button type="button" class="chip" data-gm="Fail">Fail</button><button type="button" class="chip" data-gm="Excused" title="It won't count toward your grade">Excused / Doesn't Count</button></div>
         <details class="gr-pen"${pen0 ? " open" : ""}><summary>Late Penalty</summary><label class="f"><span class="lh">Taken Off for Being Late <span class="hint">a percent of the mark like 10%, or points like 2</span></span><input type="text" id="gmPen" autocomplete="off" maxlength="12" value="${esc(pen0)}" placeholder="e.g. 10%"></label></details>
@@ -630,7 +646,7 @@
     if (!gset().prompt || !Array.isArray(changes) || changes.length !== 1) return;
     const ch = changes[0], t = ch.after;
     if (ch.kind !== "task" || !t || t.status !== "done" || !t.doneAt || Date.now() - t.doneAt > 10000) return;
-    if (!hasWeight(t) || t.mark || t.prepFor || asked().includes(t.id)) return;
+    if (!(gradeShare(t) > 0) || t.mark || t.prepFor || asked().includes(t.id)) return;
     setAsked(t.id);
     clearTimeout(promptT);
     promptT = setTimeout(() => showPrompt(t.id), 6800);
@@ -638,10 +654,12 @@
   function showPrompt(id){
     const t = state.tasks[id], el = $("#grPrompt");
     if (!t || t.status !== "done" || t.mark || !el || dlg.open) return;
+    // "How long did it take?" is still up in the same spot: wait for it rather than covering it
+    if (document.querySelector(".acc-chip:not([hidden])")) { clearTimeout(promptT); promptT = setTimeout(() => showPrompt(id), 5000); return; }
     const c = courseOf(t.courseId);
     el.innerHTML = `<span class="gp-t"><b>Got a Mark Back?</b> Add it for ${esc(t.title)} to see where you stand${c ? ` in ${esc(courseLabel(c))}` : ""}. You can also add it later.</span>
       <span class="gp-a"><button class="btn small primary" data-act="gp-add" data-id="${esc(id)}">Add Mark</button><button class="btn small" data-act="gp-close">Not Now</button><button class="link-btn gp-off" data-act="gp-off">Don't Ask Again</button></span>`;
-    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    el.hidden = false; void el.offsetWidth; el.classList.add("show");   // drawn once without .show first, so it slides in rather than popping up
     clearTimeout(hideT); hideT = setTimeout(hidePrompt, 16000);
   }
   function hidePrompt(){ const el = $("#grPrompt"); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
@@ -697,7 +715,10 @@
     else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     out.push(...mustTxt);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
-    if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
+    // a category weight with nothing in it yet (Quizzes 15% before the first quiz is added) is named, not left as a mystery share
+    const emptyCats = (gr.cats || []).filter(k => !gr.ts.some(t => (EFFW.get(t.id) || {}).cat === k.cat)), emptyW = emptyCats.reduce((s, k) => s + k.w, 0);
+    if (gr.unlisted > 0.5 && emptyCats.length && Math.abs(emptyW - gr.unlisted) < 0.5) out.push(`<span class="mini">Nothing has been added to ${emptyCats.map(k => `${esc(k.cat === "Final" ? "Final Exam" : typePl(k.cat))} (${fmtW(k.w)})`).join(" or ")} yet, so ${emptyCats.length === 1 ? "it counts" : "they count"} as work still to come.</span>`);
+    else if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
   const riskPill = r => r === "risk" ? `<span class="pill gr-risk">Pass Mark at Risk</span>` : r === "out" ? `<span class="pill gr-risk">Talk to Your Instructor</span>` : r === "watch" ? `<span class="pill gr-watch">Close to Pass Mark</span>` : "";
@@ -800,7 +821,7 @@
     const p = {}; let n = 0, mk = 0;
     gr.ts.forEach(t => { const v = vals && vals[t.id]; if (isNum(v) && !gr.missed.includes(t)) { p[t.id] = Number(v); n++; if (gr.pm.get(t.id) != null) mk++; } });
     const w = courseGrade(gr.c, null, p);
-    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need};
+    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need, finish: w.finish};
   }
   function whatIfOut(gr, vals){
     const w = whatIf(gr, vals), g = gr.g, L = p => letterOf(p, g.scale);
@@ -810,6 +831,8 @@
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
+      // where that leaves the course, on the same footing as Solve (your average so far on the rest), so the two agree
+      if (gr.base != null && w.rem > 0.01 && w.finish) out.push(`With your average so far (${fmtP(gr.base)}) on the rest, you'd finish on ${lt(w.finish(gr.base))}.`);
       const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
@@ -1334,6 +1357,8 @@
     const soon = todayISO(), cut = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().slice(0, 10); })();
     let big = null; live.forEach(gr => gr.open.forEach(t => { const w = wOf(t); if (w > 0 && t.status !== "done" && (!t.due || (t.due >= soon && t.due <= cut)) && (!big || w > big.w)) big = {w, t, gr}; }));
     if (big) J.push(`The biggest item coming up: ${big.t.title} in ${courseLabel(big.gr.c)}, worth ${fmtW(big.w)}${big.t.due ? ", due " + big.t.due : ""}.`);
+    // points lost, letter cutoffs, forecasts and study patterns (90-grade-insights.js)
+    try { if (window.SBGINS && SBGINS.judgments) J.push(...SBGINS.judgments(all, S)); } catch (e) { console.warn("grade insights: judgments", e); }
     return J;
   }
   const aiPaid = () => { try { const c = aiCfg(); return !isFreeModel(c.provider, c.model); } catch (e) { return false; } };
@@ -1419,7 +1444,7 @@
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
         <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk, "At risk")}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -1441,16 +1466,19 @@
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
-      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
+      // Where you stand: how far from your goal (and, from Grade Insights, from the next letter line). Kept here, in the course's
+      // dropdown, so each row on the list stays to its name, the share marked and one plain sentence
+      const gg = goalGap(gr);
+      const stand = `<div class="gp-stand"${gg ? "" : " hidden"}><h4 class="gp-d-h">Where You Stand</h4><div class="gp-stand-chips">${gg ? `<span class="gp-sc ${gg.gap >= 0 ? "gp-sc-ok" : "gp-sc-to"}">${esc(gg.text)}</span>` : ""}</div></div>`;
+      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${stand}${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";
     const rows = all.map(gr => {
       const c = gr.c, g = gr.g, L = p => letterOf(p, g.scale), cur = gr.current != null ? clampP(gr.current) : null;
-      const gg = goalGap(gr);
       return `<li class="gp-course${gr.risk ? " gr-" + gr.risk : ""}" style="--c:${esc(c.color)}">
         <button class="gp-main" data-act="g-open-course" data-id="${esc(c.id)}" aria-label="Open grades for ${esc(c.name)}">
           <span class="g2-ring gp-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
+          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
           <span class="gp-line mini">${esc(gradeLine(gr))}</span>${zeroed(gr) ? `<span class="gp-zero mini" role="note">${esc(ZERO_TXT)}</span>` : gr.risk ? riskPill(gr.risk) : ""}
@@ -2114,7 +2142,7 @@
       if (x.dl > 21 || (x.dl < 0 && x.dead)) return;
       const gr = risk[t.courseId];
       if (gr) {
-        if (!(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null) return;
+        if (!(gradeShare(t) > 0 || PTS_W[t.id]) || markPct(t) != null) return;
         // Work due now keeps its own order (what saves the most marks today), so only its reason changes
         if (!x.tier) x.score *= BOOST[gr.risk];
         x.passBoost = gr.risk; any = true;
@@ -2125,7 +2153,7 @@
       // Under a goal: graded work, and study sessions for a graded exam, get a smaller lift than a pass-mark risk
       const s = short[t.courseId]; if (!s) return;
       const ex = t.prepFor ? allTasks().find(y => y.id === t.prepFor) : null;
-      if (!(ex ? hasWeight(ex) && markPct(ex) == null : (hasWeight(t) || PTS_W[t.id]) && markPct(t) == null)) return;
+      if (!(ex ? gradeShare(ex) > 0 && markPct(ex) == null : (gradeShare(t) > 0 || PTS_W[t.id]) && markPct(t) == null)) return;
       if (!x.tier) x.score *= 1.06 + Math.min(0.12, s.gs.gap / 100);
       x.goalBoost = true; any = true;
       const nm = courseLabel(s.gr.c), goal = s.gr.g.goal;
@@ -2177,13 +2205,15 @@
     const overdue = open.filter(t => t.due < w.today && t.late !== "none").length;
     const fixed = [], sugg = [];
     items.forEach(x => {
-      const t = x.t, W = hasWeight(t) ? Number(t.weight) : 0, exam = t.prepFor && state.tasks[t.prepFor];
+      const t = x.t, W = gradeShare(t), exam = t.prepFor && state.tasks[t.prepFor];
       const fix = why => fixed.push(Object.assign({}, x, {why}));
       if (MILESTONE(t.type)) return fix(t.type === "Exam" ? "Exam date" : "Quiz date");
       if (t.due > w.end && t.status === "todo" && !blockers(t).length) {
         const ns = addDays(w.end, 1), left = dayDiff(ns, t.due);
-        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3, label: `Start ${fmtShort(ns)} instead`,
-          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
+        // big work left for the few days before its due date isn't ticked: starting it later would crowd them
+        const R = remainingOf(t) || 0, roomy = R <= left * dailyHours() * 0.5;
+        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3 && roomy, label: `Start ${fmtShort(ns)} instead`,
+          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : !roomy ? `It isn't due until ${fmtShort(t.due)}, but it still needs about ${fmtHM(R)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
       }
       if (W >= 15) return fix(`Worth ${fmtW(W)} of your grade`);
       if (t.late === "none") return fix("No late work accepted");
@@ -2202,7 +2232,7 @@
       }
       fix(W ? `Graded deadline, worth ${fmtW(W)}` : t.type === "Study" ? "Study session" : "Class deadline");
     });
-    const heavy = items.filter(x => !MILESTONE(x.t.type) && hasWeight(x.t) && Number(x.t.weight) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
+    const heavy = items.filter(x => !MILESTONE(x.t.type) && gradeShare(x.t) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
       && !tasksArr().some(e => e.extFor === x.t.id && e.status !== "done")).sort((a, b) => b.h - a.h)[0] || null;
     const need = items.reduce((s, x) => s + x.h, 0);
     const plan = {w, items, fixed, sugg, heavy, need, overdue, ext: false};
@@ -2298,7 +2328,7 @@
       const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
       // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
-      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+      if (s.ov.due && s.ov.due !== cur.due && gradeShare(cur) > 0 && !/^(Study|Reading)$/.test(cur.type)) {
         if (!n.origDue) n.origDue = cur.due;
         const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
         n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
@@ -2370,6 +2400,9 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
 
   // For tests and other modules
   window.SBGRADES.math = {courseGrade, letterOf, markPct, fmtP, gradingOf};
+  // The rest of the grade math, for the insights modules (90-grade-insights.js and the ones after it)
+  Object.assign(window.SBGRADES.math, {grades, wOf, GRULES, holdOf, gset, saveG, termStats, typePl, fmtW, fmtN, fmtG, fmtCr, gpaMax, isFinal, excused, closed,
+    inDanger, zeroed, nowOf, finalOf, terms, gradeLine, markSheet, r1});
   // An "Add Mark" toast button for an exam or quiz just marked done; the later "Got a Mark Back?" prompt is skipped for it
   window.SBGRADES.offerMark = id => { const t = state.tasks[id]; if (!t || t.mark || t.prepFor) return undefined; setAsked(id); return {label: "Add Mark", fn: () => markSheet(id)}; };
   window.__sbGrades = {parseMark, parseScale, cleanScale, vetSchool, schoolHosts, courseGrade: id => courseGrade(courseOf(id)), rwPlan, showPrompt,

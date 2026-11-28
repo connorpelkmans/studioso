@@ -360,14 +360,14 @@
     const stamp = best == null ? "New" : fmt(best), good = best != null && best <= tgt + 10000, g = grp(p);
     return `<article class="rv-card rv-pres" data-rv="${esc(p.id)}" style="--c:${esc(colorOf(p.courseId))}">
       <button class="rv-peek pr-peek" data-act="pr-open" data-id="${esc(p.id)}" aria-label="Open ${nm}">
-        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b>${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
+        <span class="pr-scr" aria-hidden="true"><span class="pr-rod"></span><span class="pr-pane"><b class="rv-title">${esc(p.title || p.name || "")}</b><i></i><i></i></span><span class="pr-leg"></span></span>
         ${cardStrip(p)}
         <span class="rv-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span>
         <span class="rv-count">${p.slides} slide${p.slides === 1 ? "" : "s"}</span>
         ${fire("pr-card-badge", p).filter(Boolean).join("")}
         <span class="rv-stamp pr-stamp${best == null ? " new" : good ? " good" : ""}" aria-hidden="true">${stamp}</span>
       </button>
-      <div class="rv-foot"><button class="rv-info" data-act="pr-open" data-id="${esc(p.id)}"><b class="rv-title">${nm}</b></button>
+      <div class="rv-foot rv-foot-bar">
         <div class="rv-row"><span class="mini rv-sub">${meta}${runs.length ? ` · ${runs.length} run${runs.length === 1 ? "" : "s"}` : ""}</span>
         <div class="rv-cacts"><button class="icon-btn rv-ib" data-act="pr-del" data-id="${esc(p.id)}" aria-label="Delete ${nm}" title="Delete">${IC.trash}</button>${runs.length ? `<button class="icon-btn rv-ib" data-act="pr-hist" data-id="${esc(p.id)}" aria-label="History of ${nm}" title="History">${IC.history}</button>` : ""}<button class="btn small primary rv-go" data-act="pr-practice" data-id="${esc(p.id)}">Practice</button></div></div></div>
     </article>`;
@@ -785,6 +785,7 @@
         <span class="pr-clock"><b id="prClock">0:00</b><span>of ${fmt(S.tgt)}</span></span>
         <span class="pr-pace" id="prPace" hidden></span>
         <span class="pr-livechip" id="prLiveChip" hidden></span>
+        <span class="pr-cr" id="prCredits"></span>
         <button type="button" class="pr-ib" data-act="pr-remote" aria-label="Use your phone as a remote" title="Phone Remote">${IC.phone}</button>
         <button type="button" class="pr-end" data-act="pr-end">${S.follow ? "Leave" : "End"}</button>
       </div>
@@ -919,6 +920,13 @@
       lbl.textContent = k === S.i && S.started && !S.qa ? `${fmt(t[k])} · target ${fmt(S.b[k])}` : done ? fmt(t[k]) : fmt(S.b[k]);
       b.classList.toggle("done", done && k !== S.i);
     });
+    // Studyboard Credits this run has earned so far (98-0study-credits.js): each finished slide that stayed inside its time
+    const crb = S.el.querySelector("#prCredits");
+    if (crb && typeof SBSC !== "undefined" && SBSC && !S.follow) {
+      const left = SBSC.presRunsLeft(S.p.id), ok = S.started ? t.filter((x, k) => inSec(S, k) && k !== S.i && x > 0 && SBSC.presSlideOk(x, S.b[k])).length : 0;
+      const n = left ? ok * SBSC.PRES_SLIDE() : 0, key = n + "|" + left;
+      if (crb.dataset.k !== key) { const up = crb.dataset.k && n > Number(crb.dataset.k.split("|")[0]); crb.dataset.k = key; crb.innerHTML = SBSC.liveHtml(n); if (up && crb.firstElementChild) crb.firstElementChild.classList.add("bump"); }
+    }
     const pace = S.el.querySelector("#prPace");
     if (pace && S.started && !S.qa) {
       const before = S.b.slice(0, S.i).reduce((a, x) => a + x, 0), d = el - (before + Math.min(t[S.i], S.b[S.i]));
@@ -993,7 +1001,10 @@
     if (S.follow) { if (i !== S.i) liveCmd(S, i > S.i ? "next" : "prev"); return; }
     const lo = S.sec ? S.sec[0] : 0, hi = S.sec ? S.sec[1] : S.d.n - 1;
     i = clamp(i, lo, hi); if (i === S.i) return;
-    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t}); S.open = {i, a: t}; }
+    if (S.started) { const t = clockMs(S); if (S.open) S.seg.push({i: S.open.i, a: S.open.a, b: t});
+      // a slide practiced (the first time it's left in this run) can turn up a chest (98-0study-credits.js)
+      if (S.open && !S.follow && typeof SBSC !== "undefined" && SBSC) { S.crCh = S.crCh || {}; if (!S.crCh[S.open.i] && S.open.i !== i) { S.crCh[S.open.i] = 1; SBSC.rollChest("pres"); } }
+      S.open = {i, a: t}; }
     vStop(S);
     S.i = i; S.k = atEnd ? stepsOf(S.p, S.d, i) : 0; drawCur(); paint();
     if (S.started && !atEnd) mediaCalls(S, 0);

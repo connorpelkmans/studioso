@@ -55,7 +55,9 @@ const UA = {
   ok(R.st.kind === "webllm" && /gemma3-1b/.test(R.st.model), "an iPad (it looks like a Mac, with touch): the small model: " + JSON.stringify(R.st)); await R.ctx.close();
   R = await open({ua: UA.edge, gpu: true, mem: 8, lm: true});
   const t = await setupText(R.p);
-  ok(R.st.kind === "chrome" && /Edge's built-in AI/.test(t) && !/Chrome's built-in AI/.test(t), "Edge's own built-in AI is named as Edge's: " + (t.match(/[^.]*built-in AI[^.]*/) || [""])[0]); await R.ctx.close();
+  // the status names the exact model in use; the level in use, opened, says whose built-in AI it is
+  const tier = await R.p.evaluate(() => { const d = document.querySelector("dialog[open] .ai-tier.on"); if (!d) return ""; d.open = true; return d.innerText; });
+  ok(R.st.kind === "chrome" && /Studyboard AI 8GB \(Microsoft's Phi-4-mini\) runs right here/.test(t) && /Edge's built-in AI \(Microsoft's Phi-4-mini\)/.test(tier) && !/Chrome's built-in AI|Gemini Nano/.test(t + tier), "Edge's own built-in AI is named as Edge's: " + (t.match(/[^.]*runs right here/) || [""])[0] + " | " + (tier.match(/[^.\n]*built-in AI[^.]*/) || [""])[0]); await R.ctx.close();
   R = await open({ua: UA.chromeMac, gpu: false, mem: 8});
   { const tx = await setupText(R.p); ok(/doesn.t support WebGPU/.test(tx), "a browser without WebGPU: AI Features says why, and which browsers can: " + JSON.stringify(R.st) + " " + (tx.match(/[^\n]*(WebGPU|built-in AI|key below)[^\n]*/) || [""])[0]); } await R.ctx.close();
   await b.close(); server.close();

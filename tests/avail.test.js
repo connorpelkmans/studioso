@@ -202,6 +202,11 @@ const wins = r => r.windows.map(w => w.a + "-" + w.b);
   // never into a block
   p = A.place([W(1200, 1260)], [{id: "a", min: 40}, {id: "b", min: 60}], {breakMin: 10});
   ok(p.slots.length === 1 && p.unplaced.b === 60 && p.slots.every(x => x.e <= 1260), "overflow stays unplaced, never past the window");
+  // a short task isn't cut into a scrap before a shift: a later task that fits the gap goes there, else the gap stays free
+  p = A.place([W(955, 980), W(1260, 1380)], [{id: "hw", min: 45}, {id: "em", min: 15}], {breakMin: 10});
+  eq(p.slots.map(x => [x.id, x.s, x.e]), [["em", 955, 970], ["hw", 1260, 1305]], "the 15m task takes the 25m gap, the 45m task waits for the evening");
+  p = A.place([W(955, 980), W(1260, 1380)], [{id: "hw", min: 45}, {id: "ps", min: 30}], {breakMin: 10});
+  eq(p.slots.map(x => [x.id, x.s, x.e]), [["hw", 1260, 1305], ["ps", 1315, 1345]], "nothing fits the gap whole, so it stays free");
   p = A.place([], [{id: "a", min: 30}]);
   ok(p.slots.length === 0 && p.unplaced.a === 30, "no windows, nothing placed");
   // slots from a real day never touch a block

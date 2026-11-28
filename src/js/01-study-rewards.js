@@ -5,8 +5,8 @@
    2. Why a card is back ("You missed this yesterday") and an "in a row" chip from 3 known cards on.
    3. A daily goal you choose (Tiny 5, Steady 20, Strong 50, Exam Week 100): card ratings and quiz answers count, any rating,
       so honest ratings never cost anything. Reaching it is a quiet celebration.
-   4. A rewarding end to a study session: a ring of what you knew, cards newly mastered, your best run, today's goal and Mochi's
-      next accessory.
+   4. A rewarding end to a study session: a ring of what you knew, cards newly mastered, your best run, today's goal, the
+      Studyboard Credits it earned and Mochi's next accessory to save up for.
    5. AI quiz questions you missed become flashcards in that deck (with Undo), so a quiz always ends with a next step.
    Never here: hearts or lives, lockouts, cooldowns, speed scoring, anything bought. */
 
@@ -158,11 +158,14 @@ async function fcHint(){
   const nd = clone(state.decks[d.id]), k = nd && nd.cards.find(x => x.id === c.id);
   if (k) { k.hints = list; k.hintV = HINT_V; delete k.hint; saveDeck(nd, null); } else render();
 }
+// The bubble pops in once for each new thing it says (thinking, then each hint), never again when the screen redraws with the same
+// hint (saving the hints to the card, a sync): a fresh element each time replayed the pop, so it flashed out and back in
+const bubblePop = h => { const k = h.busy ? "busy" : "at" + h.at; if (h.popped === k) return ""; h.popped = k; return " pop"; };
 function hintBubbleHtml(h, act){
   const name = buddyName();
-  if (h.busy) return `<p class="fc-bubble" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
+  if (h.busy) return `<p class="fc-bubble${bubblePop(h)}" role="status"><span class="ai-spin" aria-hidden="true"></span> ${esc(name)} is thinking…</p>`;
   const more = h.at + 1 < h.list.length;
-  return `<div class="fc-bubble" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
+  return `<div class="fc-bubble${bubblePop(h)}" role="status"><span class="fc-hint-step">${h.list.length > 1 ? `Hint ${h.at + 1} of ${h.list.length}` : "Hint"}</span><p>${esc(h.list[h.at])}</p>${more ? `<button type="button" class="link-btn fc-hint-more" data-act="${act}">Another Hint</button>` : ""}${h.plain ? `<button type="button" class="link-btn fc-hint-more" data-act="ai-setup">Turn on AI for hints about the idea</button>` : ""}</div>`;
 }
 function fcBuddyHtml(d, c, f, key){
   const name = buddyName(), face = `<span class="fc-buddy-face" aria-hidden="true">${buddyFace()}</span>`;
@@ -198,7 +201,8 @@ function studyDoneHtml(f, cards, total, again){
   const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
   const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
   const t = goalCfg()[1], g = goalToday();
-  let next = null; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor("cards") : null; } catch (e) {}
+  // Studyboard Credits earned in this session (98-0study-credits.js), and the next accessory they're saving up for
+  let next = null, got = 0; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
   return `<section class="done-card sd">
       <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
         <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
@@ -209,7 +213,8 @@ function studyDoneHtml(f, cards, total, again){
         <div class="sd-tile"><b>${f.best || 0}</b><span>best run</span></div>
         <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
       </div>
-      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "Ready to wear" : `${next.left} card${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.v / next.n * 100)}%"></i></div></div>` : ""}
+      ${got ? `<p class="sd-credits">${SBSC.coin(22)}<b>+${got} Credit${got === 1 ? "" : "s"}</b><span class="mini">earned this session</span></p>` : ""}
+      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "You can buy it now" : `${next.left.toLocaleString()} credit${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.have / next.price * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
       ${keepSafeHtml()}

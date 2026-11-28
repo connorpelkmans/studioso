@@ -1261,7 +1261,9 @@ const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke
 const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief|research|annotated|bibliography|literature)\b/i;
 // a paper that already has something in Writing Studio: sources, quotes or a saved draft
 const hasData = t => !!(t && t.ws && typeof t.ws === "object" && ((Array.isArray(t.ws.src) && t.ws.src.length) || (Array.isArray(t.ws.q) && t.ws.q.length) || (t.ws.draft && t.ws.draft.t)));
-const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
+// a problem set, worksheet or homework is an Assignment with nothing to write a paper for, unless its title says there's writing
+const NOT_WRITING = /\b(homework|hw\s*\d*|problem\s*sets?|psets?|p-?sets?|worksheets?|exercises?|problems?|quiz(z?es)?|practice)\b/i;
+const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && ((["Assignment", "Project", "Lab"].includes(t.type) && !(NOT_WRITING.test(String(t.title || "")) && !WRITING.test(String(t.title || "")))) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
 // The draft kept on the paper (t.ws.draft): its text (capped), where it came from and when; and the last check (t.ws.chk): when, on which version of
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
@@ -2681,10 +2683,11 @@ function reviewHtml(){
     const snip = PP ? esc(cut(PP.body, 340)).replace(/\([^()]{2,70}?(?:1[5-9]\d\d|20\d\d|n\.d\.)[a-z]?(?:,[^()]{0,20})?\)/g, m => `<mark>${m}</mark>`) : "";
     const ldIc = w.ld ? (w.ld.p === "google" ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="#4285F4"/><path d="M14 2v5h5z" fill="#A1C2FA"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>' : WORD_ICON.replace(/width="22" height="22"/, 'width="18" height="18"')) : "";
     // the paper's own title (its name, teacher, course and date lines left out), then its body
-    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ph">${esc(cut(PP && PP.title ? PP.title : t.title, 70))}</span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
+    // the assignment's title heads the page, in the app's own type so it reads as the card's name, not the paper's text
+    const page = `<span class="wsr-page" aria-hidden="true"><span class="wsr-ptitle"><span class="wsr-ph wsr-t">${esc(cut(t.title, 160))}</span></span>${snip ? `<span class="wsr-pt">${snip}</span>` : `<span class="wsr-pl"></span>`}</span>`;
     return `<li class="wsr-card" data-rv="${esc(t.id)}" style="--c:${esc(colorOf(t.courseId))}">
       <button type="button" class="wsr-peekb" ${open} tabindex="-1" aria-hidden="true"><span class="wsr-back" aria-hidden="true"></span>${page}<span class="cm-cchip wsr-chip"><span class="fc-ic" aria-hidden="true">${c ? courseRingHtml(c) : GENERAL_ICON}</span>${esc(c ? courseLabel(c) : "General")}</span><span class="wsr-badge k-${badge[0]}">${badge[1]}</span>${ldIc ? `<span class="wsr-ld" title="${esc(w.ld.name || "Linked doc")}">${ldIc}</span>` : ""}</button>
-      <div class="wsr-foot"><button type="button" class="wsr-main" ${open}><span class="wsr-t">${esc(t.title)}</span></button>
+      <div class="wsr-foot wsr-foot-bar">
       <div class="wsr-row"><span class="wsr-sub"><span class="mini">${esc(t.due ? (t.status === "done" ? "Done" : relDue(t)) : "No due date")}</span><span class="mini wsr-l${ck && ck.err ? " bad" : ""}">${esc(line)}</span></span>
       <button type="button" class="btn small primary" ${open} aria-label="Open ${esc(t.title)} in Writing Studio">Open</button></div></div></li>`;
   };
@@ -3304,6 +3307,9 @@ svg.ws-zic{display:block;flex:none}
 .wsr-foot{flex:1;display:flex;flex-direction:column;gap:8px;padding:10px 12px 12px 14px}
 .wsr-row{display:flex;align-items:center;gap:10px;margin-top:auto}
 .wsr-sub{flex:1 1 auto;min-width:0;display:grid;gap:2px;color:var(--muted)}
+.wsr-foot-bar{justify-content:flex-end;padding:10px 12px 10px 14px}
+.wsr-ptitle{flex:none;padding:0 8px 6px;text-align:center;margin-bottom:2px;border-bottom:2px solid color-mix(in srgb,var(--c) 55%,#fff)}
+.wsr-page .wsr-ph.wsr-t{font:800 .92rem/1.18 var(--display,var(--font,system-ui));text-align:start;color:#1E2230;padding:0;-webkit-line-clamp:3;overflow-wrap:anywhere;word-break:normal;text-align:center}
 .wsr-main{border:0;background:none;font:inherit;color:inherit;text-align:left;padding:0;cursor:pointer;display:grid;gap:2px;margin-top:auto}
 @media (prefers-reduced-motion:reduce){.wsr-page{transition:none}.wsr-card:hover .wsr-page{translate:none}}
 .wsr-t{font-weight:700;font-size:1rem;line-height:1.25;word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}

@@ -146,7 +146,7 @@ const SEED = {v: 2, updated: 1, settings: {}, courses: [
   ok(page.errs.length === 0, "no console errors (links): " + page.errs.join(" | "));
   await ctx.close();
 
-  /* Flashcards and quiz questions attached to an idea colour it; Studyboard AI can find them */
+  /* Flashcards and quiz questions attached to an idea colour it; Studyboard AI Pro can find them */
   {
     const c2 = await mkCtx(), pg = await open(c2);
     await openMap(pg); await pg.check('[data-cm="know"]'); await pg.waitForTimeout(200);

@@ -37,7 +37,7 @@ var SBAREA = (() => {
     ex: {type: "STRING", description: "One realistic quick-add example task for a student in this field, like 'chem lab report fri 5pm worth 8%'. Lowercase, under 60 characters, with a short day and optional time or weight"},
     types: {type: "ARRAY", items: {type: "STRING", enum: ["Assignment", "Exam", "Quiz", "Reading", "Project", "Lab", "Study", "Other"]}, description: "All eight task types, the ones this field uses most first"},
     hours: {type: "OBJECT", properties: {Assignment: {type: "NUMBER"}, Project: {type: "NUMBER"}, Lab: {type: "NUMBER"}, Reading: {type: "NUMBER"}, Exam: {type: "NUMBER"}, Quiz: {type: "NUMBER"}, Study: {type: "NUMBER"}}, description: "Typical hours a student in this field spends on one task of each type"},
-    skin: {type: "STRING", enum: FIELD_SKINS.concat([""]), description: "The theme that fits the field best, or an empty string when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
+    skin: {type: "STRING", enum: FIELD_SKINS.concat(["none"]), description: "The theme that fits the field best, or none when none really does"}}, required: ["ctx", "ex", "types", "hours", "skin"]};
   // The same tuning each preset field has
   const cleanTuned = (r, text) => {
     if (!r || typeof r !== "object") return null;

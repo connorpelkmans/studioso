@@ -221,7 +221,7 @@ window.SBMATHAI = (() => {
     if (/\bhypotenuse\b|\bpythag/.test(s) || (k.legs && /\blegs?\b/.test(s))) { if (N.length >= 2) { const [a, b] = N, c = Math.sqrt(a * a + b * b); return {answer: `The hypotenuse is ${fmt(c)}: √(${fmt(a)}² + ${fmt(b)}²) = √(${fmt(a * a)} + ${fmt(b * b)}) = √${fmt(a * a + b * b)} = ${fmt(c)}.`, value: c, legs: true}; } }
     // circles: radius or diameter, then area or circumference
     const circ = /\bcircle\b|\bradius\b|\bdiameter\b/.test(s) || (k.r != null && /\b(area|circumference|perimeter|diameter)\b/.test(s));
-    if (circ) { let r = (m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s)) ? Number(m[1]) : (m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s)) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
+    if (circ) { let r = ((m = /\bradius(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s) || /(\d+(?:\.\d+)?)\s*(?:cm|m|in|ft|units?)?\s*radius/.exec(s))) ? Number(m[1]) : ((m = /\bdiameter(?: of| is| =)?\s*(\d+(?:\.\d+)?)/.exec(s))) ? Number(m[1]) / 2 : N.length === 1 ? N[0] : k.r;
       if (r != null && isFinite(r)) { if (/\bcircumference|perimeter\b/.test(s)) { const v = 2 * Math.PI * r; return {answer: `The circumference is ${fmt(2 * r)}π, about ${fmt4(v)}: C = 2πr = 2 × π × ${fmt(r)}.`, value: v, r}; }
         if (/\barea\b/.test(s)) { const v = Math.PI * r * r; return {answer: `The area is ${fmt(r * r)}π, about ${fmt4(v)} square units: A = πr² = π × ${fmt(r)}².`, value: v, r}; } } }
     // cubes, boxes, rectangles, triangles
@@ -234,7 +234,7 @@ window.SBMATHAI = (() => {
       if (/\bperimeter\b/.test(s)) return {answer: `The perimeter is ${fmt(2 * (a + b))}: 2 × (${fmt(a)} + ${fmt(b)}).`, value: 2 * (a + b)};
       if (/\barea\b/.test(s)) return {answer: `The area is ${fmt(a * b)} square units: ${fmt(a)} × ${fmt(b)}.`, value: a * b}; }
     // the angles of a polygon
-    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : (m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s)) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
+    { const nm = Object.keys(NGON).find(x => new RegExp(`\\b${x}s?\\b`).test(s)), n = nm ? NGON[nm] : ((m = /\b(\d+)[- ]?(?:sided|sides|gon)\b/.exec(s))) ? Number(m[1]) : (k.ngon && /\b(each|one|regular|angle)\b/.test(s) ? k.ngon : 0);
       if (n >= 3 && /\bangles?\b/.test(s)) { const sum = (n - 2) * 180, name = nm || `${n}-sided shape`;
         if (/\b(each|one|regular|every)\b/.test(s) && !/\bsum\b/.test(s)) return {answer: `Each interior angle of a regular ${name} is ${fmt(sum / n)}°: the angles add up to (${n} − 2) × 180 = ${sum}°, shared equally by ${n} angles.`, value: sum / n, ngon: n};
         if (/\bexterior\b/.test(s)) return {answer: `The exterior angles of any convex polygon add up to 360°${n ? `, so each one of a regular ${name} is ${fmt(360 / n)}°` : ""}.`, value: 360 / n, ngon: n};
@@ -297,6 +297,8 @@ window.SBMATHAI = (() => {
   const WORDP = /\b(how (far|long|much|many|fast)|what('?s| is) the (price|cost|total|speed|rate|answer)|per (hour|day|minute)|mph|km\/h|cost|costs|\$\d|each|split|tip|tax|discount|off)\b/i;
   const MINE = /\b(my|i'?m|i have|i've)\b[^?]*\b(tasks?|due|deadlines?|assignments?|grades?|gpa|marks?|courses?|classes?|exams?|schedule|calendar|notes?|decks?|cards?)\b|\b(due|deadline|overdue)\b/i;
   function isMath(q){
+    // something to remember or a range of chapters is never maths ("remember that Dr. Chen said the midterm covers chapters 1-6")
+    if (/^\s*(?:can you |please |pls )?(?:remember|note that|make a note|keep in mind|fyi|just so you know|heads up)\b|\b(?:chapters?|ch|pages?|pp|units?|weeks?|lectures?|modules?|sections?|slides?|lessons?)\.?\s*\d+\s*(?:-|–|to|through|thru)\s*\d+/i.test(String(q || ""))) return false;
     const s = String(q || "");
     if (s.length > 300) return false;
     if (HOWMANY_RE.test(low(s))) return true;

@@ -191,7 +191,33 @@ const ACC = (() => {
   }
   // What a check-in answer leaves: the share it means, at your pace so far (the pace counts at least 30%, since you're past most of the plan)
   const saidLeft = (E, h, p) => Math.min(3 * Math.max(E, 0.5), paced(E, h, p, 0.3));
-  return {entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
+  /* Reading pace: minutes a page, from finished readings that have pages */
+  const PACE_LIM = [0.5, 20];
+  // One finished reading -> {mpp, at} or null: the time you said it took, else its focus time (10 minutes or more)
+  function pageSample(t){
+    if (!t || t.status !== "done" || !(Number(t.pages) >= 1) || isMs(t.type) || t.prepFor) return null;
+    const meas = Number(t.focusMin) || 0, act = Number(t.actualMin) || 0;
+    const mins = act > 0 && act >= meas ? act : meas >= 10 ? meas : 0;
+    if (!mins) return null;
+    const mpp = mins / Number(t.pages);
+    // a timer left running, or pages only skimmed: not a pace
+    if (mpp < PACE_LIM[0] || mpp > PACE_LIM[1]) return null;
+    return {mpp, at: Number(t.doneAt) || Number(t.created) || 0};
+  }
+  // A course's readings, oldest first ("" is the readings with no course; null is all of them)
+  const pageSamples = (tasks, course) => (tasks || []).filter(t => t && (course == null || (t.courseId || "") === course)).map(pageSample).filter(Boolean).sort((a, b) => a.at - b.at);
+  // Smoothed: each reading moves the pace 30% of the way toward its own, starting from the student's setting (else 3 min a page).
+  // Once two readings count, one more than 2.5 times slower or faster than the pace so far is an outlier and is set aside.
+  // since: only readings finished after the student last set the pace by hand. -> {mpp, n, skipped}
+  function pace(S, prior, since){
+    let p = Number(prior) > 0 ? Number(prior) : 3, n = 0, skipped = 0;
+    (S || []).filter(x => !(since > 0) || x.at >= since).forEach(x => {
+      if (n >= 2 && (x.mpp > p * 2.5 || x.mpp < p / 2.5)) { skipped++; return; }
+      p += 0.3 * (x.mpp - p); n++;
+    });
+    return {mpp: Math.round(p * 10) / 10, n, skipped};
+  }
+  return {pageSample, pageSamples, pace, entry, entries, parseDur, samples, wmed, shrink, global, ratio, velocity, lateness, bins, peakOf, minutesByDay, minutesByCourse, workedDays, FEEL, clamp, dayOf, spread, paced, over, left, saidLeft, SAID, SPREAD};
 })();
 /*ACC-END*/
 
@@ -241,6 +267,14 @@ function explain(t){
     : tr("acc.under", "You usually finish {what} in about {x}x your estimate.", {x: i.r.toFixed(1), what: whatOf(t, i)});
 }
 
+// A course's reading pace: {mpp minutes a page, n readings it learned from, skipped outliers, set: the student's own number (0 if none)}
+function paceFor(cid){
+  const c = cid ? courseOf(cid) : null, own = c && Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!on()) return {mpp: own || 3, n: 0, skipped: 0, set: own};
+  const M = memo(), key = "p|" + (cid || "");
+  return M.ratios[key] || (M.ratios[key] = Object.assign(ACC.pace(ACC.pageSamples(allTasks(), cid || ""), own || 3, own ? Number(c.readPaceAt) || 0 : 0), {set: own}));
+}
+
 /* SBTIME: read-only tracked time */
 const SBTIME = (() => {
   const T = () => allTasks();
@@ -267,13 +301,16 @@ function logTime(id, min, kind, label, at, day){
 }
 const MIN_EARLY = 1;
 // Called when a focus session is stopped
-function early(min, taskId, why){
+function early(min, taskId, why, courseId){
   min = Math.min(Math.round(Number(min) || 0), 180);
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
   if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
+  // studying for a course in general (Focus's Studying For, with No particular task): the time is the course's, so there's no
+  // "Which task was that for?" to ask
+  if (courseId) return false;
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
 }
@@ -464,8 +501,8 @@ function underBoost(t){
 function staleScan(){
   try {
     if (pomo.mode === "focus" && !pomo.running && pomo.left > 0 && pomo.pausedAt && Date.now() - pomo.pausedAt > 2 * 3600000) {
-      const done = Math.max(0, (modeMs("focus") - pomo.left) / 60000), tid = pomo.taskId;
-      pomo.left = 0; pomo.preset = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
+      const done = pomoElapsedMin(), tid = pomo.taskId;
+      pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
       early(done, tid, "abandoned");
     }
   } catch (e) { }
@@ -647,9 +684,9 @@ hook("boot", () => {
 });
 // A focus session with no task
 hook("focus", e => {
-  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
+  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && !e.courseId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
-const api = {ACC, time: SBTIME, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
+const api = {ACC, time: SBTIME, paceFor, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);
 return api;
 })();

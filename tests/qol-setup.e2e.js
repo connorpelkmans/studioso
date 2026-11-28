@@ -68,7 +68,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
     /* First run on the hosted app: closing the welcome is how to use Studyboard without an account */
     {
       const {ctx, page} = await mk({first: true, local: false});
-      await page.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+      await page.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
       ok(await page.locator(".sem-card-b").count() === 0, "the semester card doesn't show behind the first sign-in");
       await page.click('dialog[open] .sheet-head [data-act="close"]');
       await page.waitForSelector(".sheet.ob", {timeout: 8000});
@@ -143,6 +143,8 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       const need = await txt(page, ".gr-need");
       ok(/To keep your A- \(90%\)/.test(need) && !/To pass/.test(need), "for an A- student, What You Need is about keeping the A-, not passing: " + need.replace(/\s+/g, " ").slice(0, 200));
       ok(await page.evaluate(() => { const p = document.querySelector(".gr-pass"), s = document.querySelector(".gr-stat:not(.gr-pass)"); return getComputedStyle(p).backgroundColor === getComputedStyle(s).backgroundColor; }), "the Pass Mark card has the same neutral look as the others");
+      // (the grade trend chart sits in the course's Outlook tab now)
+      if (await page.locator('[data-act="gi-gtab"][data-id="outlook"]').count()) { await page.click('[data-act="gi-gtab"][data-id="outlook"]'); await page.waitForTimeout(150); }
       const gt = await page.locator(".gt-svg").boundingBox();
       ok(gt && gt.height <= 210 && gt.width >= 400, "the grade trend chart is wide and short (" + Math.round(gt.width) + "x" + Math.round(gt.height) + ")");
       ok(await page.locator(".gr-goal-ask .chip[data-act=g-goal]").count() >= 2, "with marks in and no goal, it asks what grade you're aiming for");
@@ -191,12 +193,12 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       const card = await txt(page, '.course-card[data-id="c1"]');
       ok(/3 of 5 done/.test(card), "the course card counts finished work the Board has tucked away: " + card.replace(/\s+/g, " ").slice(0, 120));
       await act(page, "fab-course"); await page.waitForSelector("dialog[open] .fm-list");
-      ok(/Connect Canvas, Brightspace or Blackboard/.test(await txt(page, 'dialog[open] .fm-list [data-act="lms-open"]')), "the Add Course chooser has Connect Canvas, Brightspace or Blackboard");
+      ok(/Sync Your School Site[\s\S]*Canvas, Brightspace or Blackboard/.test(await txt(page, 'dialog[open] .fm-list [data-act="lms-open"]')), "the Add Course chooser has Sync Your School Site, for Canvas, Brightspace or Blackboard");
       await page.click('dialog[open] .fm-list [data-act="lms-open"]'); await page.waitForSelector('dialog[open] .bs-pcard[data-act="cv-open"]');
       await page.click('dialog[open] .bs-pcard[data-act="cv-open"]'); await page.waitForSelector("dialog[open] .bs-sheet");
       const sh = await txt(page, "dialog[open] .bs-sheet");
-      ok(/Needs a Free Account/.test(sh) && await page.locator('dialog[open] .bs-sheet [data-act="sb-signin"]').count() === 1 && await page.locator("#bsFeedIn").count() === 0, "without an account the calendar link says it needs a free one and offers Sign In");
-      ok(await page.locator('dialog[open] .bs-sheet [data-act="cv-file"]').count() >= 1 && !/Settings, Sync\)/.test(sh), "it leads with importing a calendar file, and the old (Settings, Sync) wording is gone");
+      ok(/Free Account/.test(sh) && await page.locator('dialog[open] .bs-sheet [data-act="cv-acct"]').count() === 1 && await page.locator("#bsFeedIn").count() === 0, "without an account the calendar link says it needs a free one and offers to make it");
+      ok(await page.locator('dialog[open] .bs-sheet [data-act="cv-file"]').count() >= 1 && !/Settings, Sync\)/.test(sh), "a calendar file is still offered, and the old (Settings, Sync) wording is gone");
       ok(/website\/#download/.test(await page.getAttribute('dialog[open] .bs-sheet a[href*="download"]', "href")), "the desktop app is a link to the download page");
       await ctx.close();
     }
@@ -223,15 +225,14 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       const {ctx, page} = await mk({seed: PLANNER()});
       await act(page, "menu"); await page.waitForSelector(".us-cat");
       await page.click('.us-cat[data-us="data"]'); await page.waitForTimeout(200);
-      const subs = await page.$$eval(".us-pane.on .us-sub-tab", b => b.map(x => x.textContent));
-      ok(subs.join() === "Backups,Import and Export,Cleanup", "Data and Backups: " + subs.join(", "));
+      const subs = await page.$$eval(".us-pane.on .us-gh", b => b.map(x => x.textContent));
+      ok(subs.join() === "Backups,Import and Export,Cleanup,Start Over", "Data and Backups: " + subs.join(", "));
       const vis = s => page.locator(s).first().isVisible();
       ok(await vis('.us-pane.on [data-act="export"]') && /Save a Copy on This Device/.test(await txt(page, '.us-pane.on [data-act="backup-now"]')), "Backups holds Export a Backup File, and Back Up Now says what it does");
-      await page.evaluate(() => document.querySelectorAll(".us-pane.on .us-sub-tab")[1].click()); await page.waitForTimeout(150);
-      ok(await vis('.us-pane.on [data-act="ia-open"]') && await vis('.us-pane.on [data-act="import"]'), "Import From Another App sits under Import and Export");
+      ok(await page.evaluate(() => { const h = [...document.querySelectorAll(".us-pane.on .us-gh")].find(x => x.textContent === "Import and Export"), l = h && h.nextElementSibling; return !!l && !!l.querySelector('[data-act="ia-open"]') && !!l.querySelector('[data-act="import"]'); }) && await vis('.us-pane.on [data-act="ia-open"]') && await vis('.us-pane.on [data-act="import"]'), "Import From Another App sits under Import and Export");
       await page.click('.us-cat[data-us="study"]'); await page.waitForTimeout(200);
-      const st = await page.$$eval(".us-pane.on .us-sub-tab", b => b.map(x => x.textContent));
-      ok(!st.includes("Grades") && await vis('.us-pane.on [data-act="g-grades"]'), "Grades is a row in Study Plan, not a tab of its own: " + st.join(", "));
+      const st = await page.$$eval(".us-pane.on .us-gh", b => b.map(x => x.textContent));
+      ok(!st.includes("Grades") && await vis('.us-pane.on [data-act="g-grades"]'), "Grades is a row in Study Plan, not a group of its own: " + st.join(", "));
       await ctx.close();
     }
 

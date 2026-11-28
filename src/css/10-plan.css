@@ -24,7 +24,7 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 @media (prefers-reduced-motion:no-preference){.plan-orb{animation:planGlow 3.6s ease-in-out infinite}}
 @keyframes planGlow{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--hero-b) 8%,transparent),0 8px 28px var(--hero-glow)}}
 
-.cp-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
+.cp-banner{font-variant-numeric:tabular-nums;position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
   background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35);font:600 .9rem var(--display)}
 .cp-banner .cp-txt{min-width:0;overflow-wrap:anywhere}
 @media (max-width:979px){

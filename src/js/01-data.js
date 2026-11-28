@@ -28,7 +28,8 @@ const TB = (() => {
     d = d || {};
     if (kind === "course") return cut(d.name || d.code, 70) || "Course";
     if (kind === "task") return cut(d.title, 70) || "Task";
-    if (kind === "note") return d.wb ? "Whiteboard: " + (cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Untitled") : cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    // (a first line written as a Markdown heading, "# Lecture 22", is named without its #)
+    if (kind === "note") { const l = (String(d.text || "").split("\n").find(x => x.trim()) || "").replace(/^\s*#{1,6}\s+/, ""); return d.wb ? "Whiteboard: " + (cut(l, 60) || "Untitled") : cut(l, 60) || "Empty note"; }
     if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
     if (kind === "file") return cut(d.name, 70) || "File";
     if (kind === "event") return cut(d.title, 70) || "Event";
@@ -274,11 +275,24 @@ function normTask(t){
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  // the cards picked from a picked deck (deck id → card ids); a deck with no entry counts in full
+  if (t.readyCards != null) {
+    if (t.readyCards && typeof t.readyCards === "object" && !Array.isArray(t.readyCards)) {
+      const o = {}; Object.keys(t.readyCards).slice(0, 30).forEach(k => { const v = t.readyCards[k]; if (k.length <= 80 && Array.isArray(v)) o[k] = v.filter(x => typeof x === "string" && x.length <= 80).slice(0, 1000); });
+      if (Object.keys(o).length) t.readyCards = o; else delete t.readyCards;
+    } else delete t.readyCards;
+  }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
   }
+  // a reading's page count (its time comes from the pages and the course's reading pace when it has no hours of its own)
+  if (t.pages !== undefined) { const n = Math.round(Number(t.pages)); if (n >= 1 && n <= 5000) t.pages = n; else delete t.pages; }
   if (t.latePen != null) { const v = Number(t.latePen); if (t.late === "penalty" && isFinite(v) && v > 0) t.latePen = Math.min(100, v); else delete t.latePen; }
+  if (t.pins != null) t.pins = normPins(t.pins);
+  if (t.pins && !t.pins.length) delete t.pins;
+  // Wrap Up Today (01-wrap-up.js): the day this task goes first in Do This Next; dropped once that day is over
+  if (t.firstOn != null && (!isDate(t.firstOn) || t.firstOn < addDays(todayISO(), -1))) delete t.firstOn;
   if (!Array.isArray(t.dependsOn)) t.dependsOn = [];
   if (!Array.isArray(t.history)) t.history = [];
   t.pct = Math.max(0, Math.min(100, Number(t.pct) || 0));
@@ -307,6 +321,16 @@ function normTask(t){
     t.remoteSig = String(t.remoteSig || "").slice(0, 12);
   }
   return scrubFields(t, ["title", "location", "team", "reading"], t.synced || t.icsUid || t.src ? ["notes"] : []);
+}
+// Study blocks pinned on Today's Plan (task.pins, from 01-plan-move.js): [{date, s, e}], minutes from that plan day's midnight like the
+// planner's slots (past 1440 for a late end of day; {s: 0, e: 0} means "moved off that day"). They sync like any task field.
+// A pin is only used on its own day, and is dropped here once that day is over (yesterday is kept: just after midnight it can still be the plan day).
+function normPins(p, today){
+  if (!Array.isArray(p)) return [];
+  const keep = addDays(today || todayISO(), -1), seen = new Set();
+  return p.filter(x => x && typeof x === "object" && isDate(x.date) && x.date >= keep && Number.isInteger(x.s) && Number.isInteger(x.e) && x.s >= 0 && x.e <= 2880 && x.e >= x.s && (x.e > x.s || x.s === 0))
+    .map(x => ({date: x.date, s: x.s, e: x.e})).filter(x => { const k = x.date + ":" + x.s + ":" + x.e; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.s - b.s).slice(0, 24);
 }
 // An exam's prep plan settings (task.prep, from the Exam Prep Planner)
 function normPrep(p){

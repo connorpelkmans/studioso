@@ -65,7 +65,8 @@ const SEED = {v: 2, updated: 1, settings: {grades: {prompt: false, pass: 60}}, e
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto("http://localhost:" + server.address().port + "/"); await page.waitForFunction(() => window.__sbSync && window.SBGRADES && window.__sbGrades);
     const act = (a, id, extra) => page.evaluate(([a, id, extra]) => { const x = document.createElement("button"); x.dataset.act = a; if (id) x.dataset.id = id; Object.assign(x.dataset, extra || {}); x.hidden = true; document.body.appendChild(x); x.click(); x.remove(); }, [a, id, extra]).then(() => page.waitForTimeout(300));
-    const card = async id => { await act("g-open-course", id); return page.evaluate(() => (document.querySelector(".gr-card") || {}).innerText || ""); };
+    // the card's text, with every tab of it (Marks, Breakdown, Outlook, What If) shown in turn
+    const card = async id => { await act("g-open-course", id); return page.evaluate(() => { const c = document.querySelector(".gr-card"); if (!c) return ""; const pans = [...c.querySelectorAll(".gi-pan")], was = pans.map(p => p.hidden); pans.forEach(p => { p.hidden = false; }); const t = c.innerText || ""; pans.forEach((p, i) => { p.hidden = was[i]; }); return t; }); };
     const G = id => page.evaluate(id => { const g = window.__sbGrades.courseGrade(id); return {cur: g.current, min: g.minFinal, max: g.maxFinal, rem: g.remaining, risk: g.risk, done: g.done, fin: g.final, unw: g.unw, D: g.D, missed: g.missed.map(t => t.id), exc: g.exc.map(t => t.id), ts: g.ts.map(t => t.id)}; }, id);
     // clicks go straight to the element: a celebration popup can sit over the page
     const clk = sel => page.evaluate(sel => { const el = document.querySelector(sel); if (!el) throw new Error("no " + sel); el.click(); }, sel).then(() => page.waitForTimeout(150));
@@ -115,6 +116,8 @@ const SEED = {v: 2, updated: 1, settings: {grades: {prompt: false, pass: 60}}, e
     // GR13 / GR23: What If lists the final and the quizzes as one row; Solve works out what the final needs
     t = await card("wif");
     ok(/Final Exam/.test(t.slice(t.indexOf("WHAT IF"))) && /All Remaining Quizzes \(10\)/.test(t), "What If has the final exam and a row for all the quizzes");
+    // What If sits in its own tab on a course's Grades tab
+    await page.evaluate(() => window.SBGTAB && SBGTAB("whatif"));
     await page.fill('[data-wi="g:Quiz"]', "90"); await page.waitForTimeout(150);
     await clk('[data-act="wi-solve"][data-id="wf"]'); await page.waitForTimeout(300);
     const sv = await page.evaluate(() => document.querySelector(".gr-wi-solve").textContent), fv = await page.evaluate(() => document.querySelector('[data-wi="wf"]').value);

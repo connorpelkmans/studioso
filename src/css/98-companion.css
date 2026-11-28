@@ -1,10 +1,11 @@
 /* ===== module: 98-companion.css ===== */
 /* Study Companions */
 .cp-layer{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease}
-/* Stepping aside for a toast */
-.cp-front .cp.cp-duck{opacity:0;scale:.8}
-.cp-front .cp.cp-duck .cp-hit,.cp-front .cp-hit.cp-hit-off{pointer-events:none}
+.cp-front .cp{position:absolute;pointer-events:none;touch-action:none;transition:opacity .2s ease,scale .25s ease,translate .45s cubic-bezier(.45,0,.25,1)}
+/* Stepping aside for a toast: a short step or a hop up, and back again, eased in and out (98-companion.js duck) */
+.cp-front .cp.cp-duck{translate:var(--cp-dx,0px) var(--cp-lift,0px)}
+.cp-front .cp-hit.cp-hit-off{pointer-events:none}
+@media (prefers-reduced-motion:reduce){.cp-front .cp{transition:opacity .2s ease}}
 /* The placement guard (SBCOMP.clamp) reads the safe area through this probe */
 .cp-probe{position:fixed;left:0;top:0;width:0;height:0;box-sizing:content-box;visibility:hidden;pointer-events:none;padding:var(--sb-sai-top,env(safe-area-inset-top,0px)) var(--sb-sai-right,env(safe-area-inset-right,0px)) var(--sb-sai-bottom,env(safe-area-inset-bottom,0px)) var(--sb-sai-left,env(safe-area-inset-left,0px))}
 .cp-front .cp-hit{position:absolute;left:10%;right:10%;top:4%;bottom:0;border-radius:46% 46% 40% 40%;pointer-events:auto;cursor:pointer;outline:none;-webkit-tap-highlight-color:transparent;touch-action:none}
@@ -20,6 +21,12 @@
 .cp-front.cp-still .cp-breathe,.cp-front.cp-still .cp-shadow{animation:none!important}
 .cp-front.cp-paused *{animation-play-state:paused!important}
 html.cp-hover{cursor:pointer}
+/* Drag and drop: lifted while carried (swaying with the way it's carried), then it plops down where it's let go */
+.cp-front .cp.cp-drag{translate:0 -14px;scale:1.06;rotate:var(--cp-tilt,0deg);transition:translate .16s ease-out,scale .16s ease-out,rotate .12s linear;z-index:2}
+.cp-front .cp.cp-drag .cp-shadow{translate:0 10px;scale:.7;opacity:.55;transition:translate .16s,scale .16s,opacity .16s}
+.cp-front .cp.cp-drag .cp-breathe{animation-play-state:paused}
+.cp-front .cp.cp-plop{transition:opacity .2s ease}
+html.cp-grabbing,html.cp-grabbing *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 .cp-move,.cp-breathe{position:absolute;inset:0;display:block;transform-origin:50% 93%;will-change:transform}
 .cp-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block}
 .cp-shadow{position:absolute;left:24%;right:24%;bottom:4%;height:7%;border-radius:50%;background:radial-gradient(closest-side,rgba(28,20,40,.26),rgba(28,20,40,0));display:block}
@@ -93,8 +100,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.cheer{font-size:.98rem;box-shadow:0 8px 26px color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,transparent),0 0 0 2px color-mix(in srgb,var(--cp-wear,var(--accent)) 60%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 20%,var(--surface)),var(--surface) 75%)}
 .cp-bubble.cheer.on{animation:cpBubbleCheer .8s .25s ease-in-out 1}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
-@keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
-@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
+/* the wiggle uses rotate and translate, not transform, so it adds to the bubble's pop-in (a transform transition still running)
+   instead of replacing it: with transform the bubble jumped to its resting spot the moment the wiggle began */
+@keyframes cpBubbleWobble{0%,100%{rotate:0deg}35%{rotate:-1.6deg}70%{rotate:1.2deg}}
+@keyframes cpBubbleCheer{0%,100%{translate:0 0;rotate:0deg}20%{translate:0 -3px;rotate:-3deg}45%{translate:0 -2px;rotate:3deg}70%{translate:0 -1px;rotate:-1.5deg}}
 .cp-front.cp-still .cp-bubble{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
 @media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}}
@@ -128,14 +137,57 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-.cp-acc-tile.off{opacity:.55;cursor:default}
-.cp-how{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.cp-how li{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-.cp-how-ways{display:grid;gap:6px}
-.cp-how-way{display:grid;gap:1px;font-size:.78rem}
-.cp-how-bar{display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
-.cp-how-bar i{display:block;height:100%;border-radius:3px;background:var(--accent)}
-.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1)}
+/* Rarity: grey Common, green Uncommon, blue Rare, purple Epic, yellow Legendary */
+.cp-rar{display:inline-block;font:700 .58rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:999px;color:#fff;background:#6B7280;vertical-align:middle;white-space:nowrap}
+.cp-rar-uncommon{background:#15803D}
+.cp-rar-rare{background:#2563EB}
+.cp-rar-exotic{background:#7C3AED}
+.cp-rar-legendary{background:#FACC15;color:#3A2A00}
+.cp-acc-tile{position:relative}
+.cp-acc-tile.cp-r-uncommon{border-color:color-mix(in srgb,#15803D 30%,var(--line))}
+.cp-acc-tile.cp-r-rare{border-color:color-mix(in srgb,#2563EB 35%,var(--line))}
+.cp-acc-tile.cp-r-exotic{border-color:color-mix(in srgb,#7C3AED 40%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#7C3AED 7%,var(--surface)),var(--surface))}
+.cp-acc-tile.cp-r-legendary{border-color:color-mix(in srgb,#E6A800 60%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#FACC15 14%,var(--surface)),var(--surface))}
+.cp-acc-tile.on.cp-r-legendary,.cp-acc-tile.on.cp-r-exotic,.cp-acc-tile.on.cp-r-rare,.cp-acc-tile.on.cp-r-uncommon{border-color:var(--accent)}
+.cp-acc-grp{margin:6px 0 0;font:700 .85rem/1.2 var(--display);display:flex;align-items:baseline;gap:6px}
+.cpu .cp-rar{font-size:.72rem;padding:4px 10px;animation:cpu-up .5s ease-out .6s both}
+/* Legendary twinkles and the propeller's spin: still under reduced motion */
+.cp-tw{transform-box:fill-box;transform-origin:center}
+.cp-spin{transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:no-preference){
+  .cp-tw{animation:cp-tw 2.4s ease-in-out infinite}
+  .cp-spin{animation:cp-spin 1.1s linear infinite}
+}
+.cp-still .cp-tw,.cp-still .cp-spin{animation:none!important}
+@keyframes cp-tw{0%,100%{transform:scale(.55);opacity:.55}50%{transform:scale(1.1);opacity:1}}
+@keyframes cp-spin{0%,100%{transform:scaleX(1)}50%{transform:scaleX(-1)}}
+.cp-acc-tile.off{cursor:pointer}
+.cp-acc-tile.off .cp-acc-ic{filter:grayscale(1);opacity:.55}
+.cp-acc-tile.off .cp-acc-n{opacity:.7}
+/* Props are bought with Studyboard Credits (98-0study-credits.js): the price under each one not owned yet, gold when it's affordable (the tile keeps its rarity's colours) */
+.cp-acc-p{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.cp-acc-p b{font-weight:800}
+.cp-acc-tile.can-buy .cp-acc-ic{filter:none;opacity:.85}
+.cp-acc-tile.can-buy .cp-acc-p{color:#8A5A00}
+:root[data-theme="dark"] .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+.cp-acc-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cp-acc-h .scr-pill{margin-left:auto;font-size:.85rem}
+/* The buy sheet */
+.cp-buy .sheet-body{display:grid;gap:14px}
+.cp-buy-stage{display:grid;place-items:center;min-height:170px;border-radius:16px;background:radial-gradient(circle at 50% 45%,color-mix(in srgb,#F6C34A 22%,var(--surface)),var(--soft) 70%)}
+.cp-buy-stage .cp-acc-ic{width:96px;height:96px}
+.cp-buy-price{display:flex;align-items:center;gap:12px}
+.cp-buy-price > span{display:grid;gap:2px}
+.cp-buy-price b{font:800 1.25rem var(--display)}
+.cp-buy-price > span > span{font-size:.86rem;color:var(--muted)}
+.cp-buy-wallet{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border:1px solid var(--line);border-radius:14px}
+.cp-buy-wallet > span:first-child{color:var(--muted);font-size:.9rem}
+.cp-buy-wallet b{display:inline-flex;align-items:center;gap:5px;font:800 1.05rem var(--display)}
+.cp-buy-chip{margin-left:auto;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,#F6C34A 24%,var(--surface))}
+.cp-buy-chip.ok{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.cp-buy-how > summary{cursor:pointer;font-weight:700;min-height:40px;display:flex;align-items:center}
+.cp-buy-how[open]{display:grid;gap:8px}
+.cp-buy-go{display:inline-flex;align-items:center;gap:6px}
 .cp-acc-ic{width:44px;height:44px;display:block;--cp-wear:var(--accent)}
 .cp-acc-ic svg{width:100%;height:100%;overflow:visible}
 .cp-tints{display:grid;gap:8px}
@@ -237,10 +289,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The companion's Ask button (Companion tab, the speech bubble, Ask About This Task): one look everywhere, in every theme.
-   A solid purple pill with the companion's face, white bold text, and no colour change on hover; a theme's button gradient, hover
+   A solid purple pill with white text (not the soft purple of other AI buttons); a theme's button gradient, hover
    tint or photo glow never reaches it. Keyboard focus still gets a clear ring. */
-html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
-html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
+html .btn.primary.cp-ask-go.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
+html .btn.primary.cp-ask-go.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
@@ -300,3 +352,31 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 .cpu.cpu-still *,.cpu.cpu-still{animation:none!important}
 .cpu.cpu-still .cpu-spark{opacity:.8;transform:none}
 @media (prefers-reduced-motion:reduce){.cpu *,.cpu{animation:none!important}.cpu .cpu-spark{opacity:.8}}
+/* dark mode from the system setting (no data-theme set) */
+@media (prefers-color-scheme:dark){
+:root:not([data-theme="light"]) .cp-acc-tile.can-buy .cp-acc-p{color:#FFD36B}
+}
+
+/* The Christmas present (98-companion.js showGift): the wrapped box bobs; Open It lifts the lid away in a burst */
+.cpg-stage{border:0;background:none;padding:0;cursor:pointer;font:inherit;color:inherit}
+.cpg-stage:focus-visible{outline:3px solid #FFD983;outline-offset:6px;border-radius:50%}
+.cpg-box{position:relative;width:62%;height:62%;overflow:visible;filter:drop-shadow(0 8px 18px rgba(0,0,0,.35))}
+.cpg-lid{transform-box:fill-box;transform-origin:50% 100%}
+@media (prefers-reduced-motion:no-preference){
+  .cpu-gift:not(.cpu-still) .cpg-box{animation:cpg-bob 1.6s ease-in-out infinite}
+  .cpu-gift:not(.cpu-still) .cpg-stage:hover .cpg-box{animation:cpg-wiggle .5s ease-in-out infinite}
+  .cpu-gift.cpg-opening .cpg-box{animation:none}
+  .cpu-gift.cpg-opening .cpg-lid{animation:cpg-lid .8s cubic-bezier(.2,.8,.3,1) forwards}
+  .cpu-gift.cpg-opening .cpu-glow{animation:cpg-flash .8s ease-out forwards}
+}
+@keyframes cpg-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes cpg-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+@keyframes cpg-lid{0%{transform:none}30%{transform:translateY(-6px) rotate(-6deg)}100%{transform:translate(60%,-180%) rotate(38deg);opacity:0}}
+@keyframes cpg-flash{0%{opacity:.7;transform:scale(1)}60%{opacity:1;transform:scale(1.5)}100%{opacity:.9;transform:scale(1.35)}}
+/* A Pro holiday gift: a quiet line under the present's words, with the PRO mark */
+.cpg-pro{display:inline-flex;align-items:center;gap:6px;font:600 .78rem/1.2 var(--body);color:rgba(255,255,255,.78);animation:cpu-up .5s ease-out .7s both}
+.cpg-pro .pro-badge{font-size:.6rem;padding:1px 5px}
+.cpu-did .pro-badge{font-size:.6rem;padding:1px 5px;vertical-align:1px;margin-right:2px}
+/* The New Year's gift: a quiet note that the year's other holiday gifts are for Pro */
+.cpu-next{display:flex;align-items:center;justify-content:center;gap:6px;margin:-2px 0 0;font:600 .8rem/1.3 var(--body);color:rgba(255,255,255,.75);animation:cpu-up .5s ease-out .75s both}
+.cpu-next .pro-badge{font-size:.6rem;padding:1px 5px;flex:none}

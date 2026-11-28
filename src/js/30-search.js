@@ -36,7 +36,7 @@
     assignment: ["homework"], paper: ["essay"], essay: ["paper"], due: ["deadline"], deadline: ["due"], cough: ["coughing"], pain: ["analgesic"],
     analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical", "internship"], internship: ["placement"],
     calc: ["calculus"], calculus: ["calc", "derivative", "integral"], bio: ["biology"], biology: ["bio"], chem: ["chemistry"], chemistry: ["chem"], psych: ["psychology"], psychology: ["psych"],
-    econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
+    orgo: ["organic"], ochem: ["organic"], econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
   };
   function hash(s){
     let a = 0x811c9dc5, b = 0x9747b28c ^ s.length;
@@ -304,7 +304,8 @@
     });
     notesArr().forEach(n => {
       const txt = String(n.text || "").trim(); if (!txt) return;
-      const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
+      // a "# Heading" first line is the note's title without its #
+      const skip = (/^#{1,6}[ \t]+(?=\S)/.exec(txt) || [""])[0].length, first = txt.slice(skip).split("\n")[0].slice(0, 90), rest = txt.slice(skip + first.length).trim();
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
     });
@@ -567,7 +568,7 @@
     if (gone.length) { gone.forEach(a => FT.recs.delete(a)); dbDelMany("text", gone); }
   }
 
-  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI (Pro), or their OpenAI key.
+  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI Pro (Pro), or their OpenAI key.
      Claude has no embeddings, so with a Claude key alone, Ask With AI widens word search with related terms the AI suggests. */
   const SEM = {vecs: new Map(), loaded: false, loading: null, running: false, err: "", timer: 0, left: 0, total: 0};
   const embState = () => { try { return JSON.parse(localStorage.getItem(LS_EMB) || "{}") || {}; } catch(e) { return {}; } };
@@ -576,7 +577,7 @@
   function embedder(){
     if (inPreview()) return null;
     let c; try { c = aiCfg(); } catch(e) { return null; }
-    // Paid Pro: Studyboard AI first (the student's own key is only the backup)
+    // Paid Pro: Studyboard AI Pro first (the student's own key is only the backup)
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
     if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
@@ -614,10 +615,10 @@
   const embKey = () => !!embedder();
   const semOn = () => !!embedder() && sxCfg().meaning !== false;
   const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : e.kind === "device" ? "dev-bge-small" : "oa-te3s"; };
-  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
+  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI Pro" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
   const fmtQuery = (m, q) => m === "gemini-embedding-001" ? q : `task: search result | query: ${q}`;
-  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI's (bge-m3, 1024) are kept whole
+  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI Pro's (bge-m3, 1024) are kept whole
   function quant(values, dims = DIMS){
     const D = Math.min(dims, values.length), v = values.length > D ? values.slice(0, D) : values;
     let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
@@ -638,7 +639,7 @@
     }
     if (E.kind === "studyboard") {
       const list = await proEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 8000) || "(empty)"), isQuery);
-      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI sent back an unexpected answer. Try again.");
+      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI Pro sent back an unexpected answer. Try again.");
       return list.map(v => quant(v, 1024));
     }
     if (E.kind === "openai") {
@@ -735,7 +736,7 @@
         const m2 = embModel(), rows = [];
         todo.forEach((p, i) => { const v = {q: vecs[i].q, s: vecs[i].s}; SEM.vecs.set(m2 + ":" + p.h, v); rows.push([m2 + ":" + p.h, v]); });
         await dbPutMany("vec", rows);
-        // Studyboard AI allows 20 requests a minute, shared with everything else
+        // Studyboard AI Pro allows 20 requests a minute, shared with everything else
         await wait((embedder() || {}).kind === "studyboard" ? 4000 : (embedder() || {}).kind === "device" ? 60 : 700); await idle();
       }
     } catch(e) {
@@ -949,7 +950,7 @@
   function examLine(D, x, extra, pre){
     const t = x.t, bits = [(pre ? (x.k === "quiz" ? "Quiz: " : "Exam: ") : "") + t.title, courseTag(D, t), `${longDate(t.due)} (${rel(x.days)})`, clock(t.time) ? "at " + clock(t.time) : "", t.location ? "in " + t.location : "", hasWeight(t) ? `worth ${t.weight}% of the grade` : ""];
     let s = bits.filter(Boolean).join(", ");
-    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
+    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200).trim().replace(/[.!?;:,]+$/, "")}`;
     return s;
   }
   // Tasks still to do between two dates (inclusive)
@@ -964,6 +965,10 @@
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
+  // What students call a course ("my orgo final"): the start of the words in its name
+  const NICK = {orgo: "organic chem", ochem: "organic chem", gchem: "general chem", genchem: "general chem", biochem: "biochem", calc: "calculus", precalc: "precalculus",
+    stats: "statistic", stat: "statistic", psych: "psycholog", bio: "biolog", micro: "microecon", macro: "macroecon", econ: "economic", physio: "physiolog",
+    anat: "anatom", soc: "sociolog", polisci: "political science", compsci: "computer science", philo: "philosoph", hist: "history", lit: "literature"};
   // Which courses the question names (by code like "bio 101" or by a word from the name)
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
@@ -979,6 +984,8 @@
         else if (letters.some(x => x.length >= 3 && pre(x))) s += 1.6;
       }
       toks(c.name || "").filter(x => x.length >= 4 && !GENERIC_NAME.has(x)).forEach(x => { if (qs.has(x)) s += 1; else if (pre(x)) s += 0.8; });
+      const nm = " " + toks(c.name || "").join(" ");
+      if (qt.some(x => NICK[x] && nm.includes(" " + NICK[x]))) s = Math.max(s, 2);
       if (s > top + 1e-9) { top = s; best = [c]; } else if (s > 0 && Math.abs(s - top) < 1e-9) best.push(c);
     });
     return top >= 1.5 ? best : [];
@@ -1000,11 +1007,13 @@
   const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   /* The exact answer for a question, or null when it needs reading */
-  function exactAnswer(D, q){
+  // scope: the course picked under Ask About, used when the question doesn't name a course itself
+  function exactAnswer(D, q, scope){
     const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     if (!ql) return null;
     if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
-    const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
+    const named = coursesInQ(D, q), cs = named.length || !scope ? named : D.courses.filter(c => c.id === scope);   // named: only the courses the question itself names (rooms, instructors, a day's classes)
+    const only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
     const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
     if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
       const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
@@ -1021,6 +1030,9 @@
       let hinted = false;
       if (hint) { const h = up.filter(x => hint.test(x.t.title)); if (h.length) { up = h; hinted = true; } }
       const listAll = /\b(all|list|exams|tests|quizzes|quizes|how many|which|what exams|any|remaining|upcoming exams)\b/.test(ql) && !/\bnext\b|\bfirst\b|\bsoonest\b/.test(ql);
+      // "when is the final?" in a course whose final is a paper or project, not an exam: say that, with its due date
+      const finals = !up.length && hint && cs.length && /final/.test(String(hint)) ? D.tasks.filter(t => isDate(t.due) && t.due >= D.today && t.status !== "done" && only(t) && /\bfinal\b/i.test(t.title)).sort((a, b) => a.due < b.due ? -1 : 1) : [];
+      if (finals.length) return {kind: "exam", items: askItems(finals), text: `There's no final exam${forC} in your planner. ${finals.length === 1 ? "The final work is" : "The final work:"} ${finals.slice(0, 3).map(t => `${t.title}, due ${longDate(t.due)}`).join("; ")}.`};
       if (!up.length) {
         const past = examsOf(D, kinds).filter(x => only(x.t) && (x.passed || x.done)).pop();
         return {kind: "exam", items: past ? askItems([past.t]) : [], text: `You have no upcoming ${noun}${forC} in your planner.${past ? ` The most recent was ${past.t.title}${courseTag(D, past.t) ? " (" + courseTag(D, past.t) + ")" : ""} on ${longDate(past.t.due)}${past.done ? ", marked as taken" : ""}.` : ""}`};
@@ -1061,16 +1073,16 @@
       return {kind: "due", items: askItems(real.concat(od)), text};
     }
     if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
-      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
+      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !named.length || (o.c && named.some(c => c.id === o.c.id)) || (o.course && named.some(c => c.id === o.course.id)))
         .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
-      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
-      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
+      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}.`};
+      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
-    if (cs.length && cs.length <= 3) {
+    if (named.length && named.length <= 3) {
       const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
       if (ask) {
         const lbl = {instructor: "instructor", office: "office hours", room: "room"}[ask];
-        const lines = cs.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
+        const lines = named.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
         return {kind: "course", items: [], text: (ask === "instructor" ? "Instructor, " : ask === "office" ? "Office hours, " : "Room, ") + lines.join("; ") + "."};
       }
     }
@@ -1174,7 +1186,7 @@ Return JSON only.`;
     else if (S.thread.length && S.thread[S.thread.length - 1].q === q) S.thread.pop();
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
-    let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    let det = null; try { det = exactAnswer(askData(), q, S.course); } catch(e) { console.warn(e); }
     // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
     if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
@@ -1358,7 +1370,7 @@ Return JSON only.`;
   }
 
   /* Opening things */
-  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; }
+  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (window.SBESS && SBESS.opened) SBESS.opened(tab, "search"); }
   function runAct(act, data){
     const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act;
     Object.entries(data || {}).forEach(([k, v]) => { b.dataset[k] = v; });
@@ -1647,6 +1659,8 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      // search by meaning runs on the device without AI, but nothing writes an answer: say so, or a question just lists matches
+      else if (!aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Without AI, Ask answers dates and grades from your planner and finds the closest matches. Set up AI (free with a Gemini key) to get answers from your notes too.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
@@ -1804,7 +1818,7 @@ Return JSON only.`;
     const c = sxCfg(), files = Object.values(state.files).filter(f => extKind(f));
     const read = files.filter(f => { const r = FT.recs.get(srcRev(f).assetId); return r && r.status === "ok"; }).length;
     const row = (key, title, sub, on) => `<div class="cap-row"><span style="flex:1;font-weight:600">${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-sxopt="${key}" ${on ? "checked" : ""}> On</label></div>`;
-    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
+    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI Pro (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
     openSheet(`<div class="sheet">${head("Search Settings")}<div class="sheet-body"><div class="menu-list">
       <button type="button" data-act="search"><span>Open Search<span class="sub">Press ${KEYS} anywhere, or the search button.</span></span></button>
       ${row("files", "Search Inside Files", `Reads the text of your PDFs, Word and PowerPoint files in the background and keeps it on this device. ${S.used ? `${read} of ${files.length} readable file${files.length === 1 ? "" : "s"} read.` : `${files.length} readable file${files.length === 1 ? "" : "s"}.`}`, c.files)}
@@ -1980,7 +1994,7 @@ Return JSON only.`;
     runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
   };
   setTimeout(warmFiles, 15000);
-  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
+  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun, exact: (q, scope) => exactAnswer(askData(), q, scope)}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
   window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();

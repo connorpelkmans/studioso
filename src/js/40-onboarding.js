@@ -6,7 +6,7 @@
   const newAccount = () => { try { const t = Date.parse((sbUser && sbUser.created_at) || ""); return t > 0 && Date.now() - t < 2 * 86400000; } catch (e) { return false; } };
   const isDone = () => { try { const a = acctKey(); if (a && localStorage.getItem(a)) return true; if (a && newAccount()) return false; return !!localStorage.getItem(KEY); } catch (e) { return true; } };
   // The time is kept too, so the Board's semester card waits a few days after the welcome setup
-  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); } catch (e) {} };
+  const markDone = () => { try { localStorage.setItem(KEY, "1"); const a = acctKey(); if (a) localStorage.setItem(a, "1"); if (!extra()) localStorage.setItem(KEY + ":at", String(Date.now())); if (mode === "first" && !localStorage.getItem(KEY + ":first")) localStorage.setItem(KEY + ":first", String(Date.now())); } catch (e) {} };
   const isEmpty = () => !Object.keys(state.courses || {}).length && !Object.keys(state.tasks || {}).length;
   // The tour is open, or still to come for this account
   window.SBOB = {pending: () => !!document.querySelector("dialog[open] .ob") || (!isDone() && isEmpty()), T: {plan: null}, setupAt: () => 0};
@@ -118,6 +118,7 @@
     const cs = coursesArr(), aiOk = (() => { try { return !!aiReady(); } catch (e) { return false; } })();
     const list = cs.length ? `<ul class="ob-clist" aria-label="Your courses">${cs.map(c => { const d = datesFor(c.id); return `<li style="--c:${esc(c.color || "#8A94A6")}"><span class="ob-cdot" aria-hidden="true"></span><span class="ob-cname">${c.code ? `<b>${esc(c.code)}</b>` : ""}${c.name && c.name !== c.code ? `${c.code ? " " : ""}${esc(c.name)}` : ""}</span>${d ? `<span class="ob-cn mini">${d} date${d === 1 ? "" : "s"}</span>` : ""}${added.includes(c.id) ? `<button type="button" class="x-btn" data-ob="rm-course" data-id="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">${CLOSE}</button>` : ""}</li>`; }).join("")}</ul>` : "";
     const nF = foundHere().length;
+    const onL = (() => { try { return Object.values(window.SBLMS || {}).filter(L => L && L.P && typeof L.connected === "function" && L.connected()).map(L => L.P.name); } catch (e) { return []; } })();
     const tally = nF ? `<p class="ob-tally"><span><b>${nF} item${nF === 1 ? "" : "s"} found</b>, ${cs.length} course${cs.length === 1 ? "" : "s"}.</span>${window.SBSEM && SBSEM.review ? `<button type="button" class="link-btn" data-ob="check">Check Them</button>` : ""}</p>` : "";
     const wait = queue.length ? `<p class="ob-queue mini">${queue.length} more syllabus${queue.length === 1 ? " is" : "i are"} waiting. Next: ${esc(queue[0].name)} <button type="button" class="link-btn" data-ob="q-next">Read It Now</button></p>` : "";
     return `${hero(IC.courses)}
@@ -125,8 +126,8 @@
       <p class="ob-lead">Connect your school's site to bring in every course and its due dates, or add a syllabus for each course.</p>
       <div class="ob-src main">
         <span class="ob-alt-ic" aria-hidden="true">${IC.board}</span>
-        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">Brightspace, Canvas or Blackboard. Studyboard only reads from it.</span></span>
-        <button type="button" class="btn primary" data-ob="lms">Connect</button>
+        <span class="ob-alt-t"><b>Your School's Site</b><span class="mini">${onL.length ? `${esc(onL.join(" and "))} connected. Studyboard keeps it up to date.` : "Brightspace, Canvas or Blackboard. Studyboard only reads from it."}</span></span>
+        <button type="button" class="btn ${onL.length ? "" : "primary"}" data-ob="lms">${onL.length ? "Connect Another" : "Connect"}</button>
       </div>
       <div class="ob-src" id="obDrop">
         <span class="ob-alt-ic" aria-hidden="true">${IC.upload}</span>
@@ -431,7 +432,7 @@
       case "finish": finish(true); break;
       case "plan": finish(true); break;
       case "first-task": finish(true, true); break;
-      case "apptour": finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
+      case "apptour": tourNext = !!window.SBTOUR; finish(true); if (window.SBTOUR) setTimeout(() => SBTOUR.start(), 350); break;
       case "add-course": addCourse(); break;
       case "pdf": { const f = $("#obPdf"); if (f) f.click(); break; }
       case "ics": { const f = $("#obIcs"); if (f) f.click(); break; }
@@ -531,11 +532,22 @@
   }
 
   // Open another app sheet (import, AI setup, Style Shop)
+  // A school site to go back to after signing in (95-lms.js): opened from the courses step, which it comes back to
+  function resumeLms(){
+    const L = window.SBLMS; if (!L || !L.resumeTake || !sbUser) return false;
+    const id = L.resumeTake(); if (!id) return false;
+    const at = STEPS.findIndex(x => x.id === "courses");
+    if (at >= 0 && step !== at) { step = at; dir = 1; show(at, true); }
+    leaveTo(() => L.resumeOpen(id));
+    return true;
+  }
   function leaveTo(fn){ away = {step}; fn(); if (!dlg.open) setTimeout(checkReturn, 250); }
   function checkReturn(){
     if (!away) return;
     if (dlg.open) return;
     const s = away.step; away = null;
+    // back from making an account to connect a school site: straight to that site's Connect sheet
+    if (STEPS[s] && STEPS[s].id === "courses" && resumeLms()) return;
     if (queue.length && STEPS[s] && STEPS[s].id === "courses") { nextSyllabus(); return; }
     dir = 1; show(s, true);
   }
@@ -549,6 +561,7 @@
     }
   });
 
+  const WSPIN = "sb:welcomeSpin"; let tourNext = false;
   function finish(completed, firstTask){
     if (completed) flushCourse();
     if (completed && !extra()) { try { if (window.SBSEM && SBSEM.suggestTimes) SBSEM.suggestTimes(since); } catch (e) { console.warn("suggested times", e); } }
@@ -561,6 +574,10 @@
     if (mode === "theme" && window.SBGS) SBGS.mark("theme");
     if (extra()) { render(); return; }
     ui.tab = "board"; ui.courseId = null; render(); window.scrollTo(0, 0);
+    // a new student's welcome spin on the prize wheel: now, or once the App Tour they chose is finished or skipped
+    // (only the first time through: a replay from Settings isn't a new student)
+    if (mode === "first") try { if (tourNext) localStorage.setItem(WSPIN, "tour"); else if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } catch (e) {}
+    tourNext = false;
     if (firstTask) setTimeout(() => {
       const i = $("#qaIn"); if (!i) return;
       const bar = i.closest(".qa-bar");
@@ -602,6 +619,8 @@
     stop(); quoteHeld = null;
     try { if (window.SBSTREAK) SBSTREAK.newUser(); } catch (e) {}
     start("first");
+    // signed in on the way to connecting a school site (back from Google, Apple or Microsoft): pick up there
+    if (window.SBLMS && SBLMS.resumePeek && SBLMS.resumePeek()) setTimeout(resumeLms, 200);
   }
   function stop(){ clearInterval(poll); poll = 0; }
   // kind: "first" (the essentials), "more" (the optional extras) or "all" (a replay from Settings)

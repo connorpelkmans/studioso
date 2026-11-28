@@ -1,0 +1,21 @@
+/* ===== module: 82-friend-share.css ===== */
+/* Send to Friends, and what a friend sent you */
+.fs-list{list-style:none;margin:0;padding:0;max-height:min(46vh,380px);overflow:auto}
+.fs-list li{border-bottom:1px solid var(--line)}
+.fs-list li:last-child{border-bottom:0}
+.fs-pick{display:flex;align-items:center;gap:12px;padding:10px 2px;min-height:52px;cursor:pointer}
+.fs-pick input{margin-inline-start:auto;width:20px;height:20px;flex:none}
+.fs-who{display:grid;min-width:0}
+.fs-who b{overflow-wrap:anywhere}
+.fs-who .mini{color:var(--muted)}
+.fs-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.fs-sheet .grp-av{width:40px;height:40px;flex:none}
+/* Sent to You (Flashcards › Share or Import): what friends sent that's still waiting */
+button.fs-pick.fs-open{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:start;padding:10px 6px;border-radius:10px}
+button.fs-pick.fs-open:hover{background:var(--soft)}
+button.fs-pick.fs-open:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.fs-open .fs-who{flex:1}
+.fs-go{margin-inline-start:auto;color:var(--muted);font-size:1.3rem;line-height:1}
+.fs-n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-inline-start:4px;border-radius:9px;background:var(--late);color:#fff;font:700 .72rem/1 var(--display);vertical-align:2px}
+[data-act="grp-share-menu"]{position:relative}
+.fs-dot{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late);color:#fff;font:700 .68rem/18px var(--display);text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--surface)}

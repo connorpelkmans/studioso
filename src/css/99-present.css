@@ -135,7 +135,8 @@ p.pr-wait{flex-direction:row}
 .pr-eyebrow{font:700 .74rem var(--display);letter-spacing:.06em;color:var(--pc,var(--accent,#7A4FD6));text-transform:uppercase;overflow-wrap:anywhere}
 .pr-rtitle b{font:700 1.7rem var(--display)}
 .pr-rtitle b span{font-size:1.05rem;font-weight:600;color:var(--muted)}
-.pr-chip{padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
+/* only the presenter's own result chips: a bare .pr-chip is also the course pill on Today's Plan, which this made big */
+.pr-chip:is(.c-ok,.c-warn,.c-over,.c-early){padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
 .pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}.pr-chip.c-early{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
 .pr-runsel select{height:40px;border-radius:999px;padding:0 12px}
 .pr-rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}
@@ -483,6 +484,12 @@ button.pr-stat{cursor:pointer}
 .pr-fr-qr svg{width:140px;height:140px}
 /* hover: the screen lifts a little and the timer stamp grows, as the quiz card's clipboard does. Kept on their own layer
    (will-change, no backface) so the slide's text stays sharp, and one transition both ways so it settles back without a stutter */
+/* the title is the card's only name, so the screen is bigger and fits up to three lines */
+.rv-pres .pr-scr{width:46%;max-width:180px}
+.rv-pres .pr-pane{padding:7px 11px}
+.rv-pres .pr-pane{text-align:center;align-items:center}
+.rv-pres .pr-pane b{text-align:center;font:800 .8rem/1.2 var(--display);-webkit-line-clamp:3;overflow-wrap:anywhere}
+.rv-pres .pr-pane i{display:none}
 .rv-pres .pr-scr{transition:transform .32s cubic-bezier(.2,.8,.2,1);will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden}
 .rv-pres:hover .pr-scr{transform:translateY(-6px)}
 .rv-pres .pr-pane{transition:box-shadow .32s ease}

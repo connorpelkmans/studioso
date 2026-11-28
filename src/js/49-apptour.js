@@ -24,10 +24,13 @@
       text: () => "Every deadline on a timeline or calendar. Schedule shows your classes; Crunch shows heavy weeks ahead."},
     {id: "cards", title: "Review: Flashcards and Quizzes", tab: "flashcards", sel: [".deck-grid > .deck", ".pview-tabs", NAV("flashcards")],
       text: () => "Make decks by hand or with AI from your notes. Reviews come back at the right time."},
-    {id: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
+    {id: "notes", need: "notes", title: "Notes Board", tab: "notes", go: () => { ui.notesView = "board"; }, sel: ["#nbBoard", ".nb-board", NAV("notes")],
       text: () => "Sticky notes on a corkboard, one board per course or topic. Drag them around, add stickers and pin what matters."},
     {id: "grades", title: "Grades", tab: "courses", go: () => { ui.courseId = null; ui.courseTab = "grades"; }, sel: [".gp-hero", ".cf-tabs", NAV("courses")],
       text: () => "Your marks in each course, and what you need on the rest to hit your target."},
+    // Essentials (99-essentials.js): the tabs that wait are under More
+    {id: "more", title: "More", tab: "board", only: () => !!(window.SBESS && SBESS.on()), sel: ["nav.tabs .ess-more"],
+      text: () => "Notes, Groups, your companion and the other tools are here, one tap away. They join the menu by themselves when you need them."},
     {id: "shop", title: "Style Shop", panel: "shop", has: ['nav.tabs [data-act="shop"]', '[data-act="shop"]'], sel: ["#dlg .sbh-top", "#dlg .sheet.shop"],
       text: () => "Make Studyboard yours: themes, companions, stickers, flashcard styles and more. Open it any time from Style in the sidebar."},
     {id: "done", title: "You're Ready! 🎉", tab: "board",
@@ -230,6 +233,8 @@
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
+    // the welcome spin waits for the tour a new student chose at the end of the welcome setup (40-onboarding.js)
+    try { if (localStorage.getItem("sb:welcomeSpin") === "tour") { localStorage.removeItem("sb:welcomeSpin"); if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } } catch (e) {}
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 
@@ -242,7 +247,7 @@
     try { demoData = useDemo() ? demoPlanner() : null; } catch (e) { console.error(e); demoData = null; }
     tourDemo = demoData;
     saved = {tab: ui.tab, planView: ui.planView, courseId: ui.courseId, courseTab: ui.courseTab, bview: ui.bview, fc: ui.fc, deckId: ui.deckId, scrollY: window.scrollY};
-    steps = STEPS.filter(s => s.has ? !!findIn(s.has) : !s.sel || ((s.go && s.go()), gotoTab(s.tab), render(), !!find(s)));
+    steps = STEPS.filter(s => (!s.need || !window.SBESS || SBESS.shows(s.need)) && (!s.only || s.only())).filter(s => s.has ? !!findIn(s.has) : !s.sel || ((s.go && s.go()), gotoTab(s.tab), render(), !!find(s)));
     i = 0;
     build();
     show();

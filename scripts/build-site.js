@@ -84,6 +84,10 @@ const sw = fs.readFileSync(path.join(OUT, "sw.js"), "utf8");
 for (const m of sw.matchAll(/"\.\/((?:icons|widgets|vendor)\/[^"]+)"/g)) if (!fs.existsSync(path.join(OUT, m[1]))) missing.push("sw.js: ./" + m[1]);
 for (const m of sw.matchAll(/sbwUrl\("([^"]+)"\)/g)) if (!fs.existsSync(path.join(OUT, m[1]))) missing.push("sw.js: " + m[1]);
 
+// No secret key may ship in the web app (only the Supabase publishable key belongs here)
+try { require("./check-secrets").assertClean([OUT], "build-site"); }
+catch (e) { fs.rmSync(OUT, {recursive: true, force: true}); console.error(e.message); process.exit(1); }
+
 if (check) fs.rmSync(OUT, {recursive: true, force: true});
 if (missing.length) { console.error("build-site: missing files\n  " + missing.join("\n  ")); process.exit(1); }
 console.log(check ? "build-site: every manifest and service-worker path resolves" : `build-site: wrote ${path.relative(ROOT, OUT)}/ (upload this folder)`);

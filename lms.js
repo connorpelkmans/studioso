@@ -227,13 +227,26 @@ async function bsHarvest(o) {
   };
   const dt = x => (x && typeof x === "string" && !isNaN(Date.parse(x))) ? x : null;
 
-  let vs = null;
-  try { vs = await get("/d2l/api/versions/"); } catch (e) { if (e.status === 401 || e.status === 403) return { needLogin: true }; }
+  // A request that gets no answer at all ("Failed to fetch") has no status: either the browser is offline, the site can't be reached,
+  // or, signed out, the API redirected to the school's sign-in page on another site, which the browser won't follow from here
+  const unanswered = e => !!e && !e.status && e.name !== "AbortError";
+  const offline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+  let vs = null, vsErr = null;
+  try { vs = await get("/d2l/api/versions/"); } catch (e) { if (e.status === 401 || e.status === 403) return { needLogin: true }; vsErr = e; }
   const ver = (code, def) => { const x = listOf(vs).find(v => String(v.ProductCode || "").toLowerCase() === code); return (x && x.LatestVersion) || def; };
   const lp = ver("lp", "1.30"), le = ver("le", "1.50");
   let me;
   try { me = await get(`/d2l/api/lp/${lp}/users/whoami`); }
-  catch (e) { return e.status === 401 || e.status === 403 ? { needLogin: true } : { error: "whoami " + (e.status || e.message) }; }
+  catch (e) {
+    if (e.status === 401 || e.status === 403) return { needLogin: true };
+    if (unanswered(e)) {
+      if (offline()) return { error: "offline" };
+      // versions/ needs no sign-in, so if it answered the site is reachable and whoami not answering means the sign-in has run out
+      if (vs && !vsErr) return { needLogin: true };
+      return { error: "unreachable " + (e.message || "") };
+    }
+    return { error: "whoami " + (e.status || e.message) };
+  }
 
   const ens = []; let bm = "";
   for (let i = 0; i < 12; i++) {

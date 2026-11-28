@@ -240,7 +240,7 @@ function offer(){
     const ex = m.exam, nm = examTitle(ex), w = EXAMMODE.rel(m.days);
     const key = EXAMMODE.studyKey(EXAMMODE.dueMs(ex), laneOpts(m), planSessions(ex.id).filter(t => t.status !== "done" && t.due && t.due >= todayISO()).map(t => EXAMMODE.dueMs(t)));
     const first = m.also.find(t => { const x = FOCUS && FOCUS.info && FOCUS.info[t.id]; return EXAMMODE.leads({dueMs: EXAMMODE.dueMs(t), risk: !!x && riskOf(x)}, key); });
-    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: `${first.title} is due ${dueText(first)}, around ${nm}. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
+    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: dayDiff(todayISO(), first.due) < 0 ? `${first.title} is overdue (it was due ${fmtShort(first.due)}). Let's get it done first, then study for ${nm}.` : `${first.title} is due ${dueText(first)}, with ${nm} coming up. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
     const lines = m.days === 0
       ? [`${nm} is today. A calm review of the key ideas is all you need now.`, `Big day! ${nm} is today. Quick look over your notes, then trust what you know.`]
       : m.days === 1

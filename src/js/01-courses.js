@@ -216,7 +216,7 @@ const COURSE_ICONS = {
   code: ["Computer Science", '<rect class="a" x="2.5" y="4" width="19" height="16" rx="3"/><path class="ws" d="M9 9l-3 3 3 3M15 9l3 3-3 3M13 7.5l-2 9"/>'],
   eng: ["Engineering", '<path class="a" d="M12 2.8l1.6 2.4 2.8-.6.6 2.8 2.4 1.6-1.2 2.6 1.2 2.6-2.4 1.6-.6 2.8-2.8-.6L12 21.2l-1.6-2.4-2.8.6-.6-2.8-2.4-1.6L5.8 12 4.6 9.4 7 7.8l.6-2.8 2.8.6z"/><circle class="w" cx="12" cy="12" r="3.4"/>'],
   geo: ["Geography", '<circle class="b" cx="12" cy="12" r="9"/><path class="a" d="M7.5 6.5c2 0 3 1.5 2.5 3s-2.5 2-3.5 4c-1-1-2-3-1.5-5s1.5-2 2.5-2zM14 12.5c1.5-.5 3.5.5 3.5 2s-1.5 3-3.5 3.5c-.5-1.5-1-4 0-5.5zM13 5c1.5 0 3 .7 3.5 2-1.2.4-2.6.2-3.5-.5z"/><circle cx="12" cy="12" r="9"/>'],
-  hist: ["History", '<path class="b" d="M7 3c0 5 10 5 10 9s-10 4-10 9h10c0-5-10-5-10-9s10-4 10-9z"/><path class="a" d="M9 6.5h6L12 9.5zM8.2 19.8c1-2 2.6-3.2 3.8-3.2s2.8 1.2 3.8 3.2z"/><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>'],
+  hist: ["History", '<path class="b" d="M7 3h10c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2C15.8 15.7 17 17.8 17 21H7c0-3.2 1.2-5.3 2.9-6.8.9-.8 1.5-1.4 1.5-2.2s-.6-1.4-1.5-2.2C8.2 8.3 7 6.2 7 3z"/><path class="a" d="M8.9 7.2h6.2c-.6 1.1-1.5 2-2.3 2.7-.4.3-.7.6-.8.9-.1-.3-.4-.6-.8-.9-.8-.7-1.7-1.6-2.3-2.7zM8.2 20.2c.5-2 2-3.6 3.8-3.6s3.3 1.6 3.8 3.6z"/><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/>'],
   pol: ["Politics", '<path class="a" d="M3 9l9-5 9 5z"/><rect class="b" x="4.5" y="9" width="15" height="8.5"/><path d="M3 9l9-5 9 5zM6.5 9v8.5M10 9v8.5M14 9v8.5M17.5 9v8.5M3 20h18"/>'],
   lang: ["Languages", '<path class="a" d="M3.5 4.5h12v8.5H8l-4.5 3.5z"/><path class="y" d="M15.5 9h5v8.5l-3-2.2h-6V13h4z"/><path class="ws" d="M7 8.5h5"/>'],
   lit: ["Literature", '<path class="b" d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5z"/><path class="a" d="M12 6c2-1.5 5-2 8-1.5V19c-3-.5-6 0-8 1.5z"/><path d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5"/>'],
@@ -386,8 +386,8 @@ async function ciFromLibrary(q, say){
     return svg ? {id: uid(), name: String(p.name || luTitle(p.icon)).slice(0, 40), svg, vb: ciMeasure(svg), src: "lucide:" + p.icon + (p.badge && lib.nodes[p.badge] ? "+" + p.badge : ""), fits} : null;
   }).filter(Boolean);
 }
-// The icon library first. When nothing in it really fits, Studyboard AI draws one of its own in the app's icon style; other
-// AI only picks from the library (drawing a good icon takes Studyboard AI's own model)
+// The icon library first. When nothing in it really fits, Studyboard AI Pro draws one of its own in the app's icon style; other
+// AI only picks from the library (drawing a good icon takes Studyboard AI Pro's own model)
 async function ciDraw(q, col, say){
   let lib = [];
   try { lib = await ciFromLibrary(q, say); } catch (e) { console.warn("icon library", e); }
@@ -461,7 +461,7 @@ hook("act", (act, el) => {
     const say = t => { if (out) out.innerHTML = `<span class="ai-spin" aria-hidden="true"></span> ${esc(t)}`; };
     const col = (getComputedStyle($("#ciGrid") || document.body).getPropertyValue("--c") || "").trim() || "#3B6FE0";
     ciDraw(q, col, say).then(cands => {
-      if (!cands.length) { const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })(); if (out) out.textContent = sb ? "That didn't come out right. Try again, or describe it a little differently." : "No icon in the library matches that. Try other words. With Studyboard AI, it can draw one for you."; return; }
+      if (!cands.length) { const sb = (() => { try { return aiSbMode(aiCfg()); } catch (e) { return false; } })(); if (out) out.textContent = sb ? "That didn't come out right. Try again, or describe it a little differently." : "No icon in the library matches that. Try other words. With Studyboard AI Pro, it can draw one for you."; return; }
       ciCands = cands; ciPending = cands[0];
       if (out) out.innerHTML = cands.map((c, k) => `<button type="button" class="ci-cand${k ? "" : " on"}" data-act="ci-ai-pick" data-id="${k}" aria-pressed="${!k}" title="${esc(c.name)}"><span class="g2-ring ci-ai-ring" style="--c:${esc(col)}"><svg class="ci-svg" viewBox="${c.vb}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${c.svg}</svg></span><span>${esc(c.name)}</span></button>`).join("") + (cands.some(c => c.src) ? `<span class="mini ci-src">From the <a href="https://lucide.dev" target="_blank" rel="noopener noreferrer">Lucide</a> icon set (ISC License; see Settings, About)</span>` : "");
       if (use) use.hidden = false;
@@ -576,7 +576,10 @@ function viewCourseDetail(c){
     ${window.SBSHARE ? SBSHARE.courseHtml(c) : ""}
     </div><aside class="c2-side">
     ${courseGradeSide(c)}
+    ${typeof SBHEAT !== "undefined" ? SBHEAT.courseHtml(c) : ""}
+    ${coursePaceHtml(c)}
     ${courseTeamHtml(c, "")}
+    ${window.SBMATES ? SBMATES.courseCard(c) : ""}
     ${courseFilesHtml(c)}
     ${courseDecksHtml(c)}
     ${courseNotesHtml(c)}
@@ -603,6 +606,26 @@ function courseGradeSide(c){
     ${gn.pct != null ? `<div class="c2-big">${esc(gn.fmt(gn.pct))}${gn.letter ? `<span class="c2-letter">${esc(gn.letter)}</span>` : ""}</div><div class="prog"><span class="track"><i style="width:${Math.min(100, gn.marked).toFixed(0)}%"></i></span></div>` : ""}
     <p class="mini" style="margin:6px 0 10px">${esc(gn.line)}</p>${(n => n ? `<p class="mini w-est" style="margin:-4px 0 10px" title="${esc(WEIGHT_GUESS_TIP)}">Uses ${n === 1 ? "1 estimated weight" : n + " estimated weights"}. Check them in Grades.</p>` : "")(courseTasks(c).filter(weightGuessed).length)}${SBGRADES.goalHtml ? SBGRADES.goalHtml(c) : ""}<button class="btn small" data-act="course-tab" data-id="grades">See Grades</button></section>`;
 }
+// Reading pace on a course page: one field, shown once the course has a reading with pages (or a pace was set)
+function coursePaceHtml(c){
+  const own = Number(c.readPace) > 0 ? Number(c.readPace) : 0;
+  if (!own && !courseTasks(c).some(t => Number(t.pages) >= 1)) return "";
+  const P = window.SBACC && SBACC.paceFor ? SBACC.paceFor(c.id) : {mpp: own || PACE_DEFAULT, n: 0, set: own};
+  const note = P.n ? `Learned from ${P.n} finished reading${P.n === 1 ? "" : "s"}${own ? " since you set it" : ""}. Readings with pages use it for their time.`
+    : own ? "Your setting. Readings with pages use it for their time, and your focus time on them fine-tunes it." : "Readings with pages use it for their time. It learns from your focus time on finished readings.";
+  return `<section class="c2-card2 c2-box c2-pace" aria-label="Reading pace">
+    <label class="c2-pace-row" for="cPace"><span class="c2-pace-l">Reading pace:</span><input type="number" id="cPace" data-pace="${esc(c.id)}" min="0.5" max="20" step="any" inputmode="decimal" value="${esc(fmtPace(P.mpp))}" aria-describedby="cPaceNote"><span>min a page</span></label>
+    <p class="mini" id="cPaceNote">${esc(note)}</p></section>`;
+}
+// A new pace is the course's own from now on (earlier readings stop counting; later ones keep fine-tuning it). Undo puts the old one back
+document.addEventListener("change", e => {
+  const el = e.target; if (!el || !el.dataset || !el.dataset.pace) return;
+  const c = state.courses[el.dataset.pace]; if (!c) return;
+  const v = Math.round(Number(el.value) * 10) / 10;
+  if (!(v >= 0.5 && v <= 20)) { toast("Pick a pace from 0.5 to 20 minutes a page"); el.value = fmtPace(readPace(c.id)); return; }
+  if (v === readPace(c.id) && Number(c.readPace) > 0) return;
+  applyChanges([{kind: "course", id: c.id, after: Object.assign(clone(c), {readPace: v, readPaceAt: Date.now()})}], `Reading pace: ${fmtPace(v)} min a page`);
+});
 // The student's own decks and notes for a course
 function courseDecksHtml(c){
   const ds = deckListArr().filter(d => d.courseId === c.id);
@@ -931,6 +954,14 @@ const AVAIL = (() => {
       while (cur < w.e && ti < left.length) {
         const t = left[ti], room = w.e - cur;
         if (room < Math.min(minSlot, t.left)) break;
+        // A short task isn't cut into a scrap under half an hour (25m before a shift, the rest after it): a later task that fits
+        // the gap whole goes there instead, else the gap stays free and the task starts in the next window
+        if (t.left > room && room < 30 && t.left <= 90 && t.left === Math.round(tasks.find(x => x.id === t.id).min)) {
+          const j = left.findIndex((u, i) => i > ti && u.left > 0 && u.left <= room && u.left >= Math.min(minSlot, u.left));
+          if (j < 0) break;
+          const u = left[j]; left.splice(j, 1); left.splice(ti, 0, u);
+          continue;
+        }
         const len = Math.min(t.left, maxS, room);
         slots.push({id: t.id, s: cur, e: cur + len, min: len});
         t.left -= len; cur += len;
@@ -942,6 +973,72 @@ const AVAIL = (() => {
     const k = {}; slots.forEach(s => { k[s.id] = (k[s.id] || 0) + 1; s.part = k[s.id]; s.of = n[s.id]; });
     const unplaced = {}; left.forEach(t => { if (t.left > 0) unplaced[t.id] = t.left; });
     return {slots, unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
+  }
+
+  /* Pinned study blocks (Today's Plan: drag a block, or Move To…). A pin is {date, s, e}: minutes from the plan day's midnight, the
+     same as slots (past 1440 for a late end of day). {s: 0, e: 0} is the "not on this day" pin that Move To… Tomorrow leaves. */
+  // Overlapping or touching intervals as one, sorted
+  function mergeIv(iv){
+    const out = [];
+    iv.slice().sort((a, b) => a.s - b.s || a.e - b.e).forEach(x => { const l = out[out.length - 1]; if (l && x.s <= l.e) l.e = Math.max(l.e, x.e); else out.push({s: x.s, e: x.e}); });
+    return out;
+  }
+  // One task's pins for a date: off says it was moved off that day; iv are its pinned times, merged, with the ones already over left out
+  function pinsOn(pins, date, nowMin){
+    const on = (Array.isArray(pins) ? pins : []).filter(p => p && p.date === date && Number.isFinite(p.s) && Number.isFinite(p.e));
+    const off = on.some(p => p.s === 0 && p.e === 0);
+    const iv = off ? [] : mergeIv(on.filter(p => p.e > p.s && (nowMin == null || p.e > nowMin)));
+    return {off, iv};
+  }
+  // Free windows with intervals taken out (a pinned block plus the usual break on each side)
+  function carve(windows, iv, pad){
+    pad = pad || 0;
+    const cut = mergeIv((iv || []).map(x => ({s: x.s - pad, e: x.e + pad})));
+    const out = [];
+    (windows || []).forEach(w => {
+      let parts = [[w.s, w.e]];
+      cut.forEach(c => { parts = parts.flatMap(([a, b]) => c.e <= a || c.s >= b ? [[a, b]] : [[a, Math.min(b, c.s)], [Math.max(a, c.e), b]].filter(([x, y]) => y - x >= 5)); });
+      parts.forEach(([a, b]) => out.push(Object.assign({}, w, {s: a, e: b, min: b - a})));
+    });
+    return out;
+  }
+  // place() with pins: each pinned block keeps its time, and the rest of the work goes into the free time around the pins.
+  // tasks: [{id, min, pins: [{s, e}], off}]. A task pinned for longer than its share keeps the whole pin; one moved off the day gets nothing.
+  function placePinned(windows, tasks, o){
+    o = o || {};
+    const cfg = normCfg(o.cfg), brk = o.breakMin != null ? o.breakMin : cfg.breakMin;
+    const pinned = [], rest = [];
+    (tasks || []).forEach(t => {
+      if (t.off) return;
+      const iv = mergeIv(t.pins || []);
+      iv.forEach(x => pinned.push({id: t.id, s: x.s, e: x.e, min: x.e - x.s, pin: true}));
+      const left = Math.round(t.min) - iv.reduce((n, x) => n + x.e - x.s, 0);
+      if (left > 0) rest.push({id: t.id, min: left});
+    });
+    const pl = place(carve(windows, pinned, brk), rest, o);
+    const slots = pinned.concat(pl.slots).sort((a, b) => a.s - b.s || a.e - b.e);
+    const n = {}, k = {}; slots.forEach(s => { n[s.id] = (n[s.id] || 0) + 1; });
+    slots.forEach(s => { k[s.id] = (k[s.id] || 0) + 1; s.part = k[s.id]; s.of = n[s.id]; });
+    return {slots, unplaced: pl.unplaced, placed: slots.reduce((t, s) => t + s.min, 0)};
+  }
+  // Where a block of len minutes wanted at s can go: the nearest start (5-minute steps) between lo and hi that overlaps nothing fixed.
+  // fixed: [{s, e, title}] (classes, events, availability blocks, other pins). hit is the fixed thing the wanted time ran into.
+  // null when no free time that long is left.
+  function snap(s, len, fixed, lo, hi){
+    const f = mergeIv((fixed || []).filter(x => x.e > x.s));
+    const want = Math.round(s / 5) * 5;
+    const hit = (fixed || []).filter(x => x.e > x.s && x.s < want + len && x.e > want).sort((a, b) => a.s - b.s)[0] || null;
+    let best = null; let cur = lo;
+    f.concat([{s: hi, e: hi}]).forEach(x => {
+      const g0 = Math.ceil(cur / 5) * 5, g1 = Math.min(x.s, hi);
+      if (g1 - g0 >= len) {
+        const at = Math.min(Math.max(want, g0), Math.floor((g1 - len) / 5) * 5);
+        if (!best || Math.abs(at - want) < Math.abs(best.s - want)) best = {s: at, e: at + len};
+      }
+      cur = Math.max(cur, x.e);
+    });
+    if (!best) return null;
+    return {s: best.s, e: best.e, moved: best.s !== want, hit: best.s !== want ? hit : null};
   }
 
   const defFmt = m => { const h = Math.floor(m / 60) % 24, mm = m % 60, ap = h >= 12 ? "PM" : "AM"; return `${h % 12 || 12}${mm ? ":" + p2(mm) : ""} ${ap}`; };
@@ -990,6 +1087,13 @@ const AVAIL = (() => {
       }
       if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      // a run of days written with numbers: 11/12-11/14, 11/12-14, 11/30 to 12/2
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\s*(?:-|–|to)\s*(?:(\d{1,2})\/)?(\d{1,2})$/))) {
+        const a = mk(Number(m[1]) - 1, Number(m[2])), z = mk((m[3] ? Number(m[3]) : Number(m[1])) - 1, Number(m[4]));
+        if (!a || !z || z < a || dnum(z) - dnum(a) > 31) return bad.push(tok.trim());
+        for (let d = a; d <= z; d = addD(d, 1)) out.add(d);
+        return null;
+      }
       if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       bad.push(tok.trim());
     });
@@ -1029,7 +1133,7 @@ const AVAIL = (() => {
     return {type, title: w === "shifts" ? "Shift" : w.charAt(0).toUpperCase() + w.slice(1), days: [...days].sort((x, y) => x - y), start: time.start, end: time.end};
   }
 
-  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
+  return {TYPES, MAX_BLOCKS, MAX_DATES, normBlock, normCfg, normAvail, occursOn, occurrences, freeWindows, place, mergeIv, pinsOn, carve, placePinned, snap, explain, realMin, parseDates, parseQuick, isDate, isT, toMin, toT, addD, dnum, dow, monN, fromDn, defFmt};
 })();
 /* AVAIL-END */
 
@@ -1192,14 +1296,30 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   // A task you have done enough on today gets no more time today, and one you set aside moves down behind the new first task
   const skipped = new Set(typeof ui !== "undefined" && ui.skipNext && ui.skipNext.day === today ? ui.skipNext.ids : []);
   const isEnough = x => { try { return typeof enoughToday === "function" && enoughToday(x.t, x); } catch (e) { return false; } };
-  const live = ranked.filter(x => x.alloc > 0 && !isEnough(x));
+  // Blocks the student pinned for today (dragged, or Move To…) keep their time, and the rest is planned around them.
+  // A pin that now overlaps something fixed (a class added since) moves to the nearest free time.
+  const pinsBy = {}, pinDate = av.sd ? av.sd.date : today, xsHosts = new Set(ranked.filter(x => x.t.xs).map(x => x.t.xs.id));
+  ranked.forEach(x => {
+    const p = planPinsFor(x, pinDate, nowMin, xsHosts); if (!p) return;
+    p.iv = p.iv.map(v => res.busy.some(m => m.kind !== "done" && m.s < v.e && m.e > v.s) ? AVAIL.snap(v.s, v.e - v.s, res.busy, Math.max(res.lo, res.ws), res.we) : v).filter(Boolean);
+    pinsBy[x.t.id] = p;
+  });
+  const live = ranked.filter(x => (x.alloc > 0 || pinsBy[x.t.id]) && !isEnough(x));
   const enoughH = ranked.filter(x => x.alloc > 0 && isEnough(x)).reduce((t, x) => t + x.alloc, 0);
   // What Do This Next would choose goes first, so the timeline and the card agree
   const fresh0 = live.filter(x => !skipped.has(x.t.id)), aside = live.filter(x => skipped.has(x.t.id)), li = lead ? fresh0.findIndex(x => x.t.id === lead) : -1;
   const fresh = li > 0 ? [fresh0[li]].concat(fresh0.slice(0, li), fresh0.slice(li + 1)) : fresh0;
-  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60)}));
-  const pl = AVAIL.place(res.windows, tasks, {cfg: a.cfg});
+  const tasks = fresh.slice(0, 1).concat(aside, fresh.slice(1)).map(x => ({id: x.t.id, min: Math.round(x.alloc * 60), pins: pinsBy[x.t.id] ? pinsBy[x.t.id].iv : [], off: !!(pinsBy[x.t.id] && pinsBy[x.t.id].off)}));
+  const pl = AVAIL.placePinned(res.windows, tasks, {cfg: a.cfg});
   const by = {}; pl.slots.forEach(s => { (by[s.id] = by[s.id] || []).push(s); });
+  // A pinned task gets its pinned time today even past its usual share; one moved to tomorrow gets none today
+  ranked.forEach(x => {
+    const p = pinsBy[x.t.id]; if (!p || isEnough(x)) return;
+    if (p.off) { x.alloc = 0; x.pinOff = true; return; }
+    const placed = (by[x.t.id] || []).reduce((t, s) => t + s.min, 0);
+    if (placed > x.alloc * 60 + 1) x.alloc = placed / 60;
+    x.pinned = true;
+  });
   if (av.active) ranked.forEach(x => {
     if (!(x.alloc > 0)) return;
     if (isEnough(x)) { x.alloc = 0; return; }
@@ -1216,6 +1336,21 @@ function availPlan(av, ranked, th0, needToday, day, today, now, lead){
   return {res, active: av.active, line: AVAIL.explain(res, {nowMin, fmt: availMin}), note, slots: pl.slots, by, planned, show: av.active || has};
 }
 const availSlotText = list => list.map(s => availRange(s.s, s.e)).join(", then ");
+// Where a plan item's pins are kept: on the task itself, or for "Study for <exam>" on the exam (the study item is made by the planner).
+// Group tasks and fixed items (an in-person exam) can't be pinned.
+function planPinHost(t){
+  if (!t || t.gt) return null;
+  const h = state.tasks[t.xs ? t.xs.id : t.id];
+  return h && h.status !== "done" ? h : null;
+}
+// xsHosts: the exams whose "Study for" item is in the plan; the exam's own (fixed) row doesn't use the pins then
+function planPinsFor(x, date, nowMin, xsHosts){
+  if (!x || x.fixed || x.dead) return null;
+  const h = planPinHost(x.t); if (!h || !Array.isArray(h.pins) || !h.pins.length) return null;
+  if (!x.t.xs && xsHosts && xsHosts.has(h.id)) return null;
+  const p = AVAIL.pinsOn(h.pins, date, nowMin);
+  return p.off || p.iv.length ? p : null;
+}
 
 /* -- Today's Plan */
 function availStripHtml(F){

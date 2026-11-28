@@ -44,6 +44,7 @@ Throughout, replace `USERNAME` with your GitHub username.
 - **Studyboard Pro, built in and switched off:** the Free and Pro plans, limits, a Pro page and payment hooks are ready for when you want to sell Pro. Nothing is locked until you turn it on. The 4 season themes are now part of Pro.
 - **Study Companions:** 3 little companions for every theme that live in the scene, study with you, celebrate your wins, grow accessories as you focus, and can use AI to notice what your day looks like.
 - **Study Together:** focus at the same time as your study group, with a shared countdown and cheers. Run `supabase-rooms.sql` once to turn it on.
+- **Friends:** add a classmate by their exact @username or your friend link (or its QR code); they accept or decline. Nobody can search for accounts, and blocking someone ends the friendship. Run `supabase-friends.sql` once to turn it on (see the table below).
 - **Your Photo Themes:** turn your own photo into a full theme with matching colours.
 - **Term Scrapbook:** each term gets a scrapbook page that fills with stickers for real milestones: tasks, grades, streaks, focus hours and flashcards.
 - **Scene touch-ups:** a careful pass over every scene theme fixed things drawn in the wrong order (like fences over trees and wall lines over chairs), strings and branches that didn't connect, see-through joins, stars and moons in the wrong places, jerky movement, and the aurora's rough edges.
@@ -107,7 +108,10 @@ Open **SQL Editor > New query** in Supabase, paste a whole file and click **Run*
 | 14 | `supabase-cloud.sql` | Google Drive, OneDrive and OneNote (free for signed-in accounts). Run it after step 9, then run `supabase-lean.sql` again so account deletion also clears it, then deploy `cloud-files` (see "Google Drive and OneDrive" below) | Optional |
 | 15b | `supabase-usernames.sql` | Usernames and age: every account gives its birthday once, and accounts are for people 13 and older only (an under-13 birthday is refused by `set_birthdate` and by a trigger on new sign-ups; the app then deletes the account through `delete-account`, so redeploy that function too) and picks a unique @username (on the sign-up form, or once after signing in). The server checks the rules and a foul-word list (with look-alike spellings) and refuses anything else; published flashcards and quizzes show the username. Run it after step 2 and before `supabase-sharing.sql` | Required for publishing |
 | 15a | `supabase-schools.sql`, then `supabase-schools-2.sql`, then `supabase-schools-hs-1.sql` to `-hs-4.sql` (one file per query; each is under the editor's 1 MB limit) | The list of real schools: about 10,000 universities and colleges, plus about 36,000 high schools (every US public and private school with a grade 12, and Ontario and British Columbia secondary schools; each part is about 1.3 MB, so run them one at a time) that publishing checks and the school picker searches. Run it before `supabase-sharing.sql`; requests for missing schools land in `school_requests` (the file's header shows how to add one) | Required for publishing |
+| 15c | `supabase-classmates.sql` | Classmates and Course Hubs: students who turn it on see which classmates in their synced school site courses use Studyboard, and join one shared study group per course. Off until a student turns it on; teens and adults are never matched. Run it after steps 2, 3, 8 and 15b, then run `supabase-lean.sql` again. Optional check: `supabase-classmates-selftest.sql` (expect "ALL 50 CLASSMATES CHECKS PASSED"). See "Classmates and Course Hubs" below | Optional |
+| 15d | `supabase-friend-shares.sql` | Send a deck, quiz or concept map straight to friends, no code needed: they see it the next time they open Studyboard (at once if they're online) and choose Add or No Thanks. Only to accepted friends who haven't blocked you; 20 friends a send, 60 sends a day; unanswered ones go after 30 days. Run it after `supabase-friends.sql`, then `supabase-lean.sql` again. Optional check: `supabase-friend-shares-selftest.sql` (expect "ALL 20 FRIEND SHARE CHECKS PASSED") | Optional |
 | 15 | `supabase-sharing.sql` | Public share links (a deck, note, quiz or whiteboard opens in any browser, no account needed), published flashcards and quizzes at studyboardapp.com/flashcards and /quizzes (see PUBLIC-PAGES.md for the search-engine steps) and the Course Library (decks listed for a course code at a school). Run it after steps 2 and 3, then run `supabase-lean.sql` again so account deletion also clears it. Reports land in `share_reports`; the file's header has the review queries. Three reports from different people hide an item until you look | Recommended |
+| 15c | `supabase-friends.sql` | Friends: requests by exact @username or friend link, accept and decline, remove, and blocking (through `group_blocks`) ends a friendship. At most 300 friends, 50 requests waiting and 20 requests a day per account; unanswered requests go away after 30 days. Run it after steps 2, 3 and 15b, then run `supabase-lean.sql` again so account deletion also clears it. Optional check: `supabase-friends-selftest.sql` (it rolls back) | Optional |
 
 If you run `supabase-groups.sql` or `supabase-calendar-feed.sql` later, run `supabase-plans.sql` and `supabase-lean.sql` again afterwards. Running `supabase-groups.sql` again keeps blocking in place (it rebuilds the group read rules with the block filter once `supabase-moderation.sql` has been run), so there's no need to run moderation again after it.
 
@@ -856,6 +860,14 @@ There are three ways reminders reach you:
 
 **Change one task's reminder:** open the task, then **Advanced Settings > Reminder**. Pick a time, or **No Reminder**. **Default** follows your settings.
 
+**More than one reminder for a task:** under the Reminder choice, **Also Remind Me** adds up to 4 more (1 week, 3 days or 1 day before, and 2 hours, 1 hour or 15 minutes before a due time). They go into the calendar link too.
+
+**Keep Reminding Until Done:** in Reminders and Notifications, under Task Reminders. After a task's last reminder, it comes again every 5 to 60 minutes, 3 to 10 times, until the task is ticked off or you tap **Mark Done** on the notification. It skips quiet hours and stops a day after the due time. Off by default; each task can turn it on or off for itself (**Keep reminding me until it's done** in the task). Phone reminders need `send-reminders` deployed as before: Mark Done there already clears the rest of a task's reminders.
+
+**Course Registration:** in Reminders and Notifications, enter when your registration opens (and, if you like, a note such as your section codes). Studyboard reminds you a week and a day before, then an hour, 10 minutes and the moment it opens. The last three come even during quiet hours. **Clear** removes them.
+
+**Snooze:** the notification's Snooze button waits as long as you choose in settings (**Snooze button waits**, 10 minutes to 2 hours). Inside Studyboard, **Snooze** offers 10 minutes, 1 hour, this evening or tomorrow morning.
+
 ### Set up phone notifications (once)
 
 You'll need two files that came with this update: `supabase-reminders.sql` and `supabase-functions/send-reminders/index.ts`. Everything happens in the Supabase dashboard and in Studyboard. No command line.
@@ -994,6 +1006,25 @@ This uses your **free Google Gemini key** (see AI Features above). There's nothi
 - The short answer uses free Gemini too. If your only AI key is a paid one (Claude or ChatGPT), search asks you to tick "I understand" and confirm before it ever uses it for answers, and it asks again if you switch to a different paid model.
 
 **Without a Gemini key**, Ask With AI still works: it looks for your words plus common abbreviations and synonyms (like calc and calculus, bio and biology, or BP and blood pressure), and offers **Set Up AI**.
+
+## Classmates and Course Hubs
+
+On a course synced from a school site (Canvas, Brightspace, Blackboard, Moodle, Schoology or Google Classroom), the course page has a **Classmates** card. Once a student turns it on, it shows how many classmates in that course use Studyboard, lets them see their names (**See Who**), and offers one shared **Course Hub**: a study group for everyone in the course, with shared decks, deadlines, questions, sessions and chat. It's also under **Settings > Classmates**, where it can be turned off.
+
+**How courses are matched.** The app sends the school site's address and the course's id there (only for courses synced from a school site, never ones added by hand). The server turns them into a keyed hash with a secret only your database knows and keeps just the hash, so two students in the same course at the same school match, and nothing else about the course is stored.
+
+**Privacy rules (enforced on the server):**
+- Off until the student turns it on. Turning it off removes their courses right away.
+- You see classmates only while you're on yourself, and only people who turned it on too. Only their display name is shown.
+- People 13 to 17 are matched only with 13 to 17, and adults only with adults; each age group gets its own Course Hub. It needs a birthday (`supabase-usernames.sql`).
+- Blocks hide people both ways, and suspended accounts can't join hubs (`supabase-moderation.sql`).
+- A Course Hub has no owner: nobody can rename or delete it, remove people or make an invite code, and its invite code doesn't open it. It's joined only from the course page. It holds up to 300 people, and the Free plan's group size limit doesn't apply.
+- Limits against misuse: up to 40 courses per send, 30 sends an hour, and 80 different courses per account in 30 days.
+- Courses not synced for 120 days are removed, and empty hubs are deleted, every night (with `pg_cron`; otherwise run `select public.classmates_purge();` now and then). Deleting an account removes everything.
+
+**To turn it on:** run `supabase-groups.sql` and `supabase-plans.sql` again (they now know about Course Hubs), then `supabase-classmates.sql`, then `supabase-lean.sql` again. Check it with `supabase-classmates-selftest.sql`. Until the file is run, the app shows no Classmates card.
+
+**Not checked yet:** the server takes the app's word that the student is in the course (the course ids come from the app reading the school site). Someone who fakes a course only sees display names and a hub that reports and blocks cover. Checking it on the server is possible later for Google Classroom (through `cloud-files`) and for calendar links (through `lms-feed`).
 
 ## Share Decks and Study Groups
 
@@ -1392,7 +1423,7 @@ Update the `calendar-feed` and `lms-feed` functions too (Edge Functions > the fu
 
 Studyboard has a Free plan and a Pro plan built in, but the paywall is **switched off**. Right now everything is unlocked for everyone and nothing is limited. You don't need to set anything up until you decide to launch Pro.
 - **Free, forever:** the whole planner, sync on up to 2 devices, Brightspace, Canvas and Blackboard sync, reminders, study groups (up to 5 members, messages kept 60 days), AI with your own Gemini key, the 14 plain color themes and the free styles, 100 MB of cloud files and 25 MB of synced data.
-- **Pro ($4.99 a month or $39.99 a year, with a 7-day free trial; Studyboard AI included):** unlimited devices, 10 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
+- **Pro ($4.99 a month or $39.99 a year, with a 7-day free trial; Studyboard AI included):** unlimited devices, 5 GB of cloud files and 250 MB of synced data, every premium theme (including the 4 seasons) and style, 30 days of online backups, and study groups of up to 100 members with unlimited message history.
 - **See it:** Settings → **Studyboard Pro** shows the plan, what Pro adds and how much storage you use.
 
 When you're ready to sell Pro, follow the step-by-step guide in `PRO-PLANS-GUIDE.md` (Studyboard Pro: Plans and Payments), which comes in the same zip. It covers running `supabase-plans.sql`, making Stripe payment links, the `billing-webhook` function, App Store and Google Play through RevenueCat, and a short Launch Day checklist.

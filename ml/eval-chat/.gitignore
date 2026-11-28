@@ -7,3 +7,7 @@ judge-*/
 dbg*
 rerun-*
 old/
+rr*
+rerun-e4b*.json
+heldout-*.jsonl
+cloud-log.jsonl

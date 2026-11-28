@@ -118,6 +118,21 @@ export async function ageOf(token, env, fetchFn = fetch, now = Date.now()) {
   seen.set("a:" + token, { v, until: now + 10 * 60000 });
   return v;
 }
+// A student's own monthly AI limit in dollars, if the database sets one (my_ai_cap, read with their own sign-in); null when
+// there's none or it can't be read. It can only lower the Worker's MONTHLY_CAP_USD, never raise it. Remembered for 2 minutes.
+export async function studentCapOf(token, env, fetchFn = fetch, now = Date.now()) {
+  const hit = seen.get("c:" + token); if (hit && hit.until > now) return hit.v;
+  let v = null;
+  try {
+    const res = await fetchFn(String(env.SUPABASE_URL).replace(/\/+$/, "") + "/rest/v1/rpc/my_ai_cap",
+      { method: "POST", headers: { apikey: env.SUPABASE_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json", Accept: "application/json" }, body: "{}" });
+    if (res.ok) { const c = Number(await res.json().catch(() => null)); v = Number.isFinite(c) && c >= 0 ? c : null; }
+  } catch (e) { v = null; }
+  if (seen.size > 4000) seen.clear();
+  seen.set("c:" + token, { v, until: now + 2 * 60000 });
+  return v;
+}
+export const withCap = (lim, capUsd) => capUsd == null || !(capUsd < lim.capUsd) ? lim : { ...lim, capUsd, capMicro: micro(capUsd) };
 // Under 18 (or no birthday on record, to be safe): these rules come first in every Studyboard AI request, as Anthropic asks of
 // products used by minors (support.claude.com, "Responsible use of Anthropic's models: guidelines for organizations serving minors").
 // Schoolwork is unchanged: biology, health, history and literature are taught as they would be in class.
@@ -167,7 +182,8 @@ const record = (deps, kind, task, usage, cost) => { if (!deps.totals) return Pro
 
 // deps: {ai(model, input), allowance(name), user(token), plan(token, uid), age(token), meter(uid), totals(day), claude: {create(req), count(req)}, gemini(body), embed(texts), whisper(bytes), now(), defer(promise)}
 export async function handle(request, env, deps) {
-  const url = new URL(request.url), cfg = config(env), lim = cfg.lim;
+  const url = new URL(request.url), cfg = config(env);
+  let lim = cfg.lim;
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === "/" && request.method === "GET") return new Response("Studyboard AI\n", { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   if (url.pathname === "/v1/owner/usage" && request.method === "GET") return ownerUsage(request, env, deps);
@@ -186,6 +202,7 @@ export async function handle(request, env, deps) {
   const tier = await deps.plan(token, user.id);
   if (tier == null) return json({ error: "busy" }, 503);
   if (tier !== "paid") return json({ on: false, error: "not_pro" }, isStatus ? 200 : 403);
+  if (deps.cap) lim = withCap(lim, await deps.cap(token));
   if (isStatus) { if (request.method !== "GET") return json({ error: "method" }, 405); const ytUsed = await meter.used("youtube"); return json({ on: true, tier, transcribe: cfg.whisper && !!deps.whisper, youtube: cfg.youtube && !!deps.gemini && cfg.ytMonthly > 0, youtubeLeft: Math.max(0, cfg.ytMonthly - ytUsed), youtubeMonthly: cfg.ytMonthly, ...(await meter.status(lim)) }); }
   if (request.method !== "POST") return json({ error: "method" }, 405);
   if (Number(request.headers.get("Content-Length") || 0) > MAX_BODY_BYTES) return json({ error: "too_long" }, 413);

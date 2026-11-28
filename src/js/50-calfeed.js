@@ -248,8 +248,18 @@ const SBICS = (() => {
     c.eventLead = Math.max(0, Math.min(240, Number(c.eventLead) || 0));
     return c;
   }
-  // Reminder times for a task, in minutes from the start of its calendar entry
+  // Reminder times for a task, in minutes from the start of its calendar entry, with its extra reminders (t.remindAlso)
   function taskAlarms(t, opt, cfg){
+    const out = taskAlarms1(t, opt, cfg);
+    if (!cfg || opt === "none" || typeof opt === "number" || t.status === "done" || t.remind === "off" || !Array.isArray(t.remindAlso)) return out;
+    const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, dayAt = (n, time) => -n * 1440 + tMin(time) - base;
+    t.remindAlso.slice(0, 4).map(String).forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(OVR_DAY, k)) out.push(dayAt(OVR_DAY[k], cfg.dayTime));
+      else if (Object.prototype.hasOwnProperty.call(OVR_MIN, k)) out.push(timed ? -OVR_MIN[k] : tMin(cfg.morningTime));
+    });
+    return [...new Set(out)];
+  }
+  function taskAlarms1(t, opt, cfg){
     const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, exam = t.type === "Exam" || t.type === "Quiz";
     const dayAt = (n, time) => -n * 1440 + tMin(time) - base;
     if (opt === "none" || t.status === "done") return [];
@@ -487,6 +497,9 @@ const csStudyList = () => { const s = state.settings || {}; const l = s.studyPla
 // A guess at when classes end
 function csGuessUntil(){
   const today = todayISO(), ids = new Set(csCourses().map(c => c.id));
+  // the Last Class from Term Dates (School Days, or a course's Lectures tab) when it's set
+  const set = csCourses().map(c => c.classDates && c.classDates.until).filter(d => isDate(d) && d >= today).sort().pop();
+  if (set) return set;
   const last = Object.values(state.tasks || {}).filter(t => t && ids.has(t.courseId) && !t.archivedTerm && t.due && t.due > addDays(today, 14)).map(t => t.due).sort().pop();
   const y = today.slice(0, 4), m = Number(today.slice(5, 7));
   let term = m >= 9 ? y + "-12-15" : m <= 4 ? y + "-04-30" : y + "-08-15";

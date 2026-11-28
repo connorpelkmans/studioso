@@ -25,6 +25,12 @@
       }
     } catch (e) {}
   };
+  // As it opens and again a frame later; a button the opener focused on purpose once it was open (the timer's Start) keeps the focus
+  // (a typing box still doesn't on a phone)
+  const quietOpen = d => {
+    quiet(d); const was = document.activeElement;
+    requestAnimationFrame(() => { const a = document.activeElement; if (a && a !== was && a.tagName === "BUTTON" && d.contains(a)) return; quiet(d); });
+  };
   // Tab from that heading goes on from the top of the sheet: a sheet whose title sits under a colour band reaches the band's
   // Close (X) first, as it's seen, rather than last after the whole sheet
   document.addEventListener("keydown", e => {
@@ -48,7 +54,7 @@
     noAuto(this);
     const r = showModal0.apply(this, arguments);
     hold(this);
-    quiet(this); requestAnimationFrame(() => quiet(this));
+    quietOpen(this);
     return r;
   };
   // Phones: a sheet slides back down when it closes. The sheet itself closes at once (nothing in the app waits on it);
@@ -106,7 +112,7 @@
   document.querySelectorAll("dialog").forEach(d => {
     if (!Object.prototype.hasOwnProperty.call(d, "showModal")) return;
     const f = d.showModal;
-    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quiet(this); requestAnimationFrame(() => quiet(this)); return r; };
+    d.showModal = function(){ noAuto(this); const r = f.apply(this, arguments); hold(this); quietOpen(this); return r; };
   });
 
   // A tab (or course / plan view) changing shows the new page at once, with no fade in: it should look ready the moment it's tapped
@@ -125,14 +131,20 @@
   ["pointerdown", "keydown", "click"].forEach(t => document.addEventListener(t, mark, true));
   const recent = () => performance.now() - userAt < 600;
   const view = () => document.getElementById("view");
+  // When the whole page is redrawn (a tab tapped, even the one already open), the pieces other parts of the app add to it straight
+  // after (Today's Plan's Free Time and Flashcards menus, My Group Tasks...) are part of that page, not something just opened:
+  // they show at once with it, rather than blinking out and fading back in
+  let viewAt = -1e9;
+  const inFreshView = t => performance.now() - viewAt < 700 && t instanceof Element && !!t.closest("#view");
   const mo = new MutationObserver(list => {
+    if (list.some(m => m.type === "childList" && m.target.id === "view")) viewAt = performance.now();
     if (!recent() || !on()) return;
     let n = 0;
     for (const m of list) {
       if (n > 6) break;
       const t = m.target;
       if (m.type === "attributes") {
-        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip")) continue;
+        if (!(t instanceof Element) || t.id === "view" || t.closest(".sm-skip") || inFreshView(t)) continue;
         const a = m.attributeName;
         // a page's own section tabs (a group's Chat, Members...) switch at once, like the app's tabs: no fade-up each time
         if (a === "hidden" && t.matches("#view [role=tabpanel]")) continue;
@@ -143,7 +155,7 @@
           if ((was.includes("shut") && !now.includes("shut")) || (was.includes("collapsed") && !now.includes("collapsed"))) { const b = t.querySelector(":scope > .ui-sec-b, :scope > .body, :scope > .sec-b") || t; play(b, "sm-in"); n++; }
           else if (!was.includes("open") && now.includes("open") && /\b(ui-col|acc|drop|more|panel)/.test(t.className)) { play(t, "sm-in"); n++; }
         }
-      } else if (m.type === "childList" && t !== view() && t.id !== "view") {
+      } else if (m.type === "childList" && t !== view() && t.id !== "view" && !inFreshView(t)) {
         // a small piece of the page filled in (an opened section, a menu list); whole-page redraws land on #view and are skipped
         // A piece redrawn in place (swapped for a fresh copy of itself: same id, or same tag and kind) is already on screen, so it stays still:
         // fading it in again would blank it out and back each time fresh data arrives (opening a group used to flicker twice)

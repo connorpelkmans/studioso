@@ -1,7 +1,7 @@
 /* ===== module: 99-feature-intros.js ===== */
 /* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
    they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
-   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+   sheet, one intro a visit (the Discord invite counts), never within two minutes of the daily quote, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
 (() => {
   const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -15,14 +15,14 @@
       // ever finished a focus session (the synced stats, else this device's count)
       used: () => { try { return (typeof SBSTATS !== "undefined" && SBSTATS.focusSessions() > 0) || (typeof pomo !== "undefined" && !!pomo && pomo.sessions > 0); } catch (e) { return false; } },
       go: () => { const b = document.createElement("button"); b.dataset.act = "pomo-open"; b.hidden = true; document.body.appendChild(b); b.click(); b.remove(); }},
-    {id: "whiteboard", color: "#0E9AA7", title: "Try a Whiteboard",
+    {id: "whiteboard", need: "notes", color: "#0E9AA7", title: "Try a Whiteboard",
       icon: () => svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4M7 13l3-3 2 2 4-4"/>'),
       lead: "A big board to sketch, write and plan on, with markers, shapes and sticky notes.",
       points: ["Draw out a problem, a diagram or a study plan", "Start blank or from a template, one board per course or topic", "Share with your study group"],
       // ever made a whiteboard and drawn on it
       used: () => { try { return Object.values(state.notes || {}).some(n => n && n.wb && ((n.wbInk || []).length || (n.wbItems || []).length)); } catch (e) { return false; } },
       go: () => { ui.tab = "notes"; ui.notesView = "wb"; try { localStorage.setItem("studyboard:notesView", "wb"); } catch (e) {} render(); window.scrollTo(0, 0); }},
-    {id: "maps", color: "#7C3AED", title: "See It All With Concept Maps",
+    {id: "maps", need: "decks", color: "#7C3AED", title: "See It All With Concept Maps",
       icon: () => svg('<rect x="2.5" y="10" width="7" height="5" rx="2.5"/><rect x="14.5" y="4" width="7" height="5" rx="2.5"/><rect x="14.5" y="15" width="7" height="5" rx="2.5"/><path d="M9.5 12.5c2.5 0 2.5-6 5-6M9.5 12.5c2.5 0 2.5 5 5 5"/>'),
       lead: "Map how a course fits together, from the notes, decks and exam topics you've already linked.",
       points: ["Studyboard builds a first map for you, ready to rearrange", "Link ideas to cards, notes and lecture moments", "Quiz yourself by hiding labels and filling them back in"],
@@ -40,6 +40,7 @@
     if (weeks < shownAt.length + 1) return null;
     for (const f of FEATURES) {
       if (s[f.id]) continue;
+      if (f.need && window.SBESS && !SBESS.shows(f.need)) continue;   // waits until Essentials shows it
       if (f.used()) { s[f.id] = {skipped: true}; ls(K_SEEN, JSON.stringify(s)); continue; }
       return f;
     }
@@ -58,6 +59,7 @@
   }
   function show(f){
     const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    window.__sbPopAt = Date.now();
     openSheet(html(f, i));
     const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
     sheet.addEventListener("click", e => {
@@ -72,7 +74,10 @@
   function check(){
     if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
     if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
-    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    // one intro a visit (after the Discord invite, say, this waits for the next visit), and never straight after the daily quote
+    if (window.__sbPopAt) return;
+    const quote = window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000;
+    if (quote || dlg.open || document.querySelector("dialog[open]") || document.getElementById("qod") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 12) setTimeout(check, 20000); return; }
     const f = due(); if (f) show(f);
   }
   hook("boot", () => setTimeout(check, 8000));

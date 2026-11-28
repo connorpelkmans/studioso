@@ -188,7 +188,7 @@ const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids)
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + JSON.stringify(ex.readyCards || "") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -199,31 +199,37 @@ function examEvidence(ex){
   let out = null;
   const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
   if (linked.length) {
+    // a picked deck counts in full, or only the cards picked from it (readyCards: deck id → card ids)
+    const rc = ex.readyCards && typeof ex.readyCards === "object" ? ex.readyCards : {};
+    const cardsOf = d => { const ids = Array.isArray(rc[d.id]) ? new Set(rc[d.id]) : null; return d.cards.filter(live).filter(c => !ids || ids.has(c.id)); };
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
-    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+    out = {how: "linked", decks: ds, cards: ds.flatMap(cardsOf), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   // Automatic AI's reading of the exam's topics against what each deck holds
   if (!out && aiIds) {
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -231,7 +237,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -242,7 +248,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -253,7 +259,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), JSON.stringify(t.readyCards || ""), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -385,6 +391,8 @@ function atRisk(t){
   if (t.status === "done" || !t.due) return false;
   const fx = FOCUS && FOCUS.info[t.id];
   if (fx && fx.behind >= 0.5 && fx.dl >= 0) return true;
+  // Today's Plan knows the work left and the time before it's due: a 15 minute email due tomorrow, with hours free, isn't at risk
+  if (fx && !MILESTONE(t.type) && !fx.dead) return fx.dl >= 0 && fx.own >= 1;
   const d = dayDiff(todayISO(), t.due);
   if (MILESTONE(t.type)) return d >= 0 && d <= 3 && progress(t).frac < 0.5;
   return d >= 0 && d <= 2 && progress(t).frac < 0.5 && (t.status === "todo" || hoursLeft(t) > 2);
@@ -436,20 +444,48 @@ function newTask(fields){
 const TOAST_EL = document.getElementById("toast");
 const toastEl = () => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); return TOAST_EL; };
 const toastPart = id => TOAST_EL.querySelector("#" + id);
-try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); if (PILLS.size) pillRehost(); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
 let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
-let toastSeq = 0;
-function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+let toastSeq = 0, toastWaiting = false;
+function toastHide(){ clearTimeout(toastT); ++toastSeq; toastWaiting = false; const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
   let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
+}
+/* The small notices at the bottom of the screen (Syncing…, an AI download's progress) share this, so none of them flashes:
+   one that would be up for under a third of a second shows nothing, one that's shown stays up at least a second, and a hide
+   followed at once by a show (one sync right after another, the next step of a download) leaves it up instead of flickering.
+   done() runs once it has faded out (to remove it). */
+const PILLS = new Set();
+function pillSet(el, on, done){
+  PILLS.add(el);
+  const s = el._pill || (el._pill = {});
+  clearTimeout(s.t);
+  if (on) {
+    if (el.classList.contains("show")) return;
+    s.t = setTimeout(() => {
+      const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+      void el.offsetWidth;   // drawn once without .show, so it fades in rather than popping up
+      el.classList.add("show"); s.at = Date.now();
+    }, 300);
+  } else if (el.classList.contains("show")) {
+    s.t = setTimeout(() => {
+      el.classList.remove("show");
+      if (done) s.t = setTimeout(() => { if (!el.classList.contains("show")) { PILLS.delete(el); done(); } }, 400);
+    }, Math.max(350, 1200 - (Date.now() - (s.at || 0))));
+  } else { PILLS.delete(el); if (done) done(); }
+}
+// a pill that's up stays where it can be seen: a sheet that closes, or is redrawn whole, would take it along, so it goes back to
+// the pop-up under it or the page
+function pillRehost(){
+  PILLS.forEach(el => { if (!el.classList.contains("show")) return; const p = el.parentNode; if (p === document.body || (p && p.isConnected && p.open)) return; toastHost().appendChild(el); });
 }
 // "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
 let syncPillN = 0;
@@ -457,8 +493,7 @@ function syncPill(on){
   syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
   let el = document.getElementById("syncPill");
   if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
-  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
-  else el.classList.remove("show");
+  pillSet(el, !!syncPillN);
 }
 /* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
    student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
@@ -488,22 +523,46 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  const host = toastHost();
-  if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
-  // then jump: wait until the pop-up has settled
-  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
-  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
-  else { ++toastSeq; t.classList.add("show"); }
+  toastShowIn(toastHost(), false);
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
-  try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
+  toastMeasure();
 }
 function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
+  toastT = setTimeout(() => { ++toastSeq; toastWaiting = false; toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+// Shows the toast in host. A pop-up still moving into place (its entrance animation) carries the toast with it, so it would show
+// in the wrong spot and then jump: it waits until the pop-up has settled. fade: it was already up somewhere else and has moved,
+// so it fades in where it is now rather than jumping there
+function toastShowIn(host, fade){
+  const t = TOAST_EL;
+  if (t.parentNode !== host) host.appendChild(t);
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  const seq = ++toastSeq;
+  if (moving.length) {
+    toastWaiting = true; t.classList.remove("show");
+    Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) { toastWaiting = false; t.classList.add("show"); toastMeasure(); } });
+  } else {
+    toastWaiting = false; t.classList.add("show");
+    if (fade) { try { if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) t.animate([{opacity: 0}, {opacity: 1}], {duration: 180, easing: "ease-out"}); } catch (e) {} }
+  }
+}
+const toastMeasure = () => { try { document.documentElement.style.setProperty("--toast-h", TOAST_EL.offsetHeight + "px"); } catch (e) {} };
+/* A pop-up closing puts a toast that's up in it back where it can be seen (the pop-up under it, or the page) before the screen is
+   next drawn. It used to vanish with the sheet until the close event came a moment later, then pop back up somewhere else.
+   Esc and form buttons close a sheet without close(), so this watches the open attribute itself. (A sheet opening over a toast
+   leaves it where it is: moved into the sheet it would sit over the sheet's own buttons) */
+function toastRehost(){
+  const t = TOAST_EL;
+  pillRehost();
+  const p = t.parentNode, stale = p !== document.body && !(p && p.isConnected && p.open);
+  if (!stale) return;
+  if (!(t.classList.contains("show") || toastWaiting)) { document.body.appendChild(t); return; }
+  toastShowIn(toastHost(), true); toastMeasure();
+}
+try { new MutationObserver(recs => { if (recs.some(r => r.target.tagName === "DIALOG")) toastRehost(); }).observe(document.body, {attributes: true, attributeFilter: ["open"], subtree: true}); } catch (e) {}
 /* Haptics: one small vocabulary for the whole app, on phones and tablets only.
    tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
    drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)

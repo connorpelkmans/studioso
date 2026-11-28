@@ -22,7 +22,7 @@
 /* Notes on a phone: a little smaller, held upright or turned sideways (a phone on its side is wider than 700px, and the notes
    used to grow and shift each time it turned) */
 @media (max-width:700px), (max-height:500px) and (pointer:coarse){
-  .note{transform:rotate(var(--rot)) scale(.88)}
+  .note{--note-s:.88;transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
 }
@@ -667,6 +667,29 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-bd > .sch-tc{display:block;flex:none;font:700 .74rem var(--display)}
 }
 .sch-bd > .sch-tc{display:none}
+/* a class under an hour that still has room for the band and a line (sch-slim, 01-calendar.js: about 43 minutes and up) keeps the
+   regular card's look, slimmer: the course band, then the kind and time on one line. Only shorter ones drop to the coloured line */
+@container (max-height:44px){
+  .sch-b.sch-slim > .sch-band{display:flex;padding:2px 8px}
+  .sch-b.sch-slim > .sch-band .cc-ic{width:13px;height:13px}
+  .sch-b.sch-slim > .sch-band b{font-size:.68rem!important}
+  .sch-b.sch-slim:has(> .sch-band) > .sch-bd{display:flex;align-items:center;gap:6px;flex:1;min-height:0;height:auto;padding:0 8px;box-shadow:none}
+  .sch-b.sch-slim > .sch-bd > .sch-tc{display:none}
+  .sch-b.sch-slim > .sch-bd > span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem}
+  .sch-b.sch-slim > .sch-bd > .sch-t{display:block;font-size:.74rem}
+  .sch-b.sch-slim > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* shorter still (sch-tiny: under about 40 minutes), with no room for a band and a line: the whole card is the band, in the course
+   colour, with the icon, the course and the time in white on one row, so it still reads as the same card */
+.sch-col .sch-b.sch-tiny:has(> .sch-band){flex-direction:row!important;align-items:center;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important;border-color:transparent!important}
+.sch-col .sch-b.sch-tiny:has(> .sch-band):hover{filter:brightness(1.06)!important}
+.sch-b.sch-tiny > .sch-band{display:flex!important;flex:none;align-self:stretch;background:none!important;padding:0 6px 0 8px!important}
+.sch-b.sch-tiny > .sch-band .cc-ic{display:inline-flex!important;flex:none;width:13px!important;height:13px!important}
+.sch-b.sch-tiny > .sch-band b{font-size:.68rem!important}
+.sch-b.sch-tiny:has(> .sch-band) > .sch-bd{display:flex!important;align-items:center;flex:1;min-width:0;height:auto!important;padding:0 8px 0 0!important;box-shadow:none!important}
+.sch-b.sch-tiny > .sch-bd > .sch-tc{display:none!important}
+.sch-b.sch-tiny > .sch-bd > span{display:block!important;min-width:0;color:rgba(255,255,255,.88)!important;font-weight:600!important;font-size:.68rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-b.sch-tiny > .sch-bd > span:nth-of-type(2){display:none!important}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -900,6 +923,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .av-strip .av-chips{order:1;margin:0}
 .pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
 .pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* no free time left (the day is over, or it's all taken): the message sits beside the Availability button, not under an empty row */
+.pt-panel .av-strip:not(:has(.av-chips)) .av-line{order:1;flex:1 1 220px;margin:0;font-size:.92rem;color:var(--ink)}
 .pt-panel .av-note{order:4;flex-basis:100%;margin:0}
 /* Phones: free windows as full-width rows (time on the left, length on the right) */
 @media (max-width:639px){
@@ -909,6 +934,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   .pt-panel .av-strip .av-top{margin:0;width:100%}
   .pt-panel .av-strip .av-acts{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
   .pt-panel .av-strip .av-acts .btn{width:100%;min-width:0;justify-content:center;white-space:nowrap}
+  .pt-panel .av-strip:not(:has(.av-chips)) .av-line{flex:none}
 }
 .pt-panel .plan-fixed ul{margin:0;gap:6px}
 .pt-panel .plan-fixed li{min-height:0;padding:8px 12px;border-radius:10px;border-left:4px solid var(--c,var(--line));background:var(--surface)}
@@ -1081,6 +1107,15 @@ ol.qzd-opts li{color:var(--ink)}
 .gp-d-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:800 .8rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .gp-d-h .spacer{flex:1}
 .gp-d-calc .gp-calc-out{margin-top:10px}
+/* Where You Stand: the goal and letter-line distances, as chips across the top of the dropdown */
+.gp-stand{grid-column:1/-1;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.gp-stand[hidden]{display:none}
+.gp-stand-chips{display:flex;flex-wrap:wrap;gap:6px}
+.gp-sc{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;font:700 .82rem var(--body);background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink)}
+.gp-sc.gp-sc-ok{background:color-mix(in srgb,var(--leaf,#1E9E74) 15%,var(--surface));color:color-mix(in srgb,var(--leaf,#1E9E74) 70%,var(--ink))}
+.gp-sc.gp-sc-to{background:color-mix(in srgb,var(--accent) 13%,var(--surface))}
+.gp-stand .gi-edge-chip{padding:0 10px}
+.gp-stand-why{margin:8px 0 0;color:var(--muted)}
 @media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
 /* Files, Direction 1 */
 .fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
