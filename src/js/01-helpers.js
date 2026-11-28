@@ -391,6 +391,8 @@ function atRisk(t){
   if (t.status === "done" || !t.due) return false;
   const fx = FOCUS && FOCUS.info[t.id];
   if (fx && fx.behind >= 0.5 && fx.dl >= 0) return true;
+  // Today's Plan knows the work left and the time before it's due: a 15 minute email due tomorrow, with hours free, isn't at risk
+  if (fx && !MILESTONE(t.type) && !fx.dead) return fx.dl >= 0 && fx.own >= 1;
   const d = dayDiff(todayISO(), t.due);
   if (MILESTONE(t.type)) return d >= 0 && d <= 3 && progress(t).frac < 0.5;
   return d >= 0 && d <= 2 && progress(t).frac < 0.5 && (t.status === "todo" || hoursLeft(t) > 2);

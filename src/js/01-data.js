@@ -28,7 +28,8 @@ const TB = (() => {
     d = d || {};
     if (kind === "course") return cut(d.name || d.code, 70) || "Course";
     if (kind === "task") return cut(d.title, 70) || "Task";
-    if (kind === "note") return d.wb ? "Whiteboard: " + (cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Untitled") : cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    // (a first line written as a Markdown heading, "# Lecture 22", is named without its #)
+    if (kind === "note") { const l = (String(d.text || "").split("\n").find(x => x.trim()) || "").replace(/^\s*#{1,6}\s+/, ""); return d.wb ? "Whiteboard: " + (cut(l, 60) || "Untitled") : cut(l, 60) || "Empty note"; }
     if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
     if (kind === "file") return cut(d.name, 70) || "File";
     if (kind === "event") return cut(d.title, 70) || "Event";

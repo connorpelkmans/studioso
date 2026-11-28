@@ -553,6 +553,14 @@ function autoLighter(S){
     });
   } catch (e) { console.warn("breakdown lighter days", e); }
 }
+// Move to Lighter Day's choice for one milestone: the lightest day within 3 days that keeps the order, or null
+function lighterFor(S, m){
+  const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
+  const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+  const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+  const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+  return BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -567,7 +575,8 @@ function draw(){
   list.innerHTML = S.ms.map((m, i) => {
     if (m.locked) return `<li class="bd-m is-done"><span class="bd-n" aria-hidden="true">${CHECK}</span><div class="bd-f"><span class="bd-t">${esc(m.title)}</span><span class="mini">Done · ${esc(fmtShort(m.due))} · ${esc(hm(m.hours))}</span></div></li>`;
     const k = open.indexOf(m);
-    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button></p>` : "";
+    // the button only shows when there is a lighter day to move to (in finals weeks every day can be full)
+    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.${lighterFor(S, m) ? "" : " The days around it are just as full."}</span>${lighterFor(S, m) ? ` <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button>` : ""}</p>` : "";
     const past = m.due < today && !S.allowPast ? `<p class="bd-w" role="status">This date is in the past.</p>` : m.due > S.due ? `<p class="bd-w" role="status">This is after the due date.</p>` : "";
     const uns = m.unsupported && m.unsupported.length ? `<p class="mini bd-u">The AI's wording mentioned ${esc(m.unsupported.slice(0, 2).join(", "))}, which isn't in your text, so it was left out.</p>` : "";
     return `<li class="bd-m" data-i="${i}"><span class="bd-n">${k + 1}</span><div class="bd-f">
@@ -626,11 +635,7 @@ function onList(e){
       draw(); const nb = dlg.querySelector(`[data-a="${a}"][data-i="${j}"]`); if (nb && !nb.disabled) nb.focus(); return;
     }
     if (a === "lighter") {
-      const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
-      const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
-      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
-      const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
-      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+      const d = lighterFor(S, m);
       if (!d) { toast("No lighter day nearby that keeps the order"); return; }
       m.due = d; toast(`Moved to ${fmtShort(d)}`); draw(); return;
     }
@@ -998,7 +1003,13 @@ hook("changed", changes => {
         const mem = bdMem(); mem.asked = mem.asked || {};
         if (!mem.asked[a.id]) {
           mem.asked[a.id] = Date.now(); const ks = Object.keys(mem.asked); if (ks.length > 150) ks.sort((x, y) => mem.asked[x] - mem.asked[y]).slice(0, ks.length - 150).forEach(k => delete mem.asked[k]); bdMemSet(mem);
-          setTimeout(() => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return; toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); }, 3200);
+          // it waits for a toast with a button still showing ("Added … Undo"), so the offer never takes the Undo away
+          let tries = 0;
+          const offer = () => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return;
+            let busy = false; try { busy = toastEl().classList.contains("show") && !!(toastUndoFn || toastExtraFn); } catch (e) {}
+            if (busy && ++tries < 8) { setTimeout(offer, 1500); return; }
+            toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); };
+          setTimeout(offer, 3200);
         }
       }
     });

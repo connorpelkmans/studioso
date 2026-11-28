@@ -36,3 +36,14 @@
 .sd-more .sd-list{margin-top:8px}
 .sd-more select{flex:none;max-width:42%}
 .sd-sub{display:block;font-size:.84rem;color:var(--muted);margin-top:2px}
+/* the day's name (a holiday) shrinks with its column instead of running under the next day */
+.sch-dn .sch-sd{flex:1 1 auto;min-width:0}
+/* Day pills (phone week) and the month: days off are marked */
+.sch-pills button.is-off{border-style:dashed}
+.sch-pills button.is-off:not([aria-pressed="true"]) b{color:var(--accent)}
+.cal.sch-month .day.hol-off:not(.is-today){background:repeating-linear-gradient(135deg,transparent 0 9px,color-mix(in srgb,var(--line) 40%,transparent) 9px 10px)}
+@media (max-width:700px){.cal.sch-month .day.hol .num{color:var(--accent)}}
+.smc-hol{margin:-6px 0 10px;font-weight:600;color:var(--muted)}
+.smc-hol.off{color:var(--accent)}
+/* Term dates in School Days */
+.sd-term .two{margin:0}

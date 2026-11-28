@@ -10,9 +10,9 @@
                         a step of a broken-down task 3 (at most 8 tasks a day count, so splitting work up doesn't pay)
      - Presentations    3 for each slide inside its time, +20 when the whole talk is on target, +30 more the first time; 2 runs a day
 
-   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Exotic 500, Legendary 1,000): a steady
+   How that meets the prices (98-companion.js PRICE: Common 100, Uncommon 200, Rare 300, Epic 500, Legendary 1,000): a steady
    study day (a 25-minute focus session 12, 20 cards 20, a passed 10-question quiz 13, an assignment and a reading 18) is about
-   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Exotic about a week and a Legendary about two weeks.
+   65 credits, plus about one chest. So a Common takes about a day, a Rare half a week, an Epic about a week and a Legendary about two weeks.
    The daily caps keep a timer left running or a list of tiny tasks from shortcutting that.
 
    Where they come from: everything except presentations is worked out from what's already saved (decks, quizzes, tasks, focus
@@ -171,11 +171,11 @@ var SBSC = (() => {
      credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
      How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
      A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
-     a Rare every 4 days, an Exotic every 2 weeks and a Legendary about every 2 months. */
+     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
   const CHEST = {
     common: {name: "Common", min: 5, max: 20, p: 0.70},
     rare: {name: "Rare", min: 20, max: 50, p: 0.22},
-    exotic: {name: "Exotic", min: 50, max: 100, p: 0.065},
+    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
     legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
@@ -252,11 +252,20 @@ var SBSC = (() => {
   const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
   // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
   // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  // An open modal dialog (the Focus timer, a sheet) makes the rest of the page inert, popovers included, so a screen shown over one
+  // couldn't be tapped: it goes inside the top one, and moves out (to the next one, or the page) when that dialog closes
+  const topModal = () => { const l = [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return false; } }); return l[l.length - 1] || null; };
+  function mount(o){
+    const host = topModal() || document.body;
+    host.appendChild(o);
+    try { if (o.showPopover && !o.matches(":popover-open")) o.showPopover(); } catch (e) {}
+    if (host !== document.body) host.addEventListener("close", function moved(){ host.removeEventListener("close", moved); if (o.isConnected && host.contains(o)) mount(o); });
+  }
   function openChests(list, done){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     let i = 0, opened = false;
     const draw = () => {
       const c = list[i]; opened = false;
@@ -274,6 +283,7 @@ var SBSC = (() => {
       opened = true; const c = list[i];
       o.classList.add("is-open");
       try { if (typeof sbHaptic === "function") sbHaptic(c.t === "common" ? "tap" : "success", {force: true}); } catch (e) {}
+      sfx("chest", {rarity: c.t}); setTimeout(() => coinRun(c.c, Math.min(1200, 400 + c.c * 6)), still ? 300 : 700);
       const coins = o.querySelector(".scr-ch-coins");
       if (coins && !still) coins.innerHTML = Array.from({length: c.t === "legendary" ? 14 : c.t === "exotic" ? 11 : c.t === "rare" ? 8 : 6}, (_, k) => `<img src="${COIN_SRC}" alt="" style="--x:${Math.round((k % 2 ? 1 : -1) * (14 + (k * 37) % 90))}px;--y:${-70 - (k * 53) % 80}px;--d:${(k * 0.045).toFixed(2)}s">`).join("");
       const amt = o.querySelector(".scr-ch-amt");
@@ -297,7 +307,7 @@ var SBSC = (() => {
   /* ---------- The prize wheel: a spin for an exam grade of 80% or more ----------
      A mark of 80% or more on an exam (typed in, or from the school site) earns a spin, once per exam,
      at most SPINS_A_WEEK a week (Monday to Sunday). The wheel has 12 prizes, each slice as big as its chance, so what you see is
-     what you get: 1 Legendary accessory (2%), 2 Exotic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
+     what you get: 1 Legendary accessory (2%), 2 Epic (4% each), 3 Rare (6% each), and coins: 25 (18%), 50 (16%), 75 (14%),
      100 (10%), 150 (8%), 200 (6%). The accessories are picked at random from ones the student doesn't own yet (none of a rarity
      left: that slice is coins instead, half its price). Marks already there when this first runs, and more than 3 arriving at
      once (a sync catching up), are counted as seen without a spin. A spin waits (sc.wsq) until it's spun.
@@ -418,7 +428,7 @@ var SBSC = (() => {
   }
   const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
   const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
-  const RNAME = {legendary: "Legendary", exotic: "Exotic", rare: "Rare"};
+  const RNAME = {legendary: "Legendary", exotic: "Epic", rare: "Rare"};
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
@@ -440,7 +450,7 @@ var SBSC = (() => {
       ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let state0 = "ready", won = null;
     const spin = () => {
@@ -456,10 +466,17 @@ var SBSC = (() => {
       if (won.k === "item") grant(won.id); else { setSc({ev: {[`spin:${todayISO()}:${sp.id}`]: won.n}}); invalidate(); }
       setSc({wsq: spinQueue().filter(x => x.id !== sp.id)});
       try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {}
+      // a click each time the pointer passes a slice, read from the wheel's real turn, so the clicks slow down with it
+      if (!still) { sfx("whoosh"); const per = 360 / prizes.length; let last = null, until = performance.now() + 4600;
+        const watch = () => { if (!o.isConnected || performance.now() > until) return; const m = getComputedStyle(rot).transform; let a = 0;
+          if (m && m !== "none") { const v = m.match(/matrix\(([^)]+)\)/); if (v) { const p = v[1].split(",").map(Number); a = Math.atan2(p[1], p[0]) * 180 / Math.PI; } }
+          const slice = Math.floor(((a % 360) + 360) % 360 / per); if (last != null && slice !== last) sfx("tick"); last = slice; requestAnimationFrame(watch); };
+        requestAnimationFrame(watch); }
       setTimeout(landed, still ? 50 : 4500);
     };
     const landed = () => {
       state0 = "done"; o.classList.remove("spinning"); o.classList.add("wh-won", won.k === "item" ? "r-" + won.r : "r-coins");
+      sfx("win", won.k === "item" ? {rarity: won.r} : {coins: true});
       try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
       const res = o.querySelector(".wh-result");
       res.innerHTML = won.k === "item"
@@ -554,12 +571,16 @@ var SBSC = (() => {
       try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
     }, still ? 0 : at);
   }
-  const rq = []; let rOpen = false;
+  const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
   // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    // the Focus timer's alarm comes first (Start Break, Mark Done); this screen follows once it's put away
+    const al = document.getElementById("alarmDlg");
+    // (meanwhile the quiet count waits, so it doesn't take this work's credits as arriving from elsewhere)
+    if (al && al.open && !screensOff()) { rWait++; al.addEventListener("close", () => setTimeout(() => { rWait--; reward(spec); }, 300), {once: true}); return; }
     const ch = spec.compact ? [] : takeChests();
     if (!ch.length) { rewardNow(spec, []); return; }
     // the coins are added as the chests are opened (or at once, where the screens aren't shown)
@@ -569,6 +590,10 @@ var SBSC = (() => {
     rOpen = true;
     openChests(ch, () => { rOpen = false; credit(); rewardNow(spec, ch); });
   }
+  // sound effects (01-sfx.js): quiet when the effects are off or the app is in the background
+  const sfx = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
+  // coins tinkling while a number counts up: a few for a small amount, more for a big one, over the count's time
+  const coinRun = (n, ms) => { const k = Math.max(2, Math.min(14, Math.round(n / 3))); for (let i = 0; i < k; i++) setTimeout(() => sfx("coin", {i}), Math.round(i * ms / k)); };
   function rewardNow(spec, ch){
     invalidate();
     const now = totals().earned, before = seenTotal == null ? now - (spec.lines || []).reduce((a, l) => a + (l.n || 0), 0) : seenTotal;
@@ -587,8 +612,9 @@ var SBSC = (() => {
     // the student's: they're in the balance, never shown again as if earned now. The screen shows only this work's own credits.
     if (gained > sum) gained = Math.max(0, sum);
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
-    // nothing earned: no screen at all (a limit reached, a quiz with no right answers)
-    if (!gained) { readySet(); return; }
+    // nothing earned: no screen at all (a limit reached, a quiz with no right answers); a pass, a good session or a mastered talk
+    // still gets its sound
+    if (!gained) { readySet(); if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
@@ -630,13 +656,18 @@ var SBSC = (() => {
       ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
+    // the screen's sound: a stinger for how it went (r.sfx: 1 nice, 2 passed or on time, 3 perfect or mastered; 0 for a focus session,
+    // whose timer has just chimed), then coins while the credits count up and a ding when they land
+    const lvl = r.sfx != null ? r.sfx : r.kind === "focus" ? 0 : 1;
+    if (lvl) sfx("reward", {level: lvl});
+    const cMs = Math.min(1600, 500 + r.gained * 25);
+    setTimeout(() => coinRun(r.gained, cMs), (still ? 0 : 350) + (lvl >= 2 ? 450 : 150));
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
     readyPlay(o, still, tickAt * 1000 + 700);
-    setTimeout(() => countUp(big, 0, r.gained, Math.min(1600, 500 + r.gained * 25), () => { o.classList.add("scr-landed"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
+    setTimeout(() => countUp(big, 0, r.gained, cMs, () => { o.classList.add("scr-landed"); sfx("coinLand"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector(".scr-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
@@ -658,10 +689,10 @@ var SBSC = (() => {
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
       ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
+    sfx("pop");
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
     if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
@@ -677,21 +708,23 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
-    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
-    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest and the big screen only at a
+    // session's real end, a small card that goes by itself for one stopped part way
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes || e.why === "switch") return;
     if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", compact: e.type !== "end", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
   // Flashcards: at the Session Done screen (01-flashcards.js)
-  function cardsDone(n){
+  // good: most of the session's cards were known (01-flashcards.js), which gets a happier sound
+  function cardsDone(n, good){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
     flushCards();
     const today = dayCards(todayISO());
-    reward({kind: "cards", kick: "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
+    reward({kind: "cards", sfx: good ? 2 : 1, kick: good ? "Great Session!" : "Study Session Done", title: `${n} card${n === 1 ? "" : "s"} reviewed`, showZero: true,
       lines: [{t: `You studied ${n} flashcard${n === 1 ? "" : "s"}`, n: 0, fill: n + 1, s: today > CARDS_A_DAY ? `Only ${CARDS_A_DAY} cards a day earn credits, and you've reviewed ${today.toLocaleString()} today. Great work!` : ""}]});
   }
   // A quiz (a deck quiz or an AI practice quiz): written down once, then its screen
@@ -705,7 +738,7 @@ var SBSC = (() => {
     // quizzes from before are counted once (qbase); this one is already in the decks' saved results, so it's left out of that
     if (sc().qbase == null) setSc({qbase: Math.max(Number((sc().hw || {}).quiz) || 0, savedQuizPts() - quizPts(right, total))});
     if (pts) { setSc({ev: {[`quiz:${day}:${id}:${uid()}`]: pts}}); invalidate(); }
-    reward({kind: "quiz", kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
+    reward({kind: "quiz", sfx: perfect ? 3 : pass ? 2 : 1, kick: perfect ? "Perfect Quiz!" : pass ? "Quiz Passed!" : "Quiz Done", title: `${total} question${total === 1 ? "" : "s"}`,
       lines: tries >= QUIZ_TRIES_A_DAY ? [{t: "No credits this time", n: 0, s: `This quiz has earned credits ${QUIZ_TRIES_A_DAY} times today. Try another, or come back tomorrow.`}] : lines, showZero: true});
   }
   // Presentations: each slide inside its time, and the whole talk on target (99-present.js, on a finished run)
@@ -725,7 +758,7 @@ var SBSC = (() => {
       if (pts) add[`pres:${day}:${pid}:${run.id}`] = pts - (first ? PRES_MASTER : 0);
       if (first) add[`pres:master:${pid}`] = PRES_MASTER;
       if (Object.keys(add).length) { setSc({ev: add}); invalidate(); }
-      reward({kind: "pres", kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
+      reward({kind: "pres", sfx: first ? 3 : whole ? 2 : 1, kick: first ? "Presentation Mastered!" : whole ? "Right on Time!" : "Practice Run Done", title: p.name || "Presentation",
         lines: runsToday >= PRES_RUNS_A_DAY ? [{t: "No credits this time", n: 0, s: `This presentation has earned credits ${PRES_RUNS_A_DAY} times today. Come back tomorrow!`}] : lines, showZero: true});
     } catch (e) { console.warn("study credits: presentation", e); }
   });
@@ -759,7 +792,7 @@ var SBSC = (() => {
   let noticeT = 0;
   function noticeSoon(){
     clearTimeout(noticeT);
-    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen || rWait) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
@@ -800,7 +833,7 @@ var SBSC = (() => {
   // How credits are earned, for the Wardrobe: each kind, how it's earned, and how many it has given so far
   function howHtml(){
     const t = totals();
-    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Exotic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
+    return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Epic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
   return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },

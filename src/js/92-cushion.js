@@ -62,7 +62,8 @@ function fromPlan(p){
     rows.push({id: t.id, title: t.title || "", due: t.due, dl: x.dl, R: x.R, L: x.L, A: x.A, noEst: own && !!(window.SBEST && SBEST.needs(t))});
   });
   const today = p.today, offToday = dayIsOff(today);
-  const avTot = p.av && p.av.active && p.av.res ? (p.av.res.total || 0) / 60 : Infinity;
+  // the free time left today around classes, shifts and events (also when Availability isn't set up: the strip shows the same)
+  const avTot = p.av && p.av.res && isNum(p.av.res.total) ? (p.av.res.total || 0) / 60 : Infinity;
   const roomToday = offToday ? 0 : Math.max(0, Math.min(p.leftH, avTot, 16 - p.doneToday) - p.th);
   const offDays = [];
   for (let i = 0; i <= CUSH.WINDOW; i++) { const d = addDays(today, i); if (dayIsOff(d)) offDays.push({date: d, i, h: p.dh}); }

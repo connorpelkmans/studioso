@@ -544,14 +544,20 @@
     typed = NAMES.some(n => n.startsWith(k)) ? {s: k, snap: snap(), at: now, named: false} : null;
     return false;
   }
+  // the key last pressed with a mouse or finger keeps the focus, but isn't one the keyboard chose (Tab moves on from it)
+  let ptrKey = null;
+  document.addEventListener("pointerdown", e => { ptrKey = W && e.target && e.target.closest ? e.target.closest(".cx-body [data-cx]") : null; }, true);
+  const kbFocus = el => el !== ptrKey;
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); menu(false); } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
+    if (e.key === "Tab") ptrKey = null;
     if (e.key === "Tab" || e.key === " ") return;
-    // Enter on a focused key presses that key; Enter elsewhere is =
-    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    // Enter on a key reached with Tab presses that key; Enter elsewhere is =, also right after a key was clicked (a clicked
+    // key keeps the focus, and Enter used to press it again: click sin, type 30, Enter gave "sin(30sin(")
+    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq" && kbFocus(e.target)) return;
     if (/^[a-z]$/i.test(e.key) && e.key !== "E" && typeLetter(e)) return;
     // "(" right after a typed name like sqrt is already on screen
     if (e.key === "(" && typed && typed.named) { e.preventDefault(); typed = null; return; }

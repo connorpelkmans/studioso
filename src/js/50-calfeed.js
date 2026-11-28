@@ -497,6 +497,9 @@ const csStudyList = () => { const s = state.settings || {}; const l = s.studyPla
 // A guess at when classes end
 function csGuessUntil(){
   const today = todayISO(), ids = new Set(csCourses().map(c => c.id));
+  // the Last Class from Term Dates (School Days, or a course's Lectures tab) when it's set
+  const set = csCourses().map(c => c.classDates && c.classDates.until).filter(d => isDate(d) && d >= today).sort().pop();
+  if (set) return set;
   const last = Object.values(state.tasks || {}).filter(t => t && ids.has(t.courseId) && !t.archivedTerm && t.due && t.due > addDays(today, 14)).map(t => t.due).sort().pop();
   const y = today.slice(0, 4), m = Number(today.slice(5, 7));
   let term = m >= 9 ? y + "-12-15" : m <= 4 ? y + "-04-30" : y + "-08-15";

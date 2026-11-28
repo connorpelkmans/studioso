@@ -1,6 +1,6 @@
 /* ===== module: 98-comp-acc.js ===== */
 /* Companion wardrobe: 90 more things to wear, 30 each for the head, the face and the neck.
-   Common: plain, everyday shapes in one colour. Uncommon: a touch of detail or a second colour. Rare: a second colour, a detail or two. Exotic: unusual materials and shapes.
+   Common: plain, everyday shapes in one colour. Uncommon: a touch of detail or a second colour. Rare: a second colour, a detail or two. Epic: unusual materials and shapes.
    Legendary: gold, gems and light, with twinkles.
    Each one fits the companion the way the Tiny Hat, Round Glasses and Cozy Scarf do:
    - head: drawn around (0,0) at anchors.top in the hat's space (its band sits at y 0 to 4, about 34 wide)
@@ -69,7 +69,7 @@ var COMP_ACC_MORE = K => {
     {id: "tricorn", name: "Pirate Hat", rarity: "rare", def: "#3A3450", art: () =>
       `<path d="M-20 -6.5Q-12 2.2 0 1.2Q12 2.2 20 -6.5Q16.5 -14.5 8.5 -12.5Q4.5 -20.5 0 -20.5Q-4.5 -20.5 -8.5 -12.5Q-16.5 -14.5 -20 -6.5Z" ${WF} ${OUT(2.4)}/><path d="M-18 -5.6Q-11 .4 0 -.6Q11 .4 18 -5.6" fill="none" stroke="#F2C14E" stroke-width="2" stroke-linecap="round"/>
       <path d="M-4.2 -5.6L4.2 -1.4M4.2 -5.6L-4.2 -1.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="0" cy="-9.5" r="3.4" fill="#fff"/><path d="M-1.8 -7.6h3.6v1.6h-3.6Z" fill="#fff"/><circle cx="-1.2" cy="-9.6" r=".9" fill="${INK}"/><circle cx="1.2" cy="-9.6" r=".9" fill="${INK}"/>`},
-    // Exotic
+    // Epic
     {id: "wizard", name: "Wizard Hat", rarity: "exotic", def: "#5B4BC4", icon: [14, .72], art: () =>
       `<path d="M-12 0Q-8 -14 -3 -26Q1 -35 10 -36.5Q4.5 -31 4.4 -24Q7 -12 12 0Z" ${WF} ${OUT(2.4)}/><path d="M-6.5 -10Q-4 -19 -.5 -25" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="2" stroke-linecap="round"/>
       ${star(-2.5, -12, 2.6, "#FFD35A", 1)}${star(3.5, -20.5, 1.9, "#FFD35A", .9)}<path d="M-1.4 -27.5a3 3 0 1 0 3.2 -3.6a2.3 2.3 0 1 1 -3.2 3.6Z" fill="#FFF3B0" ${OUT(.9)}/>${star(10, -36.5, 2.2, "#FFD35A", 1)}
@@ -152,7 +152,7 @@ var COMP_ACC_MORE = K => {
     {id: "cateye", name: "Cat-Eye Glasses", rarity: "rare", def: "#E5484D", art: g => {
       const lens = R => `M${f(-R)} ${f(-R * .32)}Q${f(-R * .1)} ${f(-R * .95)} ${f(R * 1.38)} ${f(-R * 1.08)}Q${f(R * 1.08)} ${f(R * .2)} ${f(R * .6)} ${f(R * .68)}Q${f(-R * .4)} ${f(R * 1.08)} ${f(-R * .95)} ${f(R * .36)}Q${f(-R * 1.15)} ${f(-R * .05)} ${f(-R)} ${f(-R * .32)}Z`;
       return `${bridge(g, 2, 1.8, WS("#E5484D"))}${pair(g, R => `<path d="${lens(R)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4.2" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#E5484D")} stroke-width="2.3" stroke-linejoin="round"/><circle cx="${f(R * 1.08)}" cy="${f(-R * .82)}" r="1.1" fill="#fff"/><circle cx="${f(R * .7)}" cy="${f(-R * .86)}" r=".8" fill="#fff"/>`)}`; }},
-    // Exotic
+    // Epic
     {id: "steampunk", name: "Steampunk Goggles", rarity: "exotic", def: "#F2994A", art: g =>
       `<path d="M${f(g.lx - g.R * 1.2 - Math.min(7, g.ext))} ${f(g.y - g.R * .3)}H${f(g.rx + g.R * 1.2 + Math.min(7, g.ext))}V${f(g.y + g.R * .3)}H${f(g.lx - g.R * 1.2 - Math.min(7, g.ext))}Z" fill="#7A4E2D" ${OUT(1.8)}/>${line2(`M${f(g.lx + g.R)} ${g.y}H${f(g.rx - g.R)}`, 2.4, "#C98A3A")}
       ${pair(g, R => `<circle r="${f(R * 1.2)}" fill="#C98A3A" ${OUT(2)}/><circle r="${f(R * .96)}" fill="#8A5A26" ${OUT(1.2)}/><circle r="${f(R * .78)}" ${WF} fill-opacity=".85" ${OUT(1.2)}/>${[45, 135, 225, 315].map(a => `<circle cx="${f(R * 1.08 * Math.cos(a * Math.PI / 180))}" cy="${f(R * 1.08 * Math.sin(a * Math.PI / 180))}" r=".9" fill="#F3D08A"/>`).join("")}${shine(R * .8)}`)}`},
@@ -236,7 +236,7 @@ var COMP_ACC_MORE = K => {
     {id: "ruff", name: "Ruffled Collar", rarity: "rare", def: "#FFF8F0", art: hw => {
       const n = Math.max(7, Math.round(hw * 2 / 5.2) + 1), pts = along(hw, -1, 4, n, .92);
       return `${pts.map(([x, y]) => `<ellipse cx="${x}" cy="${f(y + .6)}" rx="3.8" ry="5.2" ${WF} ${OUT(1.5)}/><path d="M${x} ${f(y - 2.6)}V${f(y + 3.4)}" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/>`).join("")}`; }},
-    // Exotic
+    // Epic
     {id: "boa", name: "Feather Boa", rarity: "exotic", def: "#FF7AC8", icon: [-8, .9], art: hw => {
       const pts = along(hw, -1.5, 5, Math.max(8, Math.round(hw / 2.6)), 1).concat([[f(hw * .55 + 1), 12], [f(hw * .55 + 2), 17], [f(hw * .55 + 2.4), 22]]);
       return `${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" fill="${INK}" stroke="${INK}" stroke-width="3.4"/>`).join("")}${pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4.3" ${WF}/>`).join("")}${pts.map(([x, y], i) => `<path d="M${f(x - 2)} ${f(y - 1.2)}q1.2 -1.8 3 -1.4M${f(x + .4)} ${f(y + 2)}q1.4 -.6 2 -2" fill="none" stroke="#fff" stroke-opacity="${i % 2 ? .55 : .35}" stroke-width="1.1" stroke-linecap="round"/>`).join("")}`; }},
@@ -315,7 +315,7 @@ var COMP_ACC_MORE = K => {
       `<path d="M-12.5 0Q-13.5 -12 0 -13Q13.5 -12 12.5 0Z" ${WF} ${OUT(2.4)}/><path d="M-7 -9.6Q-8.6 -5 -8.6 -1" fill="none" stroke="${INK}" stroke-opacity=".12" stroke-width="2" stroke-linecap="round"/><path d="M0 -13V-1" stroke="${INK}" stroke-opacity=".12" stroke-width="1.2"/>
       <path d="M-15.5 -1.6Q0 1.6 15.5 -1.6V4Q0 7.2 -15.5 4Z" ${WF} ${OUT(2.2)}/><path d="M-15 1.2Q0 4.4 15 1.2" fill="none" stroke="#2F4A8A" stroke-width="1.8" stroke-linecap="round"/>
       <g transform="translate(0 -6)" fill="none" stroke="#2F4A8A" stroke-width="1.2" stroke-linecap="round"><circle cy="-2.4" r="1"/><path d="M0 -1.4V2.6M-1.6 -.2H1.6M-2.4 1Q-2 2.8 0 2.8Q2 2.8 2.4 1"/></g>`},
-    // Exotic
+    // Epic
     {id: "jesterhat", name: "Jester Hat", rarity: "exotic", def: "#8E6BE0", icon: [12, .78], art: () => {
       const bell = (x, y) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${GOLD}" ${OUT(1.2)}/><path d="M${x - 1.2} ${y + .6}h2.4" stroke="${GOLD_D}" stroke-width=".9"/>`;
       return `<path d="M-14 -1Q-21 -9 -24.5 -20Q-16 -17 -8 -12Q-6 -6 -6 -1Z" ${WF} ${OUT(2.2)}/><path d="M14 -1Q21 -9 24.5 -20Q16 -17 8 -12Q6 -6 6 -1Z" ${WF} ${OUT(2.2)}/><path d="M-7.5 -1Q-6 -14 0 -26.5Q6 -14 7.5 -1Z" fill="#FFD35A" ${OUT(2.2)}/>
@@ -364,7 +364,7 @@ var COMP_ACC_MORE = K => {
       const hw = Math.min(g.R * 1.1, g.gap / 2 - .6), hh = g.R * .78, lens = rr(-hw, -hh, hw * 2, hh * 2, g.R * .4), n = Math.max(3, Math.round(hh * 2 / 2.6));
       let sl = ""; for (let i = 1; i < n; i++) { const y = -hh + i * (hh * 2 / n); sl += `M${f(-hw)} ${f(y)}H${f(hw)}`; }
       return `${bridge(g, 1.6, 2, WS("#FF4F8B"))}${temples(g, 1.8, WS("#FF4F8B"))}${[g.lx, g.rx].map(x => `<g transform="translate(${x} ${g.y})"><path d="${lens}" fill="#fff" fill-opacity=".1" stroke="${INK}" stroke-width="4.4"/><path d="${sl}" ${WS("#FF4F8B")} stroke-width="1.5"/><path d="${lens}" fill="none" ${WS("#FF4F8B")} stroke-width="2.4"/></g>`).join("")}`; }},
-    // Exotic
+    // Epic
     {id: "xray", name: "X-Ray Specs", rarity: "exotic", def: "#E5484D", art: g => {
       const spiral = R => { let p = "", n = 40; for (let i = 0; i <= n; i++) { const t = i / n, a = t * Math.PI * 5, r = R * .82 * t; p += (i ? "L" : "M") + f(r * Math.cos(a)) + " " + f(r * Math.sin(a)); } return p; };
       return `${bridge(g, 2.4, 1.8, WS("#E5484D"))}${temples(g, 1.6, WS("#E5484D"))}${pair(g, R => `<circle r="${f(R)}" fill="#FFF8F0" stroke="${INK}" stroke-width="5"/><path d="${spiral(R)}" fill="none" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/><circle r="${f(R)}" fill="none" ${WS("#E5484D")} stroke-width="3"/>`)}`; }},
@@ -400,7 +400,7 @@ var COMP_ACC_MORE = K => {
       <path d="M-5.4 .6Q0 3.6 5.4 .6L7.4 8.4Q3.2 11.6 0 9.8Q-3.2 11.6 -7.4 8.4Z" ${WF} ${OUT(1.8)}/><path d="M-3.2 3.6Q-3.4 6.6 -5 8.4M3.2 3.6Q3.4 6.6 5 8.4" fill="none" stroke="#C9C3D6" stroke-width=".9" stroke-linecap="round"/><circle cx="0" cy="4.4" r="1.8" fill="#FF7AC8" ${OUT(1)}/><circle cx="-.5" cy="3.9" r=".5" fill="#fff"/>`},
     {id: "locket", name: "Heart Locket", rarity: "uncommon", def: "#F5C542", art: hw =>
       `${line2(arcP(hw, -2.5, 8, .9), 1.2, WS("#F5C542")).replace(`stroke-width="1.2"`, `stroke-width="1.2" stroke-dasharray="1.4 .9"`)}<circle cx="0" cy="6.6" r="1.2" fill="none" stroke="${INK}" stroke-width="1.1"/>${heart(0, 10.6, 4, WF, 1.6)}<path d="M-1.6 9.4q-.4 1.6 .6 2.8" fill="none" stroke="${GOLD_D}" stroke-width=".9" stroke-linecap="round"/><path d="M-2.4 8.4q.8 -1.2 2 -1" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`},
-    // Exotic
+    // Epic
     {id: "bubbles", name: "Bubble Necklace", rarity: "exotic", def: "#9AD8FF", art: hw => {
       const pts = along(hw, -2, 6.5, Math.max(6, Math.round(hw / 3.6)), .88), sz = [2.2, 3, 2.4, 3.4];
       return `<path d="${arcP(hw, -2, 6.5, .95)}" fill="none" stroke="#B9C0CC" stroke-width=".9"/>${pts.map(([x, y], i) => { const r = Math.abs(x) < .5 ? 4.4 : sz[i % 4]; return `<circle cx="${x}" cy="${f(y + (Math.abs(x) < .5 ? 2 : 0))}" r="${r}" ${WF} fill-opacity=".3" stroke="${INK}" stroke-width="1"/><path d="M${f(x - r * .6)} ${f(y + r * .3)}a${f(r * .7)} ${f(r * .7)} 0 0 0 ${f(r * 1.1)} ${f(r * .3)}" fill="none" stroke="#FF9AD5" stroke-width=".9"/><path d="M${f(x - r * .45)} ${f(y - r * .45 + (Math.abs(x) < .5 ? 2 : 0))}q${f(r * .3)} ${f(-r * .3)} ${f(r * .7)} ${f(-r * .2)}" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }).join("")}`; }},
@@ -434,7 +434,7 @@ var COMP_ACC_MORE = K => {
     {id: "pocketwatch", name: "Pocket Watch", rarity: "rare", at: "pin", def: "#F5C542", art: () => `${line2("M-8 -8Q-8 1 -1 1.6", 1, WS("#F5C542")).replace(`stroke-width="1"`, `stroke-width="1" stroke-dasharray="1.2 .8"`)}<circle cx="-8" cy="-8" r="1.3" ${WF} ${OUT(.8)}/><rect x="1.2" y="-4.2" width="2.6" height="2.4" rx=".6" ${WF} ${OUT(1)}/><circle cx="2.5" cy="4.4" r="6.4" ${WF} ${OUT(1.6)}/><circle cx="2.5" cy="4.4" r="4.8" fill="#FFF8F0" ${OUT(.9)}/><path d="M2.5 4.4V1.4M2.5 4.4L4.6 5.6" stroke="${INK}" stroke-width="1" stroke-linecap="round"/><circle cx="2.5" cy="4.4" r=".6" fill="${INK}"/>`},
     {id: "boltpin", name: "Lightning Pin", rarity: "rare", at: "pin", def: "#FFC93C", art: () => `<path d="M2.4 -9.4L-6.4 1.2H-1L-3.4 9.6L6.4 -2H1Z" ${WF} ${OUT(1.8)}/><path d="M1 -6L-3.4 -.6" stroke="#fff" stroke-opacity=".8" stroke-width="1.2" stroke-linecap="round"/>`},
     {id: "cameo", name: "Cameo Brooch", rarity: "rare", at: "mid", def: "#F2B5C4", art: () => `<ellipse rx="7.6" ry="9.4" fill="${GOLD}" ${OUT(1.6)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<circle cx="${f(7.6 * Math.cos(a))}" cy="${f(9.4 * Math.sin(a))}" r=".9" fill="#FFF8F0"/>`; }).join("")}<ellipse rx="5.6" ry="7.4" ${WF} ${OUT(1)}/><path d="M1.4 -5Q-2.6 -5 -2.6 -1.4L-4 .4L-2.6 1.2Q-2.8 3 -1.2 3.4L-.8 5.6H3Q2.6 2.6 3.4 .6Q4.2 -4.6 1.4 -5Z" fill="#FFF8F0"/>`},
-    // Exotic
+    // Epic
     {id: "rune", name: "Glowing Rune", rarity: "exotic", at: "mid", def: "#7CF5FF", art: () => `<circle r="10.4" ${WF} opacity=".28"/><circle r="7.6" fill="#2A1F5C" ${OUT(1.6)}/><circle r="6" fill="none" ${WS("#7CF5FF")} stroke-width="1.1"/><path d="M0 -4.6L4 2.4H-4ZM0 4.6L-4 -2.4H4Z" fill="none" ${WS("#7CF5FF")} stroke-width="1" stroke-linejoin="round"/><circle r="1.2" ${WF}/>${[0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<path d="M${f(6.9 * Math.cos(a))} ${f(6.9 * Math.sin(a))}l${f(.01 + Math.cos(a))} ${f(Math.sin(a))}" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }).join("")}`},
     {id: "mechcore", name: "Power Core", rarity: "exotic", at: "mid", def: "#4FD6FF", art: () => { let h = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; h += (i ? "L" : "M") + f(8.6 * Math.cos(a)) + " " + f(8.6 * Math.sin(a)); }
       return `<path d="${h}Z" fill="#8E96A6" ${OUT(1.6)}/>${[0, 2, 4].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<circle cx="${f(6.8 * Math.cos(a))}" cy="${f(6.8 * Math.sin(a))}" r=".9" fill="#DDE2EA" ${OUT(.6)}/>`; }).join("")}<circle r="6.6" ${WF} opacity=".35"/><circle r="4.6" ${WF} ${OUT(1.2)}/><circle r="2.8" fill="none" stroke="#fff" stroke-width=".9"/><circle r="1.1" fill="#fff"/>`; }},

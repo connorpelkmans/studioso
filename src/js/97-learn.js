@@ -382,7 +382,7 @@
     const S = R.S, sm = LEARN.summary(S), byId = byIdOf(d), m = Math.round(sm.ms / 60000);
     drop(R.deckId);
     const miss = sm.missed.filter(id => byId[id]).slice(0, 3);
-    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); if (sm.total >= 10) fire("good-moment", "learn"); }
+    if (!R.cheered) { R.cheered = true; sbHaptic("success", {force: true}); try { if (window.SBSFX) SBSFX.play("reward", {level: 2}); } catch (e) {} if (sm.total >= 10) fire("good-moment", "learn"); }
     openSheet(sheet("done", `<div class="lr-done" role="status"><span class="lr-done-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
         <b class="lr-done-t">You know all ${pl(sm.total, "card")}</b><span class="mini">${esc(d.name || "Deck")}</span></div>
       <div class="lr-tiles"><div class="lr-tile"><b>${sm.first}/${sm.total}</b><span>right first time</span></div><div class="lr-tile"><b>${sm.answers}</b><span>answers</span></div><div class="lr-tile"><b>${m < 1 ? "&lt;1" : m}</b><span>${m > 1 ? "minutes" : "minute"}</span></div></div>
