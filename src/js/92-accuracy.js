@@ -301,13 +301,16 @@ function logTime(id, min, kind, label, at, day){
 }
 const MIN_EARLY = 1;
 // Called when a focus session is stopped
-function early(min, taskId, why){
+function early(min, taskId, why, courseId){
   min = Math.min(Math.round(Number(min) || 0), 180);
   if (min < MIN_EARLY) return false;
   try { SBSTATS.addFocus(min, "timer"); } catch (e) { }
   try { pomoToday(); pomo.minutes += min; pomoSave(); } catch (e) { }
   if (taskId && isGt(taskId)) return gtAddWork(taskId, min);
   if (taskId && state.tasks[taskId] && state.tasks[taskId].status !== "done") return logTime(taskId, min, "focus", tr("acc.earlyToast", "Logged {t} of focus on {title}", {t: fmtMins(min), title: state.tasks[taskId].title.slice(0, 28)}));
+  // studying for a course in general (Focus's Studying For, with No particular task): the time is the course's, so there's no
+  // "Which task was that for?" to ask
+  if (courseId) return false;
   pending({min, at: Date.now(), why: why || "stop"});
   return false;
 }
@@ -681,7 +684,7 @@ hook("boot", () => {
 });
 // A focus session with no task
 hook("focus", e => {
-  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
+  if (e && e.type === "end" && e.mode === "focus" && !e.taskId && !e.courseId && e.minutes && !e.missed) pending({min: e.minutes, at: Date.now(), why: "end"});
 });
 const api = {ACC, time: SBTIME, paceFor, ratioInfo, ratioFor, spreadFor, memo, capScale, wkScale, startNudge, peak, extraBins, underBoost, explain, logTime, early, askState, maybeAskTook, maybeAskLeft, leftDue, chip: () => chip, on, howHtml, logHtml, formHint, sig: () => (on() ? 1 : 0) + "|" + capScale(), global: () => memo().g};
 window.__sbAcc = Object.assign({state: () => state, showChip: (c, ms) => chipShow(c, ms)}, api);

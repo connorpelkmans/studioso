@@ -579,6 +579,7 @@
   // The authority
   function clamp(why){
     if (!box || box.hidden || !cur || !front || guardDepth) return false;
+    if (press && press.drag) return false;
     if (dockFrozen()) return false;
     if (spotKind === "slot" && typeof ui !== "undefined" && ui.tab === "companion") return false;
     if (glideAnim && performance.now() < glideEnd) return false;
@@ -874,6 +875,16 @@
     return Math.round(u / VB * px);
   }
   let spotKind = "", spotSig = "";
+  // Where the student dragged it and let go (style pixels): it stays there on every page until dragged again
+  let dropAt = null;
+  // where it may be carried and dropped: on screen, with clear room beside the side menu (lifted and swaying, it reaches a
+  // little wider than when it stands)
+  function dropRange(px, fresh){
+    const rg = range(px, fresh), g = geometry(), m = Math.round(px * 0.12) + 4;
+    if (g.side) rg.L += m;
+    if (g.sideR !== Infinity) rg.R -= m;
+    return rg;
+  }
   // fresh: choose from scratch (a new page)
   function slotSpot(px){
     if (typeof ui === "undefined" || ui.tab !== "companion") return null;
@@ -895,6 +906,8 @@
     const px = sizePx(cur), f = fabRect();
     { const sl = slotSpot(px); if (sl) return Object.assign({px}, sl, {fab: f}); }
     { const dk = dockSpot(px); if (dk) return Object.assign({px}, dk, {fab: f}); }
+    // Dropped somewhere by hand: it stays there (kept inside the screen and clear of the side menu as the window changes)
+    if (dropAt) { const rg = dropRange(px); return {left: Math.round(Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, dropAt.left))), top: Math.round(Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, dropAt.top))), kind: "drop", px, fab: f}; }
     // Short desktop windows (200% zoom): the Add button sits in the header row there, so its corner at the bottom right stays
     // Mochi's home, the place it always stood beside that button, rather than wandering onto the page
     if (!phone() && window.matchMedia && matchMedia("(max-height:600px)").matches) { const rg = range(px); return {left: Math.round(Math.max(rg.L, rg.R)), top: Math.round(Math.max(rg.T, rg.B)), kind: "corner", px, fab: f}; }
@@ -1124,7 +1137,7 @@
     if (!phone() && box.dataset.x && document.querySelector("dialog[open]")) return;
     const s = choose(!!fresh);
     const prevKind = box.dataset.spot || "";
-    const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot") && !travelAnim && !glideAnim;
+    const still1 = prevKind === s.kind && ((phone() && (s.kind === "pin" || s.kind === "dock")) || s.kind === "slot" || s.kind === "drop") && !travelAnim && !glideAnim;
     home = s.kind === "home" || !box.dataset.x ? "fab" : s.kind;
     spotKind = s.kind;
     document.body.classList.toggle("cp-docked", s.kind === "dock");
@@ -1141,7 +1154,7 @@
     if (still1) {
       box.style.cssText = `left:${s.left}px;top:${s.top}px;width:${s.px}px;height:${s.px}px`;
       box.dataset.x = s.left; box.dataset.y = s.top; box.dataset.px = s.px; box.dataset.spot = s.kind; homeSig = sig;
-      if (s.kind === "pin" || s.kind === "dock") { clamp("place"); fitHitSoon(); }
+      if (s.kind === "pin" || s.kind === "dock" || s.kind === "drop") { clamp("place"); fitHitSoon(); }
       return;
     }
     if (sig === homeSig) {
@@ -1658,7 +1671,7 @@
     cur = c; curSig = sig; homeSig = "";
     compChanged();
     if (box) { stopTravel(); if (glideAnim) try { glideAnim.cancel(); } catch (e) {} box.remove(); }
-    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Press and hold, or right-click, to choose a companion."></div></div>`);
+    layer.insertAdjacentHTML("beforeend", `<div class="cp cp-${c.pose}" data-id="${esc(c.id)}"><span class="cp-shadow"></span><div class="cp-move"><div class="cp-breathe">${rigSvg(c, {wear: wearOf(c)})}</div></div><div class="cp-fx sm-skip"></div><div class="cp-hit" tabindex="0" role="button" aria-label="${esc(nameOf(c))}, your study companion. Press to say hi. Drag to move it. Press and hold, or right-click, to choose a companion."></div></div>`);
     box = layer.querySelector(".cp"); vext = null;
     // rebuilt where it sat (a seat in the tab bar, its page's circle): it keeps that size, so it never sits there oversized
     // while a sheet or the keyboard holds off the next placement
@@ -2369,7 +2382,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   function weekCheck(){ const s = aiRead(); if (s.weekDay === todayISO() || !cur) return; const n = aiSummary().dueWeek; if (n >= 8) { s.weekDay = todayISO(); aiWrite(s); queueMoment({about: "week", detail: `a busy week: ${n} things due in the next 7 days`}); } }
   function aiUsage(){ const s = today0(aiRead()); return {n: s.n || 0, max: aiMax(), paused: aiPaused(s), mode: aiMode()}; }
 
-  /* Pointer: tap, hover, long press, right click (no dragging: it lives in its homes) */
+  /* Pointer: tap, hover, long press, right click, and drag and drop (pick it up, carry it anywhere on the page, and it plops
+     down where it's let go; never over the side menu). In its phone tab-bar seat and the Companion page's ring it stays put. */
   let press = null, looking = false, lookT = 0, lastHover = 0, suppressUntil = 0;
   function onDown(e){
     if (!box || e.button > 0 || !ours(e.clientX, e.clientY)) return;
@@ -2379,7 +2393,8 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   }
   function onMove(e){
     if (press && e.pointerId === press.id) {
-      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { press.moved = true; clearTimeout(press.lp); }
+      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) { press.moved = true; clearTimeout(press.lp); dragStart(e); }
+      if (press.drag) { e.preventDefault(); dragTo(e); }
       return;
     }
     if (!act || !box || box.hidden) return;
@@ -2402,7 +2417,64 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     if (!press || e.pointerId !== press.id) return;
     const p = press; press = null; clearTimeout(p.lp);
     e.preventDefault(); e.stopPropagation();
+    if (p.drag) { dragDrop(p); return; }
     if (!p.done && !p.moved && e.type !== "pointercancel") react();
+  }
+  // Drag and drop
+  const canDrag = () => !!(box && cur && act && box.dataset.x && spotKind !== "dock" && spotKind !== "slot" && !dockFrozen());
+  function dragStart(e){
+    if (!canDrag()) return;
+    const z = zf(), x = parseFloat(box.style.left) || +box.dataset.x || 0, y = parseFloat(box.style.top) || +box.dataset.y || 0;
+    stopTravel();
+    if (glideAnim) { const g = glideAnim; glideAnim = null; glideEnd = 0; try { g.cancel(); } catch (err) {} }
+    try { act.stopAll(); } catch (err) {}
+    hideBubble(); hold(1e6);
+    press.drag = {ox: e.clientX / z - x, oy: e.clientY / z - y, vx: 0, lx: e.clientX, raf: 0, ev: null};
+    try { const hit = box.querySelector(".cp-hit"); if (hit && hit.setPointerCapture) hit.setPointerCapture(e.pointerId); } catch (err) {}
+    box.classList.remove("cp-duck", "cp-plop"); box.classList.add("cp-drag");
+    document.documentElement.classList.add("cp-grabbing"); document.documentElement.classList.remove("cp-hover");
+    act.eyes("open"); act.mouth("open"); act.look(0, 0.4);
+  }
+  function dragTo(e){
+    const d = press.drag; d.ev = {x: e.clientX, y: e.clientY};
+    if (d.raf) return;
+    d.raf = requestAnimationFrame(() => {
+      d.raf = 0; if (!press || press.drag !== d || !d.ev) return;
+      const z = zf(), px = +box.dataset.px || sizePx(cur), rg = dropRange(px, true);
+      const x = Math.min(Math.max(rg.L, rg.R), Math.max(rg.L, d.ev.x / z - d.ox)), y = Math.min(Math.max(rg.T, rg.B), Math.max(rg.T, d.ev.y / z - d.oy));
+      box.style.left = f1(x) + "px"; box.style.top = f1(y) + "px";
+      // it sways with the way it's carried
+      d.vx = d.vx * 0.7 + (d.ev.x - d.lx) * 0.3; d.lx = d.ev.x;
+      if (!still()) box.style.setProperty("--cp-tilt", f1(Math.max(-14, Math.min(14, d.vx * 1.2))) + "deg");
+    });
+  }
+  function dragDrop(p){
+    const d = p.drag; if (d.raf) cancelAnimationFrame(d.raf);
+    suppressUntil = performance.now() + 400;
+    document.documentElement.classList.remove("cp-grabbing");
+    const px = +box.dataset.px || sizePx(cur), x = Math.round(parseFloat(box.style.left) || 0), y = Math.round(parseFloat(box.style.top) || 0);
+    dropAt = {left: x, top: y};
+    box.classList.remove("cp-drag"); box.style.removeProperty("--cp-tilt");
+    busyUntil = performance.now() + 900;
+    // it settles where it was let go
+    box.style.left = x + "px"; box.style.top = y + "px"; box.dataset.x = x; box.dataset.y = y; box.dataset.spot = "drop"; spotKind = "drop";
+    homeSig = [x, y, px].join(",");
+    passCacheReset(); place(false);
+    if (!still() && !document.hidden && box.animate) {
+      box.classList.add("cp-plop");
+      const o = "50% 93%", a = box.animate([
+        {transform: "translateY(-14px) scale(1.06)", transformOrigin: o},
+        {transform: "translateY(0) scale(1.16,.82)", transformOrigin: o, offset: 0.4, easing: "ease-out"},
+        {transform: "translateY(-6px) scale(.95,1.06)", transformOrigin: o, offset: 0.68, easing: "ease-in"},
+        {transform: "translateY(0) scale(1.03,.97)", transformOrigin: o, offset: 0.86},
+        {transform: "none", transformOrigin: o}
+      ], {duration: 520, easing: "ease-in"});
+      a.onfinish = a.oncancel = () => { if (box) box.classList.remove("cp-plop"); };
+      later(() => { const feet = y + px * 0.92; puff(x + px * 0.28, feet); puff(x + px * 0.72, feet); }, 200);
+    }
+    act.eyes("happy"); act.mouth("smile");
+    later(() => { if (act && !press) { act.eyes("open"); if (mood === "idle") act.mouth("neutral"); } }, 900);
+    fitHitSoon();
   }
   document.addEventListener("pointerdown", e => {
     noteInput();
@@ -2479,7 +2551,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
   const roamDue = chance => Date.now() - lastRoam > 4 * 60000 && Math.random() < chance;
   // A stroll on its own every 12 to 25 minutes while you're around
   setInterval(() => {
-    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || phone() || staysPut()) return;
+    if (!box || box.hidden || document.hidden || !isOn() || Date.now() < nextRoam || (dlg && dlg.open) || travelAnim || press || dropAt || phone() || staysPut()) return;
     if (typeof pomo !== "undefined" && pomo && pomo.running) return;
     if (Date.now() - BR.input < 8000) return;
     nextRoam = Date.now() + rand(12, 25) * 60000; lastRoam = Date.now();
