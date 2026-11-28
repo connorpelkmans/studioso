@@ -8541,7 +8541,13 @@ ol.qzd-opts li{color:var(--ink)}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-front{color:inherit;border-bottom:0;padding-bottom:0;margin-bottom:16px;min-height:26px;position:relative;z-index:1}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-back{color:inherit;opacity:.78;position:relative;z-index:1}
 [data-fc-deck] ~ .fc-list.fc-styled .fc-row > :not(.fc-cell){z-index:2}
-[data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:translateY(-2px)}
+/* a card in a deck grows a little where it is on hover (never lifts, so nothing above can cut it off); the list lets it show past its edge */
+[data-fc-deck] ~ .fc-list{overflow:visible}
+[data-fc-deck] ~ .fc-list .fc-row,[data-fc-deck] ~ .fc-list.fc-styled .fc-face{transform-origin:50% 50%;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+[data-fc-deck] ~ .fc-list .fc-row:hover{transform:scale(1.025);z-index:1}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover{transform:none}
+[data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:scale(1.025)}
+@media (prefers-reduced-motion:reduce){[data-fc-deck] ~ .fc-list .fc-row:hover,[data-fc-deck] ~ .fc-list.fc-styled .fc-row:hover .fc-face{transform:none}}
 /* A card preview shows its front and back in the middle of the card, like a real flashcard */
 [data-fc-deck] ~ .fc-list .fc-cell,[data-fc-deck] ~ .fc-list.fc-styled .fc-face{justify-content:center;align-items:center;text-align:center;padding:22px 18px 26px}
 [data-fc-deck] ~ .fc-list .fc-front,[data-fc-deck] ~ .fc-list .fc-back{width:100%;text-align:center}
