@@ -15263,7 +15263,7 @@ const COURSE_ICONS = {
   code: ["Computer Science", '<rect class="a" x="2.5" y="4" width="19" height="16" rx="3"/><path class="ws" d="M9 9l-3 3 3 3M15 9l3 3-3 3M13 7.5l-2 9"/>'],
   eng: ["Engineering", '<path class="a" d="M12 2.8l1.6 2.4 2.8-.6.6 2.8 2.4 1.6-1.2 2.6 1.2 2.6-2.4 1.6-.6 2.8-2.8-.6L12 21.2l-1.6-2.4-2.8.6-.6-2.8-2.4-1.6L5.8 12 4.6 9.4 7 7.8l.6-2.8 2.8.6z"/><circle class="w" cx="12" cy="12" r="3.4"/>'],
   geo: ["Geography", '<circle class="b" cx="12" cy="12" r="9"/><path class="a" d="M7.5 6.5c2 0 3 1.5 2.5 3s-2.5 2-3.5 4c-1-1-2-3-1.5-5s1.5-2 2.5-2zM14 12.5c1.5-.5 3.5.5 3.5 2s-1.5 3-3.5 3.5c-.5-1.5-1-4 0-5.5zM13 5c1.5 0 3 .7 3.5 2-1.2.4-2.6.2-3.5-.5z"/><circle cx="12" cy="12" r="9"/>'],
-  hist: ["History", '<path class="b" d="M7 3c0 5 10 5 10 9s-10 4-10 9h10c0-5-10-5-10-9s10-4 10-9z"/><path class="a" d="M9 6.5h6L12 9.5zM8.2 19.8c1-2 2.6-3.2 3.8-3.2s2.8 1.2 3.8 3.2z"/><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9"/>'],
+  hist: ["History", '<path class="b" d="M7 3h10c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2C15.8 15.7 17 17.8 17 21H7c0-3.2 1.2-5.3 2.9-6.8.9-.8 1.5-1.4 1.5-2.2s-.6-1.4-1.5-2.2C8.2 8.3 7 6.2 7 3z"/><path class="a" d="M8.9 7.2h6.2c-.6 1.1-1.5 2-2.3 2.7-.4.3-.7.6-.8.9-.1-.3-.4-.6-.8-.9-.8-.7-1.7-1.6-2.3-2.7zM8.2 20.2c.5-2 2-3.6 3.8-3.6s3.3 1.6 3.8 3.6z"/><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/>'],
   pol: ["Politics", '<path class="a" d="M3 9l9-5 9 5z"/><rect class="b" x="4.5" y="9" width="15" height="8.5"/><path d="M3 9l9-5 9 5zM6.5 9v8.5M10 9v8.5M14 9v8.5M17.5 9v8.5M3 20h18"/>'],
   lang: ["Languages", '<path class="a" d="M3.5 4.5h12v8.5H8l-4.5 3.5z"/><path class="y" d="M15.5 9h5v8.5l-3-2.2h-6V13h4z"/><path class="ws" d="M7 8.5h5"/>'],
   lit: ["Literature", '<path class="b" d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5z"/><path class="a" d="M12 6c2-1.5 5-2 8-1.5V19c-3-.5-6 0-8 1.5z"/><path d="M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5"/>'],
@@ -50179,7 +50179,7 @@ function pillText(c){
 const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
 const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
 const rowCush = m => m < 0 ? tr("cush.rowShort", "{time} short", {time: fm(m)}) : tr("cush.rowSpare", "{time} spare", {time: fm(m)});
-const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>';
+const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/></svg>';
 const COLOR = {spare: "#1E9E74", tight: "#D9A21B", short: "#D3352A"};
 
 const cur = () => { try { const F = computeFocus(); return F && F.cushion; } catch (e) { return null; } };
