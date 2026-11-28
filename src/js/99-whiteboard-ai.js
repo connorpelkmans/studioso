@@ -23,7 +23,7 @@
     const KK = "wb-ai:" + id;
     if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Notes and Cards From a Board"}); return; }
     W.flush();
     openSheet(`<form class="sheet ai-sheet wb-ai-sheet">${head("Notes and Cards From This Board")}
       <div class="sheet-body" id="wbaBody">
@@ -125,7 +125,7 @@
     if (a !== "ink-text" || reading) return;
     if (inkLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(INK_WHY); return; }
     const info = W.selInk(); if (!info) return;
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Turn Writing Into Text"}); return; }
     reading = true; const btn = document.querySelector('.wb-selbar [data-wb="ink-text"]'); if (btn) { btn.classList.add("busy"); btn.innerHTML = '<span class="spinner"></span>'; }
     try {
       const data = bytesToB64(new Uint8Array(await (await new Promise(r => info.canvas.toBlob(r, "image/png"))).arrayBuffer()));

@@ -591,8 +591,8 @@ const TYPE_CFG = {
   Project:    {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Milestones", step:"Add a milestone, e.g. Proposal approved", link:"Project Link", team:"Team Members", notes:"Notes", notesPh:"Scope, requirements, meeting times…", title:"e.g. Bridge design project"},
   Lab:        {start:"Lab Session", due:"Report Due", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Pre-Lab Checklist", step:"Add a step, e.g. Read procedure", location:"Lab Room", link:"Instructions Link", notes:"Notes", notesPh:"Equipment, safety notes, data to collect…", title:"e.g. Lab 3: Tensile testing"},
   Reading:    {start:"Start Date", due:"Read By", hours:"Time Needed", prog:"Progress", checklist:"Sections", step:"Add a section, e.g. 4.2 Equilibrium", reading:"What to Read", notes:"Notes", notesPh:"Key ideas, questions for class…", title:"e.g. Read chapter 4"},
-  Exam:       {single:true, due:"Exam Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
-  Quiz:       {single:true, due:"Quiz Date", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
+  Exam:       {single:true, due:"Exam Date", time:"Start Time", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review, e.g. Trusses", location:"Location", notes:"What It Covers", notesPh:"Chapters, topics, allowed materials…", title:"e.g. Midterm 1"},
+  Quiz:       {single:true, due:"Quiz Date", time:"Start Time", prep:true, prog:"How Ready You Feel", checklist:"Study Checklist", step:"Add a topic to review", location:"Location", notes:"What It Covers", notesPh:"Topics, format, allowed materials…", title:"e.g. Quiz 2"},
   Study:      {start:"Study Day", due:"Finish By", hours:"Time Needed", prog:"Progress", checklist:"Study Steps", step:"Add a step, e.g. Recall the RAAS pathway", link:"Link", notes:"Notes", notesPh:"What to cover…", title:"e.g. Review cardiac drugs"},
   Other:      {start:"Start Date", due:"Due Date", time:"Due Time", hours:"Hours Needed", prog:"Progress", checklist:"Checklist", step:"Add a step", link:"Link", notes:"Notes", notesPh:"Details…", title:"e.g. Register for spring classes"}
 };
@@ -834,7 +834,8 @@ const TB = (() => {
     d = d || {};
     if (kind === "course") return cut(d.name || d.code, 70) || "Course";
     if (kind === "task") return cut(d.title, 70) || "Task";
-    if (kind === "note") return d.wb ? "Whiteboard: " + (cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Untitled") : cut(String(d.text || "").split("\n").find(x => x.trim()) || "", 60) || "Empty note";
+    // (a first line written as a Markdown heading, "# Lecture 22", is named without its #)
+    if (kind === "note") { const l = (String(d.text || "").split("\n").find(x => x.trim()) || "").replace(/^\s*#{1,6}\s+/, ""); return d.wb ? "Whiteboard: " + (cut(l, 60) || "Untitled") : cut(l, 60) || "Empty note"; }
     if (kind === "deck") return cut(d.name, 70) || "Flashcard deck";
     if (kind === "file") return cut(d.name, 70) || "File";
     if (kind === "event") return cut(d.title, 70) || "Event";
@@ -6107,7 +6108,12 @@ function aiStudySheet(deckId, mode){
   const keyK = "ai-create:" + (deckId || "");
   // one AI creation per deck (or none) at a time: an open one, still working or with your material in it, comes back as you left it
   if (sheetResume(keyK)) return;
-  if (!aiCfg().key) { aiSetupSheet(true); return; }
+  if (!aiCfg().key) {
+    const d0 = deckId ? state.decks[deckId] : null;
+    aiSetupSheet(true, mode === "quiz" ? {feature: "Quiz From Slides or Notes", alt: {text: "make a practice quiz from one of your decks.", label: "Quiz From a Deck", act: "qz-from-deck"}}
+      : {feature: "Create with AI", alt: d0 ? {text: "add cards to this deck yourself, or paste a list.", label: "Edit Deck", act: "fc-edit", id: d0.id} : {text: "make a deck and add cards yourself, or paste a list.", label: "New Deck", act: "fc-new"}});
+    return;
+  }
   const deck = deckId ? state.decks[deckId] : null;
   const job = {sources: [], busy: false, key: keyK};
   const courseId = deck ? deck.courseId : (ui.filter !== "all" ? ui.filter : "");
@@ -6803,6 +6809,8 @@ function aiSetupSheet(fromFeature, opts){
   // Claude and ChatGPT keys of their own only for allowed accounts (supabase-own-keys.sql); everyone else: a free Gemini key, or Pro
   // a Gemini key: adults only (aiAdult); a key someone already saved stays visible so it can be removed
   const gemOk = aiAdult() || !!(c.keys && c.keys.gemini);
+  // without a key box on this sheet, the lines about this device's free AI don't point at "a free key below"
+  const keyTxt = s => gemOk ? s : String(s || "").replace(/\s*(You can still use AI with a free key|A free key below works(?: instead| everywhere)?|Or add a free key below)\./g, "");
   // no key of any kind can be added here (not an adult, no Claude or OpenAI): nothing about choosing models or keys is shown
   const noKeys = !gemOk && !aiOwnPaidOk() && !aiProAvail() && !(c.keys && (c.keys.anthropic || c.keys.openai));
   // (the age is checked in the background the first time: an adult's option appears once it's known)
@@ -6821,8 +6829,10 @@ function aiSetupSheet(fromFeature, opts){
   const modelOpts = live => { const keys = live ? {} : Object.assign({}, c.keys); if (live) $$("[data-key]", dlg).forEach(i => { keys[i.dataset.key] = i.value.trim(); });
     return aiModelOpts(keys, `${c.provider}|${c.model}`) || `<option value="">Add a key first</option>`; };
   // opened from a feature that needs AI (opts.feature, e.g. "Photo to Note"), the title says what it's for
+  // and opts.alt ({text, label, act, id}) is the way to do it without AI, so the sheet isn't a dead end
+  const alt = opts.alt && !aiReady() ? `<p class="ai-alt mini" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1;min-width:12rem"><b>Without AI:</b> ${esc(opts.alt.text)}</span><button type="button" class="btn small" data-act="${esc(opts.alt.act)}"${opts.alt.id ? ` data-id="${esc(opts.alt.id)}"` : ""}>${esc(opts.alt.label)}</button></p>` : "";
   openSheet(`<form class="sheet">${head(opts.feature ? "Set Up AI to Use " + opts.feature : "AI Features")}
-    <div class="sheet-body">
+    <div class="sheet-body">${alt}
       ${aiProAvail() ? `<div class="ai-disclaimer" style="display:grid;gap:10px">${aiUseCard()}<p style="margin:0"><b>Studyboard AI Pro is included with your Pro plan.</b> Nothing to set up: it works in every AI feature${c.provider === "studyboard" ? "" : " when it's on"}.</p>
         <p class="mini" style="margin:0">Studyboard AI Pro runs on Anthropic's Claude, through Studyboard's server on Cloudflare. Recordings are transcribed on Cloudflare.</p>
         <label class="anim-tog" style="justify-self:start"><input type="checkbox" id="aiUsePro" ${aiProDeclined() ? "" : "checked"}> Use Studyboard AI Pro</label>
@@ -6835,10 +6845,11 @@ function aiSetupSheet(fromFeature, opts){
       ${inPreview() ? "" : aiTiersCard()}
       ${!pro && DEVAI.kind === "webllm" && DEVAI.status === "declined" ? `<div class="ai-disclaimer ai-device" style="display:grid;gap:8px"><p style="margin:0"><b>Free AI on this computer.</b> Studyboard can download Google's free ${esc(DEVAI.web ? DEVAI.web.name : "Gemma")} AI to run right here: private, with nothing to set up. It's a one-time download of about ${DEVAI.web ? DEVAI.web.gb : 3} GB (Wi-Fi recommended).</p>
         <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="btn small primary" data-act="web-ai-get">Download Free AI</button><span class="mini" id="webAiMsg" aria-live="polite"></span></div></div>` : ""}
-      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devWhyText())}</p>` : ""}
-      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(devNoneText())}</p>` : ""}
+      ${!pro && DEVAI.kind === "chrome" && DEVAI.why && !devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devWhyText()))}</p>` : ""}
+      ${!pro && c.provider !== "device" && !c.key && devNoneShow() ? `<p class="mini ai-device-why" style="margin:0">${esc(keyTxt(devNoneText()))}</p>` : ""}
       ${!pro && c.provider !== "device" && DEVAI.kind === "apple" && DEVAI.reason === "notEnabled" ? `<p class="mini ai-device-off" style="margin:0"><b>Free AI with no setup:</b> turn on Apple Intelligence in the iPhone's Settings, and Studyboard can use it right on your phone, with nothing sent anywhere.</p>` : ""}
       ${!pro && !gemOk && c.provider !== "device" && !(DEVAI.e4b && DEVAI.e4b !== "") ? `<p class="mini" style="margin:0">Studyboard's free AI runs on your own computer where it can (Chrome's built-in AI or Google's Gemma). Studyboard AI Pro comes with Pro and works everywhere.</p>` : ""}
+      ${!pro && !gemOk && !inPreview() && !(typeof sbUser !== "undefined" && sbUser) ? `<div class="ai-disclaimer ai-signin" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><p class="mini" style="margin:0;flex:1;min-width:12rem"><b>Want AI with a free key?</b> Sign in to your free Studyboard account first. Free keys are for students 18 and older, and your account is how Studyboard checks.</p><button type="button" class="btn small primary" data-act="${SB_HOSTED ? "sb-signin" : "sb-connect"}">${SB_HOSTED ? "Sign In" : "Set Up Sync"}</button></div>` : ""}
       ${pro || !gemOk ? "" : `<details class="ai-gem-adv" ${c.keys.gemini || c.provider !== "device" ? "open" : ""}><summary>Use Your Own Gemini API Key (Advanced)</summary><div class="ai-paid-body">
       <p class="mini ai-disclaimer ai-gem-18" style="margin:0"><b>You must be 18 or older to use a Gemini API key.</b> It's your own agreement with Google, under the <a href="${GEMINI_TERMS}" target="_blank" rel="noopener noreferrer">Gemini API Terms of Service</a>, and what you send goes to Google.</p>
       <ol class="ai-steps">
@@ -8669,7 +8680,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}${(x.flags || []).includes("week") && x.due ? `<span class="qa-past qa-wk mini">No day was given, so it's set to the Monday. Check the date.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -8700,7 +8711,7 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); const wk = w && w.querySelector(".qa-wk"); if (wk) { wk.remove(); it.flags = (it.flags || []).filter(f => f !== "week"); } }
   else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;
@@ -8943,6 +8954,9 @@ const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || [])
 const enoughToday = (t, x) => {
   if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
+  // the plan already counts time worked today (less left on the task, less of today left), so when today's time covers all
+  // that's left, the plan means "finish it today": 30m logged on an overdue 1h task leaves 30m today, not "enough"
+  if (target > 0 && x.R > 0 && x.alloc + 0.125 >= x.R) return false;
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */
@@ -13417,6 +13431,8 @@ function atRisk(t){
   if (t.status === "done" || !t.due) return false;
   const fx = FOCUS && FOCUS.info[t.id];
   if (fx && fx.behind >= 0.5 && fx.dl >= 0) return true;
+  // Today's Plan knows the work left and the time before it's due: a 15 minute email due tomorrow, with hours free, isn't at risk
+  if (fx && !MILESTONE(t.type) && !fx.dead) return fx.dl >= 0 && fx.own >= 1;
   const d = dayDiff(todayISO(), t.due);
   if (MILESTONE(t.type)) return d >= 0 && d <= 3 && progress(t).frac < 0.5;
   return d >= 0 && d <= 2 && progress(t).frac < 0.5 && (t.status === "todo" || hoursLeft(t) > 2);
@@ -13807,6 +13823,8 @@ function card(t){
 }
 function backupNudge(){
   if (inPreview() || !tasksArr().length) return "";
+  // a brand-new planner isn't nagged in its first 3 days: the welcome setup and Getting Started offer backups already
+  try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if (at && Date.now() - at < 3 * 864e5) return ""; } catch (e) {}
   if (FSB.status === "paused") return `<div class="nudge"><span>Automatic backups to “${esc(FSB.where)}” are paused until you allow access again.</span><button class="btn small primary" data-act="fsb-resume">Resume Backups</button></div>`;
   if (FSB.status === "on") return "";
   const last = Number(localStorage.getItem("studioso:lastExport") || 0), later = Number(localStorage.getItem("studioso:nudge") || 0);
@@ -14415,7 +14433,10 @@ function computeFocusNow(){
   let busyAhead = null;
   {
     const flatToday = ranked.reduce((s, x) => s + (x.enough ? 0 : x.needFlat), 0), extra = needToday - Math.max(flatToday, th);
-    const dayLeft = Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
+    // the most today can hold: the free time left before your end of day, around classes, shifts and events still to come
+    // (a library shift tonight means "Make Today 8h" can't be offered at 3 PM)
+    const freeLeft = av && av.res && isNum(av.res.total) ? av.res.total / 60 : Infinity;
+    const dayLeft = Math.min(Math.max(0, 24 - now.getHours() - now.getMinutes() / 60 - 0.5), leftH, freeLeft), add = Math.min(Math.ceil(extra * 2) / 2, Math.max(1, Math.ceil(thSet)), Math.floor(Math.max(0, Math.min(10, dayLeft + doneToday) - thSet) * 2) / 2);
     if (extra >= 0.5 && add >= 0.5 && !dayIsOff(today)) {
       const low = []; for (let i = 1; i <= 7 && low.length < 3; i++) { if (day[i] < dh * 0.6) { const d = addDays(today, i); low.push({d, what: (B.what[d] || [])[0] || ""}); } }
       if (low.length) busyAhead = {add, to: thSet + add, days: low, all: add + 0.01 >= Math.ceil(extra * 2) / 2};
@@ -14534,7 +14555,8 @@ function dayTimelineHtml(F, todayList, heroId){
     // just after midnight, today's calendar is the late part of the evening's day
     const off = sd.tail ? 1440 : 0;
     schOccurrences(todayISO(), todayISO()).forEach(o => {
-      if ((o.type !== "meet" && o.type !== "event") || o.skipped || o.allDay || !o.start || !o.end) return;
+      // work, shifts and other availability blocks show too, so the strip never calls a shift Free (protected time stays as Free)
+      if ((o.type !== "meet" && o.type !== "event" && !(o.type === "avail" && o.avail && o.avail.kind !== "protected")) || o.skipped || o.allDay || !o.start || !o.end) return;
       const s = toMin(o.start) + off, e = toMin(o.end) + off; if (e > s) items.push({k: "ev", s, e, title: o.title, label: o.label || (o.type === "meet" ? "Class" : "Event"), color: o.color || "var(--accent)", where: o.where || ""});
     });
     // A timed exam or quiz sat in person today is on the strip too (the plan keeps that time clear)
@@ -14683,8 +14705,11 @@ function planNotes(F, inView, crunchMain){
   const b = F.busyAhead;
   const busy = b && (() => { try { return localStorage.getItem(BUSY_LS) !== today; } catch (e) { return true; } })() ? (() => {
     const name = d => dayDiff(today, d.d) === 1 ? "Tomorrow" : parse(d.d).toLocaleDateString(undefined, {weekday: "long"});
-    const days = b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")), list = days.length > 1 ? days.slice(0, -1).join(", ") + " and " + days[days.length - 1] : days[0];
-    return {list: esc(list), many: days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
+    // days with the same reason say it once: "Monday and Wednesday (Shift at campus library)"
+    const and = l => l.length > 1 ? l.slice(0, -1).join(", ") + " and " + l[l.length - 1] : l[0];
+    const same = b.days.length > 1 && b.days[0].what && b.days.every(d => d.what === b.days[0].what);
+    const list = same ? and(b.days.map(name)) + ` (${b.days[0].what})` : and(b.days.map(d => name(d) + (d.what ? ` (${d.what})` : "")));
+    return {list: esc(list), many: b.days.length > 1, acts: `<button class="btn small primary" data-act="today-set" data-id="${b.to}">Make Today ${fmtHM(b.to)}</button><button class="btn small" data-act="busy-hide">Not Today</button>`};
   })() : null;
   // Short of time and busy days ahead both ask for more time today: one row, one button
   if (crunchMain && busy) rows.push({k: "warn", main: `${crunchMain} ${busy.list} ${busy.many ? "leave" : "leaves"} little study time too, so adding <b>${fmtHM(b.add)}</b> today helps most.`, acts: busy.acts, cls: "pn-busy"});
@@ -14763,6 +14788,10 @@ function focusHtml(){
   const nBlk = F.blocked.filter(inView).length, nLater = F.later.filter(inView).length;
   // Open tasks with no due date can't be ranked; Full Ranking ends with a line that lists them
   const nUndated = tasksArr().filter(t => t.status !== "done" && !t.due && inFilter(t) && matchesQ(t)).length;
+  // Only work that starts later (a new student's first task, say): say so, rather than "nothing due yet"
+  const laterOnes = !todayList.length && !overdue && !queued ? F.later.filter(inView).map(x => x.t).sort((a, b) => String(a.start || "").localeCompare(String(b.start || ""))) : [];
+  const laterSum = !laterOnes.length ? "" : laterOnes.length === 1 && laterOnes[0].start ? `Nothing needs work today. ${esc(laterOnes[0].title)} starts ${esc(fmtDate(laterOnes[0].start))}${laterOnes[0].due ? ` (due ${esc(fmtDate(laterOnes[0].due))})` : ""}.`
+    : `Nothing needs work today. ${laterOnes.length === 1 ? "Your task starts" : `${laterOnes.length} tasks start`} later: see Not Started Yet below.`;
   const more = ranked.length > show.length + (heroId ? 1 : 0) || nBlk || nLater || nUndated;
   const listLabel = pick === "late" ? "Overdue" : pickDay ? (pickDay.i === 0 ? "Due Today" : "Due " + esc(fmtDate(pickDay.iso))) : heroId ? (show.some(x => x.alloc > 0) ? "Also Today" : "Then") : "";
   let spare = ""; if (ui.focusOpen && !offToday && !heroId && !show.length && !pick) { try { spare = nextUpSpare(F, inView); } catch (e) { spare = ""; } }
@@ -14782,10 +14811,10 @@ function focusHtml(){
   const planTile = offToday ? "" : `<div class="pt-stat pt-hours" role="group" aria-label="Study time today"><div class="pt-adj"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></div><span>Planned Today</span>${freeMin != null ? `<span class="pt-free">${esc(fmtHM(freeMin / 60) || "0m")} free left</span>` : ""}</div>`;
   const ptStats = todayList.length || overdue || queued ? `<div class="pt-stats">${planTile}${ribbonHtml(week, pick, {n: overdue, title: ((lateRows[0] || pastFixed[0]) || {t: {}}).t.title || ""})}</div>` : "";
   return `<section class="focus plan" aria-label="Today's Plan">
-    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
+    <div class="focus-head"><div class="fh-txt"><h2><span>Today's Plan</span></h2>${ptStats}<div class="focus-sum${ptStats ? " pt-sr" : ""}">${sum.join(", ") || (fixedEv.length ? "No assignments due yet, just what's on the calendar below." : F.overAll && overN ? "Nothing left to plan this term." : laterSum || "Nothing due yet. Add tasks with due dates to get a plan.")}</div>${F.gapWhy && F.gapWhy.length ? ((F.gapWhy.chips || []).length === F.gapWhy.length ? `<span class="pt-sr">${F.gapWhy.map(esc).join(" ")}</span>` : `<p class="plan-gap">${F.gapWhy.map(esc).join(" ")}</p>`) : ""}</div>
       ${(hoursBar => { PLAN_HOURS = hoursBar; return `<div class="fh-ctl${ptStats ? " fh-chip has-stats" : ""}${autoChipHtml() ? "" : " fh-only-hours"}">${hoursBar}${autoChipHtml()}</div>`; })(offToday ? "" : `<div class="hours-ctl" role="group" aria-label="Study time available today"><span class="mini">Time Today</span><span class="hc-row"><button class="icon-btn sm" data-act="today-h" data-id="-0.5" aria-label="Less time today">−</button>${hcValue(F, hoursTitle)}<button class="icon-btn sm" data-act="today-h" data-id="0.5" aria-label="More time today">+</button></span></div>`)}</div>
     ${ui.focusOpen ? `${window.SBAUTOPILOT ? SBAUTOPILOT.lineHtml() : ""}${window.SBPRO ? SBPRO.todayHtml() : ""}${dayTimelineHtml(F, todayList, heroId)}${nextUpHtml(F, hero)}${skipped}${spare}${planNotesHtml(F, inView, warn)}${termHtml}${pastHtml}${availStripHtml(F)}
-      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
+      ${show.length ? `${listLabel ? `<h3 class="plan-sub" id="planListLbl">${listLabel}</h3>` : ""}<ol class="plan-list"${listLabel ? ' aria-labelledby="planListLbl"' : ""}>${show.map((x, i) => planRow(x, i)).join("")}</ol>${ui.planAllToday && rowsAll.length > 5 ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="true">${esc(tr("plan.fewerRows", "Show fewer"))}</button>` : ""}${hiddenToday.length ? `<button type="button" class="pf-link plan-rows" data-act="plan-rows" aria-expanded="false">${esc(trn("plan.moreRows", hiddenToday.length, "{n} more task today, {time} | {n} more tasks today, {time}", {time: fmtHM(hiddenToday.reduce((t, x) => t + x.alloc, 0))}))}</button>` : ""}` : pickDay ? `<p class="focus-sum" style="margin-top:10px">Nothing due that day.</p>` : heroId || spare || pick || offToday || termHtml || laterSum ? "" : `<p class="focus-sum" style="margin-top:10px">Nothing to work on right now.</p>`}${pick ? `<button type="button" class="pf-link plan-rows" data-act="plan-tile" data-id="">Back to Today's Plan</button>` : ""}
       ${fixedHtml}
       ${extraHtml}
       ${window.SBDAYWRAP && !pick ? SBDAYWRAP.rowHtml(F) : ""}
@@ -15781,6 +15810,14 @@ const AVAIL = (() => {
       while (cur < w.e && ti < left.length) {
         const t = left[ti], room = w.e - cur;
         if (room < Math.min(minSlot, t.left)) break;
+        // A short task isn't cut into a scrap under half an hour (25m before a shift, the rest after it): a later task that fits
+        // the gap whole goes there instead, else the gap stays free and the task starts in the next window
+        if (t.left > room && room < 30 && t.left <= 90 && t.left === Math.round(tasks.find(x => x.id === t.id).min)) {
+          const j = left.findIndex((u, i) => i > ti && u.left > 0 && u.left <= room && u.left >= Math.min(minSlot, u.left));
+          if (j < 0) break;
+          const u = left[j]; left.splice(j, 1); left.splice(ti, 0, u);
+          continue;
+        }
         const len = Math.min(t.left, maxS, room);
         slots.push({id: t.id, s: cur, e: cur + len, min: len});
         t.left -= len; cur += len;
@@ -15906,6 +15943,13 @@ const AVAIL = (() => {
       }
       if ((m = t.match(new RegExp(`^${mon}\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[1].toLowerCase()), Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       if ((m = t.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)?\\s*${mon}(?:\\s*,?\\s*(\\d{4}))?$`, "i")))) { const s = mk(MONTHS.indexOf(m[2].toLowerCase()), Number(m[1]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
+      // a run of days written with numbers: 11/12-11/14, 11/12-14, 11/30 to 12/2
+      if ((m = t.match(/^(\d{1,2})\/(\d{1,2})\s*(?:-|–|to)\s*(?:(\d{1,2})\/)?(\d{1,2})$/))) {
+        const a = mk(Number(m[1]) - 1, Number(m[2])), z = mk((m[3] ? Number(m[3]) : Number(m[1])) - 1, Number(m[4]));
+        if (!a || !z || z < a || dnum(z) - dnum(a) > 31) return bad.push(tok.trim());
+        for (let d = a; d <= z; d = addD(d, 1)) out.add(d);
+        return null;
+      }
       if ((m = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/))) { const s = mk(Number(m[1]) - 1, Number(m[2]), yfix(m[3])); return s ? out.add(s) : bad.push(tok.trim()); }
       bad.push(tok.trim());
     });
@@ -16664,8 +16708,10 @@ function schOccurrences(from, to){
 function schOccurrencesNow(from, to, sc){
   const out = [], lo = addDays(from, -7), hi = addDays(to, 7), inRange = d => d >= from && d <= to;
   const SS = window.SBSCHOOL;
-  coursesArr().forEach(c => courseMeetings(c).forEach(m => {
+  coursesArr().forEach(c => { const cd = c.classDates || {}, cFrom = isDate(cd.from) ? cd.from : "", cUntil = isDate(cd.until) ? cd.until : ""; courseMeetings(c).forEach(m => {
     for (let d = lo; d <= hi; d = addDays(d, 1)) {
+      // no class before the First Class or after the Last Class you set in Term Dates (finals week and the break stay clear)
+      if ((cFrom && d < cFrom) || (cUntil && d > cUntil)) continue;
       // no class on a day off; a rotating class time meets on its cycle days
       if (SS ? !SS.meets(sc, m, d) : !(m.days || []).includes(parse(d).getDay())) continue;
       const key = `${d}|${m.start}|${m.kind}`, mv = (c.meetMoves || {})[key];
@@ -16673,7 +16719,7 @@ function schOccurrencesNow(from, to, sc){
       if (mv) { if (mv.skip) o.skipped = true; else Object.assign(o, {date: mv.date || d, start: mv.start || m.start, end: mv.end || m.end, moved: true}); }
       if (inRange(o.date)) out.push(o);
     }
-  }));
+  }); });
   eventsArr().forEach(ev => {
     const c = ev.courseId ? courseOf(ev.courseId) : null;
     const base = {type: "event", id: ev.id, ev, color: c ? c.color : "var(--accent)", title: ev.title, label: ev.label || "", course: c, where: ev.where || "", allDay: ev.allDay, cls: EV_LABEL_CLASS[ev.label] || "k-event"};
@@ -16797,31 +16843,35 @@ function occSheet(type, id, key){
   if (type === "event" && state.events[id] && !state.events[id].repeat && !evInSeries(state.events[id])) { eventForm(state.events[id]); return; }
   const o = findOcc(type, id, key); if (!o) return;
   const usual = type === "meet" ? {date: o.orig, start: o.m.start, end: o.m.end} : {date: o.orig, start: o.ev.start, end: o.ev.end};
+  // an overnight event (10 PM to 2 AM) is edited as one piece, whichever half was tapped
+  const oS = o.ds || o.start, oE = o.de || o.end, oD = o.ovn === "tail" ? addDays(o.date, -1) : o.date;
   const name = `${o.title}${o.label && o.label !== o.title ? " " + o.label : ""}`;
   openSheet(`<form class="sheet">${head(name)}
     <div class="sheet-body">
       <p class="mini" style="margin:0 0 10px">Usually ${esc(parse(usual.date).toLocaleDateString(undefined, {weekday: "long"}))}s, ${esc(fmtTime(usual.start))}–${esc(fmtTime(usual.end))}${o.where ? `, ${esc(o.where)}` : ""}. Changes here only affect the week of ${esc(fmtShort(o.orig))}; every other week stays the same.${o.skipped ? " <b>Skipped this week.</b>" : o.moved ? " <b>Moved this week.</b>" : ""}</p>
       <div class="two">
-        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : o.date)}" required></label>
+        <label class="f">Date<input type="date" name="date" value="${esc(o.skipped ? usual.date : oD)}" required></label>
         <span></span>
       </div>
       <div class="two">
-        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : o.start)}" required></label>
-        <label class="f">Ends<input type="time" name="end" value="${esc(o.skipped ? usual.end : o.end)}" required></label>
+        <label class="f">Starts<input type="time" name="start" value="${esc(o.skipped ? usual.start : oS)}" required></label>
+        <label class="f"><span class="lh">Ends${type === "event" ? ` <span class="hint" id="occNext"${(o.skipped ? usual.end < usual.start : oE < oS) ? "" : " hidden"}>the next day</span>` : ""}</span><input type="time" name="end" value="${esc(o.skipped ? usual.end : oE)}" required></label>
       </div>
       <p class="mini" style="margin:6px 0 0">Tip: on the schedule you can also drag a class to a new time or day.</p>
     </div>
     <div class="sheet-foot occ-foot">
       <button type="button" class="btn" id="occSkip">${o.skipped ? "Don't Skip" : "Skip This Week"}</button>
       ${o.moved ? `<button type="button" class="btn" id="occReset">Reset to Usual Time</button>` : ""}
-      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Event"}</button>
+      <button type="button" class="btn" id="occAll">${type === "meet" ? "Edit All Weeks" : "Edit Every Week"}</button>
       <button type="button" class="btn primary" data-submit>Save This Week</button></div>
   </form>`, fd => {
     const date = String(fd.get("date") || ""), start = String(fd.get("start") || ""), end = String(fd.get("end") || "");
-    if (!isDate(date) || !start || !end || end <= start) { toast("Pick a date, and an end time after the start"); return false; }
+    // an event may run past midnight (an end before the start is the next day); a class can't
+    if (!isDate(date) || !start || !end || end === start || (end < start && type !== "event")) { toast("Pick a date, and an end time after the start"); return false; }
     const same = date === usual.date && start === usual.start && end === usual.end;
     setOccurrence(type, id, key, same ? null : {date, start, end}, same ? `${name} is back to its usual time` : `Moved ${name} to ${fmtShort(date)}, ${fmtTime(start)} (this week only)`);
   });
+  { const f = dlg.querySelector("form"), nx = f && f.querySelector("#occNext"); if (nx) { const upd = () => { nx.hidden = !(f.elements.start.value && f.elements.end.value && f.elements.end.value < f.elements.start.value); }; f.elements.start.addEventListener("input", upd); f.elements.end.addEventListener("input", upd); } }
   $("#occSkip").addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, o.skipped ? null : {skip: true}, o.skipped ? `${name} is back on` : `Skipped ${name} on ${fmtShort(o.orig)}`); });
   const r = $("#occReset"); if (r) r.addEventListener("click", () => { dlg.close(); setOccurrence(type, id, key, null, `${name} is back to its usual time`); });
   $("#occAll").addEventListener("click", () => { dlg.close(); setTimeout(() => type === "meet" ? courseForm(state.courses[id]) : eventForm(state.events[id]), 30); });
@@ -17054,7 +17104,8 @@ function icsPlan(text){
     let e = icsWhen(g("DTEND")); const dur = icsDur(txt("DURATION"));
     let end = "", endDate = "";
     if (s.allDay) { if (e && e.date > addDays(s.date, 1)) endDate = addDays(e.date, -1); }
-    else if (e && e.ms) end = e.date === s.date ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
+    // an end the next morning (a 10 PM to 2 AM shift) stays overnight; one at midnight or days later ends the day
+    else if (e && e.ms) end = e.date === s.date ? e.time : e.date === addDays(s.date, 1) && e.time !== "00:00" && e.time < s.time ? e.time : "23:59"; else end = minToT(Math.min(1439, tToMin(s.time) + (dur || 60)));
     let repeat = null, until = "", note = "";
     const rr = txt("RRULE");
     if (rr) {
@@ -17082,8 +17133,11 @@ function icsPlan(text){
     const exd = []; (it.props.EXDATE || []).forEach(x => String(x.v).split(",").forEach(v => { const w = icsWhen({v, p: x.p}); if (w) exd.push(w.date); }));
     const lastDate = repeat ? (repeat.until || "9999-12-31") : (endDate || s.date);
     const past = lastDate < addDays(today, -30);
-    const isTask = !repeat && TASK_RX.test(title);
-    out.push({kind: isTask ? "task" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
+    // a span of days ("Final Exams Period", Dec 7 to 18) or an exam week is a stretch of the term, not one exam to sit or hand in
+    const isTask = !repeat && !(s.allDay && endDate) && !/\b(exams?|finals?|midterms?|tests?)\s+(period|weeks?|season|schedule|timetable)\b/i.test(title) && TASK_RX.test(title);
+    // a school break or holiday can be a day off (no classes, a free day for Today's Plan) instead of an event
+    const off = s.allDay && !repeat && !isTask && /\b(break|holidays?|recess|vacation|no (classes|class|school|lectures?)|classes? (cancell?ed|suspended)|(campus|university|college|school) (is )?closed|closure|reading (day|days|week|period)|study (day|days|week|period)|day off|days off|snow day)\b/i.test(title);
+    out.push({kind: isTask ? "task" : off ? "off" : "event", uid: uidv, title, date: s.date, endDate, allDay: s.allDay, start: s.allDay ? "" : s.time, end: s.allDay ? "" : end, repeat, exdates: exd, where: txt("LOCATION"), notes: [txt("DESCRIPTION"), note].filter(Boolean).join("\n\n"), past, label: guessMeetLabel(title)});
   });
   overrides.forEach(ov => {
     const it = out.find(x => x.uid === ov.uid && x.repeat); if (!it || !ov.rid) return;
@@ -17119,12 +17173,12 @@ function icsImportSheet(text, fileName){
   const pick = (L, it) => L ? (L.find(x => x.icsSrc === src) || L.find(x => !x.icsSrc && x.title === it.title)) : undefined;
   const existingEv = {}, existingT = {};
   its.forEach(it => { const e = pick(evByUid[it.uid], it), t = pick(tByUid[it.uid], it); if (e) existingEv[it.uid] = e; if (t) existingT[it.uid] = t; });
-  const whenOf = it => it.kind === "task" && !it.date ? `Due ${fmtShort(it.due)}${it.time ? " " + fmtTime(it.time) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}`;
+  const whenOf = it => it.kind === "task" && (!it.date || (!it.repeat && !it.endDate)) ? `Due ${fmtShort(it.due || it.date)}${(it.time || it.start) ? " " + fmtTime(it.time || it.start) : ""}` : it.repeat ? `${it.repeat.every > 1 ? `Every ${it.repeat.every} weeks` : "Every week"} on ${daysLabel(it.repeat.days)}${it.allDay ? "" : `, ${fmtTime(it.start)}–${fmtTime(it.end)}`}${it.repeat.until ? `, until ${fmtShort(it.repeat.until)}` : ""}` : `${fmtShort(it.date)}${it.allDay ? (it.endDate ? ` to ${fmtShort(it.endDate)}` : ", all day") : `, ${fmtTime(it.start)}–${fmtTime(it.end)}${it.end < it.start ? " (next day)" : ""}`}`;
   const courseName = it => it.courseId ? courseLabel(courseOf(it.courseId)) : it.newCourse ? `${it.newCourse} (new)` : "";
   const ncs = Object.entries(plan.newCourses);
   openSheet(`<form class="sheet ics-sheet">${head("Import Calendar")}
     <div class="sheet-body">
-      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
+      <p class="mini" style="margin:0 0 8px">From <b>${esc(fileName || "your calendar")}</b>. Classes, appointments and other events go on your Schedule; exams, quizzes and anything due become tasks; breaks and holidays can be days off. Anything imported from this calendar before is updated, not added twice; other calendars you've imported aren't touched.</p>
       ${ncs.length ? `<fieldset><legend>New Courses</legend><div class="check-list">${ncs.map(([code, n]) => `<label class="mi-check"><input type="checkbox" name="nc" value="${esc(code)}" checked> Add ${esc(code)} as a course <span class="mini">${n} item${n === 1 ? "" : "s"}</span></label>`).join("")}</div></fieldset>` : ""}
       <label class="mi-check"><input type="checkbox" id="icsPast"> Include things that already happened <span class="mini">(older than a month)</span></label>
       <div class="ics-list" id="icsList"></div>
@@ -17142,10 +17196,14 @@ function icsImportSheet(text, fileName){
       ch.push({kind: "course", id: nc.id, after: nc}); made[it.newCourse] = nc.id; return nc.id;
     };
     let nE = 0, nT = 0, nU = 0;
+    // breaks and holidays picked as Day Off go to School Days: no classes, and Today's Plan treats them as free days
+    const sc0 = (state.settings && state.settings.school) || {}, offs = (Array.isArray(sc0.off) ? sc0.off : []).slice(); let nO = 0;
     rows.forEach(r => {
       const it = its[Number(r.dataset.i)];
       if (!r.querySelector("input[type=checkbox]").checked || (it.past && !past)) return;
-      const as = r.querySelector("select").value, courseId = courseFor(it);
+      const as = r.querySelector("select").value;
+      if (as === "off") { const from = it.date, to = it.endDate && it.endDate > from ? it.endDate : from; if (!offs.some(o => o.from === from && (o.to || o.from) === to)) { offs.push({id: uid(), name: it.title.slice(0, 60), from, to}); nO++; } return; }
+      const courseId = courseFor(it);
       if (as === "task") {
         const prev = existingT[it.uid], due = it.due || it.date, time = it.time != null ? it.time : it.start;
         const t = prev ? Object.assign(clone(prev), {title: it.title, due, time: time || "", icsSrc: src}) : normTask({id: uid(), created: Date.now(), title: it.title, courseId, type: guessTaskType(it.title), due, time: time || "", location: it.where || "", notes: it.notes || "", status: it.done ? "done" : "todo", doneAt: it.done ? Date.now() : null, order: nextOrder(it.done ? "done" : "todo"), icsUid: it.uid, icsSrc: src});
@@ -17159,9 +17217,10 @@ function icsImportSheet(text, fileName){
         ch.push({kind: "event", id: ev.id, after: ev}); prev ? nU++ : nE++;
       }
     });
-    if (!ch.length) { toast("Everything in that file is already here"); return; }
+    if (nO) { offs.sort((a, b) => a.from < b.from ? -1 : 1); state.settings = Object.assign({}, state.settings, {school: Object.assign({}, sc0, {off: offs})}); saveSettings(); scheduleRender(); }
+    if (!ch.length) { toast(nO ? `Added ${nO} day${nO === 1 ? "" : "s"} off. Change them in School Days.` : "Everything in that file is already here"); return; }
     const nC = Object.keys(made).length;
-    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nU && `${nU} updated`].filter(Boolean);
+    const parts = [nE && `${nE} event${nE === 1 ? "" : "s"}`, nT && `${nT} task${nT === 1 ? "" : "s"}`, nC && `${nC} course${nC === 1 ? "" : "s"}`, nO && `${nO} day${nO === 1 ? "" : "s"} off`, nU && `${nU} updated`].filter(Boolean);
     applyChanges(ch, `Imported ${parts.join(", ")}`);
     const first = its.filter(it => it.kind === "event" && !it.past).map(it => it.date).sort().find(d => d >= mondayOf(todayISO()));
     ui.tab = "schedule"; ui.schWeek = mondayOf(first && first < addDays(todayISO(), 21) ? first : todayISO());
@@ -17172,7 +17231,7 @@ function icsImportSheet(text, fileName){
     const vis = its.map((it, i) => ({it, i})).filter(({it}) => past || !it.past).sort((a, b) => ((a.it.date || a.it.due) < (b.it.date || b.it.due) ? -1 : 1));
     list.innerHTML = vis.length ? vis.map(({it, i}) => `<div class="ics-row" data-i="${i}"><input type="checkbox" checked aria-label="Import ${esc(it.title)}">
       <div class="ics-main"><b>${esc(it.title)}</b><span class="mini">${esc(whenOf(it))}${courseName(it) ? ` · ${esc(courseName(it))}` : ""}${(it.kind === "task" ? existingT : existingEv)[it.uid] ? " · already imported" : ""}</span></div>
-      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option></select></div>`).join("")
+      <select aria-label="Import as"><option value="event" ${it.kind === "event" ? "selected" : ""}>Event</option><option value="task" ${it.kind === "task" ? "selected" : ""}>Task</option>${it.allDay && !it.repeat ? `<option value="off" ${it.kind === "off" ? "selected" : ""}>Day Off</option>` : ""}</select></div>`).join("")
       : `<p class="mini">Everything in this file happened more than a month ago. Tick the box above to include it.</p>`;
     const nPast = its.filter(it => it.past).length;
     count.textContent = `${vis.length} item${vis.length === 1 ? "" : "s"}${!past && nPast ? `, ${nPast} older hidden` : ""}`;
@@ -17634,6 +17693,7 @@ function dailyQuote(force){
   if (!force && (dlg.open || document.getElementById("qod") || document.hidden)) { setTimeout(() => dailyQuote(false), 4000); return; }
   try { localStorage.setItem("studyboard:quoteDay", d); } catch(e) {}
   const [q, who] = todaysQuote();
+  window.__sbQuoteAt = Date.now();   // the one-time intros (Discord, feature intros) give it a couple of minutes before they show
   qodPop(`<div class="qod-eyebrow">${esc(new Date().toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}</div>
     <p class="qod-q" id="qodT">“${esc(q)}”</p>${who ? `<p class="qod-who">${esc(who)}</p>` : ""}
     ${STREAK_HIDDEN ? "" : `<p class="qod-streak">${esc(streakLine())}</p>`}
@@ -17766,6 +17826,10 @@ function viewScheduleMonth(){
   const evBy = {};
   try {
     schOccurrences(lo, hi).forEach(o => { if ((o.type !== "event" && o.type !== "meet") || o.skipped || o.ovn === "tail") return; o.kind = evKind(o); (evBy[o.date] = evBy[o.date] || []).push(o); });
+    // exams and quizzes are on the month too (finals week reads at a glance); a tap opens the exam
+    tasksArr().forEach(t => { if (!MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < lo || t.due > hi) return;
+      const tm = /^\d\d:\d\d$/.test(t.time || "") ? t.time : "";
+      (evBy[t.due] = evBy[t.due] || []).push({type: "task", id: t.id, key: t.id, kind: "exam", title: t.title, color: colorOf(t.courseId), allDay: !tm, start: tm, end: tm ? minToT(Math.min(1439, tToMin(tm) + (t.type === "Exam" ? 120 : 60))) : "", where: t.location || "", course: courseOf(t.courseId), ttype: t.type, date: t.due}); });
     Object.values(evBy).forEach(l => l.sort((a, b) => (a.allDay ? "" : a.start || "").localeCompare(b.allDay ? "" : b.start || "")));
   } catch (e) { console.warn("schedule month: events", e); }
   const hol = {};
@@ -17784,11 +17848,11 @@ function viewScheduleMonth(){
   for (let i = 0; i < weeks * 7; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     // (office hours are listed under the day, not in the cell, so the month isn't full of them)
-    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office"), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
+    const k = iso(d), evs = evBy[k] || [], cellEvs = evs.filter(o => o.kind !== "office").sort((a, b) => (b.kind === "exam") - (a.kind === "exam")), out = d.getMonth() !== m.getMonth(), hl = hol[k] || [], holTxt = hl.map(h => h.name).join(", ");
     if (!out) { nMonth += evs.length; evs.forEach(o => kinds.add(o.kind)); }
-    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
+    cells += `<button class="day${out ? " out" : ""}${k === today ? " is-today" : ""}${k < today ? " past" : ""}${d.getDay() === 0 || d.getDay() === 6 ? " wkend" : ""}${hl.length ? (hl.some(h => h.off) ? " hol hol-off" : " hol") : ""}" data-act="sch-mpick" data-id="${k}" tabindex="${k === pick ? 0 : -1}" aria-pressed="${k === pick}" aria-label="${esc(d.toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"}))}${holTxt ? ", " + esc(holTxt) : ""}, ${evs.length ? `${evs.length} event${evs.length === 1 ? "" : "s"}` : "no events"}"><span class="num">${d.getDate()}${k === today ? `<span class="num-t"> Today</span>` : ""}</span>${holTxt ? `<span class="day-hol${hl.some(h => h.off) ? " off" : ""}" title="${esc(holTxt)}" aria-hidden="true">${esc(holTxt)}</span>` : ""}<span class="dots" aria-hidden="true">${cellEvs.slice(0, per).map(o => `<span class="ci-row${o.kind === "exam" ? " big" : ""}" style="--c:${esc(o.color)}"><i class="ci" data-kind="${o.kind}" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}: ${esc(evName(o))}" style="--c:${esc(o.color)}">${evIcon(o.kind)}</i><span class="ci-t">${o.allDay ? "" : `<b class="smc-tm">${esc(evTime(o))}</b> `}${esc(o.title)}</span></span>`).join("")}${cellEvs.length > per ? `<b class="ci-more">+${cellEvs.length - per}<span class="ci-mw"> more</span></b>` : ""}</span></button>`;
   }
-  const dayEvs = evBy[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
+  const dayEvs = evBy[pick] || [], dayHol = hol[pick] || [], dayLabel = parse(pick).toLocaleDateString(undefined, {weekday: "long", month: "long", day: "numeric"});
   const isNow = monthKey === today.slice(0, 7);
   const nav = `<div class="view-head sch-top">
     <div class="sch-nav"><button class="icon-btn" data-act="sch-mprev" aria-label="Previous month">${SCH_ARROW("M15 6l-6 6 6 6")}</button>
@@ -17805,7 +17869,8 @@ function viewScheduleMonth(){
     <div class="cal sch-month" role="group" aria-label="${esc(m.toLocaleDateString(undefined, {month: "long", year: "numeric"}))}, ${nMonth} event${nMonth === 1 ? "" : "s"}. Arrow keys move between days.">${dows.join("")}${cells}</div>
     ${kinds.size ? `<div class="tl-legend smc-legend">${Object.keys(EV_KINDS).filter(k => kinds.has(k)).map(k => `<span><i class="tl-ic key">${evIcon(k)}</i>${esc(EV_KINDS[k][0])}</span>`).join("")}</div>` : ""}
     <h2 class="sec${pick === today ? " hl" : ""}"><span class="t">${esc(dayLabel)}</span><span class="n">${dayEvs.length || ""}</span><span class="spacer"></span><button type="button" class="btn small smc-week" data-act="sch-mweek" data-id="${pick}">See Week</button></h2>
-    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row" style="--c:${esc(o.color)}" data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
+    ${dayHol.length ? `<p class="mini smc-hol${dayHol.some(h => h.off) ? " off" : ""}">${esc(dayHol.map(h => h.name).join(", "))}${dayHol.some(h => h.off) ? " · no classes" : ""}</p>` : ""}
+    ${dayEvs.length ? `<div class="cal-evlist">${dayEvs.map(o => `<button type="button" class="cal-evrow smc-row${o.kind === "exam" ? " smc-exam" : ""}" style="--c:${esc(o.color)}" ${o.type === "task" ? `data-act="edit-task" data-id="${esc(o.id)}"` : `data-act="sch-occ" data-type="${o.type}" data-id="${esc(o.id)}" data-key="${esc(o.key)}"`}><i class="smc-ic" title="${esc((EV_KINDS[o.kind] || EV_KINDS.event)[0])}">${evIcon(o.kind)}</i><span class="cal-evt">${o.type === "task" ? (o.start ? esc(fmtTime(o.start)) : esc(o.ttype)) : o.allDay ? "All day" : `${esc(fmtTime(o.ds || o.start))}–${esc(fmtTime(o.de || o.end))}`}</span><b>${esc(evName(o))}</b>${o.where ? `<span class="mini">${esc(o.where)}</span>` : o.course ? `<span class="mini">${esc(courseLabel(o.course))}</span>` : ""}</button>`).join("")}</div>`
       : `<div class="empty">Nothing on this day. <button class="link-btn" data-act="sch-add" data-date="${pick}">Add an Event</button></div>`}`;
 }
 function viewSchedule(){
@@ -17856,14 +17921,16 @@ function viewSchedule(){
   // phone (one day at a time): other deadlines with a time also get a small marker at that time, not only a chip in the day's header
   const phoneDay = !!(window.matchMedia && matchMedia("(max-width:700px)").matches), onMark = t => phoneDay && t.time && !onGrid(t);
   const shown = new Set(days.map(d => d.iso)), timed = occ.filter(o => !o.allDay && shown.has(o.date));
-  let lo = Math.min(...timed.map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
+  // the morning end of an overnight event (a night shift to 2 AM) doesn't stretch the grid back to midnight: it sits at the top
+  const nightTail = o => o.ovn === "tail" && tToMin(o.end) <= 7 * 60;
+  let lo = Math.min(...timed.filter(o => !nightTail(o)).map(o => tToMin(o.start)), ...weekTasks.filter(t => onGrid(t) || onMark(t)).map(t => tToMin(t.time)), 9 * 60);
   let hi = Math.max(...timed.map(o => tToMin(o.end)), ...weekTasks.filter(onGrid).map(t => tToMin(t.time) + 60), ...weekTasks.filter(onMark).map(t => tToMin(t.time) + 30), 17 * 60);
   const h0 = Math.max(0, Math.floor(lo / 60)), h1 = Math.min(24, Math.ceil(hi / 60));
   const PPH = 56, top = m => (m - h0 * 60) / 60 * PPH, H = (h1 - h0) * PPH;
   const sel = ui.schDay === -1 ? days.length - 1 : ui.schDay != null && days[ui.schDay] ? ui.schDay : Math.max(0, days.findIndex(d => d.iso === today));
   let classMin = 0, availMinSum = 0;
   const cols = days.map(d => {
-    const items = timed.filter(o => o.date === d.iso).map(o => ({s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o}))
+    const items = timed.filter(o => o.date === d.iso).map(o => o.ovn === "tail" ? (s => ({s, e: Math.max(tToMin(o.end), s + 45), o}))(Math.max(tToMin(o.start), h0 * 60)) : {s: tToMin(o.start), e: Math.max(tToMin(o.end), tToMin(o.start) + 15), o})
       .concat(weekTasks.filter(t => t.due === d.iso && onGrid(t)).map(t => ({s: tToMin(t.time), e: tToMin(t.time) + 60, t})))
       .concat(weekTasks.filter(t => t.due === d.iso && onMark(t)).map(t => ({s: tToMin(t.time), e: Math.min(24 * 60, tToMin(t.time) + 30), t, mk: true}))).sort((a, b) => a.s - b.s || b.e - a.e);
     let group = [], groupEnd = -1;
@@ -17886,7 +17953,7 @@ function viewSchedule(){
     const dueList = weekTasks.filter(t => t.due === d.iso && !onGrid(t)).sort(sortTasks);
     const now = new Date(), nowM = now.getHours() * 60 + now.getMinutes();
     const nowLine = d.iso === today && nowM >= h0 * 60 && nowM <= h1 * 60 ? `<i class="sch-now" style="top:${top(nowM)}px"></i>` : "";
-    const offD = window.SBSCHOOL && schoolCfg() ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
+    const offD = window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), d.iso) : null;
     return {d, dueList, allDay, html: `<div class="sch-col ${d.iso === today ? "is-today" : ""} ${d.i === sel ? "sel" : ""}${offD ? " is-off" : ""}" data-date="${d.iso}" style="height:${H}px">${blocks}${nowLine}</div>`};
   });
   const heads = cols.map(({d, dueList, allDay}) => {
@@ -17897,7 +17964,8 @@ function viewSchedule(){
     <div class="sch-due">${chips.slice(0, 3).join("")}${chips.length > 3 ? `<span class="mini">+${chips.length - 3} more</span>` : ""}</div></div>`;
   }).join("");
   let gutter = ""; for (let h = h0; h < h1; h++) { const d = new Date(); d.setHours(h, 0, 0, 0); gutter += `<span style="top:${(h - h0) * PPH}px">${esc(d.toLocaleTimeString(undefined, {hour: "numeric"}))}</span>`; }
-  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}"><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
+  const offOf = iso => { try { return window.SBSCHOOL ? SBSCHOOL.off(schoolCfg(), iso) : null; } catch (e) { return null; } };
+  const pills = days.map(d => `<button data-act="sch-day" data-id="${d.i}" aria-pressed="${d.i === sel}" class="${d.iso === today ? "is-today" : ""}${offOf(d.iso) ? " is-off" : ""}"${offOf(d.iso) ? ` title="${esc(schoolDayText(d.iso) || "Day off")}"` : ""}><span>${esc(parse(d.iso).toLocaleDateString(undefined, {weekday: "narrow"}))}</span><b>${parse(d.iso).getDate()}</b></button>`).join("");
   const nEv = occ.filter(o => o.type === "event" && !o.skipped).length;
   const avKinds = AV_ORDER.filter(k => occ.some(o => o.type === "avail" && o.avail.kind === k));
   schNoticeHtml = `<p style="margin:0">${fmtHM(classMin / 60) || "0m"} of class this week${availMinSum >= 15 ? `, ${fmtHM(availMinSum / 60)} of work and shifts` : ""}${nEv ? `, ${nEv} event${nEv === 1 ? "" : "s"}` : ""}${weekTasks.length ? `, ${weekTasks.length} deadline${weekTasks.length === 1 ? "" : "s"}` : ""}. Tap a class to change just this week, or drag it to a new time.</p>${missing.length ? `<div class="sch-ntc"><b>No class times yet</b><span class="mini">Add them so these courses show on your Schedule.</span><div class="sch-missing">${missing.map(c => `<button class="chip" style="--c:${esc(c.color)}" data-act="edit-course" data-id="${esc(c.id)}"><span class="dot"></span>${esc(courseLabel(c))}: Add Class Times</button>`).join("")}</div></div>` : ""}`;
@@ -19421,7 +19489,9 @@ function mathFitAll(list){
   const room = new Map();
   xs.forEach(x => {
     if (!room.has(x.box)) { const cs = getComputedStyle(x.box); room.set(x.box, x.box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)); }
-    x.room = room.get(x.box); x.w = x.el.offsetWidth;
+    // a formula on its own line ($$...$$) is a block as wide as the note, so it's measured by what KaTeX drew inside it
+    const k = x.el.classList.contains("mth-d") && x.el.querySelector(".katex-html");
+    x.room = room.get(x.box); x.w = k ? Math.max(k.scrollWidth, k.offsetWidth) : x.el.offsetWidth;
   });
   xs.forEach(x => { if (x.room > 0 && x.w > x.room) x.el.style.fontSize = Math.max(0.6, Math.floor(x.room / x.w * 100) / 100) + "em"; });
 }
@@ -19918,7 +19988,7 @@ const SY = (() => {
       .replace(/\s*[|•·;]\s*/g, " ")
       .replace(/\(\s*\d{1,3}(?:\.\d+)?\s*%[^)]*\)/g, " ")
       .replace(/\(\s*\)/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/\s+/g, " ").replace(/ ([:,;])/g, "$1")
       .replace(/^[\s,:;.\-–—@#*]+|[\s,:;\-–—@#*]+$/g, "")
       .trim();
   }
@@ -19986,8 +20056,9 @@ const SY = (() => {
     if (!info.instructor) { for (const l of top) { const x = l.match(/\b((?:Dr|Prof|Professor)\.?\s+[A-Z][a-zA-Z'’\-]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-zA-Z'’\-]+)?)/); if (x) { info.instructor = x[1]; break; } } }
     info.office = clean(field(/(?:^|[;,.]\s*)(?:instructor\s+|student\s+)?(?:office|drop-?in|student|help)\s+hours?\s*[:\-–]?\s*(.+)/i)).split(";")[0].trim();
     info.room = clean(field(/^\s*(?:class\s*room|room|location|lecture location|classroom|where|place)\s*[:\-–]\s*(.+)/i));
-    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
-    const dayTime = /\b((?:M|T|W|Th|R|F|Tu|MWF|MW|TTh|TR|TuTh|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri)(?:[\/,&\s-]+(?:M|T|W|Th|R|F|Tu|Mon|Tue|Tues|Wed|Thu|Thur|Thurs|Fri|and))*(?:days?)?)\s*,?\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/i;
+    let sched = field(/^\s*(?:class|lecture|meeting|course)?\s*(?:times?|schedule|meets|meetings?|meeting times?|days?\s*(?:\/|and|&)?\s*times?|lectures?)\s*[:\-–]\s*(.+)/i);
+    const DT = "(?:Monday|Tuesday|Wednesday|Thursday|Friday|MWF|MW|TTh|TR|TuTh|Mon|Tues|Tue|Wed|Thurs|Thur|Thu|Fri|Th|Tu|M|T|W|R|F)";
+    const dayTime = new RegExp("\\b(" + DT + "(?:[\\/,&\\s-]+(?:" + DT + "|and))*(?:days?)?)\\s*,?\\s*" + /(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?)/.source, "i");
     const hasDays = x => /\b(mon|tue|wed|thu|fri|sat|sun)[a-z]*\b|\b(MWF|MW|TTh|TR|TuTh|WF|MTWRF)\b/i.test(x || "");
     if (!sched || !(dayTime.test(sched) || hasDays(sched))) { sched = ""; for (const l of top) { if (/office|drop-?in|help hours|student hours/i.test(l)) continue; const x = l.match(dayTime); if (x) { sched = x[0]; break; } } }
     info.schedule = clean(sched || "");
@@ -20057,8 +20128,8 @@ const SY = (() => {
     let total = 0;
     for (const l of lines) { const m = l.match(/^(?:grand\s+)?total(?:\s+points)?\b[^\d%]*(\d{2,4})(?:\s*(?:pts|points))?\s*$/i); if (m) { total = Number(m[1]); break; } }
     const CATS = [[/^(?:the\s+)?final(?:\s+exam(?:ination)?)?\b/i, "Final"], [/^(?:mid-?terms?|exams?|examinations?|tests?)(?:\s+(?:exams?|tests?))?\b/i, "Exam"],
-      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?)\b/i, "Assignment"],
-      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^(?:readings?|reading\s+responses?)\b/i, "Reading"]];
+      [/^(?:pop\s+|in-class\s+|weekly\s+)?quiz(?:zes)?\b/i, "Quiz"], [/^(?:homework|hw|home\s*works?|assignments?|problem\s+sets?|psets?|written\s+assignments?|reading\s+responses?|response\s+papers?|reflections?|discussion\s+posts?|journals?)\b/i, "Assignment"],
+      [/^(?:labs?|lab\s+reports?|laboratory(?:\s+work)?)\b/i, "Lab"], [/^(?:(?:term|group|final|class)\s+)?projects?\b/i, "Project"], [/^readings?\b/i, "Reading"]];
     const WORDN = {one:1, two:2, three:3, four:4, five:5, six:6, seven:7, eight:8, nine:9, ten:10, twelve:12};
     // "Quizzes 20%, Homework 20%, Midterm 30%" on one line: each part is its own entry
     const isCat = p => CATS.some(([re]) => re.test(p.replace(/^[\s•\-*·]+/, "").trim()));
@@ -20267,6 +20338,8 @@ const SY = (() => {
     // Numbered lines in the breakdown go to the item with that number
     const ownOf = x => own.find(w => (w.type === x.type || (w.type === "Exam" && x.type === "Exam")) && new RegExp("(^|\\D)" + w.n + "(\\D|$)").test(x.title) && !(w.type !== "Final" && /final/i.test(x.title)));
     final.forEach(x => { const w = ownOf(x); if (x.iw > 0 && x.iw <= 100) { x.weight = x.iw; x.ownW = true; } else if (w && w.pct > 0 && w.pct <= 100) { x.weight = w.pct; x.ownW = true; } delete x.iw; });
+    // A breakdown line naming one item ("Research Paper 15%") is that item's weight, when exactly one item has that name
+    breakdown(text).forEach(b => { const k = normTitle(b.t); if (k.length < 4 || /^(home ?work|hw|quiz|exam|midterm|test|lab|assignment|project|reading|essay|paper|report|presentation|discussion|problem set|worksheet)$/i.test(b.t.trim())) return; const hit = final.filter(x => x.weight == null && normTitle(x.title).includes(k)); if (hit.length === 1) { hit[0].weight = b.w; hit[0].ownW = true; } });
     const countOf = type => final.filter(x => x.type === type && !x.ownW && !(type === "Exam" && /final/i.test(x.title) && weights.Final)).length;
     // A category with no count ("Weekly Quizzes 20%") is split over the items found, which may be only some of them: said in the review
     const splits = {};
@@ -20528,7 +20601,11 @@ function importSheet(courseId, file){
     const existingKeys = new Set();
     tasksArr().forEach(t => { existingKeys.add(nt(t.title) + "|" + t.due + "|" + t.courseId); if (/\d/.test(t.title)) existingKeys.add(nt(t.title) + "|#|" + t.courseId); });
     // a breakdown line with no date is the course's item of that name, whatever its date
-    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)));
+    // A task you named your own way is the same one too: "Quiz 5" is your "Psych Quiz 5 (Ch. 12-13)" (same kind and number), and an
+    // exam or quiz is the one of that type already on that day ("Final Exam" and "Psych Final (online)" on Dec 16)
+    const kindNo = s => { const m = String(s || "").toLowerCase().match(/\b(quiz|exam|midterm|test|lab|homework|hw|problem set|assignment|essay|paper|project|reading response|response)\s*#?\s*(\d+)\b/); return m ? m[1].replace(/^hw$/, "homework") + " " + Number(m[2]) : ""; };
+    const sameOne = (i, cid) => allTasks().some(t => t.courseId === cid && !t.prepFor && t.type === i.type && ((kindNo(i.title) && kindNo(t.title) === kindNo(i.title)) || (!!i.due && t.due === i.due && /^(Exam|Quiz)$/.test(i.type))));
+    const isDup = (i, cid) => !!cid && cid !== "new" && ((i.ph && allTasks().some(t => t.courseId === cid && nt(t.title) === nt(i.title))) ||existingKeys.has(nt(i.title) + "|" + i.due + "|" + cid) || (/\d/.test(i.title) && existingKeys.has(nt(i.title) + "|#|" + cid)) || sameOne(i, cid));
     const dated = r.items.filter(i => i.due).length;
     status.textContent = (lead || "") + (r.ai ? "Read by AI. " : "") + (r.gateNote ? r.gateNote + " " : "") + (r.items.length ? `Found ${r.items.length} item${r.items.length === 1 ? "" : "s"} in ${from}${dated < r.items.length ? `, ${r.items.length - dated} without a date` : ""}.${r.weightsFound ? (wN => wN < r.items.length ? ` Grade weights were found for ${wN} of ${r.items.length} items.` : " Grade weights were taken from the grading breakdown.")(r.items.filter(i => i.weight != null).length) : ""} Check them over, then add.` : `No dated assignments or exams were found in ${from}. You can still create the course, then add tasks yourself.`);
     const c = r.course;
@@ -20974,7 +21051,7 @@ function fileSheet(f){
   const isLink = f.kind === "link" || f.kind === "cloud", isCloud = f.kind === "cloud";
   // What you can do with the file, in one row under its name (Read and Edit for PDFs, Summarize, Open)
   const pdf = !isLink && window.SBPRO && SBPRO.canRead && SBPRO.canRead(f);
-  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf ? (DESK ? "Open in Another App" : "Open in Browser") : canPreview(f) && !DESK ? "Download" : "Open"}</a>`}</div>`;
+  const fileActs = `<div class="fs-acts">${!isLink && window.SBPRO && SBPRO.fileBtns ? SBPRO.fileBtns(f) : ""}${pdf && fileKind(f) === "pdf" && window.SBPDE ? `<button type="button" class="btn" data-act="pde-edit" data-id="${esc(f.id)}">Edit PDF</button>` : ""}${canPreview(f) && !(window.SBPRO && SBPRO.canRead && SBPRO.canRead(f)) ? `<button type="button" class="btn" data-act="f-preview" data-id="${esc(f.id)}">Preview</button>` : ""}${(!isLink || isCloud) && !inPreview() && readableFile(f) ? `<button type="button" class="btn ai-btn" data-act="f-summarize" data-id="${esc(f.id)}">${AI_ICON} ${f.summary ? "Summary" : "Summarize"}</button>` : ""}${!isLink && !DESK && fvPhone() && fvKind(f) ? `${fvKind(f) !== "office" && !pdf ? `<button type="button" class="btn primary" data-act="f-view" data-id="${esc(f.id)}">Open</button>` : ""}<button type="button" class="btn" data-act="f-save" data-id="${esc(f.id)}">${nativeShell() ? "Share or Open In…" : "Download"}</button>` : `<a class="btn" href="${esc(fileHref(f))}" ${fileAttr(f)} target="_blank" rel="noopener noreferrer">${pdf && fileKind(f) === "pdf" ? (DESK ? "Open in Another App" : "Open in Browser") : (pdf || canPreview(f)) && !DESK ? "Download" : "Open"}</a>`}</div>`;
   openSheet(`<form class="sheet">${head(isCloud ? CLOUD_NAMES[f.cloud.p] + " File" : isLink ? "Link" : "File")}
     <div class="sheet-body">
       <label class="f"><span class="lh">Name ${REQ}</span><input type="text" name="name" required maxlength="200" value="${esc(f.name)}"></label>
@@ -21354,6 +21431,9 @@ function notePlain(text, max){
 }
 // A note's name for screen readers: its words as read, not its formatting or math code
 const noteLabelText = n => { const t = String(n.text || "").trim(); if (!t) return "Empty note"; const s = typeof mathSpeech === "function" ? mathSpeech(t) : t; return s.replace(/\[\[([^\]]*)\]\]/g, "$1").replace(/\s+/g, " ").slice(0, 80); };
+// "# Title" and "## Heading" lines (typed, or from lecture study notes and imports) show as headings, without the #s.
+// The text keeps them, so it exports and syncs as typed. html: the note's text, already escaped
+const noteHeads = html => html.indexOf("#") < 0 ? html : html.replace(/(^|\n)(#{1,6})[ \t]+(?=\S)([^\n]*)/g, (m, a, h, t) => `${a}<span class="nh nh${Math.min(h.length, 3)}">${t}</span>`);
 function noteHtml(n){
   const c = courseOf(n.courseId), w = NOTE_W(), tk = n.taskId ? state.tasks[n.taskId] : null;
   const editing = noteEditing === n.id;
@@ -21373,7 +21453,7 @@ function noteHtml(n){
          <details class="note-moredd"${noteMoreOpen === n.id ? " open" : ""}><summary class="btn small">More<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary><div class="note-row2"><select class="note-shape" data-id="${esc(n.id)}" aria-label="Note shape" title="Shape"><option value="">${esc((NOTE_SHAPES.find(x => x.id === styleCfg().note) || NOTE_SHAPES[0]).name)} (default)</option>${NOTE_SHAPES.filter(x => x.id !== (NOTE_SHAPES.find(y => y.id === styleCfg().note) || NOTE_SHAPES[0]).id).map(x => `<option value="${x.id}" ${n.shape === x.id ? "selected" : ""} ${owns("note", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</select><select class="note-pin" data-id="${esc(n.id)}" aria-label="Pin" title="Pin">${pinOptionsHtml(n)}</select></div><div class="note-xbtns" role="group" aria-label="More for this note"><button type="button" class="btn small" data-act="note-versions" data-id="${esc(n.id)}" title="Restore an earlier version of this note">Versions</button><button type="button" class="btn small" data-act="note-export" data-id="${esc(n.id)}" title="Make a Word or Google Doc from this note">Export</button>${window.SBSHARE ? `<button type="button" class="btn small" data-act="share-link" data-kind="note" data-ref="${esc(n.id)}" title="Make a link anyone can open">Share Link</button>` : ""}</div></details>
          <div class="note-btns">${window.SBONENOTE ? SBONENOTE.noteBtn(n) : ""}<button type="button" class="nb" data-act="note-archive" data-id="${esc(n.id)}" title="Archive" aria-label="Archive note">${ARCHIVE}</button><button type="button" class="nb" data-act="note-trash" data-id="${esc(n.id)}" title="Delete" aria-label="Delete note">${TRASH}</button><button type="button" class="btn small" data-act="note-done">Done</button></div>
        </div>`
-    : `<div class="note-body">${n.text.trim() ? (window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
+    : `<div class="note-body">${n.text.trim() ? noteHeads(window.SBPRO && SBPRO.noteText ? SBPRO.noteText(n) : esc(n.text)) : `<span class="note-empty">Empty note. Tap to write.</span>`}</div>`;
   return `<div class="note ns-${noteShapeOf(n)} ${editing ? "editing" : ""} ${dim ? "dim" : ""}${noteDark(n.color) ? " note-dark" : ""}" data-note="${esc(n.id)}" tabindex="${editing ? -1 : 0}" role="group" aria-roledescription="note" aria-label="${editing ? "Note options. Press Enter to type in the note, Escape to close it." : esc(noteLabelText(n)) + ". Press Enter for its options."}"
     style="left:${n.x}px;top:${n.y}px;z-index:${editing ? 9000 : n.z};width:${w}px;--nc:${noteColor(n.color)};--rot:${editing ? 0 : n.rot}deg">
     ${pinHtml(notePinOf(n))}
@@ -24321,7 +24401,7 @@ function pomoStart(){
   if (cfg.notify && notifySupported() && Notification.permission === "default") { try { Notification.requestPermission().then(() => renderPomo()); } catch(e) {} }
   pomoToday();
   nativeAlarm();
-  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) pomo.len = modeMs(pomo.mode);
+  if (!(pomo.left > 0) || !(Number(pomo.len) > 0)) { pomo.len = modeMs(pomo.mode); pomo.done = 0; }
   pomo.endAt = Date.now() + pomoLeft(); pomo.left = 0; pomo.running = true;
   if (pomo.mode === "focus") sbHaptic("lift");
   pomoSave(); pomoSchedule(); pomoUI(true);
@@ -24336,18 +24416,26 @@ function pomoPause(){ if (!pomo.running) return; pomo.left = Math.max(1000, pomo
 function pomoElapsedMin(){
   if (pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return 0;
   const total = pomoLen(), left = Math.min(total, pomo.running ? Math.max(0, pomo.endAt - Date.now()) : pomo.left);
-  return Math.max(0, (total - left) / 60000);
+  return Math.max(0, (total - left) / 60000 - (Number(pomo.done) || 0));
 }
 // Stopping a focus session early
 const pomoEarly = (min, why) => {
-  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return;
+  const m = Math.min(180, Math.round(Number(min) || 0)); if (m < 1) return 0;
   const A = accOf();
   if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
+  return m;
 };
-function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
-function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
+// A focus session moved to another task part way: the minutes so far go to the task they were spent on, the rest to the new one
+function pomoRetask(id){
+  id = id || "";
+  if (id === (pomo.taskId || "")) return;
+  if (pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { const m = pomoEarly(pomoElapsedMin(), "switch"); if (m) pomo.done = (Number(pomo.done) || 0) + m; }
+  pomo.taskId = id; pomoSave();
+}
+function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
+function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }
 // Tapping a mode button: ending a focus session for a break asks first
 function pomoPickMode(m){
   if (m === pomo.mode && (pomo.running || pomo.left > 0)) return;
@@ -24374,18 +24462,22 @@ function pomoEnd(missed){
   try { if (navigator.locks && navigator.locks.request) { navigator.locks.request("studioso-pomo-finish", go).catch(e => console.warn(e)); return; } } catch(e) {}
   go();
 }
-function pomoFinish(missed){
+// quiet: a session that ended long ago, counted without the alarm
+function pomoFinish(missed, quiet){
   if (!pomo.running) return;
-  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000)) : 0;
-  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; clearTimeout(pomoTimer);
+  // minutes already logged to another task when the session changed task part way (pomoRetask) aren't counted twice
+  const cfg = pomoCfg(), done = pomo.mode, fm = done === "focus" ? Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)) : 0;
+  // a session that ended while Studyboard was closed counts on the day it ended
+  const endDay = missed && pomo.endAt ? isoDay(pomo.endAt) : todayISO(), endAt = missed && pomo.endAt ? pomo.endAt : 0;
+  pomo.running = false; pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer);
   pomoToday();
   if (done === "focus") {
-    pomo.cycle++; pomo.sessions++; pomo.minutes += fm;
+    pomo.cycle++; if (endDay === todayISO()) { pomo.sessions++; pomo.minutes += fm; }
     const t = pomo.taskId && state.tasks[pomo.taskId];
     // A group project task: the minutes go to its own focus record (see gtAddWork)
     if (!t && isGt(pomo.taskId)) gtAddWork(pomo.taskId, fm);
     if (t) {
-      const n = addWork(clone(t), fm, "focus"); n.pomos = (Number(n.pomos) || 0) + 1;
+      const n = addWork(clone(t), fm, "focus", endDay, endAt); n.pomos = (Number(n.pomos) || 0) + 1;
       applyChanges([{kind: "task", id: t.id, after: n}], null);
       try { const x = FOCUS && FOCUS.info ? FOCUS.info[t.id] : null; if (x && enoughToday(state.tasks[t.id], x)) toast(`That's the time planned for “${t.title}” today. Moving on to the next thing.`); } catch (e) {}
     }
@@ -24394,11 +24486,12 @@ function pomoFinish(missed){
   if (done === "long") pomo.cycle = 0;
   pomo.mode = next;
   const auto = !missed && ((next !== "focus" && cfg.autoBreak) || (next === "focus" && cfg.autoFocus));
+  if (quiet) { pomo.mode = "focus"; if (done === "long") pomo.cycle = 0; }
   pomoSave();
   if (auto) { pomo.len = modeMs(next); pomo.endAt = Date.now() + pomo.len; pomo.running = true; pomoSave(); pomoSchedule(); }
-  pomoAlarm(done, next, auto, missed);
+  if (!quiet) pomoAlarm(done, next, auto, missed);
   pomoUI(true);
-  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next, auto, missed: !!missed, taskId: done === "focus" ? pomo.taskId : ""});
+  fire("focus", {type: "end", mode: done, minutes: done === "focus" ? fm : 0, next: pomo.mode, auto, missed: !!missed, day: endDay, taskId: done === "focus" ? pomo.taskId : ""});
 }
 function pomoAlarm(done, next, auto, missed){
   const cfg = pomoCfg();
@@ -24445,7 +24538,8 @@ let pomoCrN = -1;
 function pomoCreditsHtml(){
   if (typeof SBSC === "undefined" || !SBSC || pomo.mode !== "focus" || !(pomo.running || pomo.left > 0)) return "";
   const l = SBSC.focusLive(); pomoCrN = l.n;
-  return SBSC.liveHtml(l.n);
+  // nothing until the first credit (a "+0" at the start of every session is just noise)
+  return l.n > 0 ? SBSC.liveHtml(l.n) : "";
 }
 function pomoUI(full){
   const left = pomoLeft(), total = pomoLen(), sig = [pomo.mode, pomo.running, pomo.taskId, pomo.cycle].join("|");
@@ -24573,7 +24667,7 @@ function nativeAlarm(){
 function islandOn(on){ ISLAND.on = on; document.documentElement.classList.toggle("sb-island", on); }
 function openPomo(taskId){
   if (taskId === undefined && window.SBEXAM) SBEXAM.pomoDefault();
-  if (taskId !== undefined) { pomo.taskId = taskId; if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
+  if (taskId !== undefined) { pomoRetask(taskId); if (!pomo.running && pomo.mode !== "focus") { pomo.mode = "focus"; pomo.left = 0; } pomoSave(); }
   const d = $("#pomoDlg");
   renderPomo();
   if (!d.open) { d.showModal(); const b = d.querySelector(".pomo-ctl .btn.primary"); if (b) b.focus(); }
@@ -24650,7 +24744,7 @@ function renderPomo(){
       <details class="adv pomo-how"><summary>How the Pomodoro Method Works</summary><div class="pomo-how-b">${POMO_HOW}</div></details>
     </div></div>`;
   pomoIslandNote();
-  $("#pomoTask").addEventListener("change", e => { pomo.taskId = e.target.value; pomoSave(); });
+  $("#pomoTask").addEventListener("change", e => { pomoRetask(e.target.value); });
   $("#pomoSetD").addEventListener("toggle", e => { ui.pomoSet = e.target.open; });
   const num = (id, lo, hi, def) => { const v = Math.round(Number($(id).value)); return isFinite(v) && v >= lo && v <= hi ? v : def; };
   const saveCfg = () => {
@@ -24675,12 +24769,26 @@ setInterval(() => { if (pomo.running) { if (Date.now() >= pomo.endAt) pomoDue(()
 // Another tab or window changed the timer: show the same
 window.addEventListener("storage", e => { if (e.key === POMO_LS && e.newValue) { const p = pomoStored(); if (p) pomoAdopt(p); } });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { clearInterval(flashT); flashT = null; setTitle(); pomoDue(() => { if (pomo.running && Date.now() >= pomo.endAt) pomoEnd(); }); } });
+// "3:40 PM", "yesterday at 3:40 PM" or "Tue, Nov 24 at 3:40 PM"
+function pomoWhen(ms){
+  const d = new Date(ms), day = isoDay(ms), t = d.toLocaleTimeString(undefined, {hour: "numeric", minute: "2-digit"});
+  return day === todayISO() ? t : day === addDays(todayISO(), -1) ? `yesterday at ${t}` : `${d.toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})} at ${t}`;
+}
 function pomoBoot(){
   if (pomo.running) nativeAlarm();
   const FA = window.StudyboardNative && window.StudyboardNative.focusActivity;
   if (FA && typeof FA.onAction === "function") FA.onAction(() => pomoDue(() => {}));
   pomoDue(() => {
-    if (pomo.running && Date.now() >= pomo.endAt) { if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true); else { pomo.running = false; pomo.left = 0; pomoSave(); } }
+    if (pomo.running && Date.now() >= pomo.endAt) {
+      if (Date.now() - pomo.endAt < 3 * 3600000) pomoEnd(true);
+      // finished long ago: a focus session still counts (on the day it ended), with a note instead of the alarm
+      else if (pomo.mode === "focus") {
+        const m = Math.max(1, Math.round(pomoLen() / 60000) - (Number(pomo.done) || 0)), at = pomo.endAt;
+        pomoFinish(true, true);
+        // a moment after start-up, so the start-up reminders don't write over it
+        setTimeout(() => toast(`Your ${m}-minute focus session from ${pomoWhen(at)} ended while Studyboard was closed. It's counted.`), 6000);
+      } else { pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.mode = "focus"; pomoSave(); }
+    }
     pomoSchedule(); pomoUI(true);
   });
 }
@@ -24702,7 +24810,10 @@ function pomoAction(act, el){
       else web();
       return true;
     }
-    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId; openPomo(el.dataset.id);
+    case "pomo-task": { const tk = state.tasks[el.dataset.id]; if (tk && !canDoNow(tk) && !el.dataset.study) { toast(`“${tk.title}” is taken in person, so it can't be started as a focus session. Start one of its study sessions instead.`); return true; } } if (ui.nextShown && ui.nextShown === el.dataset.id) { nufbAdd("accept", state.tasks[el.dataset.id]); ui.nextShown = null; } if (dlg.open) dlg.close(); const prevTask = pomo.taskId;
+      // Start on another task while a focus session runs: the time so far goes to the first task (pomoRetask), and a new session starts
+      if (prevTask !== el.dataset.id && pomo.mode === "focus" && (pomo.running || pomo.left > 0)) { pomoRetask(el.dataset.id); pomo.running = false; pomo.left = 0; pomo.len = 0; pomo.done = 0; clearTimeout(pomoTimer); pomoSave(); }
+      openPomo(el.dataset.id);
       // A new session starts at the length asked for (or the default for a different task), never from an older paused one
       { let m = Math.round(Number(el.dataset.mins)); if (!(m >= 5 && m <= 180) && !el.dataset.study && el.dataset.id) m = focusMinsFor(el.dataset.id); const ok = m >= 5 && m <= 180; if (!pomo.running) { if (ok) { pomo.mode = "focus"; pomo.left = 0; pomo.preset = m; pomoSave(); renderPomo(); } else if (prevTask !== el.dataset.id && pomo.mode === "focus") { pomo.left = 0; pomo.preset = 0; pomoSave(); renderPomo(); } } }
       if (!pomo.running) pomoStart(); return true;
@@ -29113,7 +29224,7 @@ window.__sbPlanObj = () => PLAN;
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
         ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
-        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
+        ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days (Studyboard AI Pro comes with a paid plan). No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
         ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI Pro. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
@@ -32929,7 +33040,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     assignment: ["homework"], paper: ["essay"], essay: ["paper"], due: ["deadline"], deadline: ["due"], cough: ["coughing"], pain: ["analgesic"],
     analgesic: ["pain"], fever: ["pyrexia", "temperature"], nausea: ["antiemetic", "vomiting"], lecture: ["class"], clinical: ["placement", "shift"], placement: ["clinical", "internship"], internship: ["placement"],
     calc: ["calculus"], calculus: ["calc", "derivative", "integral"], bio: ["biology"], biology: ["bio"], chem: ["chemistry"], chemistry: ["chem"], psych: ["psychology"], psychology: ["psych"],
-    econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
+    orgo: ["organic"], ochem: ["organic"], econ: ["economics"], economics: ["econ"], stats: ["statistics"], statistics: ["stats"], lit: ["literature"], lab: ["laboratory", "practical"], practical: ["lab"]
   };
   function hash(s){
     let a = 0x811c9dc5, b = 0x9747b28c ^ s.length;
@@ -33197,7 +33308,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     });
     notesArr().forEach(n => {
       const txt = String(n.text || "").trim(); if (!txt) return;
-      const first = txt.split("\n")[0].slice(0, 90), rest = txt.length > first.length ? txt.slice(first.length).trim() : "";
+      // a "# Heading" first line is the note's title without its #
+      const skip = (/^#{1,6}[ \t]+(?=\S)/.exec(txt) || [""])[0].length, first = txt.slice(skip).split("\n")[0].slice(0, 90), rest = txt.slice(skip + first.length).trim();
       const doc = put({g: "notes", type: "note", id: n.id, cid: n.courseId || "", boost: n.archived ? 0.7 : 1, arch: !!n.archived}, first, rest, `${cName(n.courseId)} note`);
       semAdd(doc, "Sticky note", txt);
     });
@@ -33842,7 +33954,7 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   function examLine(D, x, extra, pre){
     const t = x.t, bits = [(pre ? (x.k === "quiz" ? "Quiz: " : "Exam: ") : "") + t.title, courseTag(D, t), `${longDate(t.due)} (${rel(x.days)})`, clock(t.time) ? "at " + clock(t.time) : "", t.location ? "in " + t.location : "", hasWeight(t) ? `worth ${t.weight}% of the grade` : ""];
     let s = bits.filter(Boolean).join(", ");
-    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200)}`;
+    if (extra && t.notes) s += `. Covers: ${String(t.notes).replace(/\s+/g, " ").slice(0, 200).trim().replace(/[.!?;:,]+$/, "")}`;
     return s;
   }
   // Tasks still to do between two dates (inclusive)
@@ -33857,6 +33969,10 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
     return [t.title, [kind ? (kind === "quiz" ? "Quiz" : "Exam") : t.type, courseTag(D, t)].filter(Boolean).join(", "), `due ${rel(n)}${clock(t.time) ? " at " + clock(t.time) : ""}`, hasWeight(t) ? `${t.weight}%` : "", t.prepFor ? "study session" : ""].filter(Boolean).join(" | ");
   }
   const GENERIC_NAME = new Set("introduction intro principles fundamentals course studies applied advanced general topics".split(" "));
+  // What students call a course ("my orgo final"): the start of the words in its name
+  const NICK = {orgo: "organic chem", ochem: "organic chem", gchem: "general chem", genchem: "general chem", biochem: "biochem", calc: "calculus", precalc: "precalculus",
+    stats: "statistic", stat: "statistic", psych: "psycholog", bio: "biolog", micro: "microecon", macro: "macroecon", econ: "economic", physio: "physiolog",
+    anat: "anatom", soc: "sociolog", polisci: "political science", compsci: "computer science", philo: "philosoph", hist: "history", lit: "literature"};
   // Which courses the question names (by code like "bio 101" or by a word from the name)
   function coursesInQ(D, q){
     const qt = toks(q).filter(x => !STOP.has(x)), qs = new Set(qt), flat = fold(q).replace(/[^a-z0-9]/g, "");
@@ -33872,6 +33988,8 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
         else if (letters.some(x => x.length >= 3 && pre(x))) s += 1.6;
       }
       toks(c.name || "").filter(x => x.length >= 4 && !GENERIC_NAME.has(x)).forEach(x => { if (qs.has(x)) s += 1; else if (pre(x)) s += 0.8; });
+      const nm = " " + toks(c.name || "").join(" ");
+      if (qt.some(x => NICK[x] && nm.includes(" " + NICK[x]))) s = Math.max(s, 2);
       if (s > top + 1e-9) { top = s; best = [c]; } else if (s > 0 && Math.abs(s - top) < 1e-9) best.push(c);
     });
     return top >= 1.5 ? best : [];
@@ -33893,11 +34011,13 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
   const askItems = ts => ts.slice(0, 6).map(t => ({id: t.id, title: t.title}));
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   /* The exact answer for a question, or null when it needs reading */
-  function exactAnswer(D, q){
+  // scope: the course picked under Ask About, used when the question doesn't name a course itself
+  function exactAnswer(D, q, scope){
     const ql = fold(q).replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim();
     if (!ql) return null;
     if (/\b(study|studying|prepare|preparing|prep|tips?|advice|explain|why|plan|how (do|should|can|would|to) i?)\b/.test(ql)) return null;
-    const cs = coursesInQ(D, q), only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
+    const named = coursesInQ(D, q), cs = named.length || !scope ? named : D.courses.filter(c => c.id === scope);   // named: only the courses the question itself names (rooms, instructors, a day's classes)
+    const only = cs.length ? t => cs.some(c => c.id === t.courseId) : () => true, forC = cs.length ? ` for ${cs.map(courseLabel).join(" and ")}` : "";
     const when = /\b(when|next|upcoming|soon|soonest|first|date|dates|how long|how many|how soon|coming up|any|which|list|all|remaining|left|away|until|till|what (exams?|tests?|quizz?es)|do i have|am i having|is there)\b/.test(ql);
     if (/\b(grades?|marks?|gpa|standing|standings|passing|average|how am i doing|how'?s my)\b/.test(ql) && !/\b(due|when|date)\b/.test(ql)) {
       const list = (cs.length ? cs : D.courses).map(c => ({c, line: gradeLine(D, c)}));
@@ -33914,6 +34034,9 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       let hinted = false;
       if (hint) { const h = up.filter(x => hint.test(x.t.title)); if (h.length) { up = h; hinted = true; } }
       const listAll = /\b(all|list|exams|tests|quizzes|quizes|how many|which|what exams|any|remaining|upcoming exams)\b/.test(ql) && !/\bnext\b|\bfirst\b|\bsoonest\b/.test(ql);
+      // "when is the final?" in a course whose final is a paper or project, not an exam: say that, with its due date
+      const finals = !up.length && hint && cs.length && /final/.test(String(hint)) ? D.tasks.filter(t => isDate(t.due) && t.due >= D.today && t.status !== "done" && only(t) && /\bfinal\b/i.test(t.title)).sort((a, b) => a.due < b.due ? -1 : 1) : [];
+      if (finals.length) return {kind: "exam", items: askItems(finals), text: `There's no final exam${forC} in your planner. ${finals.length === 1 ? "The final work is" : "The final work:"} ${finals.slice(0, 3).map(t => `${t.title}, due ${longDate(t.due)}`).join("; ")}.`};
       if (!up.length) {
         const past = examsOf(D, kinds).filter(x => only(x.t) && (x.passed || x.done)).pop();
         return {kind: "exam", items: past ? askItems([past.t]) : [], text: `You have no upcoming ${noun}${forC} in your planner.${past ? ` The most recent was ${past.t.title}${courseTag(D, past.t) ? " (" + courseTag(D, past.t) + ")" : ""} on ${longDate(past.t.due)}${past.done ? ", marked as taken" : ""}.` : ""}`};
@@ -33954,16 +34077,16 @@ const HOLIDAY_ORDER = ["lunarnewyear", "valentines", "ramadan", "holi", "stpatri
       return {kind: "due", items: askItems(real.concat(od)), text};
     }
     if (/\b(classes|class|lectures?|labs?|clinicals?|schedule|what time|where)\b/.test(ql) && /\b(what|which|do i|when|where|schedule|have|any)\b/.test(ql) && dayInQ(D, ql)) {
-      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !cs.length || (o.c && cs.some(c => c.id === o.c.id)) || (o.course && cs.some(c => c.id === o.course.id)))
+      const dq = dayInQ(D, ql), occ = D.occ(dq.date, dq.date).filter(o => !named.length || (o.c && named.some(c => c.id === o.c.id)) || (o.course && named.some(c => c.id === o.course.id)))
         .sort((a, b) => String(a.start || "").localeCompare(String(b.start || "")));
-      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}.`};
-      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${forC}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
+      if (!occ.length) return {kind: "classes", items: [], text: `Nothing is scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}.`};
+      return {kind: "classes", items: [], text: `Scheduled ${dq.name === "today" || dq.name === "tomorrow" ? dq.name : "on " + dq.name}${named.length ? forC : ""}:\n` + occ.slice(0, 12).map(o => `• ${o.start ? fmtTime(o.start) + (o.end ? "–" + fmtTime(o.end) : "") + ": " : "All day: "}${o.title}${o.label ? " " + o.label : ""}${o.where ? ", " + o.where : ""}`).join("\n")};
     }
-    if (cs.length && cs.length <= 3) {
+    if (named.length && named.length <= 3) {
       const ask = /\b(who (teaches|is teaching|taught|is the|is my)|professors?|profs?|instructors?|teachers?|lecturers?)\b/.test(ql) ? "instructor" : /\boffice( hours?)?\b/.test(ql) ? "office" : /\b(room|classroom|building)\b|\bwhere (is|are|do|does)\b/.test(ql) ? "room" : "";
       if (ask) {
         const lbl = {instructor: "instructor", office: "office hours", room: "room"}[ask];
-        const lines = cs.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
+        const lines = named.map(c => { const v = String((ask === "instructor" ? c.instructor : ask === "office" ? c.office : c.room) || "").trim(); return v ? `${courseLabel(c)}: ${v}` : `${courseLabel(c)}: no ${lbl} saved on the course page`; });
         return {kind: "course", items: [], text: (ask === "instructor" ? "Instructor, " : ask === "office" ? "Office hours, " : "Room, ") + lines.join("; ") + "."};
       }
     }
@@ -34067,7 +34190,7 @@ Return JSON only.`;
     else if (S.thread.length && S.thread[S.thread.length - 1].q === q) S.thread.pop();
     S.threadCourse = S.course;
     const prev = S.thread[S.thread.length - 1] || null;
-    let det = null; try { det = exactAnswer(askData(), q); } catch(e) { console.warn(e); }
+    let det = null; try { det = exactAnswer(askData(), q, S.course); } catch(e) { console.warn(e); }
     // grades, what's due, what's next: worked out from the planner itself (98-truth.js), never left to the AI to guess
     if (!det && window.SBTRUTH) { try { const f = SBTRUTH.facts(q); if (f && f.answer) det = {text: f.answer, items: []}; } catch(e) { console.warn(e); } }
     const detAns = det ? {state: "done", text: det.text, found: true, used: [], items: det.items || [], det: true, model: ""} : null;
@@ -34540,6 +34663,8 @@ Return JSON only.`;
     if (ask) {
       if (inPreview()) h += `<div class="sx-callout">${AI_ICON}<span>Ask With AI works in the Studyboard app and on your website. Here it matches the words you type.</span></div>`;
       else if (!aiReady() && !semOn()) h += `<div class="sx-callout">${AI_ICON}<span>Set up AI (free with a Gemini key) to search by meaning and get answers from your notes.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
+      // search by meaning runs on the device without AI, but nothing writes an answer: say so, or a question just lists matches
+      else if (!aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>Without AI, Ask answers dates and grades from your planner and finds the closest matches. Set up AI (free with a Gemini key) to get answers from your notes too.</span><button type="button" class="btn small ai-btn" data-sx="setup">Set Up AI</button></div>`;
       else if (!semOn() && aiReady()) h += `<div class="sx-callout">${AI_ICON}<span>${aiCfg().provider === "anthropic" ? `${aiClaudeName()} has no search-by-meaning service, so Ask With AI has ${aiClaudeName()} suggest related words and searches for those. A Gemini or OpenAI key adds full search by meaning.` : "Search by meaning is off. Your AI can still answer from what word search finds."}</span><button type="button" class="btn small" data-sx="setup">AI Settings</button></div>`;
       h += scopeBar() + semLine();
       if (!live) h += q ? `<p class="sx-hint">Press Enter to ask. You can describe it in your own words, like “the slide about photosynthesis and light”.</p>` : `${scopeC() ? `<p class="sx-hint">Ask anything about ${esc(courseLabel(scopeC()))}. Answers come from its notes, decks, files, lectures and tasks, with sources.</p>` : ""}${starters()}`;
@@ -34873,7 +34998,7 @@ Return JSON only.`;
     runAsk().then(() => { const A = S.ask; if (!A) return; if (A.answer && A.answer.state === "done") { if (A.answer.found !== false && (A.rows || []).length) startTutor(A); } else S.autoQuiz = A; }).catch(() => {});
   };
   setTimeout(warmFiles, 15000);
-  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun}; } catch(e) {}
+  try { if (localStorage.getItem("studyboard:search:debug")) window.__sxDebug = {S, FT, IX, SEM, semList, semRun, exact: (q, scope) => exactAnswer(askData(), q, scope)}; } catch(e) {}
   window.addEventListener("online", () => { if (S.used) { queueFiles(); semKick(3000); } if (S.open && S.mode === "ask") draw(); });
   window.addEventListener("offline", () => { if (S.open && S.mode === "ask") draw(); });
 })();
@@ -36969,6 +37094,9 @@ const csStudyList = () => { const s = state.settings || {}; const l = s.studyPla
 // A guess at when classes end
 function csGuessUntil(){
   const today = todayISO(), ids = new Set(csCourses().map(c => c.id));
+  // the Last Class from Term Dates (School Days, or a course's Lectures tab) when it's set
+  const set = csCourses().map(c => c.classDates && c.classDates.until).filter(d => isDate(d) && d >= today).sort().pop();
+  if (set) return set;
   const last = Object.values(state.tasks || {}).filter(t => t && ids.has(t.courseId) && !t.archivedTerm && t.due && t.due > addDays(today, 14)).map(t => t.due).sort().pop();
   const y = today.slice(0, 4), m = Number(today.slice(5, 7));
   let term = m >= 9 ? y + "-12-15" : m <= 4 ? y + "-04-30" : y + "-08-15";
@@ -38233,7 +38361,9 @@ const CAP = (() => {
       if (!d && k >= 0) { [y, mo] = parts(today); const c = isoOf(y, mo, n); d = validISO(c) && c >= today ? c : ""; if (!d) { mo = mo % 12 + 1; if (mo === 1) y++; const c2 = isoOf(y, mo, n); d = validISO(c2) ? c2 : ""; } if (d) out.flags.push("date"); }
       if (!d) { out.flags.push("date"); return false; } out.due = d;
     }) ||
-    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); });
+    take(wd, m => { out.due = weekdayDate(today, WD.findIndex(a => a.includes(m[2].toLowerCase())), (m[1] || "").toLowerCase().replace("coming", "next")); }) ||
+    // "next week" with no day: the Monday it starts (the earliest it could be), flagged so the date is checked before it's added
+    take(/\bnext\s+week\b/i, () => { out.due = weekdayDate(today, 1, "next"); out.flags.push("week"); });
     if (out.due && diff(today, out.due) > 800) { out.due = ""; out.flags.push("date"); }
     if (out.due && out.due < today) out.flags.push("past");
     out.rest = s.replace(/\s+/g, " ").trim();
@@ -38242,6 +38372,10 @@ const CAP = (() => {
 
   /* courses */
   const alnum = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Everyday names for a subject: "orgo" for Organic Chemistry, "english" for ENGL, "chemistry" for CHEM (l: the code's letters, n: the name)
+  const NICK = [[/^(orgo|ochem)$/, (l, n) => /organic/.test(n)], [/^english$/, (l, n) => /^eng/.test(l) || /english/.test(n)], [/^chemistry$/, l => /^chem/.test(l)], [/^biology$/, l => /^bio/.test(l)],
+    [/^psychology$/, l => /^psy/.test(l)], [/^physics$/, l => /^phys/.test(l)], [/^(economics|econ)$/, l => /^ec/.test(l)], [/^history$/, l => /^hist/.test(l)], [/^(math|maths)$/, l => /^math/.test(l)],
+    [/^spanish$/, l => /^span/.test(l)], [/^french$/, l => /^fr/.test(l)], [/^(stats|statistics)$/, l => /^stat/.test(l)], [/^(philosophy|philo)$/, l => /^phil/.test(l)], [/^sociology$/, l => /^soc/.test(l)]];
   // Finds the course a sentence mentions
   function matchCourse(text, courses){
     const low = String(text || "").toLowerCase(), words = low.match(/[a-z]+|\d+/g) || [];
@@ -38259,6 +38393,7 @@ const CAP = (() => {
         const nameW = String(c.name || "").toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !["intro", "introduction", "principles", "fundamentals", "with", "and", "topics", "advanced", "general"].includes(w));
         const w = words.find(x => x.length >= 4 && nameW.some(n => n.startsWith(x) || x.startsWith(n))); if (w) { s = 2; used = [w]; }
       }
+      if (s < 2.6) { const nm = String(c.name || "").toLowerCase(), w = words.find(x => NICK.some(([re, ok]) => re.test(x) && ok(letters, nm))); if (w) { s = 2.6; used = [w]; } }
       if (s >= 2) scored.push({course: c, score: s, used});
     });
     if (!scored.length) return null;
@@ -38450,7 +38585,8 @@ const CAP = (() => {
       else {
         d.courseId = cm.course.id;
         const tok = cm.used.join("[\\s\\-]*"), codey = cm.used.some(u => /\d/.test(u));
-        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$`, "i"), " ");
+        // a course word leaves the title at its start or end, or right after "read", "study" or "review" ("read psych ch 14" is Read Chapter 14)
+        const t2 = s.replace(new RegExp(codey ? `\\b${tok}\\b` : `^(\\s*)${tok}\\b|\\b${tok}(\\s*)$|(?<=^\\s*(?:read|study|review)\\s+)${tok}\\b`, "i"), " ");
         if (t2 !== s && /[a-z]{2}/i.test(stripEdges(t2.replace(/\s+/g, " ").trim()))) s = t2;
       }
     }
@@ -38847,7 +38983,7 @@ const rowHtml = (d, i) => `<li class="qc-row ${d.checked === false ? "is-off" : 
     <input type="date" data-f="due" value="${esc(d.due)}" aria-label="Due date" class="${d.due ? "" : "cap-miss"}" ${d.due ? "" : 'aria-invalid="true" title="No due date yet"'}>
     <input type="time" data-f="time" value="${esc(d.time)}" aria-label="Due time">
     <button type="button" class="x-btn" data-cap="rm" data-i="${i}" aria-label="Remove ${esc(d.title || "this task")}">${CLOSE}</button>
-    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : ""}
+    ${d.flags && d.flags.includes("invented") ? `<p class="mini cap-warn">The photo shows no matching date, so none was filled in.</p>` : d.flags && d.flags.includes("past") ? `<p class="mini cap-warn">This date has already passed. Check it.</p>` : d.flags && d.flags.includes("ampm") ? `<p class="mini cap-warn">No AM or PM was given. Check the time.</p>` : d.flags && d.flags.includes("week") && d.due ? `<p class="mini cap-warn">No day was given, so it's set to the Monday. Check the date.</p>` : ""}
   </li>`;
 const thumbsHtml = () => CS.photos.length ? `<div class="cap-thumbs">${CS.photos.map(p => `<img src="${esc(p.url)}" alt="Your photo, to check the tasks against" class="cap-thumb">`).join("")}</div>` : "";
 const confirmCount = () => CS.drafts.filter(d => d.checked !== false && String(d.title || "").trim()).length;
@@ -38900,7 +39036,7 @@ function draw(focus){
 function previewLine(text){
   const r = CAP.fromText(text, ctx());
   if (!r.drafts.length) return "";
-  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
+  const one = d => `${d.title || "(no title)"}${d.due ? dueLabel(d.due, d.time).replace(", due ", " · ") : " · no due date"}${d.repeat && d.due && d.type !== "Exam" ? " · " + (l => l.charAt(0).toLowerCase() + l.slice(1))(repeatText(d.repeat, d.due, d.courseId)) : ""}${d.courseId && state.courses[d.courseId] ? " · " + courseLabel(state.courses[d.courseId]) : ""}${Number(d.weight) > 0 ? " · " + Number(d.weight) + "%" : ""}${d.pages && !MILESTONE(d.type) ? " · " + pagesText({pages: d.pages, hours: d.hours, courseId: d.courseId, type: d.type}) : isNum(d.hours) && !MILESTONE(d.type) ? " · " + fmtHM(Number(d.hours)) : ""}`;
   return r.drafts.length === 1 ? "Will add: " + one(r.drafts[0]) : `Will add ${r.drafts.length} tasks: ` + r.drafts.slice(0, 2).map(one).join(" | ") + (r.drafts.length > 2 ? " …" : "");
 }
 
@@ -42483,7 +42619,7 @@ hook("boot", boot);
       case "grp-pt-view": if (x) { x.view = el.dataset.v === "board" ? "board" : "list"; ptRefresh(g.id); } return true;
       case "grp-pt-status": { const t = x && x.tasks.find(k => k.id === id); if (t && !t._tmp && PT_STATUS.some(k => k[0] === el.dataset.s)) ptMutate(g.id, id, {status: el.dataset.s}); return true; }
       case "grp-pt-plan": if (g && isProj(g)) planSheet(g); return true;
-      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true), 40); return true;
+      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true, {feature: "Start From a Plan", alt: {text: "add the project's tasks one at a time.", label: "Add a Task", act: "grp-pt-new"}}), 40); return true;
       case "grp-pt-new": if (g && isProj(g)) ptAddSheet(g); return true;
       case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
       case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
@@ -42852,10 +42988,11 @@ hook("boot", boot);
 
   /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
-  function needOnline(){
+  // title: what needs the account ("Study Groups Need a Free Account"); sharing by default
+  function needOnline(title){
     if (online()) return true;
     const local = !sbConfig();
-    openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
+    openSheet(`<div class="sheet">${head(title || "Sharing Needs a Studyboard Account")}<div class="sheet-body">
       <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
@@ -43309,7 +43446,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
   // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
   window.SBGRPNEW = (name, project) => {
-    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+    try { if (typeof needOnline === "function" && !needOnline("Study Groups Need a Free Account")) return false; newGroupSheet(null);
       setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
         if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
@@ -43384,9 +43521,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
         S.groups = null; loadGroups(); })(); return true;
       case "grp-import": importDeckFile(); return true;
-      case "grp-name": if (needOnline()) nameSheet(false, null); return true;
+      case "grp-name": if (needOnline("Your Name Needs a Free Account")) nameSheet(false, null); return true;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
-      case "grp-new": if (needOnline()) newGroupSheet(null); return true;
+      case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
@@ -44430,7 +44567,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
-    profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
+    profile: () => { if (needOnline("Your Name Needs a Free Account")) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
     hue: (gid, id, name) => memberHue(gid, id, name),
     // open a group on its Whiteboards tab
@@ -46276,7 +46413,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     }
     const loose = mine.filter(t => wOf(t) == null && !excused(t) && markPct(t) != null);
     const gr = {c, g, R, xc: xcs, xcGot, xcOpen, ruled, dropped: cu.out, ew: cu.ew, pm, items, ts, loose, marked, open, missed, exc: mine.filter(excused), wExc, cats, pts: !!share, unw: unw.length,
-      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01};
+      wMarked: wMarked / D * 100, earned, wAll, D, remaining: remaining / D * 100, wMissed: wZ / D * 100, unlisted, current, base: cu.pct, minFinal, maxFinal, projected, need, done: remaining <= 0.01,
+      finish: fill => GRULES.finalWith(items, RU, D, fill)};
     // an unweighted average says where you are, not what's left: there's no total to finish
     if (gr.unw) Object.assign(gr, {done: false, need: () => null, projected: null, remaining: 0, minFinal: 0, maxFinal: 100});
     // every listed item marked isn't a final grade: more can still be added until classes are over
@@ -46285,6 +46423,21 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     gr.risk = riskOf(gr);
     return gr;
   }
+  /* How much of its course a task counts for: its share of a category weight (Grade Settings, "Quizzes 20%") when its course
+     has one for its type, otherwise its own weight. 0 when it has neither. Used outside the grade itself (the mark sheet, Today's
+     Plan, Rough Week Rescue), so work weighted by category counts there as it does on the Grades page. */
+  let SHARE_AT = null;
+  function gradeShare(t){
+    if (!t) return 0;
+    const c = t.courseId && !t.prepFor ? courseOf(t.courseId) : null;
+    if (c && catsOf(c).length) {
+      if (!SHARE_AT || SHARE_AT.st !== state || SHARE_AT.at !== state.updated) SHARE_AT = {st: state, at: state.updated, done: new Set()};
+      if (!SHARE_AT.done.has(c.id)) { courseGrade(c); SHARE_AT.done.add(c.id); }
+      const e = EFFW.get(t.id); if (e && e.how === "cat") return e.w;
+    }
+    return hasWeight(t) ? Number(t.weight) : 0;
+  }
+  const shareCat = t => { const e = gradeShare(t) > 0 && EFFW.get(t.id); return e && e.how === "cat" ? e.cat : ""; };
   /* "Must pass" parts (Grade Settings): an average on one type of work, or the final exam alone, that has to reach its own minimum.
      avg: on what's marked; need: the average still needed on the rest of that part (0 once it's safe, over 100 out of reach). */
   const mustName = cat => cat === "Final" ? "Final Exam" : typePl(cat);
@@ -46376,7 +46529,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const pen0 = t.mark && t.mark.pen ? penTxt(t.mark.pen) : "";
     openSheet(`<form class="sheet">${head(t.mark ? "Edit Your Mark" : "Add Your Mark")}
       <div class="sheet-body">
-        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
+        <p style="margin:0"><b>${esc(t.title)}</b>${c ? ` <span class="tag">${esc(courseLabel(c))}</span>` : ""}<br><span class="mini">${shareCat(t) ? `Worth ${fmtW(gradeShare(t))} of your course grade (a share of ${esc(shareCat(t) === "Final" ? "the Final Exam" : typePl(shareCat(t)))}).` : hasWeight(t) ? (weightGuessed(t) ? `<span class="w-est">Worth about ${fmtW(Number(t.weight))} of your course grade (estimated).</span> ${esc(WEIGHT_GUESS_TIP)}` : `Worth ${fmtW(Number(t.weight))} of your course grade.`) : "This task has no grade weight yet, so the mark is saved but won't count toward the course grade."}</span></p>
         <label class="f"><span class="lh">Your Mark <span class="hint">a score like 43/50, a percent like 86%, or a letter like B+</span></span><input type="text" id="gmIn" autocomplete="off" maxlength="24" value="${esc(baseInput(t.mark))}" placeholder="e.g. 43/50" autofocus></label>
         <div class="chips gr-mk-chips" role="group" aria-label="Other kinds of mark"><button type="button" class="chip" data-gm="Pass">Pass</button><button type="button" class="chip" data-gm="Fail">Fail</button><button type="button" class="chip" data-gm="Excused" title="It won't count toward your grade">Excused / Doesn't Count</button></div>
         <details class="gr-pen"${pen0 ? " open" : ""}><summary>Late Penalty</summary><label class="f"><span class="lh">Taken Off for Being Late <span class="hint">a percent of the mark like 10%, or points like 2</span></span><input type="text" id="gmPen" autocomplete="off" maxlength="12" value="${esc(pen0)}" placeholder="e.g. 10%"></label></details>
@@ -46580,7 +46733,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!gset().prompt || !Array.isArray(changes) || changes.length !== 1) return;
     const ch = changes[0], t = ch.after;
     if (ch.kind !== "task" || !t || t.status !== "done" || !t.doneAt || Date.now() - t.doneAt > 10000) return;
-    if (!hasWeight(t) || t.mark || t.prepFor || asked().includes(t.id)) return;
+    if (!(gradeShare(t) > 0) || t.mark || t.prepFor || asked().includes(t.id)) return;
     setAsked(t.id);
     clearTimeout(promptT);
     promptT = setTimeout(() => showPrompt(t.id), 6800);
@@ -46647,7 +46800,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     else if ((inDanger(gr) || !hold || hold.th <= g.pass || !(hold.n <= 100))) out.push(`To pass (${fmtP(g.pass)}), you need an average of <b>${fmtN(np)}</b> on ${remTxt}.${gr.risk === "risk" || gr.risk === "watch" ? " Today's Plan is moving this course's graded work up a little." : ""}`);
     out.push(...mustTxt);
     for (let k = out.length - 1; k >= 0; k--) if (!out[k]) out.splice(k, 1);
-    if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
+    // a category weight with nothing in it yet (Quizzes 15% before the first quiz is added) is named, not left as a mystery share
+    const emptyCats = (gr.cats || []).filter(k => !gr.ts.some(t => (EFFW.get(t.id) || {}).cat === k.cat)), emptyW = emptyCats.reduce((s, k) => s + k.w, 0);
+    if (gr.unlisted > 0.5 && emptyCats.length && Math.abs(emptyW - gr.unlisted) < 0.5) out.push(`<span class="mini">Nothing has been added to ${emptyCats.map(k => `${esc(k.cat === "Final" ? "Final Exam" : typePl(k.cat))} (${fmtW(k.w)})`).join(" or ")} yet, so ${emptyCats.length === 1 ? "it counts" : "they count"} as work still to come.</span>`);
+    else if (gr.unlisted > 0.5) out.push(`<span class="mini">Your graded tasks add up to ${fmtW(gr.wAll)} of the course. The other ${fmtW(gr.unlisted)} counts as work still to come until you add it.</span>`);
     return out;
   }
   const riskPill = r => r === "risk" ? `<span class="pill gr-risk">Pass Mark at Risk</span>` : r === "out" ? `<span class="pill gr-risk">Talk to Your Instructor</span>` : r === "watch" ? `<span class="pill gr-watch">Close to Pass Mark</span>` : "";
@@ -46750,7 +46906,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const p = {}; let n = 0, mk = 0;
     gr.ts.forEach(t => { const v = vals && vals[t.id]; if (isNum(v) && !gr.missed.includes(t)) { p[t.id] = Number(v); n++; if (gr.pm.get(t.id) != null) mk++; } });
     const w = courseGrade(gr.c, null, p);
-    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need};
+    return {n, mk, current: w.current, minFinal: w.minFinal, maxFinal: w.maxFinal, rem: w.remaining, done: w.done, need: w.need, finish: w.finish};
   }
   function whatIfOut(gr, vals){
     const w = whatIf(gr, vals), g = gr.g, L = p => letterOf(p, g.scale);
@@ -46760,6 +46916,8 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (w.done) out.push(`That would finish the course on ${lt(w.minFinal)}${w.minFinal >= g.pass ? ", a pass." : `, under the ${fmtP(g.pass)} pass mark.`}`);
     else {
       if (w.current != null) out.push(`Your grade on marked work would be ${lt(w.current)}.`);
+      // where that leaves the course, on the same footing as Solve (your average so far on the rest), so the two agree
+      if (gr.base != null && w.rem > 0.01 && w.finish) out.push(`With your average so far (${fmtP(gr.base)}) on the rest, you'd finish on ${lt(w.finish(gr.base))}.`);
       const tp = (name, t) => { const n = w.need(t); return n <= 0 ? `${name.charAt(0).toUpperCase() + name.slice(1)} is secured.` : n <= 100 ? `You'd then need <b>${fmtN(n)}</b> on the remaining ${fmtW(w.rem)} for ${name}.` : `${name} would be out of reach.`; };
       if (g.goal != null) out.push(tp(`your goal of ${fmtP(g.goal)}`, g.goal));
       out.push(tp(`the ${fmtP(g.pass)} pass mark`, g.pass));
@@ -47371,7 +47529,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const hero = `<div class="gp-hero-band">
         <span class="g2-ring gp-cap" aria-hidden="true">${GP_CAP}</span>
         <div class="gp-hero-t"><span class="g2-kick">${S.weighted ? "Credit-Weighted Average" : "Average Across Courses"}</span>${avg != null ? `<span class="gp-avg">${fmtP(avg)}</span><span class="gp-hero-sub">${withMarks.length} course${withMarks.length === 1 ? "" : "s"}<span class="gp-l"> with marks</span> · ${atRisk ? `${atRisk} need${atRisk === 1 ? "s" : ""} attention` : `all on track<span class="gp-l"> to pass</span>`}</span>` : `<span class="gp-avg gr-none">No Marks Yet</span>`}</div>
-        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk)}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
+        ${atRisk || waiting.length || toCome > 0 ? `<div class="gp-sum">${stat(atRisk, "Need attention", atRisk, "At risk")}${stat(waiting.length, "Waiting for a mark", false, "Awaiting mark")}${stat(Math.max(0, toCome), "Marks still to come", false, "Still to come")}</div>` : ""}</div>`;
     const tn = topNeed(all);
     const detailOf = gr => {
       const c = gr.c, g = gr.g;
@@ -48066,7 +48224,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       if (x.dl > 21 || (x.dl < 0 && x.dead)) return;
       const gr = risk[t.courseId];
       if (gr) {
-        if (!(hasWeight(t) || PTS_W[t.id]) || markPct(t) != null) return;
+        if (!(gradeShare(t) > 0 || PTS_W[t.id]) || markPct(t) != null) return;
         // Work due now keeps its own order (what saves the most marks today), so only its reason changes
         if (!x.tier) x.score *= BOOST[gr.risk];
         x.passBoost = gr.risk; any = true;
@@ -48077,7 +48235,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       // Under a goal: graded work, and study sessions for a graded exam, get a smaller lift than a pass-mark risk
       const s = short[t.courseId]; if (!s) return;
       const ex = t.prepFor ? allTasks().find(y => y.id === t.prepFor) : null;
-      if (!(ex ? hasWeight(ex) && markPct(ex) == null : (hasWeight(t) || PTS_W[t.id]) && markPct(t) == null)) return;
+      if (!(ex ? gradeShare(ex) > 0 && markPct(ex) == null : (gradeShare(t) > 0 || PTS_W[t.id]) && markPct(t) == null)) return;
       if (!x.tier) x.score *= 1.06 + Math.min(0.12, s.gs.gap / 100);
       x.goalBoost = true; any = true;
       const nm = courseLabel(s.gr.c), goal = s.gr.g.goal;
@@ -48129,13 +48287,15 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     const overdue = open.filter(t => t.due < w.today && t.late !== "none").length;
     const fixed = [], sugg = [];
     items.forEach(x => {
-      const t = x.t, W = hasWeight(t) ? Number(t.weight) : 0, exam = t.prepFor && state.tasks[t.prepFor];
+      const t = x.t, W = gradeShare(t), exam = t.prepFor && state.tasks[t.prepFor];
       const fix = why => fixed.push(Object.assign({}, x, {why}));
       if (MILESTONE(t.type)) return fix(t.type === "Exam" ? "Exam date" : "Quiz date");
       if (t.due > w.end && t.status === "todo" && !blockers(t).length) {
         const ns = addDays(w.end, 1), left = dayDiff(ns, t.due);
-        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3, label: `Start ${fmtShort(ns)} instead`,
-          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
+        // big work left for the few days before its due date isn't ticked: starting it later would crowd them
+        const R = remainingOf(t) || 0, roomy = R <= left * dailyHours() * 0.5;
+        if (left >= 1) return sugg.push(Object.assign({}, x, {ov: {start: ns}, on: W < 15 && left >= 3 && roomy, label: `Start ${fmtShort(ns)} instead`,
+          note: W >= 15 ? `It isn't due until ${fmtShort(t.due)}, but it's worth ${fmtW(W)}, so only move it if next week has room.` : !roomy ? `It isn't due until ${fmtShort(t.due)}, but it still needs about ${fmtHM(R)}, so only move it if next week has room.` : `It isn't due until ${fmtShort(t.due)}, so it can wait until next week.`}));
       }
       if (W >= 15) return fix(`Worth ${fmtW(W)} of your grade`);
       if (t.late === "none") return fix("No late work accepted");
@@ -48154,7 +48314,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       }
       fix(W ? `Graded deadline, worth ${fmtW(W)}` : t.type === "Study" ? "Study session" : "Class deadline");
     });
-    const heavy = items.filter(x => !MILESTONE(x.t.type) && hasWeight(x.t) && Number(x.t.weight) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
+    const heavy = items.filter(x => !MILESTONE(x.t.type) && gradeShare(x.t) >= 10 && x.t.due >= w.today && x.t.due <= w.end && x.h >= 2
       && !tasksArr().some(e => e.extFor === x.t.id && e.status !== "done")).sort((a, b) => b.h - a.h)[0] || null;
     const need = items.reduce((s, x) => s + x.h, 0);
     const plan = {w, items, fixed, sugg, heavy, need, overdue, ext: false};
@@ -48250,7 +48410,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const cur = state.tasks[s.t.id], n = Object.assign(clone(cur), s.ov);
       if (n.start && n.due && n.start > n.due) n.start = n.due;
       // A graded deadline handed in late keeps the instructor's real date, in the task and its notes
-      if (s.ov.due && s.ov.due !== cur.due && hasWeight(cur) && !/^(Study|Reading)$/.test(cur.type)) {
+      if (s.ov.due && s.ov.due !== cur.due && gradeShare(cur) > 0 && !/^(Study|Reading)$/.test(cur.type)) {
         if (!n.origDue) n.origDue = cur.due;
         const line = `Officially due ${fmtShort(n.origDue)}. Planned to hand in by ${fmtShort(n.due)} (Rough Week plan).`;
         n.notes = (cur.notes ? cur.notes.trim() + "\n\n" : "") + line;
@@ -48425,7 +48585,7 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     const rows = d.pts.map(p => `<tr><th scope="row">${esc(p.title)}</th><td>${esc(dayTxt(p.key))}</td><td>${esc(pctTxt(p.pct))}${d.letter(p.pct) ? " " + esc(d.letter(p.pct)) : ""}</td></tr>`).join("");
     return `<figure class="gt-fig">${svg}
       <figcaption><b class="gt-sum">${esc(sum)}</b><span class="mini">${esc(tr("trend.cap", "Your grade after each graded item, in due date order."))}</span></figcaption>
-      <table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></figure>`;
+      <div class="sr"><table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></div></figure>`;
   }
   function sectionHtml(c){
     const d = dataFor(c); if (!d || !d.gr.ts.length) return "";
@@ -49733,7 +49893,8 @@ function fromPlan(p){
     rows.push({id: t.id, title: t.title || "", due: t.due, dl: x.dl, R: x.R, L: x.L, A: x.A, noEst: own && !!(window.SBEST && SBEST.needs(t))});
   });
   const today = p.today, offToday = dayIsOff(today);
-  const avTot = p.av && p.av.active && p.av.res ? (p.av.res.total || 0) / 60 : Infinity;
+  // the free time left today around classes, shifts and events (also when Availability isn't set up: the strip shows the same)
+  const avTot = p.av && p.av.res && isNum(p.av.res.total) ? (p.av.res.total || 0) / 60 : Infinity;
   const roomToday = offToday ? 0 : Math.max(0, Math.min(p.leftH, avTot, 16 - p.doneToday) - p.th);
   const offDays = [];
   for (let i = 0; i <= CUSH.WINDOW; i++) { const d = addDays(today, i); if (dayIsOff(d)) offDays.push({date: d, i, h: p.dh}); }
@@ -61198,14 +61359,14 @@ var TP_DATA = [];
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
     account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "haptics", "haptic-try", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
     study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "wrap-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
     school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
     capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
     data: [["Backups", ["cbk-go", "cbk-now", "cbk-stop", "fsb-choose", "fsb-resume", "fsb-stop", "desk-open", "desk-choose", "folder", "backup-now", "storage-protect", "restore"]], ["Import and Export", ["export", "export-json", "export-full", "import", "ia-open", "export-data"]], ["Cleanup", ["new-term", "archive-open", "trash-open"]], ["Start Over", ["clear-all"]]],
-    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
+    app: [["Getting Started", ["ob-replay", "tour-open", "tips-set", "kbd-help", "invite-friends"]], ["Feedback", ["bug-open", "errrep-toggle"]], ["About", ["legal-about", "legal-privacy", "legal-terms"]]]
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
@@ -61226,7 +61387,7 @@ var TP_DATA = [];
     "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
     "cbk-go": "☁️", "cbk-now": "☁️", "cbk-stop": "☁️", "fsb-choose": "📁", "fsb-resume": "📁", "fsb-stop": "📁", "desk-open": "📁", "desk-choose": "📁", folder: "📁", "backup-now": "💾", "storage-protect": "🛡️", restore: "⏪",
     export: "📤", "export-json": "📤", "export-full": "🗜️", import: "📥", "ia-open": "🔁", "export-data": "📊", "new-term": "🆕", "archive-open": "🗄️", "trash-open": "🗑️", "clear-all": "⚠️",
-    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
+    "ob-replay": "👋", "tour-open": "🗺️", "tips-set": "💡", "kbd-help": "⌨️", "invite-friends": "🎁", haptics: "📳", "bug-open": "🐞", "errrep-toggle": "📡", "legal-about": "ℹ️", "legal-privacy": "🔏", "legal-terms": "📜"};
   const PICTO = /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u;
   function addEmoji(r){
     if (r.classList.contains("plan-row") || r.querySelector(".us-emo, .plan-row-ic")) return;
@@ -61473,7 +61634,7 @@ var SBSTATS = (() => {
     const fromTasks = allTasks().reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
     return Math.max(logged, fromTasks);
   }
-  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true, e.day); });
   return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 
@@ -61732,11 +61893,20 @@ var SBSC = (() => {
   const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
   // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
   // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  // An open modal dialog (the Focus timer, a sheet) makes the rest of the page inert, popovers included, so a screen shown over one
+  // couldn't be tapped: it goes inside the top one, and moves out (to the next one, or the page) when that dialog closes
+  const topModal = () => { const l = [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return false; } }); return l[l.length - 1] || null; };
+  function mount(o){
+    const host = topModal() || document.body;
+    host.appendChild(o);
+    try { if (o.showPopover && !o.matches(":popover-open")) o.showPopover(); } catch (e) {}
+    if (host !== document.body) host.addEventListener("close", function moved(){ host.removeEventListener("close", moved); if (o.isConnected && host.contains(o)) mount(o); });
+  }
   function openChests(list, done){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     let i = 0, opened = false;
     const draw = () => {
       const c = list[i]; opened = false;
@@ -61920,7 +62090,7 @@ var SBSC = (() => {
       ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let state0 = "ready", won = null;
     const spin = () => {
@@ -61966,12 +62136,16 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
-  const rq = []; let rOpen = false;
+  const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
   // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    // the Focus timer's alarm comes first (Start Break, Mark Done); this screen follows once it's put away
+    const al = document.getElementById("alarmDlg");
+    // (meanwhile the quiet count waits, so it doesn't take this work's credits as arriving from elsewhere)
+    if (al && al.open && !screensOff()) { rWait++; al.addEventListener("close", () => setTimeout(() => { rWait--; reward(spec); }, 300), {once: true}); return; }
     const ch = spec.compact ? [] : takeChests();
     if (!ch.length) { rewardNow(spec, []); return; }
     // the coins are added as the chests are opened (or at once, where the screens aren't shown)
@@ -62041,8 +62215,7 @@ var SBSC = (() => {
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
@@ -62068,8 +62241,7 @@ var SBSC = (() => {
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
 </span>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
@@ -62086,12 +62258,13 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
-    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
-    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest and the big screen only at a
+    // session's real end, a small card that goes by itself for one stopped part way
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes || e.why === "switch") return;
     if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", compact: e.type !== "end", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
@@ -62165,7 +62338,7 @@ var SBSC = (() => {
   let noticeT = 0;
   function noticeSoon(){
     clearTimeout(noticeT);
-    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen || rWait) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
@@ -84287,7 +84460,7 @@ ANSWERING
     const tm0 = d.timer && typeof d.timer === "object" ? d.timer : null, td = tm0 ? String(tm0.do || "").toLowerCase() : "";
     if (td && td !== "none") { const tt = tm0.task ? refs.get(String(tm0.task).trim().toUpperCase()) : null, task = tt && tt.kind === "task" ? state.tasks[tt.id] : null;
       if (td === "start") { const mins = Number(tm0.minutes) > 0 && Number(tm0.minutes) <= 180 ? Math.round(Number(tm0.minutes)) : 25; if (A.startTimer(mins, task)) log.push(`started a ${mins}-minute focus timer${task ? " for " + task.title : ""}`); else fails.push("start the timer"); }
-      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { pomo.taskId = task.id; try { pomoSave(); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
+      else if (td === "link") { if (typeof pomo !== "undefined" && (pomo.running || pomo.left > 0) && task) { try { pomoRetask(task.id); } catch (e) {} log.push(`timer now for ${task.title}`); } else fails.push("link the timer"); }
       else { const k = A.control(`${td} the timer`); if (k && k.done) log.push(k.answer.replace(/\.$/, "").toLowerCase()); else if (k) extra.push(k.answer); } }
     if (d.theme) { const was = agLook().replace(/^LOOK NOW: |\.$/g, ""), r = themeAct({value: d.theme}); if (/^(Switched|Studyboard now)/.test(r.answer)) log.push(`${r.answer.replace(/\.$/, "")} (before: ${was})`); else extra.push(r.answer); }
     // (only an accessory it has: asked for a beanie it hasn't unlocked, it said "Tiny Hat is on")
@@ -91866,14 +92039,14 @@ function previewHtml(ws, moves){
 function moveText(m){
   const slots = (m.slots || []).map(s => parse(s.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})).join(", ");
   const h = m.slots && m.slots.length ? m.slots[0].hours : 0;
-  return (m.mode === "start" ? `Start ${fmtShort(m.to)} (the school's due date stays)` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
+  return (m.mode === "start" ? `Start ${fmtShort(m.to)}; the due date stays` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
 }
 function itemHtml(it, ws, mv, today){
   const t = state.tasks[it.id]; if (!t) return "";
   const c = t.courseId && courseOf(t.courseId), dl = dayDiff(today, t.due);
   const prep = it.kind === "prep";
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
-  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
+  const bits = [c ? courseLabel(c) : "", `${MILESTONE(t.type) ? "on" : "due"} ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
   // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
   const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";
@@ -91903,7 +92076,7 @@ function showSheet(){
     const pv = SH.pv && SH.pv.length ? SH.pv : null, n = sug.moves.length;
     const bI = C.LEVELS.indexOf(sug.before.level), aI = C.LEVELS.indexOf(sug.after.level);
     box = `<div class="cr-box cr3-box${SH.focus ? " focus" : ""}" id="crSug"><div class="cr3-bh"><h3>Ease This Week</h3><span class="cr3-chg"><span class="cr-pill lv${bI}">${esc(LV_WORD[bI])}</span><span aria-hidden="true">→</span><span class="cr-pill lv${aI}">${esc(LV_WORD[aI])}</span></span></div>
-      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}. Due dates from your school stay as they are.</p>
+      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}${aI === bI ? " to make this week a little lighter" : ""}. Due dates stay as they are.</p>
       <ul class="cr3-moves">${sug.moves.map(x => { const t = state.tasks[x.id]; return `<li style="--c:${esc(colorOf(t && t.courseId))}"><b>${esc(x.title)}</b><span class="mini">${esc(moveText(x))}</span></li>`; }).join("")}</ul>
       ${pv ? previewHtml(ws, pv) : ""}
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;
@@ -93114,8 +93287,8 @@ function underBoost(t){
 function staleScan(){
   try {
     if (pomo.mode === "focus" && !pomo.running && pomo.left > 0 && pomo.pausedAt && Date.now() - pomo.pausedAt > 2 * 3600000) {
-      const done = Math.max(0, (modeMs("focus") - pomo.left) / 60000), tid = pomo.taskId;
-      pomo.left = 0; pomo.preset = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
+      const done = pomoElapsedMin(), tid = pomo.taskId;
+      pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
       early(done, tid, "abandoned");
     }
   } catch (e) { }
@@ -93407,9 +93580,15 @@ const EXAMPREP = (() => {
     (m.objectives || []).forEach(n => put(n, "learning objective"));
     (m.checklist || []).forEach(n => put(n, "exam checklist"));
     chaptersIn(m.examNotes).concat(chaptersIn(m.reading)).forEach(n => put(n, "exam notes"));
-    String(m.examNotes || "").split(/\n|;|•/).map(s => s.replace(/^[\s\-*\d.)]+/, "").trim()).filter(s => s.length > 2 && s.length < 70 && !/^(chapters?|ch\.?)\s*\d/i.test(s)).forEach(n => put(n, "exam notes"));
     // A one-line reminder ("Ask about…", "Bring calculator…") isn't something to study
     const REMIND = /^(ask|email|e-mail|bring|remember|call|buy|print|submit|pick up|text|message|book|check if|find out|reply|don'?t forget|todo|to do)\b/i;
+    // Nor is a word about the exam itself ("Cumulative.", "Closed book"), or a sentence naming chapters (already listed above)
+    const ABOUT = /^(non-?)?(cumulative|comprehensive|open[- ]?book|closed[- ]?book|open[- ]?notes?|closed[- ]?notes?|in[- ]?class|in[- ]?person|online|take[- ]?home|multiple[- ]choice|no calculators?|calculators? allowed|(\d+\s*)?(min(ute)?s?|hours?|hrs?|questions?|pages?)( long)?)$/i;
+    // the exam's notes, one sentence or line at a time ("Cumulative. Ch. 1-11. Bring model kit." is three)
+    // (a full stop after a short form such as "Ch." or "Dr." doesn't end a sentence)
+    String(m.examNotes || "").replace(/\b(ch|chs|chap|pp|pg|vs|dr|prof|fig|eq|sec|no|approx|e\.g|i\.e)\.(?=\s)/gi, "$1\u0001").split(/\n|;|•|\.\s+(?=[A-Z])/)
+      .map(s => s.replace(/\u0001/g, ".").replace(/^[\s\-*\d.)]+/, "").replace(/[.!]+$/, "").trim())
+      .filter(s => s.length > 2 && s.length < 70 && !chaptersIn(s).length && !REMIND.test(s) && !ABOUT.test(s)).forEach(n => put(n, "exam notes"));
     const studyNote = n => { const lines = String(n.text || "").split("\n").map(l => l.trim()).filter(Boolean); return lines.length > 1 || !(REMIND.test(lines[0] || "") || /\?\s*$/.test(lines[0] || "")); };
     const notes = (m.notes || []).filter(studyNote);
     // A deck a suggested note already links ([[Heart Terms]]) is that note's material, not a topic of its own
@@ -94716,7 +94895,7 @@ function offer(){
     const ex = m.exam, nm = examTitle(ex), w = EXAMMODE.rel(m.days);
     const key = EXAMMODE.studyKey(EXAMMODE.dueMs(ex), laneOpts(m), planSessions(ex.id).filter(t => t.status !== "done" && t.due && t.due >= todayISO()).map(t => EXAMMODE.dueMs(t)));
     const first = m.also.find(t => { const x = FOCUS && FOCUS.info && FOCUS.info[t.id]; return EXAMMODE.leads({dueMs: EXAMMODE.dueMs(t), risk: !!x && riskOf(x)}, key); });
-    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: `${first.title} is due ${dueText(first)}, around ${nm}. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
+    if (first && (said.n || 0) === 0 && canDoNow(first)) return {text: dayDiff(todayISO(), first.due) < 0 ? `${first.title} is overdue (it was due ${fmtShort(first.due)}). Let's get it done first, then study for ${nm}.` : `${first.title} is due ${dueText(first)}, with ${nm} coming up. Let's get it done first, then study.`, action: "focus", taskId: first.id, yes: "Start Focus", local: true, exm: true};
     const lines = m.days === 0
       ? [`${nm} is today. A calm review of the key ideas is all you need now.`, `Big day! ${nm} is today. Quick look over your notes, then trust what you know.`]
       : m.days === 1
@@ -96268,6 +96447,14 @@ function autoLighter(S){
     });
   } catch (e) { console.warn("breakdown lighter days", e); }
 }
+// Move to Lighter Day's choice for one milestone: the lightest day within 3 days that keeps the order, or null
+function lighterFor(S, m){
+  const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
+  const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
+  const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
+  const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
+  return BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+}
 function flagHeavy(S){
   const per = {}; S.ms.forEach(m => { if (!m.locked) per[m.due] = (per[m.due] || 0) + (Number(m.hours) || 0); });
   S.ms.forEach(m => { if (m.locked) return; const sc = (S.ctx.load[m.due] || 0) + (per[m.due] || 0) / (S.ctx.cap || 3); m.heavy = sc >= BD.HEAVY; m.level = lvOf(sc); });
@@ -96282,7 +96469,8 @@ function draw(){
   list.innerHTML = S.ms.map((m, i) => {
     if (m.locked) return `<li class="bd-m is-done"><span class="bd-n" aria-hidden="true">${CHECK}</span><div class="bd-f"><span class="bd-t">${esc(m.title)}</span><span class="mini">Done · ${esc(fmtShort(m.due))} · ${esc(hm(m.hours))}</span></div></li>`;
     const k = open.indexOf(m);
-    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.</span> <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button></p>` : "";
+    // the button only shows when there is a lighter day to move to (in finals weeks every day can be full)
+    const warn = m.heavy ? `<p class="bd-w" role="status"><span>${m.level >= 4 ? "Crunch day" : "Heavy day"}: ${esc(fmtShort(m.due))} already looks full.${lighterFor(S, m) ? "" : " The days around it are just as full."}</span>${lighterFor(S, m) ? ` <button type="button" class="btn small" data-a="lighter" data-i="${i}">Move to Lighter Day</button>` : ""}</p>` : "";
     const past = m.due < today && !S.allowPast ? `<p class="bd-w" role="status">This date is in the past.</p>` : m.due > S.due ? `<p class="bd-w" role="status">This is after the due date.</p>` : "";
     const uns = m.unsupported && m.unsupported.length ? `<p class="mini bd-u">The AI's wording mentioned ${esc(m.unsupported.slice(0, 2).join(", "))}, which isn't in your text, so it was left out.</p>` : "";
     return `<li class="bd-m" data-i="${i}"><span class="bd-n">${k + 1}</span><div class="bd-f">
@@ -96341,11 +96529,7 @@ function onList(e){
       draw(); const nb = dlg.querySelector(`[data-a="${a}"][data-i="${j}"]`); if (nb && !nb.disabled) nb.focus(); return;
     }
     if (a === "lighter") {
-      const open = S.ms.filter(x => !x.locked), k = open.indexOf(m), prev = open[k - 1], next = open[k + 1];
-      const per = {}; open.forEach(x => { if (x !== m) per[x.due] = (per[x.due] || 0) + (Number(x.hours) || 0) / (S.ctx.cap || 3); });
-      const load = Object.assign({}, S.ctx.load); Object.keys(per).forEach(d => { load[d] = (load[d] || 0) + per[d]; });
-      const lastOk = BD.diff(todayISO(), S.due) > 0 ? BD.addD(S.due, -1) : S.due;
-      const d = BD.lighterDay({date: m.due, hours: Number(m.hours) || 1, lo: prev ? BD.addD(prev.due, 1) : (S.start > todayISO() ? S.start : todayISO()), hi: next ? BD.addD(next.due, -1) : lastOk, load, free: S.ctx.free, days: S.weekdays ? [1, 2, 3, 4, 5] : null, range: 3});
+      const d = lighterFor(S, m);
       if (!d) { toast("No lighter day nearby that keeps the order"); return; }
       m.due = d; toast(`Moved to ${fmtShort(d)}`); draw(); return;
     }
@@ -96713,7 +96897,13 @@ hook("changed", changes => {
         const mem = bdMem(); mem.asked = mem.asked || {};
         if (!mem.asked[a.id]) {
           mem.asked[a.id] = Date.now(); const ks = Object.keys(mem.asked); if (ks.length > 150) ks.sort((x, y) => mem.asked[x] - mem.asked[y]).slice(0, ks.length - 150).forEach(k => delete mem.asked[k]); bdMemSet(mem);
-          setTimeout(() => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return; toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); }, 3200);
+          // it waits for a toast with a button still showing ("Added … Undo"), so the offer never takes the Undo away
+          let tries = 0;
+          const offer = () => { if (!state.tasks[a.id] || kidsOfTask(a.id).length || dlg.open) return;
+            let busy = false; try { busy = toastEl().classList.contains("show") && !!(toastUndoFn || toastExtraFn); } catch (e) {}
+            if (busy && ++tries < 8) { setTimeout(offer, 1500); return; }
+            toast("This looks big: break it into milestones?", null, {label: "Break It Down", fn: () => openFor(a.id)}); };
+          setTimeout(offer, 3200);
         }
       }
     });
@@ -96866,7 +97056,9 @@ window.SBBREAK = {open: openFor, openNew, formHtml, offerHtml, rowBtn, rowMeta, 
     draw();
     return true;
   }
-  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(t.text)}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
+  // a formula is read as words ("p K sub a"), as Learn does, not as its typed source
+  const spoken = x => { try { return typeof mathSpeech === "function" ? mathSpeech(x) : String(x || ""); } catch (e) { return String(x || ""); } };
+  const tileHtml = (t, i) => `<button type="button" class="mt-tile s${MATCH.size(t.text)} ${t.side === "t" ? "is-term" : "is-def"}" data-mt="${i}" aria-pressed="false" aria-label="${t.side === "t" ? "Term" : "Definition"}: ${esc(spoken(t.text))}" title="${esc(t.text)}"><span class="mt-tx">${esc(t.text)}</span></button>`;
   function draw(){
     openSheet(`<div class="sheet mt-sheet${still() ? " mt-still" : ""}" data-mt-play>${head("Match")}<div class="sheet-body">
       <div class="mt-bar"><span class="mt-name">${esc(R.src.name || "Deck")}</span><span class="mt-clock"><span id="mtTime" role="timer" aria-label="Time in seconds">0.0</span><span class="mt-pen" id="mtPen" aria-hidden="true">+1s</span></span></div>
@@ -99704,7 +99896,9 @@ window.SBSTREAK = {studyDays, on: () => !STREAK_HIDDEN && gentleOn(), line: () =
       ["Your Own Order", "Drag Concept Maps, Presentations and Writing cards into the order you like."]
     ]
   };
-  const isNewcomer = () => { try { return !tasksArr().length && !decksArr().length; } catch (e) { return true; } };
+  // (a brand-new install counts for its first two days, even once the welcome setup has added courses and tasks)
+  const freshInstall = () => { try { const e = window.SBESS && SBESS.state(); return !!e && e.why === "new" && Date.now() - (e.at || 0) < 2 * 864e5; } catch (e) { return false; } };
+  const isNewcomer = () => { try { return freshInstall() || (!tasksArr().length && !decksArr().length); } catch (e) { return true; } };
   function whatsNewDue(){
     const v = ver(), seen = ls.json(NEW_KEY) || {}, notes = NOTES[v];
     if (!notes || seen.v === v) return null;
@@ -100253,8 +100447,16 @@ window.SBSEM = {
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
         </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
+    // Term dates: the same First Class / Last Class as each course's Lectures tab (course.classDates), set for every course at once
+    const cs = coursesArr(), withT = cs.find(c => c.classDates && isDate(c.classDates.from) && isDate(c.classDates.until));
+    const t0 = withT ? withT.classDates : {from: "", until: ""};
+    const termHtml = cs.length ? `<section class="sd-sec sd-term"><h3 class="fsec">Term Dates</h3>
+          <p class="mini sd-why">Classes show on your Schedule between these days only, so finals week and the break stay clear.</p>
+          <div class="two"><label class="f"><span class="lh">First Class</span><input type="date" name="sdTermFrom" value="${esc(t0.from)}"></label><label class="f"><span class="lh">Last Class</span><input type="date" name="sdTermUntil" value="${esc(t0.until)}"></label></div>
+        </section>` : "";
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
+        ${termHtml}
         <section class="sd-sec"><h3 class="fsec">Days Off</h3>
           <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
@@ -100285,8 +100487,14 @@ window.SBSEM = {
     </form>`, fd => {
       const on = fd.get("sdMode") === "cycle";
       if (on && !draft.days.length) { toast("Pick at least one school day"); return false; }
+      const tf = String(fd.get("sdTermFrom") || ""), tu = String(fd.get("sdTermUntil") || "");
+      if (termHtml && (!!tf !== !!tu || (tf && tu < tf))) { toast(!tf || !tu ? "Pick both the first and the last class, or leave both empty" : "The last class needs to be on or after the first"); return false; }
       const cycle = on ? {n: draft.n, ref: refDay(), k: Math.min(draft.n, k), days: draft.days.slice().sort(), names: draft.names} : null;
-      save({off, cycle, pub, ans}, "School days saved");
+      // new term dates go on every course (Undo in the notice takes them back); empty ones clear them
+      const tch = !termHtml ? [] : coursesArr().filter(c => { const d = c.classDates || {}; return tf ? d.from !== tf || d.until !== tu : !!(d.from || d.until); })
+        .map(c => { const n = clone(c); if (tf) n.classDates = {from: tf, until: tu}; else delete n.classDates; return {kind: "course", id: c.id, after: n}; });
+      save({off, cycle, pub, ans}, tch.length ? "" : "School days saved");
+      if (tch.length) applyChanges(tch, tf ? `School days saved. Classes run ${fmtShort(tf)} to ${fmtShort(tu)}.` : "School days saved. Term dates cleared.");
     });
     const f = dlg.querySelector(".sd-sheet"), $f = q => f.querySelector(q);
     const drawK = () => { const sel = $f("#sdK"); k = Math.min(k, draft.n); sel.innerHTML = Array.from({length: draft.n}, (_, i) => `<option value="${i + 1}"${i + 1 === k ? " selected" : ""}>${esc(cycName(draft.names, i + 1))}</option>`).join(""); $f("#sdRefL").textContent = refText(); };
@@ -100749,7 +100957,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (62 to 76%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI: 62 to 76% Right", pro: "99% Right, on Any Device", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -100778,7 +100986,8 @@ var SBPRO = null;
     smartremind: "Nudges at the start of your free time when a big task needs it.",
     "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
     examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
-    email: "Forward school emails and Studyboard finds the deadlines in them."
+    email: "Forward school emails and Studyboard finds the deadlines in them.",
+    present: "Record your practice talks, see your stats, get coaching, and use your phone as a remote. Timing, plans and group practice stay free."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
   const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
@@ -106224,7 +106433,7 @@ const HM = (() => {
   const legendHtml = () => `<div class="hm-legend" aria-hidden="true"><span>Less</span>${[0, 1, 2, 3, 4].map(l => `<i class="hm-c" data-l="${l}" title="${esc(RANGE[l])}"></i>`).join("")}<span>More</span></div>`;
   function tableHtml(V, from, to, caption){
     const rows = HM.months(V, from, to);
-    return `<table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table>`;
+    return `<div class="sr"><table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table></div>`;
   }
   const hasAny = V => Object.keys(V).some(d => V[d].study);
   const tipHtml = () => `<div class="hm-tip" aria-hidden="true" hidden></div><p class="sr hm-live" role="status" aria-live="polite"></p>`;
@@ -106662,6 +106871,7 @@ var SBEARLY = null;
    - People who joined before 11 Nov 2026 see it once, the next time the app is quiet.
    - People who join from 11 to 24 Nov 2026 see it once, two days after joining.
    - Anyone who joins later never sees it, and from 28 Nov 2026 nobody does: this module does nothing after that, and can be deleted.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways: the flag is written before the popup is drawn (and the popup is skipped if it can't be written),
    the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -106700,8 +106910,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -106712,6 +106925,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
     } catch (e) { return false; }
@@ -106747,6 +106962,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     let has = false; try { has = typeof aiProAvail === "function" && !!aiProAvail(); } catch (e) {}
     qodPop(html(has), "aii qod-plain");
     return true;
@@ -106775,6 +106991,7 @@ var SBEARLY = null;
 /* "Join the Studyboard Discord": a one-time popup with a link to the community server.
    - People who started using Studyboard before 18 Nov 2026 see it once, the next time the app is quiet.
    - Everyone who starts later sees it once, 7 days after they started.
+   One intro a visit (it waits for the next visit after a feature intro or the other one-time popup), and never within two minutes of the daily quote.
    "Once" is kept three ways, as in 99-ai-intro.js: the flag is written before the popup is drawn (and the popup is skipped if it
    can't be written), the flag follows the account to its other devices (UI_KEYS in 100-phone.js), and this page never draws it twice. */
 (() => {
@@ -106811,8 +107028,11 @@ var SBEARLY = null;
     let f = rd(FIRST_RUN);
     if (f === undefined) return null;
     if (f === null) {
-      const had = rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed");
-      f = had ? "0" : String(now());
+      // A brand-new install (Essentials decided that before anything was saved) started when it was installed, even though
+      // the welcome setup has saved a planner by the time this first looks; anything else on the device means an earlier user
+      let fresh = 0; try { const e = window.SBESS && SBESS.state(); if (e && e.why === "new" && e.at > 0) fresh = e.at; } catch (e) {}
+      const had = !fresh && (rd("sb:onboarded") || rd("coursework:v2") || rd("studioso:welcomed"));
+      f = had ? "0" : String(fresh || now());
       wr(FIRST_RUN, f);
     }
     const n = Number(f);
@@ -106823,6 +107043,8 @@ var SBEARLY = null;
   const quiet = () => {
     try {
       if (document.hidden || dlg.open || document.getElementById("qod") || document.querySelector("dialog[open]")) return false;
+      // one intro a visit (another already showed: wait for the next visit), and never straight after the daily quote
+      if (window.__sbPopAt || (window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000)) return false;
       if (window.SBOB && SBOB.pending()) return false;
       if (window.SBTOUR && SBTOUR.active()) return false;
       if (window.SBEXAM && SBEXAM.current && SBEXAM.current()) return false;
@@ -106855,6 +107077,7 @@ var SBEARLY = null;
     // The flag first, and only go on if it really was written: a popup that can't be remembered is never shown
     if (!wr(KEY, String(now()))) { shown = true; return false; }
     shown = true; stop();
+    window.__sbPopAt = Date.now();
     qodPop(html(), "aii dci qod-plain");
     return true;
   }
@@ -115178,7 +115401,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     const KK = "wb-ai:" + id;
     if (sheetResume(KK)) return;
     if (!(W.board() && (W.board().strokes.length || W.board().items.length))) { toast("Draw or write something on the board first."); return; }
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Notes and Cards From a Board"}); return; }
     W.flush();
     openSheet(`<form class="sheet ai-sheet wb-ai-sheet">${head("Notes and Cards From This Board")}
       <div class="sheet-body" id="wbaBody">
@@ -115280,7 +115503,7 @@ html[data-theme=dark] .wb-tpv svg{filter:invert(1) hue-rotate(180deg) brightness
     if (a !== "ink-text" || reading) return;
     if (inkLocked()) { if (typeof PLAN !== "undefined" && PLAN) PLAN.openSheet(INK_WHY); return; }
     const info = W.selInk(); if (!info) return;
-    if (!aiReady()) { aiSetupSheet(true); return; }
+    if (!aiReady()) { aiSetupSheet(true, {feature: "Turn Writing Into Text"}); return; }
     reading = true; const btn = document.querySelector('.wb-selbar [data-wb="ink-text"]'); if (btn) { btn.classList.add("busy"); btn.innerHTML = '<span class="spinner"></span>'; }
     try {
       const data = bytesToB64(new Uint8Array(await (await new Promise(r => info.canvas.toBlob(r, "image/png"))).arrayBuffer()));
@@ -116550,7 +116773,10 @@ var SBCLS = null;
       eventsArr().forEach(e => { if (mine.has(e.courseId) && isClassEvent(e)) { seen.push(e.date); if (e.repeat && e.repeat.until) seen.push(e.repeat.until); } });
       const early = seen.filter(isDate).sort()[0], late = seen.filter(isDate).sort().pop();
       if (!from) { from = [...coursesArr().map(x => x.created ? dOf(x.created) : today), early || today].filter(isDate).sort()[0] || today; if (from < addDays(today, -150)) from = addDays(today, -150); }
-      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180); }
+      if (!until) { until = late && late > addDays(today, 28) ? late : addDays(today, 28); if (until > addDays(from, 180)) until = addDays(from, 180);
+        // there are no lectures in finals week: classes end the day before the first final exam coming up
+        const fin = allTasks().filter(t => mine.has(t.courseId) && t.type === "Exam" && /\bfinal\b/i.test(t.title || "") && isDate(t.due) && t.due > today).map(t => t.due).sort()[0];
+        if (fin && addDays(fin, -1) < until && addDays(fin, -1) >= from) until = addDays(fin, -1); }
     }
     if (until < from) until = from;
     return {from, until, set: isDate(cd.from) && isDate(cd.until)};
@@ -118613,14 +118839,20 @@ var SBCALCSKIN = null;
     typed = NAMES.some(n => n.startsWith(k)) ? {s: k, snap: snap(), at: now, named: false} : null;
     return false;
   }
+  // the key last pressed with a mouse or finger keeps the focus, but isn't one the keyboard chose (Tab moves on from it)
+  let ptrKey = null;
+  document.addEventListener("pointerdown", e => { ptrKey = W && e.target && e.target.closest ? e.target.closest(".cx-body [data-cx]") : null; }, true);
+  const kbFocus = el => el !== ptrKey;
   function onKey(e){
     if (e.target && e.target.closest && e.target.closest(".cx-grip")) return;
     if (menuOpen()) { if (e.key === "Escape") { e.preventDefault(); menu(false); } return; }
     if (e.ctrlKey || e.metaKey || e.altKey) { if ((e.ctrlKey || e.metaKey) && e.key === "c" && S.done) { e.preventDefault(); act("copy"); } return; }
     if (e.key === "Escape") { e.preventDefault(); if (S.tokens.length || S.done) act("ac"); else close(); return; }
+    if (e.key === "Tab") ptrKey = null;
     if (e.key === "Tab" || e.key === " ") return;
-    // Enter on a focused key presses that key; Enter elsewhere is =
-    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq") return;
+    // Enter on a key reached with Tab presses that key; Enter elsewhere is =, also right after a key was clicked (a clicked
+    // key keeps the focus, and Enter used to press it again: click sin, type 30, Enter gave "sin(30sin(")
+    if (e.key === "Enter" && e.target.closest && e.target.closest("[data-cx]") && e.target.dataset.cx !== "eq" && kbFocus(e.target)) return;
     if (/^[a-z]$/i.test(e.key) && e.key !== "E" && typeLetter(e)) return;
     // "(" right after a typed name like sqrt is already on screen
     if (e.key === "(" && typed && typed.named) { e.preventDefault(); typed = null; return; }
@@ -121646,7 +121878,9 @@ const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke
 const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief|research|annotated|bibliography|literature)\b/i;
 // a paper that already has something in Writing Studio: sources, quotes or a saved draft
 const hasData = t => !!(t && t.ws && typeof t.ws === "object" && ((Array.isArray(t.ws.src) && t.ws.src.length) || (Array.isArray(t.ws.q) && t.ws.q.length) || (t.ws.draft && t.ws.draft.t)));
-const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
+// a problem set, worksheet or homework is an Assignment with nothing to write a paper for, unless its title says there's writing
+const NOT_WRITING = /\b(homework|hw\s*\d*|problem\s*sets?|psets?|p-?sets?|worksheets?|exercises?|problems?|quiz(z?es)?|practice)\b/i;
+const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && ((["Assignment", "Project", "Lab"].includes(t.type) && !(NOT_WRITING.test(String(t.title || "")) && !WRITING.test(String(t.title || "")))) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
 // The draft kept on the paper (t.ws.draft): its text (capped), where it came from and when; and the last check (t.ws.chk): when, on which version of
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
@@ -128946,7 +129180,8 @@ window.SBCMAP = {createFrom, addMapCopy, expandFrom, listHtml, mapsOf, courseBtn
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); X.refreshReady(); fillSecs(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); }
+    fillSecs();   // always: the group's Shared tab says "Loading…" until the first load ends, even when it found nothing
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)
@@ -133523,6 +133758,9 @@ setTimeout(async () => {
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
+      // not on the day of the welcome setup (it may finish while this waits): Getting Started offers backups already, and a new
+      // student has enough to read. It comes on a later visit.
+      try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if ((at && Date.now() - at < 864e5) || (window.SBOB && SBOB.pending())) return; } catch (e) {}
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
         {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});
@@ -133752,7 +133990,7 @@ ui._day = todayISO();
 /* ===== module: 99-feature-intros.js ===== */
 /* New for you: once a week, starting a week after someone starts using Studyboard, a short popup introduces one feature
    they haven't tried yet: the Focus Timer, then Whiteboards, then Concept Maps. One a week at most, never over another
-   sheet, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
+   sheet, one intro a visit (the Discord invite counts), never within two minutes of the daily quote, never before the welcome setup is done, and a feature they already use is skipped. Try It opens the feature. */
 (() => {
   const K_START = "studyboard:introAt", K_SEEN = "studyboard:introSeen", WEEK = 7 * 864e5;
   const ls = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; };
@@ -133810,6 +134048,7 @@ ui._day = todayISO();
   }
   function show(f){
     const i = FEATURES.indexOf(f), s = seen(); s[f.id] = {at: Date.now()}; ls(K_SEEN, JSON.stringify(s));
+    window.__sbPopAt = Date.now();
     openSheet(html(f, i));
     const sheet = dlg.querySelector(".fi-sheet"); if (!sheet) return;
     sheet.addEventListener("click", e => {
@@ -133824,7 +134063,10 @@ ui._day = todayISO();
   function check(){
     if (!ls("sb:onboarded") && !ls("studyboard:tour")) return;
     if (!ls(K_START)) { ls(K_START, String(Date.now())); return; }
-    if (dlg.open || document.querySelector("dialog[open]") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 6) setTimeout(check, 20000); return; }
+    // one intro a visit (after the Discord invite, say, this waits for the next visit), and never straight after the daily quote
+    if (window.__sbPopAt) return;
+    const quote = window.__sbQuoteAt && Date.now() - window.__sbQuoteAt < 120000;
+    if (quote || dlg.open || document.querySelector("dialog[open]") || document.getElementById("qod") || (window.SBTOUR && SBTOUR.active())) { if (++tries < 12) setTimeout(check, 20000); return; }
     const f = due(); if (f) show(f);
   }
   hook("boot", () => setTimeout(check, 8000));

@@ -498,8 +498,8 @@ function underBoost(t){
 function staleScan(){
   try {
     if (pomo.mode === "focus" && !pomo.running && pomo.left > 0 && pomo.pausedAt && Date.now() - pomo.pausedAt > 2 * 3600000) {
-      const done = Math.max(0, (modeMs("focus") - pomo.left) / 60000), tid = pomo.taskId;
-      pomo.left = 0; pomo.preset = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
+      const done = pomoElapsedMin(), tid = pomo.taskId;
+      pomo.left = 0; pomo.preset = 0; pomo.len = 0; pomo.done = 0; pomo.pausedAt = 0; pomoSave(); pomoUI(true);
       early(done, tid, "abandoned");
     }
   } catch (e) { }

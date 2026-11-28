@@ -89,7 +89,7 @@
     const rows = d.pts.map(p => `<tr><th scope="row">${esc(p.title)}</th><td>${esc(dayTxt(p.key))}</td><td>${esc(pctTxt(p.pct))}${d.letter(p.pct) ? " " + esc(d.letter(p.pct)) : ""}</td></tr>`).join("");
     return `<figure class="gt-fig">${svg}
       <figcaption><b class="gt-sum">${esc(sum)}</b><span class="mini">${esc(tr("trend.cap", "Your grade after each graded item, in due date order."))}</span></figcaption>
-      <table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></figure>`;
+      <div class="sr"><table class="sr"><caption>${esc(tr("trend.tcap", "Running grade after each graded item in {course}", {course: name}))}</caption><thead><tr><th scope="col">${esc(tr("trend.th.item", "Item"))}</th><th scope="col">${esc(tr("trend.th.date", "Date"))}</th><th scope="col">${esc(tr("trend.th.grade", "Running grade"))}</th></tr></thead><tbody>${rows}</tbody></table></div></figure>`;
   }
   function sectionHtml(c){
     const d = dataFor(c); if (!d || !d.gr.ts.length) return "";

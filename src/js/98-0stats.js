@@ -28,7 +28,7 @@ var SBSTATS = (() => {
     const fromTasks = allTasks().reduce((s, t) => s + (Number(t.focusMin) || 0), 0);
     return Math.max(logged, fromTasks);
   }
-  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true); });
+  hook("focus", e => { if (e && e.type === "end" && e.mode === "focus" && e.minutes) addFocus(e.minutes, "timer", true, e.day); });
   return {addFocus, takeFocus, focusMinutes, focusSessions, totalFocusMinutes, focusDays: () => Object.assign({}, days())};
 })();
 

@@ -13,7 +13,8 @@ const server = http.createServer((req, res) => {
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
 const card = (id, front, back) => ({id, front, back, box: 1, due: "2030-01-01", seen: 1, right: 1, wrong: 0});
 const SEED = {v: 2, courses: [{id: "c1", name: "Calculus", code: "MATH 101", color: "#3B6FE0"}], settings: {capacity: 15, dailyHours: 3}, updated: 1, tasks: [],
-  notes: [{id: "n1", text: "Water is \\ce{H2O}, and **bold**, *italic*, ==marked==.\n$$\\int_0^1 x\\,dx = \\frac{1}{2}$$\nIt costs $5 and $10.", color: "yellow", x: 40, y: 40, z: 1, rot: 0, courseId: "c1"}],
+  notes: [{id: "n1", text: "Water is \\ce{H2O}, and **bold**, *italic*, ==marked==.\n$$\\int_0^1 x\\,dx = \\frac{1}{2}$$\nIt costs $5 and $10.", color: "yellow", x: 40, y: 40, z: 1, rot: 0, courseId: "c1"},
+    {id: "n2", text: "# 15.1 Double integrals\n$$\\iint_R f(x,y)\\,dA = \\int_a^b \\int_c^d f(x,y)\\,dy\\,dx$$\n## Fubini", color: "blue", x: 300, y: 40, z: 2, rot: 0, courseId: "c1"}],
   decks: [{id: "d1", name: "Derivatives", courseId: "c1", created: 1, quizzes: [], aiQuizzes: [], cards: [card("k1", "What is $\\frac{d}{dx}x^2$?", "$2x$, by the **power rule**"), card("k2", "Plain card", "No math, a*b*c and 2*3*4 stay")]}]};
 function seedInit(seed){
   try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done"); } } catch (e) {}
@@ -90,6 +91,11 @@ function seedInit(seed){
     const note = await page.evaluate(() => { const b = document.querySelector('.note[data-note="n1"] .note-body'); return {chem: !!b.querySelector(".mth .mhchem, .mth .katex"), em: !!b.querySelector("em"), mark: !!b.querySelector("mark.rt-mark"), disp: !!b.querySelector(".mth-d .katex-display"), price: /costs \$5 and \$10/.test(b.textContent), n: b.querySelectorAll(".mth").length}; });
     ok(note.chem && note.em && note.mark && note.disp, "a note shows chemistry, italic, highlight and a display formula");
     ok(note.price && note.n === 2, "the prices in the note stay text");
+    await page.waitForFunction(() => document.querySelector('.note[data-note="n2"] .note-body .mth-d.mth-ok .katex'), null, {timeout: 15000});
+    const wideNote = await page.evaluate(() => { const b = document.querySelector('.note[data-note="n2"] .note-body'), k = b.querySelector(".mth-d .katex-html"), h = [...b.querySelectorAll(".nh")];
+      return {room: b.clientWidth, w: k.scrollWidth, fs: b.querySelector(".mth-d").style.fontSize, heads: h.map(e => e.className + ":" + e.textContent), hash: /#/.test(b.textContent)}; });
+    ok(wideNote.fs && wideNote.w <= wideNote.room + 1, "a $$ formula wider than its note shrinks to fit instead of being cut off: " + JSON.stringify(wideNote));
+    ok(wideNote.heads.join("|") === "nh nh1:15.1 Double integrals|nh nh2:Fubini" && !wideNote.hash, "# and ## lines show as headings without their #s: " + JSON.stringify(wideNote.heads));
     await page.screenshot({path: path.join(shots, "note.png")});
     // Typing in a note keeps it open while the equation editor is used
     await page.click('.note[data-note="n1"]'); await page.waitForSelector("#noteText");

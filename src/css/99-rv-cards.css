@@ -74,6 +74,16 @@
 .rv-ib:disabled{opacity:.4}
 .rv-go{margin-left:4px}
 @media (max-width:480px){.rv-grid{grid-template-columns:1fr}}
+/* The review card on a wide screen: the count and its line get the width beside the buttons, with the week and the daily goal
+   underneath, instead of one row where the words were squeezed into a narrow column */
+@media (min-width:761px){
+  .rv-hero{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;grid-template-areas:"s t t a" "s w g a";align-items:center;gap:12px 22px}
+  .rv-hero>.rv-stack{grid-area:s}
+  .rv-hero>.rv-t{grid-area:t}
+  .rv-hero>.rv-week{grid-area:w}
+  .rv-hero>.goal-btn{grid-area:g;justify-self:start}
+  .rv-hero>.rv-cacts{grid-area:a;justify-self:end;gap:8px}
+}
 @media (prefers-reduced-motion:reduce){.rv-card,.rv-fan .face.rv-f,.rv-board,.rv-stamp{transition:none}.rv-card:hover{translate:none}.rv-deck:hover .rv-f1{transform:translateY(11px)}.rv-deck:hover .rv-f2{transform:translate(12px,15px) rotate(4deg)}.rv-deck:hover .rv-f3{transform:translate(-14px,17px) rotate(-6deg)}.rv-quiz:hover .rv-board{transform:none;rotate:-3deg}.rv-quiz:hover .rv-stamp{transform:none}}
 html[data-motion="static"] .rv-card,html[data-motion="static"] .rv-fan .face.rv-f,html[data-motion="static"] .rv-board,html[data-motion="static"] .rv-stamp{transition:none}
 html[data-motion="static"] .rv-card:hover{translate:none}

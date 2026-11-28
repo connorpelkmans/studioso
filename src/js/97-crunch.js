@@ -609,14 +609,14 @@ function previewHtml(ws, moves){
 function moveText(m){
   const slots = (m.slots || []).map(s => parse(s.date).toLocaleDateString(undefined, {weekday: "short", month: "short", day: "numeric"})).join(", ");
   const h = m.slots && m.slots.length ? m.slots[0].hours : 0;
-  return (m.mode === "start" ? `Start ${fmtShort(m.to)} (the school's due date stays)` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
+  return (m.mode === "start" ? `Start ${fmtShort(m.to)}; the due date stays` : `Due ${fmtShort(m.from)} → ${fmtShort(m.to)}`) + (slots ? `. Work on it ${slots}${h ? `, about ${fmtHM(h)} each` : ""}` : "");
 }
 function itemHtml(it, ws, mv, today){
   const t = state.tasks[it.id]; if (!t) return "";
   const c = t.courseId && courseOf(t.courseId), dl = dayDiff(today, t.due);
   const prep = it.kind === "prep";
   const left = it.hours > 0 ? `about ${fmtHM(it.hours)} of work${it.est ? "" : " (typical estimate)"}` : "";
-  const bits = [c ? courseLabel(c) : "", `due ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
+  const bits = [c ? courseLabel(c) : "", `${MILESTONE(t.type) ? "on" : "due"} ${fmtDate(t.due)}${dl > 0 ? ` (${dl === 1 ? "tomorrow" : "in " + dl + " days"})` : dl === 0 ? " (today)" : " (overdue)"}`, left, (sw => sw ? `${sw.est ? "about " : ""}${Math.round(sw.w * 10) / 10}% of grade` : "")(shownWeight(t)), t.status === "doing" ? "in progress" : ""].filter(Boolean);
   const canStart = dl >= 0 && canDoNow(t);
   // an upcoming exam or quiz: open its Exam Prep planner from here (like the task sheet's button)
   const prepBtn = MILESTONE(t.type) && dl > 0 && t.status !== "done" ? (ps => `<button type="button" class="btn small" data-act="exam-plan" data-id="${esc(t.id)}">${ps.length ? `Prep Plan (${ps.filter(x => x.status === "done").length}/${ps.length})` : "Plan My Prep"}</button>`)(planSessions(t.id)) : "";
@@ -646,7 +646,7 @@ function showSheet(){
     const pv = SH.pv && SH.pv.length ? SH.pv : null, n = sug.moves.length;
     const bI = C.LEVELS.indexOf(sug.before.level), aI = C.LEVELS.indexOf(sug.after.level);
     box = `<div class="cr-box cr3-box${SH.focus ? " focus" : ""}" id="crSug"><div class="cr3-bh"><h3>Ease This Week</h3><span class="cr3-chg"><span class="cr-pill lv${bI}">${esc(LV_WORD[bI])}</span><span aria-hidden="true">→</span><span class="cr-pill lv${aI}">${esc(LV_WORD[aI])}</span></span></div>
-      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}. Due dates from your school stay as they are.</p>
+      <p class="mini" style="margin:0">${n === 1 ? "Start one task earlier" : `Start ${n} tasks earlier`}${aI === bI ? " to make this week a little lighter" : ""}. Due dates stay as they are.</p>
       <ul class="cr3-moves">${sug.moves.map(x => { const t = state.tasks[x.id]; return `<li style="--c:${esc(colorOf(t && t.courseId))}"><b>${esc(x.title)}</b><span class="mini">${esc(moveText(x))}</span></li>`; }).join("")}</ul>
       ${pv ? previewHtml(ws, pv) : ""}
       <div class="cr-acts">${pv ? `<button type="button" class="btn primary" data-act="cr-apply" data-ws="${ws}">Confirm${n > 1 ? ` ${n} Moves` : ""}</button><button type="button" class="btn" data-act="cr-cancel" data-ws="${ws}">Cancel</button>` : `<button type="button" class="btn primary" data-act="cr-preview" data-ws="${ws}" ${SH.focus ? "autofocus" : ""}>Preview the Change</button><button type="button" class="btn" data-act="cr-apply" data-ws="${ws}">Move ${n === 1 ? "It" : `All ${n}`} Now</button>`}</div></div>`;

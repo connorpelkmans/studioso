@@ -1261,7 +1261,9 @@ const ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke
 const WRITING = /\b(essay|paper|report|presentation|thesis|dissertation|draft|write[- ]?up|reflection|proposal|review|portfolio|speech|article|memo|brief|research|annotated|bibliography|literature)\b/i;
 // a paper that already has something in Writing Studio: sources, quotes or a saved draft
 const hasData = t => !!(t && t.ws && typeof t.ws === "object" && ((Array.isArray(t.ws.src) && t.ws.src.length) || (Array.isArray(t.ws.q) && t.ws.q.length) || (t.ws.draft && t.ws.draft.t)));
-const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && (["Assignment", "Project", "Lab"].includes(t.type) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
+// a problem set, worksheet or homework is an Assignment with nothing to write a paper for, unless its title says there's writing
+const NOT_WRITING = /\b(homework|hw\s*\d*|problem\s*sets?|psets?|p-?sets?|worksheets?|exercises?|problems?|quiz(z?es)?|practice)\b/i;
+const eligible = t => !!t && !t.prepFor && !t.breakdownOf && (hasData(t) || (t.status !== "done" && ((["Assignment", "Project", "Lab"].includes(t.type) && !(NOT_WRITING.test(String(t.title || "")) && !WRITING.test(String(t.title || "")))) || (t.type === "Other" && WRITING.test(String(t.title || ""))))));
 // The draft kept on the paper (t.ws.draft): its text (capped), where it came from and when; and the last check (t.ws.chk): when, on which version of
 // the draft, and what it found (the issues' titles, so the next check can say what changed)
 const MAX_SRC = 150, MAX_Q = 300, MAX_SEC = 30, MAX_DRAFT = 60000;
