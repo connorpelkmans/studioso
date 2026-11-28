@@ -83312,7 +83312,8 @@ Examples:
     const dueOf = d => (d.cards || []).filter(c => c.due && c.due <= today).length, newOf = d => (d.cards || []).filter(c => !c.due && !c.seen).length;
     const named = () => { let best = null, bs = 0; all.forEach(d => { const ws = (String(d.name).toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(x => !/^(deck|cards|flashcards|terms|set|nursing|study)$/.test(x)); const s = ws.filter(x => new RegExp(`\\b${x.replace(/&/g, "\\&")}`).test(w)).length; if (s > bs) { bs = s; best = d; } }); return best; };
     // how to, not a deck called "How Do I"
-    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start|delete|rename|share)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\bfor me\b/.test(w))
+    // (sharing, renaming or deleting a deck is the app guide's to answer: they got these steps for making one)
+    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\b(share|sharing|send|rename|delete|remove)\b/.test(w) && !/\bfor me\b/.test(w))
       return deckSay("Open Flashcards and tap New Deck, give it a name, then add cards (a question on the front, the answer on the back). Or just ask me: \"make flashcards from my cardiac note\", or \"make a deck called Pharm\".");
     // studying cards they have ("lets do psych cards", "time to review the heart deck", "lets do a card"): that deck opens to study,
     // never a new deck named after the words (round 7 made "Lets Do A Card" and a new Freud deck)

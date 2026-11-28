@@ -198,10 +198,10 @@ function reply(body){
   await S(() => SBCOMPTAB.open("move my essay to march 14 and make it high priority"));
   // (March 14 from the words: the next one to come)
   const mar14 = () => /^\d{4}-03-14$/.test(state.tasks.t1.due) && new Date(state.tasks.t1.due + "T23:59:59") > new Date() && state.tasks.t1.priority === "high";
-  await page.waitForFunction(`(() => { const state = window.__sbApp.state; return (${mar14})(); })()`, null, {timeout: 15000}).catch(() => {});
+  await page.waitForFunction(() => { const t = window.__sbApp.state.tasks.t1; return /-03-14$/.test(t.due) && t.priority === "high"; }, null, {timeout: 15000}).catch(() => {});
   ok(await S(mar14), "two changes in one message from the Companion tab are both made: " + await S(() => state.tasks.t1.due + " " + state.tasks.t1.priority));
   await S(() => SBCOMPTAB.open("put a cell quiz in for bio on april 2 at 9:30"));
-  await page.waitForFunction(() => Object.values(state.tasks).some(t => t.title === "Cell quiz"), null, {timeout: 15000}).catch(() => {});
+  await page.waitForFunction(() => Object.values(window.__sbApp.state.tasks).some(t => t.title === "Cell quiz"), null, {timeout: 15000}).catch(() => {});
   ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1" && /-04-02$/.test(t.due) && t.time === "09:30")), "the Companion tab adds tasks, to the right course and day");
 
   // The Companion tab answers far more kinds of questions from the student's data, the app and their materials
@@ -234,7 +234,8 @@ function reply(body){
   await chatQ("answer this the third time");
   await page.waitForFunction(() => /Third time lucky/.test(document.body.innerText), null, {timeout: 15000}).catch(() => {});
   ok(await page.evaluate(() => /Third time lucky/.test(document.body.innerText)), "if two tries come back broken, a third, free reply gives the real answer");
-  await chatQ("always broken: what do I know about mitochondria");
+  // (a real question: "always broken: ..." first reads as talk, which gets no search of their notes)
+  await chatQ("what do I know about mitochondria, always broken");
   await page.waitForFunction(() => /here's what I found in your Studyboard/.test(document.body.innerText), null, {timeout: 20000}).catch(() => {});
   ok(await page.evaluate(() => { const a = [...document.querySelectorAll(".cpt-a")].pop(); return !!a && /here's what I found in your Studyboard/.test(a.innerText) && /Mitochondria/i.test(a.innerText) && !/^\s*string\b/.test(a.innerText); }), "if the AI never gives a real answer, the student still gets one, made from their own data");
   await chatQ("server down: when is my lab report due");
@@ -251,7 +252,7 @@ function reply(body){
   if (await page.evaluate(() => window.SBCOMP && SBCOMP.askAvailable && SBCOMP.askAvailable())) {
     await page.waitForTimeout(8500);   // Ask keeps 8 seconds between questions
     await page.evaluate(() => SBCOMP.askOpen()); await page.waitForSelector(".cp-ask-in", {timeout: 8000});
-    ok(/find or change anything/.test(await page.getAttribute(".cp-ask-in", "placeholder")), "the bubble's Ask says it can find or change anything");
+    ok(/^Ask .+ anything$/.test(await page.getAttribute(".cp-ask-in", "placeholder")), "the bubble's Ask invites any question: " + await page.getAttribute(".cp-ask-in", "placeholder"));
     await page.fill(".cp-ask-in", "where's my powerhouse note"); await page.press(".cp-ask-in", "Enter");
     await page.waitForFunction(() => window.__sbApp.ui.tab === "notes", null, {timeout: 15000});
     const said = await page.waitForFunction(() => /Mitochondria note/.test((document.querySelector(".cp-bubble") || {}).innerText || ""), null, {timeout: 8000}).then(() => true, () => false);
