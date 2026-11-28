@@ -6,7 +6,7 @@
    2. The update switch. A version older than "min", or listed in "bad", pauses syncing (changes stay on the device, in the outbox,
       and sync after the update) and asks to update; older than "nudge" gets a gentle, dismissible "An update is ready".
    3. Invite rewards. Your invite links carry your code (?ref=); a new account that opens one records who invited it. 3 friends who
-      join and come back on another day = a month of Pro's features (no Studyboard AI, the free plan's storage), up to 6 a year.
+      join and come back on another day = a month of Pro's features (no Studyboard AI Pro, the free plan's storage), up to 6 a year.
    4. What's New: after an update, one short card of the 2 or 3 biggest changes, once, when the student isn't busy. */
 (() => {
   const DAY_KEY = "studyboard:checkinDay", POL_KEY = "studyboard:versionPolicy", REF_KEY = "studyboard:ref", MYREF_KEY = "studyboard:myRef",
@@ -177,7 +177,7 @@
         ${waiting ? `<li>${plural(waiting, "friend")} joined and ${waiting === 1 ? "counts" : "count"} once they come back on another day.</li>` : ""}
         ${months ? `<li>You've earned ${plural(months, "free month")} so far${until && until > new Date() ? `. Pro is on until ${esc(until.toLocaleDateString(undefined, {month: "long", day: "numeric"}))}` : ""}.</li>` : ""}
         ${capped ? `<li>You've reached the most free months for this year (${Number(d.cap) || 6}). Thanks for sharing so much!</li>` : ""}
-        <li class="mini">The free month has Pro's themes and features. Studyboard AI and extra storage aren't included. Friends need their own account, made on their own device, and need to really use Studyboard.</li>
+        <li class="mini">The free month has Pro's themes and features. Studyboard AI Pro and extra storage aren't included. Friends need their own account, made on their own device, and need to really use Studyboard.</li>
       </ul>
       <label class="f"><span class="lbl">Your Link</span><input id="invLink" readonly value="${esc(link)}"></label>`;
     const foot = document.createElement("div"); foot.className = "sheet-foot";

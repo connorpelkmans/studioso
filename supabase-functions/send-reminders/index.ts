@@ -186,8 +186,10 @@ export function nativeSender(d: NativeDeps) {
     if (!project) return "skip";
     try {
       const token = await fcmAccess(acc);
-      const body = { message: { token: s.endpoint.slice(4), notification: { title: m.title, body: m.body },
-        data: { taskId: m.taskId, rid: m.rid, url: m.url, tok: m.tok, api: m.api, k: m.k },
+      // A data message: the Android app draws the reminder itself, with Mark Done and Snooze 1 Hour (android-wrapper/.../notify/
+      // StudyboardMessagingService.kt); a "notification" block would make Android draw it without the buttons
+      const body = { message: { token: s.endpoint.slice(4),
+        data: { sbRem: "1", title: m.title, body: m.body, taskId: m.taskId, rid: m.rid, url: m.url, tok: m.tok, api: m.api, k: m.k },
         android: { priority: "HIGH", ttl: "21600s" } } };
       const r = await d.fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(project)}/messages:send`, {
         method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -207,7 +209,9 @@ export function nativeSender(d: NativeDeps) {
     const hosts = s.apns_env === "sandbox" ? ["api.sandbox.push.apple.com"] : s.apns_env === "production" ? ["api.push.apple.com"] : ["api.push.apple.com", "api.sandbox.push.apple.com"];
     try {
       const jwt = await apnsToken();
-      const payload = JSON.stringify({ aps: { alert: { title: m.title, body: m.body }, sound: "default" }, taskId: m.taskId, rid: m.rid, url: m.url, tok: m.tok, api: m.api, k: m.k });
+      // category: the buttons iOS (and a paired Apple Watch) shows, registered by the app (ios-wrapper/native/Notifications):
+      // Mark Done and Snooze 1 Hour for a task, Snooze 1 Hour for anything else
+      const payload = JSON.stringify({ aps: { alert: { title: m.title, body: m.body }, sound: "default", category: m.taskId ? "SB_REMINDER_TASK" : "SB_REMINDER" }, taskId: m.taskId, rid: m.rid, url: m.url, tok: m.tok, api: m.api, k: m.k });
       for (let i = 0; i < hosts.length; i++) {
         const r = await d.fetch(`https://${hosts[i]}/3/device/${dev}`, { method: "POST", body: payload, headers: {
           authorization: "bearer " + jwt, "apns-topic": d.env("APNS_TOPIC") || "com.studyboardapp.studyboard", "apns-push-type": "alert", "apns-priority": "10",

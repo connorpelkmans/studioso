@@ -91,6 +91,20 @@ const WIDGET_ONLY = ["StudyboardWidgets.swift", "StudyboardHomeWidgets.swift"], 
   }
 }
 
+// Schools that sign in with Google: the Safari extension built into the app (extension/src, built as safari-inapp) and its
+// Swift files (ios-wrapper/native/SchoolSafari), put in the Xcode project (scripts/ios-school-safari.js)
+{
+  try {
+    execFileSync(process.execPath, [path.join(root, "scripts", "build-extension.js")], {cwd: root, stdio: "ignore"});
+    const extDest = path.join(wrap, "ios-safari-extension");
+    fs.rmSync(extDest, {recursive: true, force: true});
+    fs.cpSync(path.join(root, "extension", "build", "safari-inapp"), extDest, {recursive: true});
+    console.log("ios-stage: staged ios-wrapper/ios-safari-extension/ (the Safari extension in the app)");
+  } catch (e) { console.log("ios-stage: couldn't build the Safari extension for the app (" + e.message + "). Run node scripts/build-extension.js to see why."); }
+  try { if (fs.existsSync(path.join(wrap, "ios", "App", "App.xcodeproj"))) require("./ios-school-safari").setupSchoolSafari(wrap, m => console.log("ios-stage: school sign-in: " + m)); }
+  catch (e) { console.log("ios-stage: school sign-in: couldn't update the Xcode project (" + e.message + "). If the app doesn't build, add ios-wrapper/native/SchoolSafari/SBSchoolHandoff.swift to the App target in Xcode."); }
+}
+
 // The iPhone app's version (App Store "Version", CFBundleShortVersionString) is "iosVersion" in package.json. Set on every target
 // in the Xcode project (app, widget, share extension: Apple wants them the same), so a Run from Xcode shows it too.
 {
@@ -280,7 +294,7 @@ if (fs.existsSync(path.join(wrap, "ios")) && fs.existsSync(cli)) {
   try {
     const cfg = path.join(wrap, "ios", "App", "App", "capacitor.config.json"), pbx = path.join(wrap, "ios", "App", "App.xcodeproj", "project.pbxproj");
     const txt = fs.existsSync(pbx) ? fs.readFileSync(pbx, "utf8") : "";
-    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardHomeWidgetsPlugin.swift", "StudyboardHomeWidgetsPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"], ["MainViewController.swift", "StudyboardHapticsPlugin"], ["StudyboardOnDeviceAI.swift", "StudyboardOnDeviceAIPlugin"]]
+    const ours = [["StudyboardFocusActivityPlugin.swift", "StudyboardFocusActivityPlugin"], ["StudyboardHomeWidgetsPlugin.swift", "StudyboardHomeWidgetsPlugin"], ["StudyboardLms.swift", "StudyboardLmsPlugin"], ["StudyboardPlugins.swift", "StudyboardCaptureTokenPlugin"], ["StudyboardPlugins.swift", "StudyboardSharedQueuePlugin"], ["StudyboardPlugins.swift", "StudyboardSiriDataPlugin"], ["MainViewController.swift", "StudyboardSignInPlugin"], ["MainViewController.swift", "StudyboardStorePlugin"], ["MainViewController.swift", "StudyboardHapticsPlugin"], ["StudyboardOnDeviceAI.swift", "StudyboardOnDeviceAIPlugin"], ["StudyboardFocusGuardPlugin.swift", "StudyboardFocusGuardPlugin"], ["StudyboardNotifActions.swift", "StudyboardNotifActionsPlugin"]]
       .filter(([f]) => txt.includes(f)).map(([, c]) => c);
     if (ours.length && fs.existsSync(cfg)) {
       const j = JSON.parse(fs.readFileSync(cfg, "utf8")); const list = Array.isArray(j.packageClassList) ? j.packageClassList : [];

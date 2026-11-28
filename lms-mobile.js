@@ -105,11 +105,38 @@ function cleanFile(r) {
       skip: Array.isArray(o.skip) ? o.skip.map(String).filter(idOk).slice(0, 200) : [] };
     remember(id, origin);
     busy[id] = (async function () {
-      try { return cleanHarvest(await runPage(id, origin, fill(S.harvest[id], safe), 150000), origin); }
+      try {
+        var r = cleanHarvest(await runPage(id, origin, fill(S.harvest[id], safe), 150000), origin);
+        // the app's own sign-in ran out (or the read failed): what Studyboard's Safari extension last read there, if it's recent
+        // (schools that sign in with Google; ios-wrapper/native/SchoolSafari)
+        if (r && (r.needLogin || r.error)) { var x = await fromSafari(id, origin); if (x) return x; }
+        return r;
+      }
       catch (e) { return { error: String((e && e.message) || e).slice(0, 200) }; }
       finally { busy[id] = null; }
     })();
     return busy[id];
+  }
+  var SAFARI_FRESH = 12 * 3600000;
+  async function fromSafari(id, origin) {
+    var x = await call("safariResult", { id: id, origin: origin, url: origin + S.providers[id].ctx });
+    var at = Number(x.at);
+    if (typeof x.json !== "string" || !(at > Date.now() - SAFARI_FRESH) || at > Date.now() + 600000) return null;
+    try { var c = cleanHarvest(JSON.parse(x.json), origin); return c && c.ok ? c : null; } catch (e) { return null; }
+  }
+  // The sign-in as the app's background check last found it (the page's keepAlive asks); null when the app doesn't know
+  async function ping(id, host) {
+    var origin = originOf(host);
+    if (!S.providers[id] || !origin) return null;
+    var r = await call("status", { id: id, origin: origin });
+    return r.needLogin === true ? { needLogin: true } : r.ok === true ? { ok: true } : null;
+  }
+  // The student's choices for this site: background checks (Sync Automatically) and notifications about them
+  async function prefs(id, p) {
+    if (!S.providers[id]) return false;
+    var o = p && typeof p === "object" ? p : {};
+    var r = await call("prefs", { id: id, auto: o.auto !== false, alerts: o.alerts !== false });
+    return !r.error;
   }
   async function connect(id, host) {
     var origin = originOf(host);
@@ -171,5 +198,5 @@ function cleanFile(r) {
     return !r.error;
   }
   // No `feed`: calendar links on a phone go through Studyboard's server
-  window.studiosoLms = { mobile: true, connect: connect, sync: sync, file: file, mail: mail, signOut: signOut };
+  window.studiosoLms = { mobile: true, connect: connect, sync: sync, file: file, mail: mail, signOut: signOut, ping: ping, prefs: prefs };
 })();

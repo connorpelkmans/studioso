@@ -118,7 +118,7 @@ window.SBFACTS = (() => {
   function teacher(s){
     if (!/\b(who teaches|who'?s teaching|instructor|professor|prof\b|teacher|lecturer|who is my|who'?s my)\b/.test(s)) return null;
     const c = courseIn(s); if (!c) return null;
-    return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
+    return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. Who teaches it? Say "it's Prof. ..." and I'll add it.`, show: []};
   }
   // "what's on today", "what's happening this week": classes, events and what's due, by day
   function agenda(s, today){
@@ -137,7 +137,7 @@ window.SBFACTS = (() => {
     if (c && /\bwhere\b/.test(s) && !CQ.test(s)) s = s + " class";
     if (!CQ.test(s) || /\b(add|create|make|move|change|cancel|skip|delete|remove|reschedule)\b/.test(s)) return null;
     // who teaches it, where it meets, office hours
-    if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. You can add one in the course.`, show: []};
+    if (c && /\b(who|teach|teaches|instructor|professor|prof|teacher|lecturer)\b/.test(s)) return {answer: c.instructor ? `${label(c)} is taught by ${c.instructor}.` : `${label(c)} doesn't list an instructor yet. Who teaches it? Say "it's Prof. ..." and I'll add it.`, show: []};
     if (c && /\boffice hours?\b/.test(s)) { const ms = courseMeetings(c).filter(m => /office/i.test(m.kind)); return {answer: ms.length ? `${label(c)} office hours: ${ms.map(m => `${m.days ? m.days.map(d => Wd(addDays("2026-01-04", d)).slice(0, 3)).join("/") + " " : ""}${tm(m.start)}–${tm(m.end)}${m.where ? " in " + m.where : ""}`).join("; ")}.` : c.office ? `${label(c)} office hours: ${c.office}.` : `${label(c)} doesn't list office hours yet.`, show: []}; }
     if (/\bwhen do i have (a |my )?(class|lecture|lab)s?\b|\bwhat time is (my )?(class|lecture|lab)\b|\bnext (class|lecture|lab)\b|\b(class|lecture|lab) next\b|\bwhen is my next\b|\bwhat time is my (class|lecture|lab)\b|\bwhere is my (class|lecture|lab)\b/.test(s) || (c && /\b(when|where|what time)\b/.test(s) && /\b(class|lecture|lab|seminar|meet)\b/.test(s))) {
       const kind = (s.match(/\b(lab|lecture|tutorial|seminar|discussion|recitation)\b/) || [])[1];

@@ -67,7 +67,8 @@ function SEED(){
     const line = (await page.locator(".pro-ins-card p").textContent()).trim();
     ok(line.length > 20 && !/Not much to go on/.test(line), "the insight says something real: " + line);
     await page.click('.pro-ins-card [data-act="pro-ins-open"]'); await page.waitForTimeout(400);
-    ok(await page.locator(".pro-ins-body .pro-card").count() === 4, "Insights has its four sections");
+    ok(await page.locator(".pro-ins-body .pro-card:not(.hm-card)").count() === 4, "Insights has its four sections");
+    ok(await page.locator(".pro-ins-body .pro-card.hm-card").count() === 1, "plus the free Study Heatmap (this planner has focus and card history)");
     ok(/CALC2/.test(await page.locator(".pro-ins-body").textContent()), "study time names the courses");
     ok(await page.locator(".pro-heat .ph-c").count() === 28, "the focus heat grid has 4 parts of the day × 7 days");
     ok(/longest sessions are in the afternoon/i.test(await page.locator(".pro-ins-body").textContent()), "best focus time is the afternoon");
@@ -178,7 +179,8 @@ function SEED(){
     ok(await p3.locator('.wkr-sheet [data-act="pro-ins-open"] .pro-badge').count() === 1, "free: Weekly Review has See All Insights with a PRO badge");
     if (await p3.locator(".wkr-sheet .pro-ins-card").count()) ok(((await p3.textContent(".wkr-sheet .pro-ins-card p")) || "").trim().length > 10, "free: this week's one-line insight, from the student's own planner, is free");
     await p3.click('.wkr-sheet [data-act="pro-ins-open"]'); await p3.waitForTimeout(400);
-    ok(await p3.locator(".pro-ins-body").count() === 1 && await p3.locator(".pro-ins-body .pro-card:not(.pro-lockcard)").count() === 1 && await p3.locator(".pro-ins-body .pro-lockcard").count() === 3, "free: Insights opens as a preview: the first card real, the other three say what Pro shows");
+    ok(await p3.locator(".pro-ins-body").count() === 1 && await p3.locator(".pro-ins-body .pro-card:not(.pro-lockcard):not(.hm-card)").count() === 1 && await p3.locator(".pro-ins-body .pro-lockcard").count() === 3, "free: Insights opens as a preview: the first card real, the other three say what Pro shows");
+    ok(await p3.locator(".pro-ins-body .hm-card").count() === 1 && await p3.locator(".pro-ins-body .hm-card .pro-badge").count() === 0, "free: the Study Heatmap is free, with no PRO badge");
     await noOverflow(p3, "in the Insights preview");
     await p3.click('.pro-ins-body [data-act="pro-ins-pro"]'); await p3.waitForTimeout(400);
     ok(await p3.locator(".plan-sheet").count() === 1 && /Insights are part of Studyboard Pro/.test(await p3.textContent(".plan-sheet")), "free: See Every Insight With Pro opens the Pro sheet with the reason");

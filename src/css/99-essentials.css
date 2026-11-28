@@ -1,0 +1,31 @@
+/* ===== module: 99-essentials.css ===== */
+/* Essentials (99-essentials.js): the tabs that wait, the More button, its sheet and the Exam Prep card */
+html[data-ess="on"] nav.tabs .in [data-tab].ess-hide{display:none!important}
+html[data-ess="on"] nav.tabs .nav-foot :is(.calc-btn,.style-btn){display:none!important}
+nav.tabs .in .ess-more{position:relative}
+html:not([data-ess="on"]) nav.tabs .in .ess-more,nav.tabs .in .ess-more[hidden]{display:none!important}
+@media (max-width:979px){nav.tabs .in .ess-more{order:8}}
+/* phones: the companion keeps its seat in the bottom bar in Essentials too (it's the bar's centre); only desktop moves it under More */
+@media (max-width:639px){html[data-ess="on"] nav.tabs .in [data-tab="companion"].ess-hide{display:flex!important}}
+/* a tab that just came back to the menu: a small dot until it's opened */
+nav.tabs .in .ess-new{position:relative}
+nav.tabs .in .ess-new::before{content:"";position:absolute;top:6px;right:calc(50% - 20px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--spine,var(--surface));pointer-events:none}
+
+/* More */
+.ess-sheet .ess-lead{margin:0 0 8px;color:var(--muted);font-size:.92rem;line-height:1.45}
+.ess-sheet .menu-list button{min-height:60px;padding:10px 4px}
+.ess-sheet .menu-list button .ess-ic{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));color:var(--accent)}
+.ess-sheet .ess-ic svg{width:22px;height:22px;display:block}
+.ess-sheet .menu-list button .ess-tx{font-weight:600}
+.ess-sheet .ess-all{display:grid;gap:6px;justify-items:start;margin-top:16px}
+.ess-sheet .ess-all .btn{min-height:44px}
+.ess-sheet .ess-all .mini{color:var(--muted);line-height:1.4}
+
+/* Exam Prep, introduced once */
+.ess-card{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:8px;padding:10px 10px 10px 14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line))}
+.ess-card-ic{display:grid;place-items:center;color:var(--accent)}
+.ess-card-t{flex:1 1 220px;margin:0;font-size:.92rem;line-height:1.4}
+.ess-card-acts{display:flex;align-items:center;gap:6px;margin-left:auto}
+.ess-card-acts .btn{min-height:40px}
+.ess-card-acts .ess-card-x{width:40px;height:40px}
+@media (max-width:639px){.ess-card{border-radius:18px;background:var(--surface);border-color:var(--line);box-shadow:0 2px 8px rgba(14,42,86,.07)}.ess-card-ic{align-self:flex-start;padding-top:2px}.ess-card-t{flex-basis:calc(100% - 40px)}}

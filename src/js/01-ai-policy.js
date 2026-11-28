@@ -1,7 +1,7 @@
-/* ===== module: 01-ai-policy.js: the app's core, Studyboard AI's rules ===== */
-/* Studyboard AI's rules: one copy, used in two places.
-   - cloudflare/ai-pro (the Worker that runs Studyboard AI for paid Pro students) imports this file.
-   - The app uses it when a student runs their own Claude key in Studyboard AI mode (Settings, AI Features).
+/* ===== module: 01-ai-policy.js: the app's core, Studyboard AI Pro's rules ===== */
+/* Studyboard AI Pro's rules: one copy, used in two places.
+   - cloudflare/ai-pro (the Worker that runs Studyboard AI Pro for paid Pro students) imports this file.
+   - The app uses it when a student runs their own Claude key in Studyboard AI Pro mode (Settings, AI Features).
    So both pick the same model, the same thinking for each job, the same output caps, the same prices and the same limits.
    Plain script, no imports: it works in the app's bundle and as a module the Worker imports (both read globalThis.SBPOLICY). */
 const SBPOLICY = (() => {
@@ -36,6 +36,10 @@ const SBPOLICY = (() => {
     transcript: {effort: "medium", out: 16000, routine: true}, groupplan: {effort: "medium", out: 6000, routine: true},
     // The companion's Ask: answers, finds things in the app and proposes changes the student confirms
     assist: {effort: "medium", out: 6000, routine: true},
+    // The Companion tab with Claude: one step that reads the message against the whole planner, answers it and says what to change
+    // (the app checks and makes each change). Medium thinking, as for the chat: at low it scheduled study after a due date and answered
+    // "ask me what happens in systole" itself
+    agent: {effort: "medium", out: 8000, routine: true},
     // The automatic plan: medium, to match what free Gemini users get today (it drops to low past the soft limit)
     plan: {effort: "medium", out: 6000, routine: true},
     // Routine: ranks and words what the app has already worked out
@@ -238,6 +242,12 @@ const SBPOLICY = (() => {
     return Math.max(1, m ? m.length : 1);
   }
 
+  // Optional fields in a shape, nested ones included (those make structured outputs slow to compile)
+  const OPT_MAX = 8;
+  function optionalCount(s){ if (!s || typeof s !== "object") return 0; let n = 0;
+    if (s.properties) { const req = new Set(s.required || []); for (const [k, v] of Object.entries(s.properties)) { if (!req.has(k)) n++; n += optionalCount(v); } }
+    if (s.items) n += optionalCount(s.items);
+    return n; }
   // The request sent to Anthropic. Only this builds it, from the choices above.
   function buildRequest({system, blocks, schema, task, cacheMedia, web}){
     let sys = String(system || "").trim();
@@ -251,7 +261,11 @@ const SBPOLICY = (() => {
     if (cacheMedia) { const c = req.messages[0].content; let last = -1; c.forEach((b, i) => { if (b.type !== "text") last = i; }); if (last >= 0) c[last] = Object.assign({}, c[last], {cache_control: {type: "ephemeral"}}); }
     if (task.effort === "none") { req.thinking = {type: "disabled"}; req.output_config = {effort: "low"}; }
     else { req.thinking = {type: "adaptive"}; req.output_config = {effort: task.effort}; }
-    if (schema) req.output_config.format = {type: "json_schema", schema};
+    // A shape with many optional fields (the chat's intent: about 30) is described in the instructions instead of enforced:
+    // structured outputs compile each shape first, and compiling that one took about 3 minutes a request (an 11-token answer
+    // came back after 181 seconds). Shapes with few optional fields (cards, quiz questions) stay enforced. readAnswer reads both.
+    if (schema && optionalCount(schema) > OPT_MAX) { req.system = [{type: "text", text: `${sys}\n\nReply with one JSON object only, no other text. It must match this JSON Schema:\n${JSON.stringify(schema)}`.trim()}]; if (req.system[0].text.length >= 2000) req.system[0].cache_control = {type: "ephemeral"}; else req.system = req.system[0].text; }
+    else if (schema) req.output_config.format = {type: "json_schema", schema};
     if (web && (web.search || web.fetch)) {
       req.tools = [];
       if (web.search) req.tools.push({type: "web_search_20250305", name: "web_search", max_uses: WEB.searchUses});
@@ -357,10 +371,13 @@ const SBPOLICY = (() => {
     const msg = await work, after = await view(), done = r => Object.assign(r, {spent});
     if (msg.error) { const s = msg.error && msg.error.status; return done({status: s === 400 ? 400 : s === 401 || s === 403 ? 401 : 503, body: Object.assign({error: s === 429 || s === 529 || (s >= 500 && s < 600) ? "busy" : s === 400 ? "bad" : s === 401 || s === 403 ? "key" : "ai_failed"}, after)}); }
     if (msg.stop_reason === "refusal") return done({status: 422, body: Object.assign({error: "refused"}, after)});
-    const data = readAnswer(msg);
+    let data = readAnswer(msg);
+    // a reply in plain words where an answer shape was asked for ({answer, ...}): those words are the answer (Claude now and then
+    // writes the reply itself instead of the JSON around it, and it was thrown away as a failure)
+    if (!data && schema && schema.properties && schema.properties.answer && msg.stop_reason !== "max_tokens") { const t = ((msg && msg.content) || []).filter(b => b && b.type === "text").map(b => b.text || "").join("").trim(); if (t && !/^\s*[{[]/.test(t)) data = {answer: t}; }
     if (!data) return done({status: 502, body: Object.assign({error: "ai_failed", truncated: msg.stop_reason === "max_tokens"}, after)});
     // spent: what this job really used and cost (for the owner's totals), never sent to the student
-    return done({status: 200, body: Object.assign({data, model: "Studyboard AI", truncated: msg.stop_reason === "max_tokens"}, after)});
+    return done({status: 200, body: Object.assign({data, model: "Studyboard AI Pro", truncated: msg.stop_reason === "max_tokens"}, after)});
   }
 
   return {MODEL, PRICE, LONG_PROMPT, LONG_MULT, MAX_INPUT_TOKENS, FRAME_TOKENS, MAX_SCHEMA_CHARS, MAX_BLOCKS, WEB, IMAGE_TOKENS, PDF_PAGE_TOKENS,

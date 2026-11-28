@@ -6,4 +6,16 @@
     <string name="shortcut_add_long">Add a task to Studyboard</string>
     <string name="shortcut_photo_short">Capture photo</string>
     <string name="shortcut_photo_long">Capture a photo for Studyboard</string>
+    <!-- Home-screen widgets -->
+    <string name="sbw_today_label">Today</string>
+    <string name="sbw_today_desc">Do This Next and today\'s tasks, with a tick to finish each one</string>
+    <string name="sbw_countdown_label">Countdown</string>
+    <string name="sbw_countdown_desc">Days left until your next exam or big deadline</string>
+    <string name="sbw_setup">Open Studyboard to see your day</string>
+    <string name="sbw_do_next">Do This Next</string>
+    <!-- Notifications -->
+    <string name="sbn_focus_channel">Focus timer</string>
+    <string name="sbn_focus_channel_desc">The running focus session, with Pause and Stop</string>
+    <string name="sbn_reminder_channel">Reminders</string>
+    <string name="sbn_reminder_channel_desc">Deadline reminders, with Mark Done and Snooze 1 Hour</string>
 </resources>

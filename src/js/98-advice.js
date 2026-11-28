@@ -52,6 +52,10 @@ window.SBADVICE = (() => {
   function answer(q){
     { const t = timePlan(low(q)); if (t) return t; }
     const s = low(q); if (!ADVICE.test(s)) return null;
+    // remembering one thing ("how do I remember id ego superego", "how do I remember normal heart rate") wants a memory trick for it,
+    // which the AI gives; study tips are for remembering in general
+    { const m = /\bhow (?:do|can|would|should) i (?:remember|memori[sz]e|learn)\s+(?:the\s+)?(.+?)\s*[?.!]*$/.exec(s);
+      if (m && !/^(for|things|stuff|everything|it all|what i|better|more|faster|my (notes|cards|flashcards|exam|midterm|final|quiz|test|course|class)|all|this (stuff|material|week)|course|class)\b/.test(m[1])) return null; }
     // a question about anxiety or stress as a subject ("what's the difference between anxiety and panic disorder"), not about them: answered as knowledge
     if (!/\b(i|i'm|im|i've|me|my)\b/.test(s) && /\b(disorders?|difference|what is|what's|whats|define|explain|symptoms?|treat(ment|ed)?|causes?|theory|response|hormones?)\b/.test(s)) return null;
     const today = todayISO(), c0 = courseIn(s), onlyC = c0 && /\b(grade|grades|mark|marks|pull up|raise|bring up|improve|better in|doing better|failing)\b/.test(s);

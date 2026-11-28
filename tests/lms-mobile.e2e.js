@@ -42,16 +42,21 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {brightspace: 
   await new Promise(r => server.listen(0, r)); const base = "http://localhost:" + server.address().port + "/";
   const browser = await chromium.launch({executablePath});
   const ctx = await browser.newContext({viewport: {width: 390, height: 844}}); await ctx.addInitScript(require("./consent-ok"));
-  const asked = [];
+  const asked = []; let lastHarvest = "";
   await ctx.exposeFunction("__nodeRun", async a => {
     asked.push(["run", a.id, a.origin, a.url]);
     const out = await vm.runInContext(a.script, vm.createContext({fetch: fakeFetch(BS), AbortController, setTimeout, clearTimeout, location: {origin: a.origin}, console}));
+    if (out && Array.isArray(out.courses)) lastHarvest = JSON.stringify(out);
     return {ok: true, json: JSON.stringify(out)};
   });
+  await ctx.exposeFunction("__nodeLastHarvest", async () => lastHarvest);
   await ctx.exposeFunction("__nodeSignOut", async a => { asked.push(["signOut", a.id, a.origin]); return {}; });
   await ctx.addInitScript(([seed, src]) => {
     try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); } } catch (e) {}
-    window.Capacitor = {Plugins: {StudyboardLms: {connect: async () => ({ok: true, name: "Ana"}), run: a => window.__nodeRun(a), signOut: a => window.__nodeSignOut(a)}}};
+    // (__plug: what the native side says about the sign-in, the student's choices it was given, and the Safari extension's last read)
+    window.__plug = {runLogin: false, status: {}, prefs: [], safari: {}};
+    window.Capacitor = {Plugins: {StudyboardLms: {connect: async () => ({ok: true, name: "Ana"}), run: a => window.__plug.runLogin ? Promise.resolve({needLogin: true}) : window.__nodeRun(a), signOut: a => window.__nodeSignOut(a),
+      status: async () => window.__plug.status, prefs: async a => { window.__plug.prefs.push(a); return {}; }, safariResult: async a => (a.id === "brightspace" && a.origin === "https://learn.example.edu" ? window.__plug.safari : {})}}};
     (0, eval)(src);
   }, [SEED, build()]);
   const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
@@ -67,6 +72,25 @@ const SEED = {v: 2, updated: 1, courses: [], tasks: [], settings: {brightspace: 
     const before = asked.filter(a => a[0] === "run").length;
     await page.evaluate(() => SBLMS.pickerSheet()); await page.click('dialog [data-act="lms-sync-all"]'); await page.waitForTimeout(800);
     ok(asked.filter(a => a[0] === "run").length > before && !/can't be synced from here/.test(await page.evaluate(() => (document.querySelector("#toast") || {}).innerText || "")), "Sync Now asks the plugin to read the school site again");
+    // the background check's view of the sign-in feeds the page's Sign In Again
+    ok(await page.evaluate(async () => { __plug.status = {needLogin: true}; const a = await studiosoLms.ping("brightspace", "learn.example.edu"); __plug.status = {ok: true}; const b = await studiosoLms.ping("brightspace", "learn.example.edu"); __plug.status = {}; const c = await studiosoLms.ping("brightspace", "learn.example.edu"); return a.needLogin === true && b.ok === true && c === null; }),
+      "ping reports what the app last found: signed out, fine, or not known");
+    // the notification switch, and Sync Automatically, reach the app
+    await page.evaluate(() => { const d = document.querySelector("dialog"); if (d && d.open) d.close(); SBLMS.brightspace.bsSheet(); }); await page.waitForTimeout(300);
+    ok(await page.$('dialog [data-bs-opt="phoneAlerts"]'), "the phone shows Notify Me About New Work and Grades");
+    await page.click('dialog [data-bs-opt="phoneAlerts"]'); await page.waitForTimeout(200);
+    const pr = await page.evaluate(() => __plug.prefs[__plug.prefs.length - 1]);
+    ok(pr && pr.id === "brightspace" && pr.alerts === false && pr.auto === true, "turning notifications off tells the app: " + JSON.stringify(pr));
+    // signed out in the app, but Studyboard's Safari extension read the site recently: that read is used
+    const h = await page.evaluate(() => window.__nodeLastHarvest());
+    const viaSafari = await page.evaluate(async h => { __plug.runLogin = true; __plug.safari = {at: Date.now() - 3600000, json: h}; const r = await studiosoLms.sync("brightspace", "learn.example.edu"); return {ok: !!r.ok, courses: (r.courses || []).length, login: !!r.needLogin}; }, h);
+    ok(viaSafari.ok && viaSafari.courses === 1 && !viaSafari.login, "with the app signed out, a recent read from Safari is used: " + JSON.stringify(viaSafari));
+    const stale = await page.evaluate(async h => { __plug.safari = {at: Date.now() - 13 * 3600000, json: h}; const r = await studiosoLms.sync("brightspace", "learn.example.edu"); __plug.runLogin = false; __plug.safari = {}; return !!r.needLogin; }, h);
+    ok(stale, "a read from Safari over 12 hours old isn't used: the app asks to sign in again");
+    // the app's background full sync
+    const runs0 = asked.filter(a => a[0] === "run").length;
+    ok(await page.evaluate(async () => typeof window.__sbSchoolRelog === "function" && (await window.__sbSchoolSync()) === true), "the app's background sync hook runs");
+    ok(asked.filter(a => a[0] === "run").length > runs0, "and it reads the school site like Sync Now");
     await page.evaluate(() => window.studiosoLms.signOut("brightspace")); ok(asked.some(a => a[0] === "signOut" && a[2] === "https://learn.example.edu"), "sign out reaches the plugin with the school's address");
     ok(!errs.length, "no page errors: " + errs.join(" | "));
     console.log("\nlms-mobile.e2e: " + n + " checks passed");
