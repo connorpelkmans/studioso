@@ -147,10 +147,11 @@
       <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
       answered = true;
-      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
+      // (the check that asked is told no: left waiting, it held every later check, so publishing again showed nothing)
+      if (refused() || yearsOld(iso) < 13) { if (then) then(0); closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
       call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
-        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+        .catch(e => { if (isUnder13(e)) { if (then) then(0); closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
     const form = dlg.querySelector("#ageAsk");
@@ -201,7 +202,10 @@
     if (ageCached() === "ok") return Promise.resolve(true);
     if (gateRun && gateFor === u.id) return gateRun;
     gateFor = u.id;
-    return (gateRun = new Promise(r => gate(r)));
+    // (only while it runs: kept after, an answer of "can't tell now" was never asked again, nor a birthday that went missing)
+    const run = gateRun = new Promise(r => gate(r));
+    run.then(() => { if (gateRun === run) gateRun = null; });
+    return run;
   }
   // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
   function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
