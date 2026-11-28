@@ -224,12 +224,13 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
         return (await page.textContent("#view")).replace(/\s+/g, " ");
       };
       const tab = await gradesTab();
-      ok(/Marked 1/.test(tab) && /Midterm Exam- Requires Respondus LockDown Browser No weight yet/.test(tab) && /75\.6%/.test(tab) && /isn't counted in your course grade/.test(tab), "the Grades tab lists the midterm's mark in Marked, marked No weight yet and not counted: " + tab.slice(0, 400));
+      // (with no weights in the course at all, every mark counts the same: an unweighted average, with a nudge to add the weights)
+      ok(/Marked 1/.test(tab) && /Midterm Exam- Requires Respondus LockDown Browser ?Exam, counted equally/.test(tab) && /75\.6%/.test(tab) && /Unweighted average\. Nothing in this course has a grade weight yet/.test(tab) && /Add Weights/.test(tab), "the Grades tab lists the midterm's mark in Marked, counted equally in an unweighted average until weights are added: " + tab.slice(0, 400));
       const syl = "Course Evaluation\nMidterm Exam 30%\nFinal Exam 40%\nAssignments 30%\nThe minimum passing grade is 65%.";
       const w = await page.evaluate(([h, syl]) => { h.courses[1].syl = [syl]; const L = SBLMS.brightspace, d = L.fromApi(h); L.applyPlan(d, L.plan(d), "grab", true); return Object.values(SBLMS.st().tasks).filter(t => t.courseId === "c10").map(t => [t.title, t.weight]); }, [H(), syl]);
       ok(w.some(([t, x]) => t === MID && Number(x) === 30), "the syllabus's Midterm Exam 30% goes on the quiz: " + JSON.stringify(w));
       await closeDlg(page); const tab2 = await gradesTab();
-      ok(/Where You Stand/.test(tab2) && !/No weight yet/.test(tab2) && /75\.6%/.test(tab2), "with its weight it counts in the course grade: " + tab2.slice(0, 200));
+      ok(/Where You Stand/.test(tab2) && !/counted equally|Unweighted average/.test(tab2) && /75\.6%/.test(tab2), "with its weight it counts in the course grade: " + tab2.slice(0, 200));
       // later the mark is posted to Brightspace's Grades page, with the course's own weight: that mark and weight take over
       const later = await page.evaluate(([h, syl, m]) => { h.courses[1].syl = [syl]; h.courses[1].quizzes[0].gid = "55";
         h.courses[1].grades = [{gid: "55", name: m, type: 1, num: 36, den: 45, wnum: 20, wden: 25, shown: "80 %"}];
@@ -321,7 +322,7 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       const nw = await page.evaluate(() => window.SBGRADES_NEW.list().map(t => t.title));
       ok(JSON.stringify(nw) === JSON.stringify(["Perfusion"]), "the next sync's new mark is flagged: " + JSON.stringify(nw));
       await page.waitForTimeout(300);
-      const navDot = await page.evaluate(() => (document.querySelector('nav.tabs [data-tab="courses"] > .nm-dot') || {}).textContent || "");
+      const navDot = await page.evaluate(() => (document.querySelector('nav.tabs [data-tab="courses"] > .fc-navdue') || {}).textContent || "");
       ok(navDot === "1", "the Courses tab has a red 1: " + navDot);
       await page.click('nav.tabs [data-tab="courses"]'); await page.waitForTimeout(250);
       await page.evaluate(() => { const b = document.querySelector('[data-act="cf-view"][data-id="courses"]'); if (b) b.click(); }); await page.waitForTimeout(250);
@@ -330,13 +331,13 @@ const bsTask = (id, title, cid, ou, extra) => Object.assign({id, created: 1, tit
       const other = await page.evaluate(() => !!document.querySelector('.course-card[data-id="c20"] > .nm-card'));
       ok(grSw === "1" && card === "1" && !other, "the Grades switch and BSNC 1020's card have a red 1, BSNC 1030's none: " + JSON.stringify({grSw, card, other}));
       await page.click('.cf-tabs [data-id="grades"]'); await page.waitForTimeout(250);
-      ok(await page.evaluate(() => ((document.querySelector('.gp-main[data-id="c10"] > .nm-card') || {}).textContent || "") === "1"), "on Grades, BSNC 1020's row has a red 1");
+      ok(await page.evaluate(() => ((document.querySelector('.gp-main[data-id="c10"] .nm-ringpip') || {}).textContent || "") === "1"), "on Grades, BSNC 1020's row has a red 1");
       await page.click('.gp-main[data-id="c10"]'); await page.waitForTimeout(300);
       const tabPip = await page.evaluate(() => (document.querySelector('[data-act="course-tab"][data-id="grades"] > .nm-pip') || {}).textContent || "");
       const rowDot = await page.evaluate(() => [...document.querySelectorAll(".gr-work li")].filter(li => li.querySelector(".gr-newmark")).map(li => li.textContent.replace(/\s+/g, " ").trim().slice(0, 40)));
       ok(tabPip === "1" && rowDot.length === 1 && /Perfusion/.test(rowDot[0]), "the course's Grades tab has a red 1 and Perfusion's row a red dot: " + JSON.stringify({tabPip, rowDot}));
       await page.click('[data-act="course-tab"][data-id="info"]'); await page.waitForTimeout(400);
-      const after = await page.evaluate(() => ({n: window.SBGRADES_NEW.list().length, nav: !!document.querySelector('nav.tabs [data-tab="courses"] > .nm-dot')}));
+      const after = await page.evaluate(() => ({n: window.SBGRADES_NEW.list().length, nav: !!document.querySelector('nav.tabs [data-tab="courses"] > .fc-navdue')}));
       ok(after.n === 0 && !after.nav, "seen once you leave the Grades tab: no more red counts: " + JSON.stringify(after));
       ok(!page.errs.length, "no page errors: " + page.errs.join(" | "));
       await page.context().close(); }
