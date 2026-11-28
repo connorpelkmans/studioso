@@ -109,6 +109,7 @@
 .ch-rare{--ch:#2563EB;--ch-glow:rgba(70,130,255,.6)}
 .ch-exotic{--ch:#7C3AED;--ch-glow:rgba(160,100,255,.65)}
 .ch-legendary{--ch:#FACC15;--ch-glow:rgba(255,205,60,.8)}
+.ch-mythic{--ch:#DC2626;--ch-glow:rgba(255,70,70,.8)}
 .scr-chest{display:block;width:100%;height:auto;overflow:visible}
 .scr-chest .ch-glow{opacity:0}
 .scr-chest .ch-lid{transform-box:view-box;transform-origin:60px 50px;transition:transform .5s cubic-bezier(.2,1.6,.4,1)}

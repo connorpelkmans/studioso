@@ -39,7 +39,7 @@ const SFX = (() => {
   function chime(ctx, out, t, f, dur, gain){ [[1, 1], [2, .32], [3, .12]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.8), {gain: gain * a, a: 0.003})); tone(ctx, out, t, f * 1.003, dur, {gain: gain * .35, a: 0.003}); }
   const BUY_STYLE = "sparkle";
   const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
-  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
+  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4, mythic: 5};
 
   // ---- the sounds: each returns how long it lasts ----
   const S = {
