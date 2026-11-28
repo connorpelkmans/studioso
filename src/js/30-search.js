@@ -567,7 +567,7 @@
     if (gone.length) { gone.forEach(a => FT.recs.delete(a)); dbDelMany("text", gone); }
   }
 
-  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI (Pro), or their OpenAI key.
+  /* Search by meaning: embeddings from the student's Gemini key (free), Studyboard AI Pro (Pro), or their OpenAI key.
      Claude has no embeddings, so with a Claude key alone, Ask With AI widens word search with related terms the AI suggests. */
   const SEM = {vecs: new Map(), loaded: false, loading: null, running: false, err: "", timer: 0, left: 0, total: 0};
   const embState = () => { try { return JSON.parse(localStorage.getItem(LS_EMB) || "{}") || {}; } catch(e) { return {}; } };
@@ -576,7 +576,7 @@
   function embedder(){
     if (inPreview()) return null;
     let c; try { c = aiCfg(); } catch(e) { return null; }
-    // Paid Pro: Studyboard AI first (the student's own key is only the backup)
+    // Paid Pro: Studyboard AI Pro first (the student's own key is only the backup)
     if (c.provider === "studyboard" && aiConsented("studyboard")) return {kind: "studyboard"};
     if (c.keys.gemini && aiConsented("gemini")) return {kind: "gemini", key: c.keys.gemini};
     if (c.keys.openai && aiConsented("openai")) return {kind: "openai", key: c.keys.openai};
@@ -614,10 +614,10 @@
   const embKey = () => !!embedder();
   const semOn = () => !!embedder() && sxCfg().meaning !== false;
   const embModel = () => { const e = embedder(); return !e || e.kind === "gemini" ? embState().model || EMB_MODELS[0] : e.kind === "studyboard" ? "sb-bge-m3" : e.kind === "device" ? "dev-bge-small" : "oa-te3s"; };
-  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
+  const embWho = () => { const e = embedder(); return !e ? "" : e.kind === "gemini" ? "your free Gemini key" : e.kind === "studyboard" ? "Studyboard AI Pro" : e.kind === "device" ? "a small search model on this device (free and private)" : "your OpenAI key (a few cents at most)"; };
   const fmtDoc = (m, title, text) => m === "gemini-embedding-001" ? text : `title: ${String(title || "none").replace(/\s+/g, " ").slice(0, 120)} | text: ${text}`;
   const fmtQuery = (m, q) => m === "gemini-embedding-001" ? q : `task: search result | query: ${q}`;
-  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI's (bge-m3, 1024) are kept whole
+  // dims: Gemini and OpenAI vectors are cut to 512 (they're made for it); Studyboard AI Pro's (bge-m3, 1024) are kept whole
   function quant(values, dims = DIMS){
     const D = Math.min(dims, values.length), v = values.length > D ? values.slice(0, D) : values;
     let n = 0; for (let i = 0; i < v.length; i++) n += v[i] * v[i];
@@ -638,7 +638,7 @@
     }
     if (E.kind === "studyboard") {
       const list = await proEmbed(texts.map(x => (isQuery ? String(x.text) : [x.title, x.text].filter(Boolean).join("\n")).trim().slice(0, 8000) || "(empty)"), isQuery);
-      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI sent back an unexpected answer. Try again.");
+      if (list.length !== texts.length) throw aiErr("bad", "Studyboard AI Pro sent back an unexpected answer. Try again.");
       return list.map(v => quant(v, 1024));
     }
     if (E.kind === "openai") {
@@ -735,7 +735,7 @@
         const m2 = embModel(), rows = [];
         todo.forEach((p, i) => { const v = {q: vecs[i].q, s: vecs[i].s}; SEM.vecs.set(m2 + ":" + p.h, v); rows.push([m2 + ":" + p.h, v]); });
         await dbPutMany("vec", rows);
-        // Studyboard AI allows 20 requests a minute, shared with everything else
+        // Studyboard AI Pro allows 20 requests a minute, shared with everything else
         await wait((embedder() || {}).kind === "studyboard" ? 4000 : (embedder() || {}).kind === "device" ? 60 : 700); await idle();
       }
     } catch(e) {
@@ -1358,7 +1358,7 @@ Return JSON only.`;
   }
 
   /* Opening things */
-  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; }
+  function go(tab){ ui.tab = tab; if (tab !== "courses") ui.courseId = null; if (window.SBESS && SBESS.opened) SBESS.opened(tab, "search"); }
   function runAct(act, data){
     const b = document.createElement("button"); b.type = "button"; b.hidden = true; b.dataset.act = act;
     Object.entries(data || {}).forEach(([k, v]) => { b.dataset[k] = v; });
@@ -1804,7 +1804,7 @@ Return JSON only.`;
     const c = sxCfg(), files = Object.values(state.files).filter(f => extKind(f));
     const read = files.filter(f => { const r = FT.recs.get(srcRev(f).assetId); return r && r.status === "ok"; }).length;
     const row = (key, title, sub, on) => `<div class="cap-row"><span style="flex:1;font-weight:600">${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-sxopt="${key}" ${on ? "checked" : ""}> On</label></div>`;
-    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
+    const semSub = inPreview() ? "Works in the Studyboard app and on your website." : !embKey() ? (aiReady() ? "Uses a Gemini key, an OpenAI key or Studyboard AI Pro (Settings, then AI Features). With your current AI, Ask With AI widens word search with related words the AI suggests." : "Needs AI (Settings, then AI Features). Without it, Ask With AI uses word search and a list of common synonyms.") : `Uses ${embWho()} to understand what your things are about, so you can describe them in your own words.${SEM.loaded ? ` ${SEM.total ? Math.round((SEM.total - SEM.left) / SEM.total * 100) + "% ready." : ""}` : ""}`;
     openSheet(`<div class="sheet">${head("Search Settings")}<div class="sheet-body"><div class="menu-list">
       <button type="button" data-act="search"><span>Open Search<span class="sub">Press ${KEYS} anywhere, or the search button.</span></span></button>
       ${row("files", "Search Inside Files", `Reads the text of your PDFs, Word and PowerPoint files in the background and keeps it on this device. ${S.used ? `${read} of ${files.length} readable file${files.length === 1 ? "" : "s"} read.` : `${files.length} readable file${files.length === 1 ? "" : "s"}.`}`, c.files)}

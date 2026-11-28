@@ -248,8 +248,18 @@ const SBICS = (() => {
     c.eventLead = Math.max(0, Math.min(240, Number(c.eventLead) || 0));
     return c;
   }
-  // Reminder times for a task, in minutes from the start of its calendar entry
+  // Reminder times for a task, in minutes from the start of its calendar entry, with its extra reminders (t.remindAlso)
   function taskAlarms(t, opt, cfg){
+    const out = taskAlarms1(t, opt, cfg);
+    if (!cfg || opt === "none" || typeof opt === "number" || t.status === "done" || t.remind === "off" || !Array.isArray(t.remindAlso)) return out;
+    const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, dayAt = (n, time) => -n * 1440 + tMin(time) - base;
+    t.remindAlso.slice(0, 4).map(String).forEach(k => {
+      if (Object.prototype.hasOwnProperty.call(OVR_DAY, k)) out.push(dayAt(OVR_DAY[k], cfg.dayTime));
+      else if (Object.prototype.hasOwnProperty.call(OVR_MIN, k)) out.push(timed ? -OVR_MIN[k] : tMin(cfg.morningTime));
+    });
+    return [...new Set(out)];
+  }
+  function taskAlarms1(t, opt, cfg){
     const timed = isTime(t.time), base = timed ? tMin(t.time) : 0, exam = t.type === "Exam" || t.type === "Quiz";
     const dayAt = (n, time) => -n * 1440 + tMin(time) - base;
     if (opt === "none" || t.status === "done") return [];

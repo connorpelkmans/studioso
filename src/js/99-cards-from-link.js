@@ -4,7 +4,7 @@
    deck, plus one summary note under the course that credits the source (title and link) and links the deck.
    - Reading the link (a browser can't fetch other sites itself): a YouTube video goes to Gemini as a file_data part (file_uri, video/*),
      so it needs a Gemini key; with Claude or ChatGPT the student is told so and offered Paste the Text Instead. A web page is opened by
-     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI uses web fetch on its server).
+     the AI (aiCall urlContext: Gemini url_context, Claude web fetch, ChatGPT web search; Studyboard AI Pro uses web fetch on its server).
    - Step 1 turns the source into study notes in the AI's own words (never copied sentences; only a few words quoted for an exact term or
      definition). The AI says when it couldn't see the content (unreachable, paywall or login, empty, too long) and nothing is invented.
    - Step 2 is the existing study set maker (aiMakeStudySet) on those notes (and on pasted text, when given), with the student's style,
@@ -62,7 +62,47 @@ const LINKCARDS = (() => {
     L.push("", "Check the original for exact wording and anything that matters for a grade.");
     return L.join("\n").trim();
   }
-  return {parse, noteText, MSG};
+  // A transcript as copied from YouTube (Show transcript), or a subtitle file (SRT or WebVTT), as plain running text: no timestamps,
+  // "2 minutes, 5 seconds" labels, cue numbers, the panel's own words, [Music]-style tags or ">>" speaker marks. removed: how many
+  // timestamps went. Anything else is kept as written.
+  const UI_LINE = /^(transcript|show transcript|hide transcript|search in video|search transcript|chapters|no results( found)?|follow along using the transcript\.?|toggle timestamps|english( \(auto-generated\))?|webvtt|kind: \w+|language: [\w-]+)$/i;
+  const STAMP = /^\(?\[?(\d{1,2}:)?\d{1,2}:\d{2}([.,]\d{1,3})?\]?\)?/;
+  const SPOKEN = /^((\d+ hours?,? ?)?(\d+ minutes?,? ?)?(\d+ seconds?)?|\d+ hours?|\d+ minutes?)$/i;
+  function cleanTranscript(raw){
+    let removed = 0;
+    const out = [];
+    String(raw || "").replace(/\r\n?/g, "\n").replace(/ /g, " ").split("\n").forEach(l0 => {
+      let l = l0.trim();
+      if (!l) return;
+      if (/^\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[.,]\d{3}/.test(l) || /^\d{1,2}:\d{2}[.,]\d{3}\s*-->/.test(l)) { removed++; return; }
+      if (/^\d+$/.test(l) && l.length < 6) return;
+      if (UI_LINE.test(l)) return;
+      if (SPOKEN.test(l) && /\d/.test(l)) return;
+      const m = l.match(STAMP);
+      if (m && m[0].length) { removed++; l = l.slice(m[0].length).replace(/^[\s\-–—:·|]+/, ""); }
+      if (SPOKEN.test(l) && /\d/.test(l)) return;
+      l = l.replace(/<\/?[a-z][^>]*>/gi, "").replace(/\[(music|applause|laughter|laughs|inaudible|silence|cheering|noise|foreign|__)\]/gi, "").replace(/^(>>|-\s)/, "").replace(/\s+/g, " ").trim();
+      if (l) out.push(l);
+    });
+    const text = out.join(" ").replace(/\s+([,.!?;:])/g, "$1").replace(/\s{2,}/g, " ").trim();
+    return {text, removed};
+  }
+  // A share that is just one YouTube video (its link, maybe its title and a few words): the video, or null for anything else,
+  // so a shared task that happens to mention a video stays a task
+  function videoFromShare(s){
+    s = s || {};
+    const text = String(s.text || ""), title = String(s.title || ""), url = String(s.url || "");
+    const links = [url].concat(text.match(/(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)\/[^\s<>"]+/gi) || []).filter(Boolean);
+    let v = null;
+    for (const u of links) { const r = parse(u); if (r.ok && r.kind === "youtube") { v = r; break; } }
+    if (!v) return null;
+    let rest = text;
+    links.forEach(u => { rest = rest.split(u).join(" "); });
+    if (title) rest = rest.split(title).join(" ");
+    rest = rest.replace(/https?:\/\/\S+/g, " ").replace(/\s+/g, " ").trim();
+    return rest.length > 140 ? null : v;
+  }
+  return {parse, noteText, MSG, cleanTranscript, videoFromShare};
 })();
 /*LINKCARDS-END*/
   const P = typeof SBPRO !== "undefined" ? SBPRO : null;
@@ -77,8 +117,54 @@ const LINKCARDS = (() => {
       <div class="cl-in"><label class="f"><span class="lh">Link</span><input type="url" id="aiLink" inputmode="url" autocomplete="off" spellcheck="false" maxlength="2000" placeholder="https://www.youtube.com/watch?v=… or an article's address" data-noenter></label>
       <p class="mini cl-hint" id="aiLinkHint" aria-live="polite">Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. For a YouTube video, you paste its transcript.</p>
       <div class="cl-yt" id="aiYtWay" hidden>
-        <div id="aiYtTrBox" hidden><p class="mini" style="margin:6px 0">On YouTube, open the video's description and tap <b>Show transcript</b>, then copy it and paste it here.</p>
-        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript" data-noenter></textarea></div></div></div></details>`;
+        <div id="aiYtTrBox" hidden>${guide()}
+        <textarea id="aiYtTr" rows="5" maxlength="150000" placeholder="Paste the video's transcript (timestamps and all)" data-noenter aria-describedby="aiYtTrNote"></textarea>
+        <p class="mini cl-tr-note" id="aiYtTrNote" aria-live="polite"></p></div></div></div></details>`;
+  }
+  // How to copy a YouTube transcript: three steps and a small drawing of where to click (drawn here, not a screenshot of YouTube)
+  const PIC = `<svg class="cl-pic" viewBox="0 0 320 150" role="img" aria-label="Under the video, open the description, click Show transcript, then select the transcript beside the video and copy it">
+    <rect x="4" y="6" width="176" height="96" rx="8" class="p-box"/><path d="M82 40l26 14-26 14z" class="p-mute"/>
+    <rect x="4" y="108" width="176" height="36" rx="7" class="p-soft"/><rect x="12" y="116" width="96" height="6" rx="3" class="p-mute"/>
+    <rect x="92" y="126" width="82" height="13" rx="6.5" class="p-acc"/><text x="133" y="135.5" text-anchor="middle" class="p-acct">Show transcript</text>
+    <circle cx="86" cy="132" r="7" class="p-num"/><text x="86" y="135" text-anchor="middle" class="p-numt">2</text>
+    <circle cx="16" cy="119" r="7" class="p-num"/><text x="16" y="122" text-anchor="middle" class="p-numt">1</text>
+    <rect x="190" y="6" width="126" height="138" rx="8" class="p-soft"/><text x="200" y="22" class="p-t">Transcript</text>
+    <rect x="196" y="30" width="114" height="74" rx="4" class="p-sel"/>
+    <g class="p-mute"><rect x="200" y="36" width="16" height="5" rx="2"/><rect x="222" y="36" width="80" height="5" rx="2"/><rect x="200" y="52" width="16" height="5" rx="2"/><rect x="222" y="52" width="70" height="5" rx="2"/><rect x="200" y="68" width="16" height="5" rx="2"/><rect x="222" y="68" width="84" height="5" rx="2"/><rect x="200" y="84" width="16" height="5" rx="2"/><rect x="222" y="84" width="60" height="5" rx="2"/><rect x="200" y="114" width="16" height="5" rx="2"/><rect x="222" y="114" width="76" height="5" rx="2"/></g>
+    <circle cx="302" cy="98" r="7" class="p-num"/><text x="302" y="101" text-anchor="middle" class="p-numt">3</text></svg>`;
+  const guide = () => `<div class="cl-how"><ol class="mini">
+      <li>Under the video, click <b>…more</b> to open the description.</li>
+      <li>Click <b>Show transcript</b>. It opens beside the video.</li>
+      <li>Drag from the first line to the last to select it, copy, and paste it below. Leave the timestamps in: Studyboard takes them out.</li></ol>${PIC}
+      <p class="mini cl-how-ph">On a phone, the YouTube app may not let you copy its transcript. If it won't, do this on a computer.</p></div>`;
+  // Pasted transcript: tidied at once, saying what was taken out
+  document.addEventListener("input", e => {
+    const t = e.target; if (!t || t.id !== "aiYtTr") return;
+    const note = document.getElementById("aiYtTrNote");
+    if (!(e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop" || (t.value.length > 200 && !t.dataset.cleaned))) { if (note && !t.value.trim()) note.textContent = ""; return; }
+    const r = LINKCARDS.cleanTranscript(t.value);
+    t.dataset.cleaned = "1";
+    if (r.text && r.text !== t.value) t.value = r.text;
+    const words = r.text ? r.text.split(/\s+/).length : 0;
+    if (note) note.textContent = !words ? "" : `${words.toLocaleString()} words${r.removed ? `, ${r.removed.toLocaleString()} timestamp${r.removed === 1 ? "" : "s"} taken out` : ""}. Ready when you are.`;
+  });
+  // A YouTube video shared to Studyboard (share sheet, iPhone share extension, Android): Make Flashcards with AI opens with its link in,
+  // instead of the share becoming a task. Returns false when the share isn't just a video.
+  function fromShare(s){
+    const v = LINKCARDS.videoFromShare(s); if (!v) return false;
+    if (locked()) { proWhy(); return true; }
+    if (typeof aiStudySheet !== "function") return false;
+    aiStudySheet(null, "cards");
+    let n = 0;
+    const fill = () => {
+      const d = document.getElementById("aiLinkD"), inp = document.getElementById("aiLink");
+      if (!d || !inp) { if (++n < 40) setTimeout(fill, 100); return; }
+      d.open = true; inp.value = v.url; linkHint();
+      const box = document.getElementById("aiYtTrBox"); if (box) box.scrollIntoView({block: "center"});
+      toast("Copy the video's transcript on YouTube, then paste it here.");
+    };
+    setTimeout(fill, 60);
+    return true;
   }
   const claims = root => { const i = (root || document).querySelector("#aiLink"); return !!(i && i.value.trim()); };
   document.addEventListener("toggle", e => {
@@ -97,13 +183,13 @@ const LINKCARDS = (() => {
     const yt = !!v && L.ok && L.kind === "youtube", way = document.getElementById("aiYtWay"), box = document.getElementById("aiYtTrBox");
     if (way) way.hidden = !yt; if (box) box.hidden = !(yt && ytPaste());
     if (yt && ytPaste()) {
-      const who = prov === "studyboard" ? "Studyboard AI" : aiWho("Your AI");
+      const who = prov === "studyboard" ? "Studyboard AI Pro" : aiWho("Your AI");
       h.classList.remove("cl-bad", "cl-warn");
       h.textContent = `YouTube video${L.shorts ? " (a Short)" : ""}. Paste its transcript below and ${who} makes the cards from it. It only knows what's said: slides, equations or anything only shown on screen won't be in your cards.`;
       return;
     }
     h.classList.toggle("cl-bad", !!v && !L.ok);
-    // a video through Studyboard AI uses a big share of the week's AI: said up front, in warning colours
+    // a video through Studyboard AI Pro uses a big share of the week's AI: said up front, in warning colours
     const sbYt = !!v && L.ok && L.kind === "youtube" && prov === "studyboard" && aiProYoutube();
     h.classList.toggle("cl-warn", sbYt);
     h.textContent = !v ? "Draft flashcards plus a summary note for the course, written in the AI's own words, with the source credited. YouTube videos need a Gemini key."
@@ -111,12 +197,12 @@ const LINKCARDS = (() => {
       : L.kind === "youtube" ? (prov === "gemini" || (aiCfg().keys || {}).gemini || aiProYoutube() ? `YouTube video${L.shorts ? " (a Short)" : ""}. Gemini watches it, so it can take a minute.${sbYt ? ytWarn() : ""}${prov === "studyboard" && aiProYoutube() && typeof (aiProGet() || {}).youtubeLeft === "number" ? ` ${(aiProGet() || {}).youtubeLeft} of ${(aiProGet() || {}).youtubeMonthly} YouTube videos left this month.` : ""}` : "YouTube video. Only Google's Gemini can watch YouTube videos, so this needs a Gemini key, or paste the transcript below.")
       : `Web page on ${L.host}.`;
   }
-  // A video through Studyboard AI: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
+  // A video through Studyboard AI Pro: how much of the 7-day allowance it can take, and what happens at the limit. One video can cost
   // up to about two-thirds of the allowance (its first 90 minutes); someone already past a third may hit the limit with it
   const ytWarn = () => {
     const used = Math.max(0, Math.min(100, Number((aiProGet() || {}).usedPct) || 0));
-    return " Heads up: one video can use up to two-thirds of your Studyboard AI for the last 7 days (only its first 90 minutes are read)." +
-      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI stops until some of your use is 7 days old.");
+    return " Heads up: one video can use up to two-thirds of your Studyboard AI Pro for the last 7 days (only its first 90 minutes are read)." +
+      (used >= 34 ? ` You've used ${used}%, so this video may reach your limit, and Studyboard AI Pro would then stop until some of your use is 7 days old.` : " If you reach your limit, Studyboard AI Pro stops until some of your use is 7 days old.");
   };
   // put copied text in the paste box (after Open the Page): read from the clipboard on the student's tap, tidied
   async function pasteCopied(){
@@ -172,7 +258,7 @@ const LINKCARDS = (() => {
   }
   async function readLink0(L, pasted, signal, onStatus, diag){
     const prov = aiCfg().provider;
-    // Studyboard AI: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI makes the notes from it
+    // Studyboard AI Pro: the server has Google's Gemini watch the video and write its transcript, then Studyboard AI Pro makes the notes from it
     // At this month's video limit, a student with their own Gemini key watches it with that instead (below)
     const ownGem = !!(aiCfg().keys || {}).gemini, ytOut = () => { const t = aiProGet() || {}; return typeof t.youtubeLeft === "number" && t.youtubeLeft <= 0; };
     if (!pasted && L.kind === "youtube" && prov === "studyboard" && aiProYoutube() && !(ownGem && ytOut())) {
@@ -274,9 +360,9 @@ const LINKCARDS = (() => {
     if (L.kind === "youtube" && ytPaste()) {
       const tr = String((document.getElementById("aiYtTr") || {}).value || "").trim();
       if (tr.length < 40) { say("Paste the video's transcript first."); const t = document.getElementById("aiYtTr"); if (t) t.focus(); return; }
-      pasted = tr;
+      pasted = LINKCARDS.cleanTranscript(tr).text || tr;
     }
-    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
+    if (!pasted && L.kind === "youtube" && prov !== "gemini" && !(aiCfg().keys || {}).gemini && !aiProYoutube()) { say(`YouTube links need a Gemini key: only Google's Gemini can watch YouTube videos, and you're using ${prov === "anthropic" ? aiClaudeName() : prov === "studyboard" ? "Studyboard AI Pro" : "ChatGPT"}. Add a free Gemini key in Settings, AI Features, or paste the video's transcript (on YouTube, open the description and choose Show Transcript).`, PASTE); return; }
     const job = o.job; job.busy = true; go.disabled = true; go.classList.add("busy");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     job.ac = ac;
@@ -343,7 +429,7 @@ const LINKCARDS = (() => {
     } finally { clearInterval(tick); }
   }
 
-  window.SBLINKCARDS = {html, claims, run, parse: LINKCARDS.parse, LINKCARDS};
+  window.SBLINKCARDS = {html, claims, run, fromShare, parse: LINKCARDS.parse, LINKCARDS};
   if (P) P.addFeature({id: "cards-link", name: "Cards From a Link", where: "In Create with AI: a YouTube video or a web page becomes draft flashcards and a summary note", icon: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'});
 
   const css = document.createElement("style");
@@ -355,6 +441,22 @@ const LINKCARDS = (() => {
 .cl-in{display:grid;gap:6px;margin-top:8px}
 .cl-in input{width:100%;min-width:0}
 .cl-hint{margin:0;overflow-wrap:anywhere}
+.cl-how{display:grid;gap:6px;margin:4px 0 2px}
+.cl-how ol{margin:0;padding-left:20px;display:grid;gap:2px}
+.cl-how-ph{margin:0;color:var(--muted)}
+.cl-pic{width:100%;max-width:340px;height:auto;display:block}
+.cl-pic .p-box{fill:#1C2433;stroke:var(--line)}
+.cl-pic .p-soft{fill:var(--soft);stroke:var(--line)}
+.cl-pic .p-mute{fill:var(--muted);opacity:.55}
+.cl-pic .p-box+.p-mute{fill:#F4F6FA;opacity:.92}
+.cl-pic .p-acc{fill:var(--accent)}
+.cl-pic .p-acct{fill:var(--accent-ink);font:600 8px system-ui,sans-serif}
+.cl-pic .p-sel{fill:var(--accent);opacity:.16}
+.cl-pic .p-num{fill:#FFD84D}
+.cl-pic .p-numt{fill:#1C2433;font:700 9px system-ui,sans-serif}
+.cl-pic .p-t{fill:var(--ink);font:600 9px system-ui,sans-serif}
+.cl-tr-note{margin:0;color:var(--muted)}
+.cl-tr-note:empty{display:none}
 .cl-diag{margin-top:6px;font-size:.82rem;color:var(--muted)}
 .cl-diag summary{cursor:pointer;font-weight:600}
 .cl-diag ul{margin:4px 0 0;padding-left:18px}

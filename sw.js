@@ -126,7 +126,7 @@ self.addEventListener("push", e => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = {title: "Studyboard", body: e.data ? e.data.text() : ""}; }
   const data = sbrData(d);
-  const actions = [{action: "snooze", title: "Snooze 1 Hour"}].concat(data.taskId ? [{action: "done", title: "Mark Done"}] : []);
+  const actions = [{action: "snooze", title: sbrSnoozeLabel(sbrSnoozeMin(data))}].concat(data.taskId ? [{action: "done", title: "Mark Done"}] : []);
   e.waitUntil(self.registration.showNotification(data.title, {body: data.body, tag: data.rid || undefined, data, icon: SBR_ICON, badge: SBR_ICON, actions, timestamp: Date.now()}));
 });
 // The browser renewed this device's subscription
@@ -140,10 +140,17 @@ async function sbrServer(d, action) {
   const headers = {"Content-Type": "application/json"};
   if (d.k) { headers.apikey = d.k; if (/^eyJ/.test(d.k)) headers.Authorization = "Bearer " + d.k; }
   try {
-    const r = await fetch(d.api, {method: "POST", headers, body: JSON.stringify({action, id: d.rid, tok: d.tok, minutes: 60})});
+    const r = await fetch(d.api, {method: "POST", headers, body: JSON.stringify({action, id: d.rid, tok: d.tok, minutes: sbrSnoozeMin(d)})});
     return r.ok;
   } catch (err) { return false; }
 }
+// How long Snooze waits: chosen in Reminders settings, carried in the reminder (or its link, for reminders sent by push)
+function sbrSnoozeMin(d){
+  let m = Number(d && d.sn);
+  if (!(m > 0)) { try { m = Number(new URL(d.url).searchParams.get("sbsn")); } catch (err) { m = 0; } }
+  return m >= 5 && m <= 1440 ? Math.round(m) : 60;
+}
+function sbrSnoozeLabel(m){ return m % 60 === 0 ? `Snooze ${m / 60} Hour${m === 60 ? "" : "s"}` : `Snooze ${m} Min`; }
 self.addEventListener("notificationclick", e => {
   const n = e.notification, d = n.data || {};
   if (!d.sbRem) return;
@@ -152,11 +159,11 @@ self.addEventListener("notificationclick", e => {
   e.waitUntil((async () => {
     const scope = self.registration.scope;
     const wins = (await self.clients.matchAll({type: "window", includeUncontrolled: true})).filter(c => c.url.startsWith(scope));
-    const msg = {type: "sb-reminder", action: act, rid: d.rid, taskId: d.taskId, title: d.title, body: d.body};
+    const msg = {type: "sb-reminder", action: act, rid: d.rid, taskId: d.taskId, title: d.title, body: d.body, minutes: sbrSnoozeMin(d)};
     if (act !== "open") {
       if (await sbrServer(d, act)) {
         try {
-          await self.registration.showNotification(act === "done" ? "Marked Done" : "Snoozed for 1 Hour", {body: d.title, tag: "sbr-ack", icon: SBR_ICON, silent: true});
+          await self.registration.showNotification(act === "done" ? "Marked Done" : sbrSnoozeLabel(sbrSnoozeMin(d)).replace(/^Snooze/, "Snoozed for"), {body: d.title, tag: "sbr-ack", icon: SBR_ICON, silent: true});
           await new Promise(r => setTimeout(r, 4000));
           (await self.registration.getNotifications({tag: "sbr-ack"})).forEach(x => x.close());
         } catch (err) {}

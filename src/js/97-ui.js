@@ -51,10 +51,10 @@
   // Each category's groups, in order, by each row's data-act (or input id). A row's key decides its place; a row nobody
   // listed goes to its data-group's category (or a best guess) and the end of that category's first group
   const SUBS = {
-    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
-    appearance: [["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
+    account: [["Your Account", ["sb-signin", "sb-connect", "sb-signout", "un-edit", "acct-email", "acct-pass", "pk-manage", "sb-issues"]], ["Plan and Purchases", ["plan-open", "sbc-packs", "plan-restore"]], ["Delete Account", ["acct-delete"]]],
+    appearance: [["What You See", ["ess-toggle"]], ["Theme", ["theme-set", "shop", "scene-moment"]], ["Companion", ["comp-open", "comp-set"]], ["Motion and Extras", ["anim-toggle", "anim-mode", "daily-quote"]]],
     access: [["Reading", ["text-size", "a11y-contrast"]], ["Language", ["lang-set", "spell-set"]]],
-    study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
+    study: [["Your Time", ["area-open", "dailyIn", "capIn", "avail-open"]], ["Smart Planning", ["acc-toggle", "exm-toggle", "wrap-toggle", "ap-mode", "ap-pro"]], ["Progress", ["g-grades", "wkr-open", "fgs-open", "sbk-open", "snd-settings"]]],
     ai: [["AI", ["ai-setup", "aivault-open"]], ["Tools", ["sx-settings", "bd-new-course", "calc-open", "pro-pr-open"]]],
     school: [["School", ["sem-open", "lms-open", "import-syllabus", "school-open"]], ["Calendar", ["cal-export", "cal-sync"]], ["Study Groups", ["grp-page", "room-notices"]]],
     capture: [["Reminders", ["rm-open", "tz-shift"]], ["Quick Capture and Widgets", ["cap-try", "sbw-open"]], ["Install", ["pwa-install", "install", "desk-version"]]],
@@ -63,18 +63,18 @@
   };
   const ORDER = Object.fromEntries(Object.entries(SUBS).map(([c, gs]) => [c, gs.flatMap(g => g[1])]));
   // Extra words people might search for, per row
-  const SYN = {"theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
-    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
-    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
+  const SYN = {"ess-toggle": "essentials simple simpler calm more tabs menu hidden hide show all everything advanced features", "theme-set": "dark light mode night", shop: "theme colors stickers pins cards", "anim-toggle": "motion confetti", "comp-set": "companion pet stay still fixed corner move", "anim-mode": "animation motion static still saver", "text-size": "font bigger larger smaller accessibility dynamic type zoom", "lang-set": "language idioma espanol spanish translate locale", "a11y-contrast": "contrast accessibility readable calm background dim blur", "tz-shift": "timezone travel daylight saving dst clock",
+    "sb-connect": "sync cloud online login", "sb-signin": "sync login", "pk-manage": "passkey face id fingerprint touch id biometric login password", "sb-issues": "conflict merge two devices edited resolve", "sb-signout": "log out logout", "plan-open": "pro upgrade subscription devices storage",
+    "area-open": "major program field subject discipline degree", "bd-new-course": "milestones rubric breakdown", dailyIn: "study time plan", "ap-mode": "autopilot catch up missed sessions reschedule overnight day off", "ap-pro": "autopilot catch up missed sessions reschedule overnight day off", capIn: "weekly limit", "wrap-toggle": "wrap up today end of day evening shutdown tomorrow first task let it go", "ai-setup": "gemini key chatbot", "sx-settings": "find ctrl k", "g-grades": "marks gpa", "wkr-open": "weekly review sunday summary recap week slipped", "fgs-open": "streak study days rest days habit gentle forgiving",
     "lms-open": "d2l lms school sites", "cal-export": "calendar ics google outlook apple", "import-syllabus": "pdf course", "sem-open": "semester first run start setup onboarding import syllabus week plan", "grp-page": "classmates share",
     "rm-open": "alerts push notify", "sbw-open": "widget tray startup desktop", "ob-replay": "tour help welcome start", "tour-open": "tour help guide orientation walkthrough tutorial", "bug-open": "bug report feedback problem issue idea support contact", "pwa-install": "home screen app",
     "fsb-choose": "google drive onedrive folder backup", folder: "google drive onedrive folder backup", "backup-now": "save backup copy device", "restore": "undo backup", "export": "download backup zip files", "export-json": "download backup data only json", "import": "upload backup", "ia-open": "anki apkg colpkg quizlet knowt todoist notion csv another app switch", "export-full": "files zip",
     "new-term": "semester archive", "trash-open": "recently deleted trash bin restore undo recover deleted", "export-data": "export csv json zip spreadsheet excel portability download my data gdpr", "clear-all": "delete reset erase"};
   // An emoji before each row's title, by the row's key (rows that bring their own emoji or icon keep theirs)
-  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
-    "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
+  const EMO = {"sb-signin": "🔑", "sb-connect": "☁️", "sb-signout": "🚪", "un-edit": "🙂", "acct-email": "✉️", "acct-pass": "🔒", "pk-manage": "🔐", "sb-issues": "🔀", "sbc-packs": "🪙", "plan-restore": "♻️", "acct-delete": "🗑️",
+    "ess-toggle": "👀", "theme-set": "🌗", shop: "🛍️", "scene-moment": "🌅", "comp-open": "🌱", "comp-set": "📌", "anim-mode": "🎞️", "daily-quote": "📖",
     "text-size": "🔠", "a11y-contrast": "👓", "lang-set": "🌐", "spell-set": "🔤",
-    "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
+    "area-open": "🎓", dailyIn: "⏱️", capIn: "📆", "avail-open": "🗓️", "acc-toggle": "📈", "exm-toggle": "📝", "wrap-toggle": "🌙", "ap-mode": "✈️", "ap-pro": "✈️", "g-grades": "💯", "wkr-open": "🗒️", "fgs-open": "🔥", "sbk-open": "📔", "snd-settings": "🎧",
     "ai-setup": "✨", "aivault-open": "🔐", "sx-settings": "🔍", "bd-new-course": "🧩", "calc-open": "🧮", "pro-pr-open": "🖨️",
     "sem-open": "🏫", "lms-open": "🔗", "import-syllabus": "📄", "school-open": "🍎", "cal-export": "🔄", "cal-sync": "🔄", "grp-page": "👥", "room-notices": "📣",
     "rm-open": "🔔", "tz-shift": "🌍", "cap-try": "⚡", "sbw-open": "🧱", "pwa-install": "📲", install: "📲", "desk-version": "💻",
@@ -177,7 +177,8 @@
         const groups = spec.map(([name, keys]) => ({name, keys, rows: []}));
         sorted.forEach(({r}) => {
           const ks = rowKey(r); let g = groups.find(x => ks.some(k => x.keys.includes(k)));
-          if (!g) { g = groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
+          // (not into What You See, which holds just Show Everything: 99-essentials.js)
+          if (!g) { g = groups.find(x => x.name !== "What You See") || groups[0]; console.warn("Settings row not in SUBS." + c.k + ", shown under " + g.name + ":", ks.join(",") || (r.textContent || "").trim().slice(0, 40)); }
           g.rows.push(r);
         });
         // Every group shows at once, each under its own heading, so nothing hides behind a tab

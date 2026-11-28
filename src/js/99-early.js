@@ -73,7 +73,7 @@ var SBEARLY = null;
     if (d) {
       const f = !!d.founder;
       return `<section class="early-card ${f ? "founder" : "early"}">
-        <div class="ec-top">${f ? ROSETTE() : SEEDLING()}<div><b>${f ? `Founder #${esc(d.founderNumber || "")}` : `Early Supporter #${esc(d.number || "")}`}</b><span class="mini">${f ? "One of the first 10 people on a Semester or Yearly plan. Thank you for helping build Studyboard!" : "One of Studyboard's first 100 Pro members. Thank you!"}</span></div></div>
+        <div class="ec-top">${f ? ROSETTE() : SEEDLING()}<div><b>${f ? `Founder #${esc(d.founderNumber || "")}` : `Early Supporter #${esc(d.number || "")}`}</b><span class="mini">${f ? "One of the first 10 people on a Quarterly or Yearly plan. Thank you for helping build Studyboard!" : "One of Studyboard's first 100 Pro members. Thank you!"}</span></div></div>
         <div class="ec-row"><span><b>Show My ${f ? "Founder" : "Early Supporter"} Badge in Groups</b><span class="mini">Beside your name in study groups. It stays even if your Pro ends.</span></span>${sw("pro-badge", S().badge, "Show my badge in groups")}</div>
         ${f ? `<div class="ec-sec"><b>Your Founder Theme</b>${themeLine(d)}<button type="button" class="btn small" data-act="early-themes">${(d.themes || []).length ? "See Your Suggestions" : "Suggest Themes"}</button></div>` : ""}
         ${codesHtml(d)}
@@ -83,7 +83,7 @@ var SBEARLY = null;
     const fl = +st.foundersLeft || 0, sl = +st.supportersLeft || 0;
     if (!fl && !sl) return "";
     return `<section class="early-offer">${fl ? ROSETTE(34) : SEEDLING(30)}<div>
-      ${fl ? `<b>Become a Founder</b><span>The first ${esc(st.founders)} people on a Semester or Yearly plan get a Founder badge in groups and suggest a theme that's built into Studyboard, theirs to keep. <b>${fl} of ${esc(st.founders)} places left.</b></span>` : ""}
+      ${fl ? `<b>Become a Founder</b><span>The first ${esc(st.founders)} people on a Quarterly or Yearly plan get a Founder badge in groups and suggest a theme that's built into Studyboard, theirs to keep. <b>${fl} of ${esc(st.founders)} places left.</b></span>` : ""}
       ${sl ? `<span>${fl ? "Then the" : "The"} first ${esc(st.supporters)} on any plan get an Early Supporter badge and a month of Pro for ${(st.friendCodes || 3) === 1 ? "a friend" : "friends"}. <b>${sl} left.</b></span>` : ""}
     </div></section>`;
   }

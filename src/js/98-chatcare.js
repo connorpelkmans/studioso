@@ -13,7 +13,7 @@ window.SBCARE = (() => {
     {re: /^(?:e-?mail|send (?:an? )?e-?mail(?: to)?|write (?:an? )?e-?mail to|reply to)\b|^(?:message|text|dm|whatsapp|snapchat)\s+(?!me\b|size\b|colou?r\b|font\b)(?:my|the|him|her|them|everyone|\w+)\b|^(?:let|tell)\s+(?:my|the)\s+(?:study group|group|friends?|class|classmates?|team|roommates?|partner|lab partner)\b/,
       say: w => `I can't send ${/text|message|dm|whatsapp|snap|tell|let/.test(w) ? "texts or messages" : "emails"} from Studyboard, so I didn't change anything. I can help you write what to say, or add a task to remind you to send it.`},
     // a phone call to someone ("call the clinical coordinator", "phone my mom"), not "call it Heart 2", "call me Jules", "call the essay 'X'"
-    {re: /^(?:phone|ring|facetime)\s+(?:my|the|him|her|them|dr|prof|professor)\b|^call\s+(?!(?:it|me|this|that|them|the (?:essay|task|deck|note|board|quiz|course|class|event|assignment|lab|paper|project|reading|history|psych|care))\b)(?:my|the|him|her|dr\.?|prof\.?|professor|doctor|nurse|clinical|coordinator|advisor|office|mom|dad|someone)\b(?!.*\binstead\b)/, say: () => "I can't make phone calls, so I didn't change anything. I can add a task to remind you to call, if that helps."},
+    {re: /^(?:phone|ring|facetime)\s+(?:my|the|him|her|them|dr|prof|professor)\b|^call\s+(?!.*["“'‘][^"”'’]{2,}["”'’])(?!.*\b(?:instead|from now on|renamed?)\b)(?!(?:my|the)\s+(?:[\w&]+\s+){0,3}(?:final|midterm|exam|quiz|test|lab|essay|paper|reading|report|journal|assignment|task|deck|note|course|class|plan)\b)(?!(?:it|me|this|that|them|the (?:essay|task|deck|note|board|quiz|course|class|event|assignment|lab|paper|project|reading|history|psych|care))\b)(?:my|the|him|her|dr\.?|prof\.?|professor|doctor|nurse|clinical|coordinator|advisor|office|mom|dad|someone)\b(?!.*\binstead\b)/, say: () => "I can't make phone calls, so I didn't change anything. I can add a task to remind you to call, if that helps."},
     {re: /^(?:ask|contact|reach out to|get in touch with|tell)\s+(?:my\s+)?(?:prof|professor|dr|doctor|instructor|teacher|ta|tutor|advisor|coordinator)\b/, say: () => "I can't contact your instructor for you, so I didn't change anything. I can help you write the message, and once they reply, tell me and I'll update the due date."},
     {re: /^(?:submit|upload|turn in|hand in|post|put)\b.*\b(?:to|on|in|into|onto)\s+(?:the\s+|my\s+)?(?:brightspace|canvas|moodle|blackboard|d2l|dropbox|drive|google drive|onedrive|portal|website|site|lms|turnitin)\b/,
       say: w => `I can't ${/upload|dropbox|drive|onedrive/.test(w) ? "upload files to other sites" : "submit work to your school site"}, so I didn't change anything. Once you've ${/upload/.test(w) ? "uploaded" : "submitted"} it, tell me and I'll mark it done.`},
@@ -56,5 +56,67 @@ IMPORTANT: the student may be struggling emotionally right now. Be gentle, calm 
 
 If they ask you to write or do graded work for them (an essay, a care plan, homework, quiz or test answers), kindly say you won't do it for them, without lecturing, and offer to help them do it themselves: brainstorm, outline, explain, quiz them, or give feedback on their draft. If they insist, stay kind and firm and offer the help again.`;
   const integrity = q => INTEGRITY.test(low(q));
-  return {cantDo, risk, distress, riskReply, CARE_RULE, integrity, INTEGRITY_RULE};
+  // the next few messages after a crisis reply, where a model drifts: not sure they're safe, a friend's secret, changing the subject
+  // ("i don't know" after "are you safe right now?", "she told me not to tell anyone", "can we just talk about something else")
+  function riskFollow(q, other){
+    const w = low(q).trim();
+    if (other && /\b(not to tell|told me not|don'?t tell|keep (it|this) (a )?secret|promised|be mad|get mad|hate me|be angry|betray|snitch|trust me)\b/.test(w))
+      return "I get why that feels hard, and caring about how she'll feel shows you're a good friend. But when someone's safety is at risk, telling a trusted adult isn't betraying her; it's how she gets help. An RA, a counselor or a trusted adult will know what to do. If she might be in danger right now, call 911 or call or text 988. You don't have to carry this by yourself.";
+    if (!other && /^(i\s+)?(don'?t|dont|do not)\s+know\b|^(idk|not sure|i'?m not sure|maybe|kind of|kinda|sort of|i guess)\s*[.!?]*$/.test(w))
+      return "That's okay. Not being sure is a lot to sit with. Because you're not sure, please reach out to someone now: call or text 988 (the Suicide & Crisis Lifeline in the US and Canada), or your local emergency number if you might act on these feelings. You could also tell someone you trust that you're having a hard time. I'm right here with you.";
+    if (!other && /\b(talk about something else|change the subject|something else|distract me|talk about anything)\b/.test(w))
+      return "Of course, we can talk about something else. What's something small that made you smile lately, or a show or song you've had on repeat? And if those heavy feelings come back, 988 is there any time, by call or text.";
+    // brushing it off ("im fine forget it", "nvm", "it's nothing", "don't worry about it")
+    if (!other && /^(i'?m|im|i am)\s+(fine|ok(ay)?|good|alright)\b|\b(forget (it|i said|that|about it)|never ?mind|nvm|it'?s nothing|it was nothing|don'?t worry( about (it|me))?|just kidding|jk|ignore (that|it|me)|doesn'?t matter|not a big deal)\b/.test(w))
+      return "Okay. I'm still really glad you told me, and I won't push. Just checking once more: are you safe right now? If those feelings come back, even a little, you can call or text 988 any time, day or night. I'm here whenever you want to talk.";
+    // reaching out to someone ("maybe i'll text my sister", "i could talk to my mom", "i'll call my therapist")
+    if (/\b(text|call|talk to|tell|reach out to|message|go to|see|visit|book|email)\b[^.?!]{0,25}\b(sister|brother|mom|mum|dad|mother|father|parents?|family|friend|roommate|partner|boyfriend|girlfriend|counsel(?:l)?or|counsel(?:l)?ing|therapist|doctor|ra|someone|somebody|988|cousin|aunt|uncle|grandma|grandpa)\b/.test(w))
+      return (other ? "That's a really good step. Telling someone who can help is the right call. " : "That sounds like a really good idea. Reaching out to someone who cares about you is a brave step, and you don't have to explain it perfectly. ") + "If things get worse or anyone might be in danger, call or text 988 (or your local emergency number) any time. I'm here too.";
+    // the answer to "are you safe right now?"
+    if (!other && /^(yes|yeah|yep|ya|yea|i am|i'?m safe|im safe)\b[\s,.!]*(i'?m|im|i am)?\s*(safe)?[\s.!]*$/.test(w))
+      return "I'm glad you're safe. Thank you for telling me. Feelings like that are heavy to carry, so please think about telling someone you trust or campus counseling. If it ever changes, call or text 988 any time. Do you want to talk about what's been going on?";
+    if (!other && /^(no|nope|not really|i'?m not|im not|not safe)\b/.test(w))
+      return "Thank you for being honest with me. Please call or text 988 right now (the Suicide & Crisis Lifeline in the US and Canada), or call your local emergency number, or go to someone near you and tell them. You deserve support right now, and you don't have to get through this alone. I'm right here.";
+    return null;
+  }
+  // what the companion is and where the chat goes ("are you chatgpt", "what ai is this", "do my notes get sent anywhere",
+  // "is this private"): said honestly, for the engine in use, never left to a model that guesses
+  const WHO = /\b(are you|r u|is this|is it|you'?re)\s+(really\s+)?(chat ?gpt|gpt|open ?ai|gemini|bard|claude|siri|alexa|copilot|a (real )?(person|human)|an? (ai|a\.i\.|bot|robot|chat ?bot|real person|llm))\b|\bwhat (ai|a\.i\.|model|llm|engine)\b[^.?!]{0,20}\b(are you|is this|do you (use|run)|powers? you)\b|\bwho (made|built|created|programmed) you\b/;
+  const PRIV = /\b(private|privacy|sent anywhere|send(ing)? (it|them|this|my \w+) (anywhere|away|to)|get(ting)? sent|go(es)? anywhere|leave (my|this) (device|phone|computer|laptop)|uploaded|upload(ing)? (my|it|them)|who (else )?can (see|read)|(does|can) any(one|body) (else )?(see|read)|stored|saved (online|anywhere|in the cloud)|on (a|your|the) server|in the cloud|is (this|it|my \w+) (safe|secure|private)|track(ing)? me|sell my)\b/;
+  const PRIV_OBJ = /\b(notes?|data|chats?|messages?|info|information|stuff|conversations?|what i (say|type|tell you|write)|questions?|this|it|planner|grades?|marks?|tasks?|files?)\b/;
+  function aboutMe(q, onDevice, name){
+    const w = low(q), me = name || "your study companion";
+    if (PRIV.test(w) && PRIV_OBJ.test(w))
+      return onDevice
+        ? "Your chats with me are answered by an AI model that runs right here on your device, so what you type and your notes aren't sent to an AI company to answer you. If you ask me to look something up, only the search words go to Wikipedia. Your planner is saved on this device, and synced to your Studyboard account if you use one."
+        : "To answer you, your message and the planner details it needs (like the tasks or notes you ask about) are sent to the AI service set up in Studyboard, and it isn't posted anywhere else. Your planner is saved on this device, and synced to your Studyboard account if you use one. You can switch to on-device AI in AI settings if you'd rather keep chats on this device.";
+    if (WHO.test(w))
+      return onDevice
+        ? `I'm ${me}, your Studyboard companion, not ChatGPT. I think with an AI model built into this device, so I can chat and help with your planner without sending your chats away.`
+        : `I'm ${me}, your Studyboard companion, not ChatGPT. I think with the AI service set up in Studyboard, and I'm here to help with your classes, tasks and studying.`;
+    return null;
+  }
+  // a joke asked for ("tell me a joke", "got any hospital jokes", "make me laugh", "another one"): one from here, on the topic they
+  // name, never a refusal (small models say "I don't have any hospital jokes") and never the same one twice in a row
+  const JOKES = {
+    nurse: ["Why did the nurse need a red pen at work? In case she needed to draw blood.", "What do you call a nurse who tells jokes? A pun-ishing caregiver... I'll see myself to triage.", "Why did the nursing student bring a ladder to clinical? She heard the patient's care was going to the next level."],
+    hospital: ["Why did the hospital hire a cardiologist for the band? They needed someone to keep the beat.", "Why do surgeons make great comedians? Their timing is incisive.", "What did the hospital bed say to the patient? Don't worry, I've got you covered."],
+    anatomy: ["Why did the skeleton skip the party? He had no body to go with.", "What did the left ventricle say to the right? You complete me, but I do all the heavy lifting.", "Why are hearts so good at music? They've got great rhythm, and a lot of beats."],
+    psych: ["How many therapists does it take to change a light bulb? Just one, but the bulb has to really want to change.", "Why did Freud bring a pencil to the party? To draw his own conclusions... unconsciously.", "What did the ego say to the id? Can you please take this down a notch."],
+    history: ["Why were the early days of history called the Dark Ages? Because there were so many knights.", "Why did the history book look so sad? It had too many dates and not one of them called back.","What was the most popular dance in 1776? Indepen-dance."],
+    chemistry: ["Why do chemists like nitrates so much? They're cheaper than day rates.", "I'd tell you a chemistry joke, but I know I wouldn't get a reaction.", "What did the oxygen say to the potassium? Oh K!"],
+    study: ["Why did the student eat their homework? The teacher said it was a piece of cake.", "Why did the flashcard go to therapy? It had too many issues on both sides.", "What's a student's favourite kind of tree? Geometry."]
+  };
+  const JK = /\b(tell|give|got|know|have|hear|another|one more|share)\b[^.?!]{0,30}\bjokes?\b|\bjokes? (please|pls|plz)\b|^\s*(a\s+)?jokes?\s*[?!.]*$|\bmake me (laugh|smile)\b|\bcheer me up with a joke\b|\bsay something funny\b|\b(tell me|got|any) (a |any )?puns?\b/i;
+  function joke(q, last){
+    // ("another one" right after one of these)
+    const w = low(q), again = /^\s*(another( one)?|one more|again|more|tell me another|do another)\s*[!?.]*$/i.test(w) && Object.values(JOKES).flat().some(j => String(last || "").includes(j.slice(0, 30)));
+    if (!JK.test(w) && !again) return null;
+    // ("another one": the same topic as the last joke)
+    const lastK = again ? Object.keys(JOKES).find(k2 => JOKES[k2].some(j => String(last || "").includes(j.slice(0, 30)))) : "";
+    const k = lastK ? lastK : /\b(nurs\w*|nclex|clinical|patient)\b/.test(w) ? "nurse" : /\b(hospital|doctor|surgeon|er|icu|medical)\b/.test(w) ? "hospital" : /\b(anatomy|a&p|heart|bone|skeleton|cardio|body)\b/.test(w) ? "anatomy" : /\b(psych\w*|freud|therap\w*|mental)\b/.test(w) ? "psych" : /\b(history|war|wwi|ww1|historical)\b/.test(w) ? "history" : /\b(chem\w*|science)\b/.test(w) ? "chemistry" : "";
+    const pool = k ? JOKES[k] : Object.values(JOKES).flat(), fresh = pool.filter(j => !String(last || "").includes(j.slice(0, 30)));
+    const list = fresh.length ? fresh : pool; return list[Math.floor(Math.random() * list.length)];
+  }
+  return {cantDo, risk, distress, riskReply, riskFollow, aboutMe, joke, CARE_RULE, integrity, INTEGRITY_RULE};
 })();

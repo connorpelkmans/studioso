@@ -115,7 +115,7 @@ const fakeChrome = () => {
       cx.strokeStyle = "#2a6"; cx.lineWidth = 6; for (let i = 0; i < 6; i++) { cx.beginPath(); cx.arc(200 + i * 90, 350, 60 + i * 8, 0, Math.PI * 2); cx.stroke(); } return cv.toDataURL("image/png").split(",")[1]; });
     const file = path.join(SHOTS, "ocr-drawing.png"); fs.writeFileSync(file, Buffer.from(png, "base64"));
     const out = await makeSet(R.p, file);
-    ok(/no words in that picture that this device can read/.test(out.status) && /diagrams and drawings need Studyboard AI/.test(out.status), "a drawing with no words is explained: " + out.status.slice(0, 160));
+    ok(/no words in that picture that this device can read/.test(out.status) && /diagrams and drawings need Studyboard AI Pro/.test(out.status), "a drawing with no words is explained: " + out.status.slice(0, 160));
     ok(!out.prompts.length, "and nothing goes to the model");
     await R.ctx.close(); }
 

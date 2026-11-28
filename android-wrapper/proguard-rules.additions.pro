@@ -6,5 +6,11 @@
 # Entry points the system instantiates by name (manifest):
 -keep class com.studyboardapp.studyboard.capture.ShareReceiverActivity { *; }
 -keep class com.studyboardapp.studyboard.capture.QuickCaptureTileService { *; }
+# Widgets, the Focus notification, Do Not Disturb and reminder buttons (plugins by annotation; receivers and services by manifest name):
+-keep class com.studyboardapp.studyboard.widgets.StudyboardHomeWidgetsPlugin { *; }
+-keep class com.studyboardapp.studyboard.focus.StudyboardFocusActivityPlugin { *; }
+-keep class com.studyboardapp.studyboard.focus.StudyboardFocusGuardPlugin { *; }
+-keep class com.studyboardapp.studyboard.notify.StudyboardNotifActionsPlugin { *; }
+-keep class com.studyboardapp.studyboard.notify.StudyboardMessagingService { *; }
 # RevenueCat and @capacitor/push-notifications ship their own consumer rules; nothing to add for them.
 # org.json and the AndroidKeyStore are platform classes: nothing to keep. Never add -keepattributes that would retain log strings with tokens.

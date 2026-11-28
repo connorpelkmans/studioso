@@ -20,8 +20,8 @@ alter table public.studyboard_config add constraint studyboard_config_no_secrets
 insert into public.studyboard_config (key, value) values
   ('paywall', 'false'),
   ('prices', '{"monthly": "$4.99", "yearly": "$39.99", "trialDays": 14, "currency": "USD"}'),
-  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
+  ('limits', '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+               "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30}}'),
   ('checkout_url_monthly', '""'),
   ('checkout_url_yearly', '""'),
   ('manage_url', '""'),
@@ -58,6 +58,17 @@ where key = 'prices' and value ->> 'semester' = '$12.99';
 update public.studyboard_config set value = jsonb_set(value, '{storeSemester}', '"$15.99"'), updated_at = now()
 where key = 'prices' and value ->> 'storeSemester' = '$12.99';
 
+-- The semester plan ($15.99 every 4 months) became the quarterly plan ($11.99 every 3 months). "semester" is set to ""
+-- (not removed) so apps from before the change, which fall back to their own $15.99, hide the old plan; storeSemester goes.
+-- Runs once: only while there is no "quarterly" price yet (change "quarterly" here afterwards, not this).
+update public.studyboard_config
+set value = (value - 'storeSemester') || '{"quarterly": "$11.99", "semester": ""}'::jsonb, updated_at = now()
+where key = 'prices' and not (value ? 'quarterly');
+
+-- Pro cloud file storage went from 10 GB to 5 GB
+update public.studyboard_config set value = jsonb_set(value, '{pro,fileMB}', '5120'), updated_at = now()
+  where key = 'limits' and value #> '{pro,fileMB}' = '10240'::jsonb;
+
 -- Free groups went from 3 members to 5
 update public.studyboard_config set value = jsonb_set(value, '{free,groupMembers}', '5'), updated_at = now()
 where key = 'limits' and value #> '{free,groupMembers}' = '3'::jsonb;
@@ -88,6 +99,8 @@ alter table public.studyboard_entitlements add column if not exists ai_included 
 -- Billing bookkeeping
 alter table public.studyboard_entitlements add column if not exists billing_event_at timestamptz;
 alter table public.studyboard_entitlements add column if not exists billing_revoked_at timestamptz;
+-- The length of the plan last paid for (monthly, quarterly or yearly), from the billing webhook
+alter table public.studyboard_entitlements add column if not exists term text check (term is null or term in ('monthly', 'quarterly', 'yearly'));
 alter table public.studyboard_entitlements drop constraint if exists studyboard_entitlements_source_check;
 alter table public.studyboard_entitlements add constraint studyboard_entitlements_source_check
   check (source is null or source in ('stripe', 'apple', 'google', 'revenuecat', 'promo', 'lifetime', 'grant', 'welcome'));
@@ -147,9 +160,9 @@ create or replace function public.studyboard_limit(uid uuid, name text) returns 
 language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare
   tier text := case when public.studyboard_limits_pro(uid) then 'pro' when public.studyboard_limits_lite(uid) then 'lite' else 'free' end;
-  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
-                               "pro":  {"devices": null, "fileMB": 10240, "dataMB": 250, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
-                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
+  defaults constant jsonb := '{"free": {"devices": 2, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0},
+                               "pro":  {"devices": null, "fileMB": 5120, "dataMB": 250, "dataReserveMB": 25, "groupMembers": 100, "groupMsgDays": null, "cloudBackupDays": 30},
+                               "lite": {"devices": null, "fileMB": 20, "dataMB": 20, "dataReserveMB": 5, "groupMembers": 5, "groupMsgDays": 60, "cloudBackupDays": 0}}';
   lim jsonb := coalesce((select value from public.studyboard_config where key = 'limits'), defaults);
   v jsonb;
 begin
@@ -281,10 +294,19 @@ begin
 end $$;
 revoke all on function public.plans_item_limits(uuid) from public, anon, authenticated;
 
+-- How much of an item is pictures (and other files) kept inside it as data: URLs, in bytes. Pictures pasted into a note's
+-- whiteboard, a concept map and so on are saved this way; everything else in an item is text the student wrote or synced.
+create or replace function public.plans_media_bytes(t text) returns bigint
+language sql immutable set search_path = public, pg_temp as $$
+  select coalesce(sum(octet_length(m[1])), 0)::bigint
+  from regexp_matches(coalesce(t, ''), '(data:[a-z]+/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+)', 'g') m
+$$;
+revoke all on function public.plans_media_bytes(text) from public, anon, authenticated;
+
 create or replace function public.plans_items_quota() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
-  lim bigint; blim bigint; used bigint; bused bigint; nrows bigint; d_data bigint; d_bk bigint;
+  lim bigint; blim bigint; used bigint; bused bigint; nrows bigint; d_data bigint; d_bk bigint; reserve bigint; d_media bigint;
   n_data bigint := 0; n_bk bigint := 0; o_data bigint := 0; o_bk bigint := 0; sz bigint; new_row boolean := false;
   pw boolean := public.studyboard_paywall();
   item_max constant bigint := 10485760;   -- 10 MB per item
@@ -326,6 +348,24 @@ begin
       end if;
       raise exception 'SB_DATA_LIMIT: Your synced data is over the % MB storage limit. Delete some old items or export a backup.', lim
         using errcode = 'P0001';
+    end if;
+    -- The reserve: the last dataReserveMB of the limit is kept for the planner itself (tasks, notes, courses, decks, events,
+    -- settings). Once the account is inside it, Recently Deleted and pictures saved inside items can't grow any more; typing,
+    -- new tasks and every other change still can, up to the limit. Only measured inside the reserve, so normal saves pay nothing.
+    reserve := least(coalesce(public.studyboard_limit(new.user_id, 'dataReserveMB'), 0), coalesce(lim, 0));
+    if lim is not null and reserve > 0 and used + d_data > (lim - reserve) * 1048576 then
+      if new.kind = 'trash' then
+        raise exception 'SB_DATA_RESERVE: Recently Deleted is kept on this device only now, because the last % MB of your synced data is kept for your tasks, notes and courses.', reserve
+          using errcode = 'P0001';
+      end if;
+      d_media := public.plans_media_bytes(new.data::text);
+      if d_media > 0 then
+        if tg_op = 'UPDATE' and old.user_id = new.user_id and old.kind <> 'backup' then d_media := d_media - public.plans_media_bytes(old.data::text); end if;
+        if d_media > 0 then
+          raise exception 'SB_DATA_RESERVE: Pictures saved inside notes can''t sync now, because the last % MB of your synced data is kept for your tasks, notes and courses. Move pictures into Files, or delete some.', reserve
+            using errcode = 'P0001';
+        end if;
+      end if;
     end if;
   end if;
   if d_bk > 0 then
@@ -472,7 +512,8 @@ declare owner uuid; lim bigint; pro_lim bigint;
 begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
-  select g.owner_id into owner from public.study_groups g where g.id = new.group_id;
+  select g.owner_id into owner from public.study_groups g where g.id = new.group_id
+    and coalesce(to_jsonb(g) ->> 'kind', 'study') <> 'course';   -- Course Hubs aren't anyone's group: their own cap (supabase-classmates.sql)
   if owner is null then return new; end if;
   lim := public.studyboard_limit(owner, 'groupMembers');
   if lim is not null and (select count(*) from public.group_members where group_id = new.group_id) >= lim then
@@ -795,6 +836,10 @@ begin
   end blk;
 
   update public.studyboard_billing_events set outcome = v_out, user_id = v_uid where family = v_family and event_id = v_event;
+  -- The plan length of a payment that counted
+  if v_uid is not null and v_paid and v_term in ('monthly', 'quarterly', 'yearly') and v_out in ('pro', 'extended') then
+    update public.studyboard_entitlements set term = v_term where user_id = v_uid and term is distinct from v_term;
+  end if;
   -- Founders and Early Supporters (below). A problem there must never stop a payment from counting
   if v_uid is not null and (v_out = 'revoked' or (v_paid and v_out not like 'ignored%' and v_out not like 'rejected%')) then
     begin
@@ -998,6 +1043,8 @@ begin
   if not public.studyboard_paywall() then return new; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-group:' || new.group_id::text, 0));   -- two people joining at once can't both take the last seat
   if not exists (select 1 from public.study_groups g where g.id = new.group_id) then return new; end if;
+  -- Course Hubs aren't anyone's group: they have their own cap (300, in classmates_join_hub, supabase-classmates.sql)
+  if exists (select 1 from public.study_groups g where g.id = new.group_id and coalesce(to_jsonb(g) ->> 'kind', 'study') = 'course') then return new; end if;
   tier := case when public.plans_group_is_pro(new.group_id) then 'pro' else 'free' end;
   select (coalesce(value, '{}'::jsonb) -> tier ->> 'groupMembers')::bigint into lim from public.studyboard_config where key = 'limits';
   if lim is null then lim := case when tier = 'pro' then 100 else 3 end; end if;
@@ -1247,7 +1294,7 @@ end $$;
 -- Off until you run: select public.studyboard_early_program(true);
 -- While on, the first paid Pro sign-ups (not trials, codes or gifts) are numbered:
 --   * the first 100 (any plan) are Early Supporters: a badge in groups and one-month Pro codes for friends;
---   * the first 10 on a semester or yearly plan are Founders: a Founder badge, and they suggest up to 3 themes,
+--   * the first 10 on a quarterly or yearly plan are Founders: a Founder badge, and they suggest up to 3 themes,
 --     you build one into Studyboard for every Pro user, and its Founder keeps it even after their Pro ends.
 -- A refund or a disputed payment takes the place away and gives it to the next person in line (who paid while the places
 -- were full, and still pays). Cancelling without a refund doesn't: the badge and the theme stay.
@@ -1258,16 +1305,29 @@ on conflict (key) do nothing;
 create table if not exists public.studyboard_early_supporters (
   user_id uuid primary key references auth.users(id) on delete cascade,
   founder boolean not null default false,
-  term text check (term is null or term in ('monthly', 'semester', 'yearly')),
+  term text check (term is null or term in ('monthly', 'quarterly', 'yearly')),
   source text,                                    -- stripe, apple, google, revenuecat, or manual (added by you)
   joined_at timestamptz not null default now(),   -- the order people are numbered in
   founder_at timestamptz,
   revoked_at timestamptz,                         -- refunded or removed: the place went to the next in line
   waiting boolean not null default false,         -- paid while every place was taken: next in line, in joined_at order
-  long_at timestamptz                             -- first paid for a semester or yearly plan (the line for a Founder place)
+  long_at timestamptz                             -- first paid for a quarterly or yearly plan (the line for a Founder place)
 );
 alter table public.studyboard_early_supporters add column if not exists waiting boolean not null default false;
 alter table public.studyboard_early_supporters add column if not exists long_at timestamptz;
+-- The semester plan became the quarterly plan
+do $$ declare c text; begin
+  for c in select conname from pg_constraint where conrelid = 'public.studyboard_early_supporters'::regclass and contype = 'c'
+           and pg_get_constraintdef(oid) ilike '%semester%' loop
+    execute format('alter table public.studyboard_early_supporters drop constraint %I', c);
+  end loop;
+end $$;
+update public.studyboard_early_supporters set term = 'quarterly' where term = 'semester';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conrelid = 'public.studyboard_early_supporters'::regclass and conname = 'studyboard_early_supporters_term_check') then
+    alter table public.studyboard_early_supporters add constraint studyboard_early_supporters_term_check check (term is null or term in ('monthly', 'quarterly', 'yearly'));
+  end if;
+end $$;
 create index if not exists studyboard_early_supporters_order_idx on public.studyboard_early_supporters (joined_at, user_id) where revoked_at is null and not waiting;
 -- Friend codes (the codes themselves, so their owner can see and share them)
 create table if not exists public.studyboard_early_codes (
@@ -1357,7 +1417,7 @@ language sql stable security definer set search_path = public, pg_temp as $$
                  and (e.plan = 'lifetime' or (e.plan = 'pro' and (e.pro_until is null or e.pro_until > now()))))
 $$;
 
--- Gives open places to the next in line: a Founder place to the first Early Supporter (or waiting person) on a semester or
+-- Gives open places to the next in line: a Founder place to the first Early Supporter (or waiting person) on a quarterly or
 -- yearly plan, by when they first paid for one; an Early Supporter place to the first person waiting, by when they paid
 create or replace function public.plans_early_fill() returns integer
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -1396,13 +1456,14 @@ declare cfg jsonb := public.plans_early_cfg(); r public.studyboard_early_support
 begin
   if p_uid is null or not (p_force or coalesce((cfg ->> 'on')::boolean, false)) then return 'off'; end if;
   perform pg_advisory_xact_lock(hashtextextended('sb-early', 0));   -- two payments at once can't both take the last place
-  t := case when p_term in ('monthly', 'semester', 'yearly') then p_term end;
-  long := t in ('semester', 'yearly');
+  -- "semester" (the old 4-month plan) counts as quarterly
+  t := case when p_term = 'semester' then 'quarterly' when p_term in ('monthly', 'quarterly', 'yearly') then p_term end;
+  long := t in ('quarterly', 'yearly');
   select count(*) filter (where founder), count(*) into nf, ns from public.studyboard_early_supporters where revoked_at is null and not waiting;
   select * into r from public.studyboard_early_supporters where user_id = p_uid for update;
   was := found and r.revoked_at is null;
   if was and not r.waiting then
-    -- Already in: an Early Supporter who moves to a semester or yearly plan becomes a Founder if a place is left
+    -- Already in: an Early Supporter who moves to a quarterly or yearly plan becomes a Founder if a place is left
     if long and r.long_at is null then update public.studyboard_early_supporters set long_at = clock_timestamp() where user_id = p_uid; end if;
     if r.founder or not coalesce(p_founder, long) or (not p_force and nf >= (cfg ->> 'founders')::int) then return 'kept'; end if;
     update public.studyboard_early_supporters set founder = true, founder_at = clock_timestamp(), term = coalesce(t, term) where user_id = p_uid;
