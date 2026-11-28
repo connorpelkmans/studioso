@@ -338,7 +338,9 @@ window.SBTRUTH = (() => {
     if (rest.length < A.length - 4 ? content < 5 : content < 2) return true;
     // a question about something: the answer names it (or a word starting the same way)
     if (/^\s*(what|who|why|how|when|where|which|explain|define|describe|tell me about|meaning of)\b/i.test(q)) {
-      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
+      // ("what deck is this", "which course is that": the answer names the one, not the kind, "You're looking at Cells")
+      const kind = (/^\s*(?:what|which)\s+([a-z]+)\s+(?:is|are|am i on|am i in)\s+(?:this|that|these|those|it|here|open|on screen)\b/i.exec(q) || [])[1];
+      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w !== low(kind || "") && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
       if (keys.length && !keys.some(k => low(A).includes(k.length > 5 ? k.slice(0, k.length - 2) : k))) return true;
     }
     return false;

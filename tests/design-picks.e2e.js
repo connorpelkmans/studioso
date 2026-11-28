@@ -12,7 +12,8 @@ const T = (id, title, courseId, type, due, o) => Object.assign({id, title, cours
 const card = (id, o) => Object.assign({id, front: "Q " + id, back: "A " + id, box: 1, due: plus(-1), seen: 2, right: 1, wrong: 1, last: plus(-2)}, o || {});
 const SEED = {v: 2, courses: [{id: "bio", name: "Biology", code: "BIO 101", color: "#3B6FE0"}, {id: "art", name: "Art History", code: "ART 140", color: "#D9822B"}, {id: "sta", name: "Statistics", code: "STA 101", color: "#1E9E74"}],
   tasks: [
-    T("qz", "Weekly quiz: Impressionism", "art", "Quiz", plus(1), {time: "10:00", hours: 0.5}),
+    // worth 10% of the grade: smaller quizzes don't take over the plan (EXAMMODE isBig, tests/exam-mode.test.js)
+    T("qz", "Weekly quiz: Impressionism", "art", "Quiz", plus(1), {time: "10:00", hours: 0.5, weight: 10}),
     T("mid", "Midterm 2", "bio", "Exam", plus(6), {time: "09:30", hours: 6}),
     T("ps", "Problem Set 6", "sta", "Assignment", plus(0), {time: "23:59", hours: 2.5}),
     T("rd", "Read Chapter 9", "bio", "Reading", plus(0)),
@@ -72,6 +73,10 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
         ok(await page.evaluate(() => [...document.querySelectorAll(".plan .pt-stats, .plan .rb, .plan .pt-hours")].every(e => !e.offsetWidth && !e.offsetHeight)), tag + ": no strip above Do This Next on a phone");
         ok(await noOverflow(page), tag + ": Today's Plan has no sideways scroll");
       } else {
+        // the two-week ribbon stays in the code, off by default; <html data-plan-top="week"> turns it on (101-phone-v2.css)
+        ok(await page.locator(".plan .pt-stats").count() === 1 && !(await vis(page, ".plan .pt-stats")), tag + ": the two-week ribbon is off by default");
+        await page.evaluate(() => { document.documentElement.dataset.planTop = "week"; }); await page.waitForTimeout(100);
+        ok(await vis(page, ".plan .pt-stats .rb"), tag + ": data-plan-top=week turns it on");
         ok(await page.locator(".rb .rb-day").count() === 14 && /Today/i.test(await txt(page, ".rb-col.is-today .rb-day")), tag + ": two weeks of days, Today first");
         ok(await page.locator(".rb-dot:not(.rb-late)").count() === 10, tag + ": a pin for each open task due in the two weeks");
         ok(await page.locator(".rb-dot.rb-big").count() === 2 && await page.evaluate(() => { const l = document.querySelector('.rb-lb.rb-big[data-id="qz"]'); return !!l && getComputedStyle(l).backgroundColor === "rgb(217, 130, 43)" && /ART 140/.test(l.textContent); }), tag + ": the quiz and the exam hang as solid flags in the course colour");
@@ -101,10 +106,10 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
 
       /* Review hero */
       await go(page, {tab: "flashcards", rvView: "cards", deckId: null, filter: "all"}); await page.waitForTimeout(250);
-      ok(await vis(page, ".rv-hero") && /^3 cards ready to review$/.test(await txt(page, ".rv-hero h3")), tag + ": the review hero counts what's ready: " + await txt(page, ".rv-hero h3"));
-      ok(/minute/.test(await txt(page, ".rv-hero p")) && /Organelles/.test(await txt(page, ".rv-hero p")) && /Midterm 2 is in 6 days/.test(await txt(page, ".rv-hero p")), tag + ": with the time, the decks and the next exam: " + await txt(page, ".rv-hero p"));
+      ok(await vis(page, ".rv-hero") && /^2 cards due \+ 1 new$/.test(await txt(page, ".rv-hero h3")), tag + ": the review hero counts what's ready, due and new apart (matching the Review badge): " + await txt(page, ".rv-hero h3"));
+      ok((phone ? /^~\d+ min\b/ : /^About \d+ minutes?\b/).test(await txt(page, ".rv-hero p")) && /Organelles/.test(await txt(page, ".rv-hero p")) && /Midterm 2 is in 6 days/.test(await txt(page, ".rv-hero p")), tag + ": with the time, the decks and the next exam: " + await txt(page, ".rv-hero p"));
       ok(await page.locator(".rv-week .rv-wd").count() === 7 && await page.locator(".rv-week .rv-wd.on").count() >= 1 && await page.locator(".rv-week .rv-wd.now").count() === 1, tag + ": a week of review days, today ringed");
-      ok(/2 due · 1 new/.test(await txt(page, '.deck:has([data-id="d1"])')), tag + ": a deck tile says what's due and new");
+      ok(/2 due · 1 new/.test(await txt(page, '.rv-deck[data-rv="d1"]')), tag + ": a deck tile says what's due and new: " + await txt(page, '.rv-deck[data-rv="d1"]'));
       await page.click('.rv-hero [data-act="fc-review-start"]'); await page.waitForTimeout(300);
       ok(await page.evaluate(() => { const f = window.__sbSync.ui.fc; return !!f && f.mode === "study" && f.q.length === 3; }), tag + ": Start Review starts a session with those cards");
       await go(page, {fc: null}); await page.waitForTimeout(150);
@@ -119,7 +124,10 @@ const noOverflow = page => page.evaluate(() => document.documentElement.scrollWi
       ok(await page.locator(".cal .day.is-today").count() === 1, tag + ": the month calendar shows today");
       if (!phone) {
         ok(/Due Dates/.test(await txt(page, ".pg-head .pg-title")) && await page.locator(".pg-sub").count() === 0, tag + ": a big page title with no context line");
-        ok(await page.evaluate(() => { const t = document.querySelector(".pg-tabs"), b = t.querySelector("[aria-selected=true]"); return getComputedStyle(t).borderBottomWidth === "1px" && getComputedStyle(b).borderBottomWidth === "3px" && getComputedStyle(b).backgroundColor === "rgba(0, 0, 0, 0)"; }), tag + ": the views are underlined tabs on a hairline");
+        // one compact pill, the selected tab filled in the theme colour with white text (99-smooth.css "Desktop page tabs")
+        ok(await page.evaluate(() => { const t = document.querySelector(".pg-tabs"), b = t.querySelector("[aria-selected=true]"), o = t.querySelector("[aria-selected=false]"), ts = getComputedStyle(t), bs = getComputedStyle(b), probe = document.createElement("i");
+          probe.style.color = "var(--accent-band,var(--accent))"; t.appendChild(probe); const want = getComputedStyle(probe).color; probe.remove();
+          return parseFloat(ts.borderTopLeftRadius) >= 20 && t.getBoundingClientRect().width < document.querySelector("#view").getBoundingClientRect().width - 40 && bs.backgroundColor === want && bs.color === "rgb(255, 255, 255)" && getComputedStyle(o).backgroundColor !== want; }), tag + ": the views are one compact pill, the selected tab in the theme colour");
         ok(await page.evaluate(() => { const h = document.querySelector(".pg-head"), t = document.querySelector(".pg-tabs"); return !!(h.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING); }) && await vis(page, '.tl-tools [data-act="tl-mode"]'), tag + ": the title comes first and the Timeline / Month switch sits in the toolbar row");
         ok(await vis(page, ".cal .day.is-today .num-t") && await page.evaluate(() => getComputedStyle(document.querySelector(".cal .day.is-today")).boxShadow.includes("inset")), tag + ": today has a ring and a Today pill");
         ok(/Problem Set 6/.test(await txt(page, `.cal .day[data-id="${plus(0)}"] .ci-t`)) && await vis(page, ".cal .ci-row .ci-t"), tag + ": cells show chips with titles");

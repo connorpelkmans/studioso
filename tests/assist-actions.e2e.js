@@ -43,16 +43,23 @@ function fake(){ window.LanguageModel = {availability: async () => "available", 
   r = await ask("how long is a focus session?", {answer: "A focus session is 25 minutes by default.", show: [], changes: [], newTasks: []});
   ok(r.timer === 0 && /25 minutes/.test(r.answer), "a question about the timer just gets an answer: " + r.answer);
 
-  // 5. The model says it added the task but sends none: the app proposes it from the request, to confirm
+  // 5. A task with what it needs in the words is added by the app straight away (no model), and the answer says so, with undo
+  const tasks = () => p.evaluate(() => JSON.parse(localStorage.getItem("coursework:v2")).tasks);
+  const tmr = await p.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   r = await ask("add a task to email Dr. Lee tomorrow at 3pm", {answer: "I added the task to email Dr. Lee for tomorrow!", show: [], changes: [], newTasks: []});
-  ok(r.changes.length === 1 && r.changes[0].kind === "newtask" && r.changes[0].title === "Email Dr. Lee" && /^\d{4}-\d{2}-\d{2}$/.test(r.changes[0].due) && r.changes[0].time === "15:00", "the task is proposed anyway: " + JSON.stringify(r.changes));
-  ok(/Check it, then tap Add Task/.test(r.answer), "and the answer asks the student to confirm it, instead of claiming it's done: " + r.answer);
-  // 6. The model writes the task properly: its version is used
+  let lee = (await tasks()).find(t => t.title === "Email Dr. Lee");
+  ok(lee && lee.due === tmr && lee.time === "15:00", "the task is really added, due tomorrow at 3 PM: " + JSON.stringify(lee && {due: lee.due, time: lee.time}));
+  ok(/^Added Email Dr\. Lee\b/.test(r.answer) && /undo/.test(r.answer), "and the answer says what was added, with undo: " + r.answer);
+  // 6. The course and type come from the words too
   r = await ask("add my bio lab report due Friday", {answer: "Here it is to check.", show: [], changes: [], newTasks: [{title: "Bio lab report", type: "Lab", due: "2026-12-04", course: "C1"}]});
-  ok(r.changes.length === 1 && r.changes[0].title === "Bio lab report", "the AI's own task is the one proposed");
+  const lab = (await tasks()).find(t => t.title === "Bio lab report");
+  ok(lab && lab.courseId === "c1" && lab.type === "Lab" && new Date(lab.due + "T12:00:00").getDay() === 5 && /^Added Bio lab report\b/.test(r.answer), "the lab report is added to Biology, due Friday: " + JSON.stringify(lab && {course: lab.courseId, type: lab.type, due: lab.due}));
   // 7. A claim with nothing behind it, for something the app can't do from the request
   r = await ask("move all my tasks to next week", {answer: "I've moved all your tasks to next week!", show: [], changes: [], newTasks: []});
   ok(!/moved all/i.test(r.answer) && /couldn't do that/.test(r.answer), "a change that wasn't made is never claimed: " + r.answer);
+  // ("to next week" is where they go, not which ones: it used to pick the tasks due next week and move only those)
+  lee = (await tasks()).find(t => t.title === "Email Dr. Lee");
+  ok(lee.due === tmr && (await tasks()).find(t => t.title === "Bio lab report").due === lab.due, "and nothing was moved behind the student's back");
   // 8. Ordinary answers are left alone
   r = await ask("what should I study first?", {answer: "Let's start with your bio quiz: review the cards first.", show: [], changes: [], newTasks: []});
   ok(r.answer === "Let's start with your bio quiz: review the cards first." || /Today's Plan says/.test(r.answer), "advice that isn't a claim is untouched: " + r.answer);

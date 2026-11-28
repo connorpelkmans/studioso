@@ -49,7 +49,7 @@ const STUB = `(() => {
   window.supabase = {createClient: () => ({
     auth,
     from: t => { rec("from", t); return q(t); },
-    rpc: async (n, a) => { rec("rpc", n, a); const h = sbx.cfg.rpc && sbx.cfg.rpc[n]; if (h) { const out = h(a); if (out.ent !== undefined) sbx.ent = out.ent; return {data: out.data, error: null}; } return {data: null, error: sbx.cfg.rpcError || null}; },
+    rpc: async (n, a) => { rec("rpc", n, a); const h = sbx.cfg.rpc && sbx.cfg.rpc[n]; if (h) { const out = h(a); if (out.ent !== undefined) sbx.ent = out.ent; return {data: out.data, error: null}; } if (n === "my_age") return {data: 20, error: null}; return {data: null, error: sbx.cfg.rpcError || null}; },
     functions: {invoke: async (n, o) => { rec("invoke", n, o && o.body); return respond(n, o && o.body); }},
     storage: {from: b => ({list: async (prefix, o) => { rec("storage.list", b, prefix); return {data: o.offset ? [] : (sbx.cfg.files || []), error: null}; }, remove: async paths => { rec("storage.remove", b, paths); return {data: [], error: null}; }, upload: async () => ({error: null}), createSignedUrl: async () => ({data: {signedUrl: ""}, error: null})})},
     channel: () => ({on() { return this; }, subscribe() { return this; }, unsubscribe() {} }), removeChannel() {}, removeAllChannels() {}
@@ -253,7 +253,7 @@ const fillSubmit = async (page, fields) => { for (const [k, v] of Object.entries
     const {ctx, page, errs} = await newPage(browser, {signedIn: true, bridge: true});
     await proSheet(page);
     const t = await dlgText(page);
-    assert.match(t, /auto-renewing subscription: \$4\.99 per month or \$39\.99 per year, after a 7-day free trial/);
+    assert.match(t, /auto-renewing subscription: \$4\.99 per month or \$39\.99 per year, after a 14-day free trial/);
     assert.match(t, /renews automatically unless it is cancelled at least 24 hours before/); assert.match(t, /Terms of Use/); assert.match(t, /Privacy Policy/);
     assert.ok(!(await page.evaluate(() => /stripe|checkout|studyboard\.example/i.test(document.querySelector("dialog[open]").innerHTML))), "no Stripe or website link in the store Pro sheet");
     assert.ok(await page.isVisible('dialog[open] [data-act="plan-restore"]'));

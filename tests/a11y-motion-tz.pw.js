@@ -21,12 +21,15 @@ async function mk(b, opts, skin, init) {
   const res = {};
   for (const [name, opts, init] of [["auto", {}, ""], ["reduced-media", {reducedMotion: "reduce"}, ""], ["off", {}, "localStorage.setItem('studyboard:anim','off')"], ["calm", {}, "localStorage.setItem('studyboard:anim','calm')"], ["battery15", {}, batt(0.15)], ["battery5", {}, batt(0.05)]]) {
     const {ctx, p} = await mk(b, opts, "ocean", init); await p.goto(F); await p.waitForTimeout(2200);
-    res[name] = {c: await count(p), lvl: await p.evaluate(() => SBMotion.level()), ms: await p.evaluate(() => SBMotion.frameMs())}; ok(p.errs.length === 0, name + " loads without errors"); await ctx.close();
+    res[name] = {c: await count(p), lvl: await p.evaluate(() => SBMotion.level()), ms: await p.evaluate(() => SBMotion.frameMs()), stored: await p.evaluate(() => localStorage.getItem("studyboard:anim"))}; ok(p.errs.length === 0, name + " loads without errors"); await ctx.close();
   }
   ok(res.auto.c > 25 && res.auto.lvl === "full", "Auto plays the scene at full level");
   ok(res["reduced-media"].c <= 2 && res["reduced-media"].lvl === "static", "system Reduce Motion stops the loop");
-  ok(res.off.c <= 2 && res.battery5.c <= 2, "Off and battery under 8% stop the loop");
-  ok(res.calm.lvl === "calm" && res.battery15.lvl === "calm" && res.calm.ms > res.auto.ms && res.battery15.ms > res.auto.ms && res.calm.c < res.auto.c, "Calm and low battery run at a lower rate (" + res.calm.ms + " and " + res.battery15.ms + " ms a frame vs " + res.auto.ms + ")");
+  // Animations are On or Off (99-motion-a11y-tz.js): nothing lowers them on its own, so a low battery keeps full motion
+  // and an older "calm" choice is dropped back to following the device
+  ok(res.off.c <= 2 && res.off.lvl === "static", "Off stops the loop");
+  ok(res.battery5.lvl === "full" && res.battery15.lvl === "full" && res.battery5.c > 25 && res.battery15.c > 25 && res.battery5.ms === res.auto.ms, "a low battery doesn't lower the scene (On means scenes always play)");
+  ok(res.calm.lvl === "full" && res.calm.c > 25 && res.calm.stored === null, "an older Calm choice becomes no choice (follows the device: full)");
   { const {ctx, p} = await mk(b, {}, "ocean"); await p.goto(F); await p.waitForTimeout(2000);
     await p.emulateMedia({reducedMotion: "reduce"}); await p.waitForTimeout(300); ok((await count(p)) <= 2, "reduce toggles live (stops)");
     await p.emulateMedia({reducedMotion: "no-preference"}); await p.waitForTimeout(300); ok((await count(p)) > 20, "and back (resumes)");

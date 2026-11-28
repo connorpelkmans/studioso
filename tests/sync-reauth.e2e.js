@@ -120,7 +120,9 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = fal
       await page.waitForTimeout(2500);
       ok(S.log.includes("POST /auth/v1/token"), "catching up renewed the refused token");
       ok(S.log.filter(l => l.startsWith("GET /rest/v1/items")).length >= 2, "and sent the request again");
-      ok(/^Saved$/.test(await label(page)), "stays connected");
+      // (Saved again once the resent request is back, which can take longer than 2.5s on a busy machine; never signed out)
+      const st5 = await until(page, /^Saved$/, 8000);
+      ok(/^Saved$/.test(st5) && await page.evaluate(() => !!localStorage.getItem("studioso-auth")), "stays connected: " + st5);
       await ctx.close(); }
 
     console.log("6. another Studyboard tab holds the sync database while this one deletes it");
@@ -179,6 +181,8 @@ const reset = () => { S.skew = 0; S.badSig = new Set(); S.log = []; S.hang = fal
       ok(await page.evaluate(() => { const s = document.getElementById("sync"); return s.tagName === "BUTTON" && s.dataset.state === "warn"; }), "the problem is a button (it opens Sync Status)");
       S.down = false;
       ok(/^Saved$/.test(await until(page, /^Saved$/, 10000)), "once a later retry gets through the label goes back to Saved");
+      // (the outbox is cleared just after the label changes: given a moment on a busy machine)
+      await page.waitForFunction(() => !Object.keys(JSON.parse(localStorage.getItem("studioso:outbox") || "{}")).length, null, {timeout: 5000}).catch(() => {});
       ok(await page.evaluate(() => !Object.keys(JSON.parse(localStorage.getItem("studioso:outbox") || "{}")).length), "and nothing is left waiting to sync");
       ok(!errs.length, "no page errors: " + errs.join("; "));
       await ctx.close(); }

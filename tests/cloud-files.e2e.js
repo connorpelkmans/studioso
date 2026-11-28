@@ -114,7 +114,7 @@ function stubs(){
   ok(await page.evaluate(id => !readableFile(state.files[id]), g.f.id), "AI doesn't read Google Drive files until it's allowed");
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); SBCLOUD.open(); });
   await page.waitForSelector('[data-cl-ai="google"]', {timeout: 5000});
-  ok(await page.locator("[data-cl-ai]").count() === 2 && /still works/.test(await page.locator(".cl-ai").first().textContent()), "each account has an Allow AI checkbox that says the account still works without it");
+  ok(await page.locator("[data-cl-ai]").count() === 2 && /files still work without AI/.test(await page.locator(".cl-ai").first().textContent()), "each account has an Allow AI checkbox that says the account still works without it");
   await page.check('[data-cl-ai="google"]'); await page.waitForTimeout(200);
   ok(await page.evaluate(() => SBCLOUD.aiOk("google") && !SBCLOUD.aiOk("microsoft")), "ticking it allows AI for that account only");
   await page.evaluate(() => { const d = document.querySelector("dialog[open]"); if (d) d.close(); });

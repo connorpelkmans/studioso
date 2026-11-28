@@ -4072,6 +4072,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:760px){
   dialog#dlg .pdr-sheet{box-sizing:border-box;transition:padding-bottom .3s cubic-bezier(.32,.72,0,1)}
   html.kb-open dialog#dlg .pdr-sheet:has(.pde-e.editing){padding-bottom:var(--kb-h,0px)}
+  /* (so the reader isn't also lifted above the keyboard like other sheets: that left the page 39px tall between the two) */
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){margin-bottom:0;max-height:100%}
   dialog#dlg .pdr-sheet > .sheet-head{transition:margin-top .3s cubic-bezier(.32,.72,0,1),opacity .2s ease}
   dialog#dlg .pdr-sheet :is(.pdr-bar,.pdr-bar2){transition:opacity .2s ease}
   html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head{margin-top:calc(-1 * var(--pdr-fold,0px));opacity:0;pointer-events:none}
@@ -4090,7 +4092,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-bar.paneled .pde-sub{display:none}
   /* the bar sits at the bottom (99-pro.js) and is one line: the Read / Mark Up / Edit switch, then the tools that fit and More
      (measureFit). The chosen tool's options and notes float just above it, only while there are any */
-  .pdr-sheet > .pde-bar{position:relative;z-index:2;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
+  /* (above the page's edit layer, z-index 4: the More menu and the options float up over the page and are tapped there) */
+  .pdr-sheet > .pde-bar{position:relative;z-index:6;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
   .pdr-sheet > .pde-bar > .spacer{display:none}
   .pdr-sheet > .pde-bar > .pde-sub{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);height:auto;min-height:48px;box-sizing:border-box;padding:4px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.16)}
   .pdr-sheet > .pde-bar > .pde-sub:not(:has(> :not([hidden],.pde-note:empty))){display:none}

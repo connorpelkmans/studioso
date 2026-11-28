@@ -43,13 +43,20 @@ const act = (p, a, id) => p.evaluate(([a, i]) => { const b = document.createElem
     ok(ch.stills > 100 && ch.live === 0, "other themes' companions are still pictures: " + JSON.stringify(ch));
     ok(ch.mine > 0, "this theme's companions stay live and animated");
 
-    // Next visit: the saved bitmaps are used straight away
-    await p.reload(); await p.waitForTimeout(8000);
-    await act(p, "style-shop"); await p.waitForTimeout(400); await act(p, "shop-tab", "companions"); await p.waitForTimeout(200);
-    await p.evaluate(() => document.querySelector('[data-act="comp-more"]').click()); await p.waitForTimeout(100);
-    const again = await p.evaluate(() => { const s = [...document.querySelectorAll(".cp-all img.cp-still")]; return {all: s.length, blob: s.filter(i => i.src.startsWith("blob:")).length}; });
-    ok(again.all > 100 && again.blob === again.all, "after a reload every picture is a saved bitmap at once: " + JSON.stringify(again));
-
+    // Next visit: the saved bitmaps are used straight away. On a phone they're read when the shop opens (not at start-up, which
+    // kept a mid-range phone busy: 98-companion.js), so they arrive in a moment instead of being made again
+    const openAll = async () => { await act(p, "style-shop"); await p.waitForTimeout(400); await act(p, "shop-tab", "companions"); await p.waitForTimeout(200);
+      await p.evaluate(() => document.querySelector('[data-act="comp-more"]').click()); await p.waitForTimeout(100); };
+    const blobs = () => p.evaluate(() => { const s = [...document.querySelectorAll(".cp-all img.cp-still")]; return {all: s.length, blob: s.filter(i => i.src.startsWith("blob:")).length}; });
+    await p.reload(); await p.waitForTimeout(8000); await openAll();
+    const t0 = Date.now(); await p.waitForFunction(() => { const s = [...document.querySelectorAll(".cp-all img.cp-still")]; return s.length > 100 && s.every(i => i.src.startsWith("blob:")); }, null, {timeout: 5000}).catch(() => {});
+    const phone = await blobs();
+    ok(phone.all > 100 && phone.blob === phone.all, `phone: after a reload every picture is a saved bitmap as soon as the shop opens (${Date.now() - t0} ms): ` + JSON.stringify(phone));
+    // On a computer they're read a little after start-up, so the list opens with them in place
+    await p.evaluate(() => document.querySelector("dialog").close()); await p.setViewportSize({width: 1280, height: 844});
+    await p.reload(); await p.waitForTimeout(8000); await openAll();
+    const again = await blobs();
+    ok(again.all > 100 && again.blob === again.all, "computer: after a reload every picture is a saved bitmap at once: " + JSON.stringify(again));
     ok(!errs.length, "no page errors" + (errs.length ? ": " + errs.join(" | ") : ""));
     console.log("\ncompanion-list.e2e: " + n + " checks passed");
   } finally { await browser.close(); server.close(); }
