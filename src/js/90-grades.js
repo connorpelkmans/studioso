@@ -654,10 +654,12 @@
   function showPrompt(id){
     const t = state.tasks[id], el = $("#grPrompt");
     if (!t || t.status !== "done" || t.mark || !el || dlg.open) return;
+    // "How long did it take?" is still up in the same spot: wait for it rather than covering it
+    if (document.querySelector(".acc-chip:not([hidden])")) { clearTimeout(promptT); promptT = setTimeout(() => showPrompt(id), 5000); return; }
     const c = courseOf(t.courseId);
     el.innerHTML = `<span class="gp-t"><b>Got a Mark Back?</b> Add it for ${esc(t.title)} to see where you stand${c ? ` in ${esc(courseLabel(c))}` : ""}. You can also add it later.</span>
       <span class="gp-a"><button class="btn small primary" data-act="gp-add" data-id="${esc(id)}">Add Mark</button><button class="btn small" data-act="gp-close">Not Now</button><button class="link-btn gp-off" data-act="gp-off">Don't Ask Again</button></span>`;
-    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    el.hidden = false; void el.offsetWidth; el.classList.add("show");   // drawn once without .show first, so it slides in rather than popping up
     clearTimeout(hideT); hideT = setTimeout(hidePrompt, 16000);
   }
   function hidePrompt(){ const el = $("#grPrompt"); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }

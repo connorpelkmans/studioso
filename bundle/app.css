@@ -443,6 +443,13 @@ legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .menu-list .sw{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
+/* where a notice sits can change while it's up (the keyboard closes, a message shows below it): it glides there instead of jumping */
+.toast{transition:opacity .2s,bottom .25s ease,transform .25s ease}
+@media (prefers-reduced-motion:reduce){.toast{transition:opacity .2s}}
+html[data-motion="static"] .toast{transition:opacity .2s}
+/* above the other things that sit at the bottom of the screen (a recording pill, a preview banner, the time zone note, all at 60),
+   so a message never shows up underneath one of them, looking as if it was gone at once */
+#toast.toast{z-index:61}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* v2 additions */
@@ -2662,8 +2669,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 @keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
 html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
-/* with a message showing too, the notice moves up above it */
-html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
+.toast.sync-pill{font-variant-numeric:tabular-nums}
+/* with a message showing too, the notice moves up just above it (by the message's own height, which 01-helpers.js measures) */
+html:has(body > #toast.show) body > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}
+/* (on a phone a message in a sheet shows at the top, so there it stays put) */
+@media (min-width:640px){html:has(dialog[open] > #toast.show) dialog[open] > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}}
+/* phones: in the same spot as the message (above the tab bar), so it doesn't sit in the middle of the list */
+@media (max-width:639px){
+  .toast.sync-pill{bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));max-width:calc(100vw - 24px)}
+  html.kb-open .toast.sync-pill{bottom:calc(var(--kb-h,0px) + 12px)}
+  dialog[open] > .toast.sync-pill{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
 /* Right-to-left pages (01-i18n.js sets dir="rtl" for a finished Arabic, Hebrew, Farsi or Urdu translation). The shell uses logical
    sides (inset-inline, padding-inline-start), so the sidebar, the Add button and the Time Today control mirror with the page;
    these are the few rules that can't be written that way */
@@ -2917,7 +2933,7 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 @media (prefers-reduced-motion:no-preference){.plan-orb{animation:planGlow 3.6s ease-in-out infinite}}
 @keyframes planGlow{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--hero-b) 8%,transparent),0 8px 28px var(--hero-glow)}}
 
-.cp-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
+.cp-banner{font-variant-numeric:tabular-nums;position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
   background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35);font:600 .9rem var(--display)}
 .cp-banner .cp-txt{min-width:0;overflow-wrap:anywhere}
 @media (max-width:979px){
@@ -5369,8 +5385,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.cheer{font-size:.98rem;box-shadow:0 8px 26px color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,transparent),0 0 0 2px color-mix(in srgb,var(--cp-wear,var(--accent)) 60%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 20%,var(--surface)),var(--surface) 75%)}
 .cp-bubble.cheer.on{animation:cpBubbleCheer .8s .25s ease-in-out 1}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
-@keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
-@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
+/* the wiggle uses rotate and translate, not transform, so it adds to the bubble's pop-in (a transform transition still running)
+   instead of replacing it: with transform the bubble jumped to its resting spot the moment the wiggle began */
+@keyframes cpBubbleWobble{0%,100%{rotate:0deg}35%{rotate:-1.6deg}70%{rotate:1.2deg}}
+@keyframes cpBubbleCheer{0%,100%{translate:0 0;rotate:0deg}20%{translate:0 -3px;rotate:-3deg}45%{translate:0 -2px;rotate:3deg}70%{translate:0 -1px;rotate:-1.5deg}}
 .cp-front.cp-still .cp-bubble{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
 @media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}}
@@ -6608,9 +6626,13 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .acc-log .btn{min-height:44px}
 .acc-log-btns{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acc-hint{margin:0;color:var(--muted)}
-body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
-@media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
+/* it steps up above a message (#toast only: the Syncing and download pills used to push it up and down too), gliding rather than
+   jumping; on computers it sits in line with the message (beside the sidebar) all the time, so it never slides sideways when one shows */
+.acc-chip{transition:bottom .2s ease,background-color .15s,color .15s,border-radius .15s}
+body:has(#toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
+@media (min-width:980px){.acc-chip{bottom:24px;left:calc(50% + 68px);width:min(620px,calc(100vw - 300px))}body:has(#toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}html[dir="rtl"] .acc-chip{left:calc(50% - 68px)}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+html[data-motion="static"] .acc-chip{transition:none}
 /* The check-in: how much is left? */
 .acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
 .acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
@@ -6634,7 +6656,7 @@ body:has(#toast.show) .acc-chip:not([hidden]) .acc-opt:not(.link){background:col
 body:has(#toast.show) .acc-chip:not([hidden]) :is(.acc-x,.acc-opt.link){color:inherit;opacity:.85}
 body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px));max-width:none;border-radius:0 0 16px 16px;box-shadow:0 12px 30px -8px rgba(8,20,50,.45)}
 @media (min-width:980px){
-  body:has(#toast.show) .acc-chip:not([hidden]){left:calc(50% + 68px);bottom:calc(32px + var(--toast-h,44px));width:min(620px,calc(100vw - 300px))}
+  body:has(#toast.show) .acc-chip:not([hidden]){bottom:calc(32px + var(--toast-h,44px))}
   body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 300px))}
 }
 /* ===== module: 97-notecards.css ===== */

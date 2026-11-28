@@ -410,7 +410,7 @@ const QADD = (() => {
   // After files are uploaded into a course
   async function offer(made, opts){
     const el = (made || []).filter(f => f.courseId && f.kind === "file" && wrapEligible(f, opts));
-    const by = {}; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
+    const by = {}, found = []; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
     for (const cid of Object.keys(by)) {
       const c = courseOf(cid); if (!c) continue;
       const items = [];
@@ -420,9 +420,16 @@ const QADD = (() => {
       const add = QADD.fresh(objsOf(courseOf(cid)), cands); if (!add.length) continue;
       const src = items.map(x => x.name).join(", ");
       OB.pending[cid] = {list: add, src};
-      toast(`Found ${add.length} learning objective${add.length === 1 ? "" : "s"} in ${clip(items[0].name, 40)}${items.length > 1 ? " and more" : ""}`, null, {label: "Review", fn: () => reviewSheet(cid)});
+      found.push({cid, n: add.length, name: items[0].name, more: items.length > 1});
       if (ui.tab === "courses" && ui.courseId === cid) scheduleRender();
     }
+    if (!found.length) return;
+    // one message for the whole upload (not one per course, each replacing the last at once), and only once the upload's own
+    // message ("Filed 3 files", with its Undo) has had its time, so that one doesn't flash up and vanish
+    for (let i = 0; i < 12 && document.querySelector("#toast.show"); i++) await new Promise(r => setTimeout(r, 1000));
+    const f0 = found[0], n = found.reduce((a, x) => a + x.n, 0);
+    toast(found.length === 1 ? `Found ${n} learning objective${n === 1 ? "" : "s"} in ${clip(f0.name, 40)}${f0.more ? " and more" : ""}`
+      : `Found ${n} learning objectives in ${found.length} courses`, null, {label: "Review", fn: () => reviewSheet(f0.cid)});
   }
   const origUpload = uploadFiles;
   uploadFiles = async function(list, opts){

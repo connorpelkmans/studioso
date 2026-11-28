@@ -100,8 +100,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.cheer{font-size:.98rem;box-shadow:0 8px 26px color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,transparent),0 0 0 2px color-mix(in srgb,var(--cp-wear,var(--accent)) 60%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 20%,var(--surface)),var(--surface) 75%)}
 .cp-bubble.cheer.on{animation:cpBubbleCheer .8s .25s ease-in-out 1}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
-@keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
-@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
+/* the wiggle uses rotate and translate, not transform, so it adds to the bubble's pop-in (a transform transition still running)
+   instead of replacing it: with transform the bubble jumped to its resting spot the moment the wiggle began */
+@keyframes cpBubbleWobble{0%,100%{rotate:0deg}35%{rotate:-1.6deg}70%{rotate:1.2deg}}
+@keyframes cpBubbleCheer{0%,100%{translate:0 0;rotate:0deg}20%{translate:0 -3px;rotate:-3deg}45%{translate:0 -2px;rotate:3deg}70%{translate:0 -1px;rotate:-1.5deg}}
 .cp-front.cp-still .cp-bubble{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
 @media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}}
