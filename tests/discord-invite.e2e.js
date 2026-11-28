@@ -101,6 +101,27 @@ const pop = page => page.evaluate(() => { const e = document.querySelector("#qod
     ok(/Join the Studyboard Discord/.test(await pop(page)), "new user: shown after 7 days");
     await ctx.close();
 
+    // a brand-new install with no account: the welcome setup saves a planner before this first looks, and that must not
+    // make it count as an old planner (it used to pop up seconds after the setup). Shown 7 days after the install.
+    {
+      const c2 = await browser.newContext({serviceWorkers: "block", viewport: {width: 390, height: 844}});
+      await c2.addInitScript(() => { window.__discordTest = {now: () => Number(sessionStorage.getItem("dnow")) || Date.now()}; });
+      const p2 = await c2.newPage(), e2 = [];
+      p2.on("pageerror", e => e2.push(e.message));
+      await p2.goto("http://127.0.0.1:" + web.address().port + "/");
+      await p2.waitForFunction(() => window.SBDISCORD && window.SBESS);
+      // what the welcome setup leaves behind, before the popup's first look
+      await p2.evaluate(() => { localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("coursework:v2", JSON.stringify({v: 2, updated: 1, settings: {}, tasks: [], courses: []})); document.querySelectorAll("dialog[open]").forEach(d => d.close()); window.SBDISCORD.check(); });
+      await p2.waitForTimeout(400);
+      ok(await p2.evaluate(() => SBESS.state().why) === "new" && !(await pop(p2)), "brand-new install: no popup right after the welcome setup");
+      ok(await p2.evaluate(() => Number(localStorage.getItem("studyboard:firstRun")) === SBESS.state().at), "its start is the install time, not an old planner's 0");
+      await p2.evaluate(() => { sessionStorage.setItem("dnow", String(SBESS.state().at + 8 * 864e5)); document.querySelectorAll("dialog[open]").forEach(d => d.close()); window.SBDISCORD.check(); });
+      await p2.waitForTimeout(400);
+      ok(/Join the Studyboard Discord/.test(await pop(p2)), "brand-new install: shown once a week has passed");
+      ok(!e2.length, "no page errors: " + e2.join("; "));
+      await c2.close();
+    }
+
     // the pure rule
     ({ctx, page} = await open(browser, D(1, 1), D(11, 19), {uiSync: {"studyboard:discordInvite": {v: "1", at: 5}}}));
     const r = await page.evaluate(([a, b, c, d]) => [SBDISCORD.due(0, a), SBDISCORD.due(b, c), SBDISCORD.due(b, d), SBDISCORD.due(null, a)], [D(11, 19), D(12, 1), D(12, 7), D(12, 8, 13)]);

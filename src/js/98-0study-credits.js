@@ -252,11 +252,20 @@ var SBSC = (() => {
   const chestsHtml = () => pending().slice(0, 4).map(c => `<span class="scr-mini-ch ch-${c.t}" title="${CHEST[c.t].name} chest">${chestSvg(c.t, true)}</span>`).join("");
   // Opening: one chest at a time, in the middle of the screen. Tap it (or Open) and the lid flies up in a burst of its colour,
   // coins spill out and its credits count up. Then the next one, or on to the credits screen
+  // An open modal dialog (the Focus timer, a sheet) makes the rest of the page inert, popovers included, so a screen shown over one
+  // couldn't be tapped: it goes inside the top one, and moves out (to the next one, or the page) when that dialog closes
+  const topModal = () => { const l = [...document.querySelectorAll("dialog[open]")].filter(d => { try { return d.matches(":modal"); } catch (e) { return false; } }); return l[l.length - 1] || null; };
+  function mount(o){
+    const host = topModal() || document.body;
+    host.appendChild(o);
+    try { if (o.showPopover && !o.matches(":popover-open")) o.showPopover(); } catch (e) {}
+    if (host !== document.body) host.addEventListener("close", function moved(){ host.removeEventListener("close", moved); if (o.isConnected && host.contains(o)) mount(o); });
+  }
   function openChests(list, done){
     const still = calm(), o = document.createElement("div");
     o.className = "scr-rw scr-ch" + (still ? " scr-still" : ""); o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true"); o.setAttribute("aria-labelledby", "scrChT");
     if (o.showPopover) o.setAttribute("popover", "manual");
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     let i = 0, opened = false;
     const draw = () => {
       const c = list[i]; opened = false;
@@ -441,7 +450,7 @@ var SBSC = (() => {
       ${x2 ? `<p class="wh-x2-line">Accessory chances ${X2}</p>` : ""}
       <details class="wh-odds"><summary>What's on the wheel</summary><ul>${list.map(pz => `<li class="${pz.r ? "r-" + pz.r : ""}"><span class="wh-ic">${prizeIcon(pz)}</span><span>${esc(prizeName(pz))}${pz.r && pz.k === "item" ? ` <span class="cp-rar cp-rar-${pz.r}">${RNAME[pz.r]}</span>` : ""}</span>${x2 && pz.k === "item" ? X2 : ""}<b>${Math.round(pz.p * 1000) / 10}%</b></li>`).join("")}</ul></details>
       <div class="scr-acts"><button type="button" class="btn primary scr-go wh-go" data-wh="spin">Spin</button></div></div>`;
-    document.body.appendChild(o); try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     setTimeout(() => { const b = o.querySelector(".wh-go"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 80);
     let state0 = "ready", won = null;
     const spin = () => {
@@ -494,12 +503,16 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
-  const rq = []; let rOpen = false;
+  const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
   // spec: {kind, kick, title, lines: [{t, n, s}], compact, sub}
   // A big screen first opens any chests found along the way (one by one), then shows the credits with a line for each chest
   function reward(spec){
+    // the Focus timer's alarm comes first (Start Break, Mark Done); this screen follows once it's put away
+    const al = document.getElementById("alarmDlg");
+    // (meanwhile the quiet count waits, so it doesn't take this work's credits as arriving from elsewhere)
+    if (al && al.open && !screensOff()) { rWait++; al.addEventListener("close", () => setTimeout(() => { rWait--; reward(spec); }, 300), {once: true}); return; }
     const ch = spec.compact ? [] : takeChests();
     if (!ch.length) { rewardNow(spec, []); return; }
     // the coins are added as the chests are opened (or at once, where the screens aren't shown)
@@ -574,8 +587,7 @@ var SBSC = (() => {
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     try { if (typeof sbHaptic === "function") sbHaptic("success", {force: true}); } catch (e) {}
     // the screen's sound: a stinger for how it went (r.sfx: 1 nice, 2 passed or on time, 3 perfect or mastered; 0 for a focus session,
     // whose timer has just chimed), then coins while the credits count up and a ding when they land
@@ -607,8 +619,7 @@ var SBSC = (() => {
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
 </span>`;
-    document.body.appendChild(o);
-    try { if (o.showPopover) o.showPopover(); } catch (e) {}
+    mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     sfx("pop");
@@ -626,12 +637,13 @@ var SBSC = (() => {
   // Focus: when a focus session ends (SBSTATS has logged its minutes by then)
   hook("focus", e => {
     // a session that ends, or one stopped part way (Reset, Skip, a mode change): its minutes are logged either way, and its screen
-    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest only at a session's real end
-    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes) return;
+    // says what they earned (the chip showed them going up, so they shouldn't just vanish); a chest and the big screen only at a
+    // session's real end, a small card that goes by itself for one stopped part way
+    if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !e.minutes || e.why === "switch") return;
     if (e.type === "end") rollChest("focus");
     setTimeout(() => {
       const m = Math.round(e.minutes), today = tr(() => Number(SBSTATS.focusDays()[todayISO()]) || 0);
-      reward({kind: "focus", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
+      reward({kind: "focus", compact: e.type !== "end", kick: e.type === "end" ? "Focus Session Done" : "Focus Time Counted", title: `${m} minute${m === 1 ? "" : "s"} of focus`,
         lines: [{t: `You focused for ${m} minute${m === 1 ? "" : "s"}`, n: 0, fill: Math.ceil(m / 2) + 1, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : ""}]});
     }, 60);
   });
@@ -706,7 +718,7 @@ var SBSC = (() => {
   let noticeT = 0;
   function noticeSoon(){
     clearTimeout(noticeT);
-    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen) { noticeSoon(); return; } notice(); }, 1200);
+    noticeT = setTimeout(() => { if (studying() || document.hidden || rOpen || rWait) { noticeSoon(); return; } notice(); }, 1200);
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown

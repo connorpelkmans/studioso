@@ -62,7 +62,7 @@ function qaBarHtml(){
       <input type="time" data-qa="time" data-i="${i}" value="${esc(x.time)}" aria-label="Due time">
       <span class="qa-meta">${x.repeat && x.due && x.type !== "Exam" ? `<span class="qa-rep" title="Repeats">${REPEAT} ${esc(SBCAPTURE.repeatText(x.repeat, x.due, x.courseId))}</span>` : ""}${!MILESTONE(x.type) && Number(x.pages) >= 1 ? `<span title="At your reading pace">${esc(pagesText({pages: x.pages, hours: x.est ? null : x.hours, courseId: x.courseId, type: x.type}))}</span>` : !MILESTONE(x.type) && isNum(x.hours) ? `<span title="${x.est ? "Estimated" : "Hours"}">~${fmtHM(Number(x.hours))}</span>` : ""}${x.weight ? `<span>${x.weight}%</span>` : ""}${x.priority !== "med" ? `<span>${PRIO[x.priority]}</span>` : ""}</span>
       <button type="button" class="x-btn" data-act="qa-rm" data-i="${i}" aria-label="Remove">${CLOSE}</button>
-      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}</li>`;
+      <span class="qa-past mini" ${qaPast(x.due) ? "" : "hidden"}>This date is in the past. Pick a new one, or add it anyway.</span>${x.ampm && x.time ? `<span class="qa-past qa-ampm mini">No AM or PM was given. Check the time.</span>` : ""}${(x.flags || []).includes("week") && x.due ? `<span class="qa-past qa-wk mini">No day was given, so it's set to the Monday. Check the date.</span>` : ""}</li>`;
   return `<form class="qa-bar" id="qaForm" autocomplete="off">
       <span class="qa-ic" aria-hidden="true">${aiReady() ? AI_ICON : "+"}</span>
       <input type="text" id="qaIn" value="${esc(ui.qaText || "")}" ${(ex => phPh("Add a task by typing, e.g. " + (ex || "bio quiz fri 2pm worth 5%"), "e.g. " + (ex ? ex.split(" ").slice(0, 2).join(" ") : "bio quiz fri")))(window.SBAREA && SBAREA.example())} aria-label="Add a task by typing a sentence" maxlength="400" data-noenter>
@@ -93,7 +93,7 @@ function qaLiveText(v){
 }
 document.addEventListener("input", e => { if (e.target.id === "qaIn") { ui.qaText = e.target.value; const l = $("#qaLive"); if (l && !ui.qa) l.textContent = qaLiveText(ui.qaText); } const i = e.target.dataset && e.target.dataset.qa; if (i && ui.qa && e.target.type === "text") ui.qa.items[Number(e.target.dataset.i)][i] = e.target.value; });
 document.addEventListener("change", e => { const k = e.target.dataset && e.target.dataset.qa; if (!k || !ui.qa) return; const it = ui.qa.items[Number(e.target.dataset.i)]; if (!it) return; it[k] = e.target.value; if (k === "courseId" || k === "type") render();
-  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); }
+  else if (k === "due") { const w = e.target.closest(".qa-item"), h = w && w.querySelector(".qa-past"); if (h) h.hidden = !qaPast(it.due); const wk = w && w.querySelector(".qa-wk"); if (wk) { wk.remove(); it.flags = (it.flags || []).filter(f => f !== "week"); } }
   else if (k === "time") { it.ampm = false; const h = e.target.closest(".qa-item") && e.target.closest(".qa-item").querySelector(".qa-ampm"); if (h) h.remove(); } });
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape" || e.defaultPrevented || !ui.qa || ui.qa.busy || document.querySelector("dialog[open]")) return;

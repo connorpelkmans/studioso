@@ -690,6 +690,9 @@ setTimeout(async () => {
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
+      // not on the day of the welcome setup (it may finish while this waits): Getting Started offers backups already, and a new
+      // student has enough to read. It comes on a later visit.
+      try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if ((at && Date.now() - at < 864e5) || (window.SBOB && SBOB.pending())) return; } catch (e) {}
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
         {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});

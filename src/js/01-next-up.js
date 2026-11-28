@@ -182,6 +182,9 @@ const markedEnough = t => { const ds = enoughSinceMs(); return (t.history || [])
 const enoughToday = (t, x) => {
   if (!t) return false; if ((x && x.enough) || markedEnough(t)) return true;
   const target = x && x.alloc > 0 ? Math.max(10, Math.round(x.alloc * 60)) : 0;
+  // the plan already counts time worked today (less left on the task, less of today left), so when today's time covers all
+  // that's left, the plan means "finish it today": 30m logged on an overdue 1h task leaves 30m today, not "enough"
+  if (target > 0 && x.R > 0 && x.alloc + 0.125 >= x.R) return false;
   return target > 0 && workedToday(t) >= target;
 };
 /* Next Up: the one thing to do right now */

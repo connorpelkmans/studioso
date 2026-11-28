@@ -211,7 +211,7 @@ const HM = (() => {
   const legendHtml = () => `<div class="hm-legend" aria-hidden="true"><span>Less</span>${[0, 1, 2, 3, 4].map(l => `<i class="hm-c" data-l="${l}" title="${esc(RANGE[l])}"></i>`).join("")}<span>More</span></div>`;
   function tableHtml(V, from, to, caption){
     const rows = HM.months(V, from, to);
-    return `<table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table>`;
+    return `<div class="sr"><table class="sr"><caption>${esc(caption)}</caption><thead><tr><th scope="col">Month</th><th scope="col">Study days</th><th scope="col">Study time</th><th scope="col">Focus</th><th scope="col">Cards reviewed</th><th scope="col">Tasks finished</th></tr></thead><tbody>${rows.map(m => `<tr><th scope="row">${esc(dt(m.ym + "-15", {month: "long", year: "numeric"}))}</th><td>${fmtN(m.days)}</td><td>${esc(hm(m.min))}</td><td>${esc(hm(m.focus))}</td><td>${fmtN(m.cards)}</td><td>${fmtN(m.tasks)}</td></tr>`).join("")}</tbody></table></div>`;
   }
   const hasAny = V => Object.keys(V).some(d => V[d].study);
   const tipHtml = () => `<div class="hm-tip" aria-hidden="true" hidden></div><p class="sr hm-live" role="status" aria-live="polite"></p>`;
