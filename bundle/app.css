@@ -3965,10 +3965,13 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .kb-col.k-done .kb-band{opacity:.6}
 .kb-card.is-saving{opacity:.65}
 .kb-card{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.kb-card.kb-lifted{opacity:.35}
-.kb-ghost{position:fixed;z-index:10000;pointer-events:none;margin:0;box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;list-style:none}
+/* Dragging a card: the same look as the Task Board's (00-base.css .ghost, .placeholder, .col.over): the card leaves a dashed gap
+   where it will land, the one in hand is tipped and lifted, and the column under it gets an accent ring */
+.kb-card.kb-lifted{display:none}
+.kb-ph{list-style:none;border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent);box-sizing:border-box}
+.kb-ghost{position:fixed;z-index:10000;pointer-events:none;margin:0;transform:rotate(2deg) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;list-style:none;will-change:transform}
 .kb-dragging .kb-card{cursor:grabbing}
-.kb-col.over{outline:2px dashed var(--gk,var(--accent));outline-offset:-2px;background:color-mix(in srgb,var(--gk,var(--accent)) 8%,transparent)}
+.kb-col.over{box-shadow:inset 0 0 0 2px var(--accent)}
 .card.gcard{cursor:grab}
 /* A card with a tab on its top-left corner is square there */
 .card.has-tab,.course-card,.deck,.grp-card,.deck-head,.grp-prev,.deck.deck-fc > .deck-face,.deck-fc .deck-lay .face{border-top-left-radius:0!important}

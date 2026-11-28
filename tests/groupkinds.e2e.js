@@ -326,18 +326,24 @@ async function projectGroup(browser, w){
   const planTasks = await page.evaluate(() => window.__DB.group_tasks.map(t => [t.title, t.due_at]));
   eq(planTasks.length, 6, tag + " six milestones created"); eq(planTasks[5][1], await page.evaluate(() => window.__DB.study_groups[1].project_due), tag + " the last milestone is the due date");
   ok(planTasks.every((t, i) => !i || t[1] >= planTasks[i - 1][1]), tag + " milestones are in date order");
-  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 6", "In Progress 0", "Done 0"], tag + " board columns");
+  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 6", "In Progress 0", "Complete 0"], tag + " board columns");
   const drag = async (card, col) => { const a = await page.locator(card).first().boundingBox(), b = await page.locator(`#grpPT [data-kbcol="${col}"]`).boundingBox();
     await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2); await page.mouse.down();
     for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + a.width / 2 + (b.x + b.width / 2 - a.x - a.width / 2) * i / 12, a.y + a.height / 2 + (b.y + Math.min(b.height / 2, 60) - a.y - a.height / 2) * i / 12);
-    await page.mouse.up(); await page.waitForTimeout(400); };
+    await page.waitForTimeout(120);
+    // like the Task Board: a dashed gap in the column under the card, the card itself out of the list, a tipped and lifted ghost
+    const mid = await page.evaluate(col => ({gap: !!document.querySelector(`#grpPT [data-kbcol="${col}"] .kb-ph`), hidden: [...document.querySelectorAll("#grpPT .kb-card.kb-lifted")].every(c => !c.getClientRects().length), ghost: (document.querySelector(".kb-ghost") ? getComputedStyle(document.querySelector(".kb-ghost")).transform : "")}), col);
+    ok(mid.gap && mid.hidden && /matrix/.test(mid.ghost), tag + " dragging shows the gap where it lands, like the Task Board: " + JSON.stringify(mid));
+    await page.mouse.up(); await page.waitForTimeout(30);
+    ok(await page.evaluate(() => [...document.querySelectorAll("#grpPT .kb-card")].some(c => c.getAnimations().length)) && !(await page.$(".kb-ph")), tag + " on a drop the card glides into its slot");
+    await page.waitForTimeout(400); };
   const setStatus = async (card, to) => { await page.locator(card + " .pt-title").first().click(); await sheet(page, 'select[name="status"]');
     await page.selectOption('dialog select[name="status"]', to); await page.click("dialog [data-submit]"); await page.waitForTimeout(500); };
   const move = (card, to) => w < 760 ? setStatus(card, to) : drag(card, to);
   await move("#grpPT .k-todo .kb-card", "doing");
-  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 1", "Done 0"], tag + " a card moved to In Progress");
+  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 1", "Complete 0"], tag + " a card moved to In Progress");
   await move("#grpPT .k-doing .kb-card", "done");
-  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 0", "Done 1"], tag + " and then to Done");
+  eq(await page.$$eval("#grpPT .kb-col h4", e => e.map(x => x.innerText.replace(/\s+/g, " "))), ["To Do 5", "In Progress 0", "Complete 1"], tag + " and then to Complete");
   ok(await page.evaluate(() => window.__DB.group_tasks.filter(t => t.status === "done").length) === 1, tag + " saved to the server");
   await noOverflow(page, tag + " board"); await page.screenshot({path: path.join(shots, `gk-project-${w}-board.png`), fullPage: true});
   await tab(page, "overview");

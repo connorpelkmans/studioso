@@ -2070,7 +2070,7 @@
 </li>`; };
     const DOT = {todo: "#8A94A6", doing: "#2C55D6", done: "#1E9E74"};
     const col = (k, label, list, empty) => `<section class="kb-col k-${k}" data-kbcol="${k}" aria-label="${label}, ${list.length}" style="--sc:${DOT[k]}"><h4><span class="sd" aria-hidden="true"></span>${label}<small>${list.length}</small></h4><ul>${list.map(card).join("") || `<li class="kb-none">${empty}</li>`}</ul></section>`;
-    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Done", cols.done, "Nothing finished yet")}</div>`;
+    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Complete", cols.done, "Nothing finished yet")}</div>`;
   }
 
   /* Q&A board (study groups) */
@@ -2290,10 +2290,10 @@
 
   /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
-  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Complete"]];
   const PT_BFILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
-  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Done"]];
+  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Complete"]];
   const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, view: "list", busy: false, err: "", setup: false});
   const ptX = gid => { const x = S.pt[gid]; return x && x.ok ? x : null; };
   const ptTaskOf = id => { for (const k in S.pt) { const t = (S.pt[k].tasks || []).find(x => x.id === id); if (t) return t; } return null; };
@@ -2313,7 +2313,7 @@
     const me = myId(), done = t.status === "done", late = !done && GTL.due(t.due_at, today).late, ms = S.members[g.id] || [];
     const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
-    const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
+    const mini = done ? `Completed${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
     const pend = t._out || outPend(g.id, o => o.task === t.id);
     return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
@@ -2766,19 +2766,22 @@
     d.started = true;
     sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
-    d.dx = d.x - r.left; d.dy = d.y - r.top;
+    d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
-    document.body.appendChild(gh); d.ghost = gh; d.el.classList.add("kb-lifted");
+    document.body.appendChild(gh); d.ghost = gh;
+    // as on the Task Board: the card leaves a gap where it will land, which moves as it's carried and the other cards make room
+    const ph = document.createElement("li"); ph.className = "kb-ph sm-skip"; ph.setAttribute("aria-hidden", "true"); ph.style.height = r.height + "px";
+    d.el.after(ph); d.el.classList.add("kb-lifted"); d.ph = ph; d.hCol = d.el.closest(".kb-col");
     const kb = d.el.closest(".kb"); if (kb) kb.classList.add("kb-dragging");
     kbTick();
   }
   function kbCol(x, y){ const u = document.elementFromPoint(x, y), c = u && u.closest && u.closest("#grpPT .kb-col"); return c || null; }
   function kbTick(){
     const d = kbDrag; if (!d || !d.started) return;
-    d.ghost.style.transform = `translate(${d.x - d.dx - parseFloat(d.ghost.style.left)}px, ${d.y - d.dy - parseFloat(d.ghost.style.top)}px) rotate(2deg)`;
+    d.ghost.style.translate = (d.x - d.dx - d.gl) + "px " + (d.y - d.dy - d.gt) + "px";
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
-    if (c) c.classList.add("over");
+    if (c) { c.classList.add("over"); if (d.hCol && d.hCol !== c) sbHaptic("tick"); d.hCol = c; kbPlace(d, c); }
     kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
   }
@@ -2798,17 +2801,68 @@
     const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
     if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
+  /* Motion, the same as the Task Board's (01-events.js bfPlay, bfLanded): cards that change places slide there, and on a drop the
+     card glides from the finger into its slot */
+  const KB_EASE = "cubic-bezier(.2,.8,.2,1)";
+  const kbStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+  const kbCards = () => [...document.querySelectorAll("#grpPT .kb-card[data-id]:not(.kb-lifted)")];
+  function kbRects(){ const m = new Map(); if (kbStill()) return m; kbCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+  function kbSlide(before, skip){
+    if (!before.size) return;
+    kbCards().forEach(c => {
+      const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+      const b = c.getBoundingClientRect(); if (!b.width) return;
+      const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: 260, easing: KB_EASE});
+    });
+  }
+  // The column's own order (GTL.order) decides where a card goes, so the gap opens where the card will really land
+  const kbTo = (d, col) => col === "doing" ? (d.from === "doing" || d.from === "review" ? d.from : "doing") : col;
+  function kbPlace(d, c){
+    const x = ptX(ui.grp), list = c.querySelector("ul"); if (!x || !list || !d.ph) return;
+    const col = c.dataset.kbcol, moved = x.tasks.map(t => t.id === d.id ? Object.assign({}, t, {status: kbTo(d, col)}) : t);
+    const order = (GK.board(moved)[col] || []).map(t => t.id), at = order.indexOf(d.id); if (at < 0) return;
+    const others = [...list.querySelectorAll(":scope > .kb-card[data-id]")].filter(n => n !== d.el), before = others[at] || null;
+    const next = n => { let m = n.nextElementSibling; while (m && m === d.el) m = m.nextElementSibling; return m; };
+    if (d.ph.parentNode === list && (before ? next(d.ph) === before : !next(d.ph) || !next(d.ph).matches(".kb-card[data-id]"))) return;
+    const was = kbRects();
+    if (before) list.insertBefore(d.ph, before); else list.appendChild(d.ph);
+    list.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = true; });
+    if (d.lastList && d.lastList !== list && !d.lastList.querySelector(".kb-card[data-id]:not(.kb-lifted)")) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
+    d.lastList = list;
+    kbSlide(was);
+    if (d.ph.animate && was.size) d.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: KB_EASE});
+  }
+  function kbLand(id, ghost, before){
+    const gr = ghost && ghost.isConnected ? ghost.getBoundingClientRect() : null;
+    kbSlide(before, id);
+    if (ghost) ghost.remove();
+    const el = document.querySelector(`#grpPT .kb-card[data-id="${CSS.escape(id)}"]`);
+    if (!el || !gr || !el.animate || kbStill()) return;
+    const f = el.getBoundingClientRect(); if (!f.width) return;
+    const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+    el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+    const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+      {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+    a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+  }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);
     if (!d.started) { kbDrag = null; return; }
-    const c = ok ? kbCol(d.x, d.y) : null, to = c ? c.dataset.kbcol : "";
-    if (d.ghost) d.ghost.remove(); d.el.classList.remove("kb-lifted");
+    // it lands where its gap is (as on the Task Board), so a drop between columns or just past one still goes where it showed
+    const c = ok ? ((d.ph && d.ph.closest("#grpPT .kb-col")) || kbCol(d.x, d.y)) : null, col = c ? c.dataset.kbcol : "", to = col ? kbTo(d, col) : "";
+    if (ok) sbHaptic("drop", {force: true});
+    const before = kbRects();
+    if (d.ph) d.ph.remove(); d.el.classList.remove("kb-lifted");
+    if (d.lastList) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
     $$("#grpPT .kb-col.over").forEach(k => k.classList.remove("over")); const kb = d.el.closest(".kb"); if (kb) kb.classList.remove("kb-dragging");
     d.justDragged = true; kbDrag = d; setTimeout(() => { if (kbDrag === d) kbDrag = null; }, 350);
     d.started = false;
     const g = groupOf(ui.grp);
+    // the board redraws at once (ptMutate, then swapPT), then the card glides from where it was let go into its new slot
     if (g && to && to !== d.from && PT_STATUS.some(k => k[0] === to)) ptMutate(g.id, d.id, {status: to});
     else if (g && d.dirty) ptRefresh(g.id);
+    kbLand(d.id, d.ghost, before);
   }
   document.addEventListener("pointermove", e => {
     const d = kbDrag; if (!d || d.justDragged || e.pointerId !== d.pid) return;
