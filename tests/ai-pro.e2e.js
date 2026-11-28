@@ -337,7 +337,7 @@ const STUB = () => {
       await S.page.evaluate(() => __sbAi.useOwnMode());
       await openAi(S.page);
       const t = await S.page.textContent("#dlg");
-      ok(/Studyboard uses Google Gemini by default/.test(t) && await S.page.$("#dlg .ai-steps") && await S.page.isVisible('#dlg [data-key="gemini"]') && /Use a Paid Model Instead/.test(t) && await S.page.$('#dlg [data-key="anthropic"]') && await S.page.$('#dlg [data-key="openai"]'), "an allowed free account sees the Gemini steps and the separate key boxes");
+      ok(/Use Your Own Gemini API Key \(Advanced\)/.test(t) && await S.page.$("#dlg .ai-steps") && await S.page.isVisible('#dlg [data-key="gemini"]') && /Use a Paid Model Instead/.test(t) && await S.page.$('#dlg [data-key="anthropic"]') && await S.page.$('#dlg [data-key="openai"]'), "an allowed free account sees the Gemini steps and the separate key boxes");
       ok(!(await S.page.$("#aiBackupKey")) && !/Backup API Key/.test(t), "and no backup box");
       ok(!/always runs in Studyboard AI Pro Mode/.test(t) && !/This month: \d+% used/.test(t), "the Studyboard AI Pro Mode note and its usage line are gone");
       await S.ctx.close();
@@ -389,7 +389,9 @@ const STUB = () => {
       await proOn(T.page);
       await openAi(T.page);
       const sheetT = await shown(T.page, "#dlg");
-      ok(DISCLOSE.test(sheetT) && clean(sheetT), "AI Features names only Studyboard AI Pro (apart from the note on where content goes)");
+      // the Studyboard AI Pro level in How Much Each AI Can Answer says which model runs it and where requests go, on purpose (9258bf5, 32f4571)
+      const proLvl = await shown(T.page, "#dlg #aiTiersLive .ai-tier.pro");
+      ok(DISCLOSE.test(sheetT) && proLvl.trim() && clean(sheetT.replace(proLvl.trim(), "")), "AI Features names only Studyboard AI Pro (apart from the note on where content goes and the Pro level's details)");
       await shot(T.page, "pro-ai-features.png");
       await act(T.page, "fc-ai-cards"); await T.page.waitForSelector("#dlg[open] .ai-model-bar");
       ok(/^Studyboard AI Pro/.test((await T.page.textContent("#dlg .ai-model-bar")).trim()) && clean(await shown(T.page, "#dlg")), "an AI window says Studyboard AI Pro and nothing else");
