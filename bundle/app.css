@@ -6910,6 +6910,9 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 .gr-card > .gi-tabs{margin-top:4px}
 .gi-pan{display:grid;gap:16px}
 .gi-pan > .gr-sub + .gr-sub{padding-top:14px;border-top:1px solid var(--line)}
+/* after a list of marks the dividing line sits as close under the last row as the lines between rows do (the grid's gap
+   put 16px more under the last one) */
+.gi-pan > .gr-sub:has(> ul.gr-work:last-child) + .gr-sub{margin-top:-16px}
 @media (max-width:520px){.gi-tabs{gap:2px;padding:3px}.gi-tab{flex:1 1 0;min-width:0;padding:6px 4px;font-size:.8rem;gap:4px}.gi-tab .n{padding:0 5px;font-size:.66rem}}
 /* phones: a mark row with two buttons (a missed item) puts them on their own line under the title, so the title isn't squeezed */
 @media (max-width:520px){.gr-work > li:has(> .gr-mz-acts){flex-wrap:wrap;row-gap:2px}.gr-work > li:has(> .gr-mz-acts) > .gr-row-main{flex:1 1 100%;min-height:0}.gr-work > li > .gr-mz-acts{flex:1 1 100%}}
@@ -8635,6 +8638,15 @@ ol.qzd-opts li{color:var(--ink)}
 .gp-d-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:800 .8rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .gp-d-h .spacer{flex:1}
 .gp-d-calc .gp-calc-out{margin-top:10px}
+/* Where You Stand: the goal and letter-line distances, as chips across the top of the dropdown */
+.gp-stand{grid-column:1/-1;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.gp-stand[hidden]{display:none}
+.gp-stand-chips{display:flex;flex-wrap:wrap;gap:6px}
+.gp-sc{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;font:700 .82rem var(--body);background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink)}
+.gp-sc.gp-sc-ok{background:color-mix(in srgb,var(--leaf,#1E9E74) 15%,var(--surface));color:color-mix(in srgb,var(--leaf,#1E9E74) 70%,var(--ink))}
+.gp-sc.gp-sc-to{background:color-mix(in srgb,var(--accent) 13%,var(--surface))}
+.gp-stand .gi-edge-chip{padding:0 10px}
+.gp-stand-why{margin:8px 0 0;color:var(--muted)}
 @media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
 /* Files, Direction 1 */
 .fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}

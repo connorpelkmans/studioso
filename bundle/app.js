@@ -47843,16 +47843,19 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       const marks = `<section class="gp-marks gp-d-marks"><h4 class="gp-d-h">Marks<span class="spacer"></span><button class="btn small" data-act="g-course-set" data-id="${esc(c.id)}">Weights</button></h4>
         ${ptsNote(gr)}${gr.ts.length + gr.loose.length ? `<ul class="gr-work">${gradeRows(gr.ts, null, gr.dropped)}${gradeRows(gr.loose)}</ul>${gr.loose.length ? `<p class="mini" style="margin:6px 0 0">Marks with <b>No weight yet</b> are shown, not counted, until they have a weight.</p>` : ""}` : `<p class="mini" style="margin:0">No graded work yet.</p>`}
         ${gr.unlisted > 0.5 ? `<p class="mini" style="margin:8px 0 0">Only ${fmtW(gr.wAll)} of ${esc(courseLabel(c))} is listed so far. <button class="link-btn" data-act="import-syllabus" data-course="${esc(c.id)}">Import the Syllabus</button> to fill in the rest.</p>` : ""}</section>`;
-      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${marks}${calc}</div>`;
+      // Where you stand: how far from your goal (and, from Grade Insights, from the next letter line). Kept here, in the course's
+      // dropdown, so each row on the list stays to its name, the share marked and one plain sentence
+      const gg = goalGap(gr);
+      const stand = `<div class="gp-stand"${gg ? "" : " hidden"}><h4 class="gp-d-h">Where You Stand</h4><div class="gp-stand-chips">${gg ? `<span class="gp-sc ${gg.gap >= 0 ? "gp-sc-ok" : "gp-sc-to"}">${esc(gg.text)}</span>` : ""}</div></div>`;
+      return `<div class="gp-drop" id="gpd-${esc(c.id)}"${ui.gpOpen && ui.gpOpen[c.id] ? "" : " hidden"}>${stand}${marks}${calc}</div>`;
     };
     const low = tn ? `<button type="button" class="gp-need" data-act="gp-toggle" data-id="${esc(tn.gr.c.id)}"><span class="gr-k">What Do I Need?</span><span class="gp-need-t">${tn.msg}</span></button>` : "";
     const rows = all.map(gr => {
       const c = gr.c, g = gr.g, L = p => letterOf(p, g.scale), cur = gr.current != null ? clampP(gr.current) : null;
-      const gg = goalGap(gr);
       return `<li class="gp-course${gr.risk ? " gr-" + gr.risk : ""}" style="--c:${esc(c.color)}">
         <button class="gp-main" data-act="g-open-course" data-id="${esc(c.id)}" aria-label="Open grades for ${esc(c.name)}">
           <span class="g2-ring gp-ring" aria-hidden="true">${courseRingHtml(c)}</span>
-          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}${gg ? ` · <b class="${gg.gap >= 0 ? "gr-ok" : ""}">${esc(gg.text)}</b>` : ""}</span></span>
+          <span class="gp-who"><b class="gp-name">${esc(typeof cardName === "function" ? cardName(c.name) : c.name)}</b><span class="mini">${esc(courseLabel(c))} · ${gr.unw ? `unweighted average of ${gr.unw} ${gr.unw === 1 ? "mark" : "marks"}` : gr.ts.length ? `${fmtW(gr.wMarked)} marked` : "no graded work yet"}</span></span>
           <span class="gp-bar" role="img" aria-label="${cur != null ? `Current grade ${fmtP(gr.current)}` : "No marks yet"}. Pass mark ${fmtP(g.pass)}${g.goal != null ? `, goal ${fmtP(g.goal)}` : ""}."><i class="gp-fill" style="width:${cur != null ? cur : 0}%"></i><i class="gp-pass" style="left:${clampP(g.pass)}%"></i>${g.goal != null ? `<i class="gp-goal" style="left:${clampP(g.goal)}%"></i>` : ""}</span>
           <span class="gp-grade">${gr.current != null ? `<b>${fmtP(gr.current)}</b>${L(gr.current) ? `<span class="c2-letter">${esc(L(gr.current))}</span>` : ""}` : `<span class="mini">Pass ${fmtP(g.pass)}</span>`}</span>
           <span class="gp-line mini">${esc(gradeLine(gr))}</span>${zeroed(gr) ? `<span class="gp-zero mini" role="note">${esc(ZERO_TXT)}</span>` : gr.risk ? riskPill(gr.risk) : ""}
@@ -49318,8 +49321,13 @@ ${p.ext && p.heavy ? `Adding a reminder to ask for an extension on ${nm(p.heavy.
     if (gb) gb.insertAdjacentHTML("afterend", html); else if (wi) wi.insertAdjacentHTML("beforebegin", html); else if (marked) marked.insertAdjacentHTML("beforebegin", html); else card.insertAdjacentHTML("beforeend", html);
   });
   addSection("row", (gr, row) => {
-    const e = edgeOf(gr), main = row.querySelector(".gp-main .gp-who .mini");
-    if (e && main && !row.querySelector(".gi-edge-chip")) main.insertAdjacentHTML("beforeend", ` · <span class="gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+    // in the course's dropdown, under Where You Stand (90-grades.js), not on the row itself
+    const e = edgeOf(gr), st = row.querySelector(".gp-drop .gp-stand"), chips = st && st.querySelector(".gp-stand-chips");
+    if (e && chips && !row.querySelector(".gi-edge-chip")) {
+      chips.insertAdjacentHTML("beforeend", `<span class="gp-sc gi-edge-chip gi-edge-${e.dir}">${esc(edgeText(e))}</span>`);
+      st.insertAdjacentHTML("beforeend", `<p class="gp-stand-why mini">${esc(edgeLong(gr, e))}</p>`);
+      st.hidden = false;
+    }
   });
   addSection("page", all => {
     const lt = lateTotal(all); if (lt.n < 1 || lt.pts < 0.05) return "";

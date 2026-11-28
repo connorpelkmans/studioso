@@ -1084,6 +1084,15 @@ ol.qzd-opts li{color:var(--ink)}
 .gp-d-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:800 .8rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .gp-d-h .spacer{flex:1}
 .gp-d-calc .gp-calc-out{margin-top:10px}
+/* Where You Stand: the goal and letter-line distances, as chips across the top of the dropdown */
+.gp-stand{grid-column:1/-1;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.gp-stand[hidden]{display:none}
+.gp-stand-chips{display:flex;flex-wrap:wrap;gap:6px}
+.gp-sc{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;font:700 .82rem var(--body);background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink)}
+.gp-sc.gp-sc-ok{background:color-mix(in srgb,var(--leaf,#1E9E74) 15%,var(--surface));color:color-mix(in srgb,var(--leaf,#1E9E74) 70%,var(--ink))}
+.gp-sc.gp-sc-to{background:color-mix(in srgb,var(--accent) 13%,var(--surface))}
+.gp-stand .gi-edge-chip{padding:0 10px}
+.gp-stand-why{margin:8px 0 0;color:var(--muted)}
 @media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
 /* Files, Direction 1 */
 .fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
