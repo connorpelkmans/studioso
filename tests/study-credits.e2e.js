@@ -159,7 +159,7 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     await p.evaluate(() => localStorage.setItem("studyboard:chest-test", "rare"));
     const found = await p.evaluate(() => { const c = SBSC.rollChest("quiz"); return c && {t: c.t, c: c.c}; });
     await p.evaluate(() => localStorage.removeItem("studyboard:chest-test"));
-    ok(found && found.t === "rare" && found.c >= 30 && found.c <= 50, "a Rare chest holds 30 to 50 credits: " + JSON.stringify(found));
+    ok(found && found.t === "rare" && found.c >= 45 && found.c <= 75, "a Rare chest holds 45 to 75 credits: " + JSON.stringify(found));
     await p.waitForSelector(".scr-found.show", {timeout: 3000}).then(() => ok(true, "finding it shows a small note"), () => ok(false, "finding it shows a small note"));
     ok(/Opens at the end/.test(await p.textContent(".scr-found")), "the first chest ever says it opens at the end");
     ok(await p.evaluate(() => SBSC.pendingChests().length === 1), "it waits, unopened, until the session ends");

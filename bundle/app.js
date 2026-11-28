@@ -61979,13 +61979,13 @@ var SBSC = (() => {
      A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 2 days,
      an Uncommon every 4, a Rare a week, an Epic every 3 weeks and a Legendary about every 2 months.
      What's inside grows with the rarity, roughly in step with the prices (Common 100 up to Legendary 1,000), a little better
-     for the rarer ones; on average a chest still holds about 24 credits, as before Uncommon chests. */
+     for the rarer ones; on average a chest holds about 36 credits. */
   const CHEST = {
-    common: {name: "Common", min: 8, max: 15, p: 0.54},
-    uncommon: {name: "Uncommon", min: 18, max: 30, p: 0.25},
-    rare: {name: "Rare", min: 30, max: 50, p: 0.145},
-    exotic: {name: "Epic", min: 55, max: 90, p: 0.05},
-    legendary: {name: "Legendary", min: 120, max: 200, p: 0.015}
+    common: {name: "Common", min: 12, max: 23, p: 0.54},
+    uncommon: {name: "Uncommon", min: 27, max: 45, p: 0.25},
+    rare: {name: "Rare", min: 45, max: 75, p: 0.145},
+    exotic: {name: "Epic", min: 83, max: 135, p: 0.05},
+    legendary: {name: "Legendary", min: 180, max: 300, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
   const RIM = {common: "#8A93A3", uncommon: "#15803D", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
