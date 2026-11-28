@@ -75516,8 +75516,8 @@ var COMP_ACC_MORE = K => {
       return `${line2(arcP(hw, -2, 6, .92), 1, WS("#F5C542"))}${pts.map(([x, y], i) => { const [c, r, ring] = P[i], l = 4 + (i % 2) * 2; return `<g transform="translate(${x} ${y})">${A("swing", `<path d="M0 0V${l}" stroke="${GOLD}" stroke-width=".8"/><circle cy="${f(l + r)}" r="${r}" fill="${c}" ${OUT(1)}/>${ring ? `<ellipse cy="${f(l + r)}" rx="${f(r * 1.8)}" ry="${f(r * .5)}" fill="none" stroke="#FFE58A" stroke-width=".8"/>` : ""}<circle cx="${f(-r * .35)}" cy="${f(l + r * .6)}" r="${f(r * .3)}" fill="#fff" opacity=".7"/>`, `animation-delay:${-i * .7}s`)}</g>`; }).join("")}${tw(f(-hw - 2), -6, 2.6, 0)}${tw(f(hw + 2), 8, 2.4, 1.2)}`; }})
   );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
-  // halos float just above the head, all at the same height: the bottom of each ring sits 5.3 above the top of the head
-  const LOWER = {halo: 4.5, orbithalo: 6.1, blackhole: 9.7};
+  // halos float just above the head, all at the same height: the bottom of each ring sits 6.8 above the top of the head
+  const LOWER = {halo: 3, orbithalo: 4.6, blackhole: 8.2};
   HEAD.forEach(a => { const dy = LOWER[a.id]; if (dy) { const art = a.art; a.art = (...x) => `<g transform="translate(0 ${dy})">${art(...x)}</g>`; } });
   return HEAD.concat(FACE, NECK, CHEST);
 };
