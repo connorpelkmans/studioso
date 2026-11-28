@@ -68,7 +68,7 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
     /* First run on the hosted app: closing the welcome is how to use Studyboard without an account */
     {
       const {ctx, page} = await mk({first: true, local: false});
-      await page.waitForSelector("dialog[open] #sbSignUp", {timeout: 20000});
+      await page.waitForSelector('dialog[open] .sb-welc [data-sbm="signin"]', {timeout: 20000});
       ok(await page.locator(".sem-card-b").count() === 0, "the semester card doesn't show behind the first sign-in");
       await page.click('dialog[open] .sheet-head [data-act="close"]');
       await page.waitForSelector(".sheet.ob", {timeout: 8000});
@@ -195,8 +195,8 @@ const PLANNER = () => ({v: 2, updated: 1, settings: {capacity: 15, dailyHours: 3
       await page.click('dialog[open] .fm-list [data-act="lms-open"]'); await page.waitForSelector('dialog[open] .bs-pcard[data-act="cv-open"]');
       await page.click('dialog[open] .bs-pcard[data-act="cv-open"]'); await page.waitForSelector("dialog[open] .bs-sheet");
       const sh = await txt(page, "dialog[open] .bs-sheet");
-      ok(/Needs a Free Account/.test(sh) && await page.locator('dialog[open] .bs-sheet [data-act="sb-signin"]').count() === 1 && await page.locator("#bsFeedIn").count() === 0, "without an account the calendar link says it needs a free one and offers Sign In");
-      ok(await page.locator('dialog[open] .bs-sheet [data-act="cv-file"]').count() >= 1 && !/Settings, Sync\)/.test(sh), "it leads with importing a calendar file, and the old (Settings, Sync) wording is gone");
+      ok(/Free Account/.test(sh) && await page.locator('dialog[open] .bs-sheet [data-act="cv-acct"]').count() === 1 && await page.locator("#bsFeedIn").count() === 0, "without an account the calendar link says it needs a free one and offers to make it");
+      ok(await page.locator('dialog[open] .bs-sheet [data-act="cv-file"]').count() >= 1 && !/Settings, Sync\)/.test(sh), "a calendar file is still offered, and the old (Settings, Sync) wording is gone");
       ok(/website\/#download/.test(await page.getAttribute('dialog[open] .bs-sheet a[href*="download"]', "href")), "the desktop app is a link to the download page");
       await ctx.close();
     }

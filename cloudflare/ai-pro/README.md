@@ -43,7 +43,7 @@ How it should compare with your bills:
 
 ## Who gets it
 
-Only a Pro plan someone pays for: monthly, semester, yearly or lifetime. The Worker reads the student's own row in `studyboard_entitlements` with their sign-in. Row-level security means it can only read their row, and students can't write it.
+Only a Pro plan someone pays for: monthly, quarterly, yearly or lifetime. The Worker reads the student's own row in `studyboard_entitlements` with their sign-in. Row-level security means it can only read their row, and students can't write it.
 
 | Plan | Studyboard AI |
 |---|---|

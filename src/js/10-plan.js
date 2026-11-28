@@ -22,13 +22,13 @@ window.__sbPlanObj = () => PLAN;
   const PLAN_CONFIG = {
     limits: {
       free: {devices: 2, fileMB: 20, dataMB: 20, groupMembers: 5, groupMsgDays: 60, cloudBackupDays: 0},
-      pro: {devices: Infinity, fileMB: 10240, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
+      pro: {devices: Infinity, fileMB: 5120, dataMB: 250, groupMembers: 100, groupMsgDays: null, cloudBackupDays: 30}
     },
-    prices: {monthly: "$4.99", semester: "$15.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
-    checkout_url_monthly: "", checkout_url_semester: "", checkout_url_yearly: "", manage_url: "", site_url: "",
+    prices: {monthly: "$4.99", quarterly: "$11.99", yearly: "$39.99", trialDays: 14, checkoutTrialDays: 0},
+    checkout_url_monthly: "", checkout_url_quarterly: "", checkout_url_yearly: "", manage_url: "", site_url: "",
     app_trial: false,
     item_purchases: false,
-    // Studyboard Plus: every Pro feature without Studyboard AI ($2.99 a month, website checkout only)
+    // Studyboard Plus: every Pro feature without Studyboard AI Pro ($2.99 a month, website checkout only)
     plus_plan: false,
     features: {insights: false, ai_credits: false},
     paywall: false
@@ -56,7 +56,7 @@ window.__sbPlanObj = () => PLAN;
       Object.keys(c.limits[t]).forEach(k => { if (k in src && !PINNED[t].includes(k)) { const v = numOr(src[k], c.limits[t][k]); c.limits[t][k] = v === null && k !== "groupMsgDays" ? Infinity : v; } });
     });
     if (rows.prices && typeof rows.prices === "object") Object.assign(c.prices, rows.prices);
-    ["checkout_url_monthly", "checkout_url_semester", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
+    ["checkout_url_monthly", "checkout_url_quarterly", "checkout_url_yearly", "manage_url", "site_url"].forEach(k => { if (typeof rows[k] === "string" && /^https:\/\//.test(rows[k])) c[k] = rows[k]; });
     ["app_trial", "item_purchases", "plus_plan", "paywall"].forEach(k => { if (typeof rows[k] === "boolean") c[k] = rows[k]; });
     if (rows.features && typeof rows.features === "object") Object.keys(c.features).forEach(k => { if (typeof rows.features[k] === "boolean") c.features[k] = rows.features[k]; });
     return c;
@@ -123,10 +123,10 @@ window.__sbPlanObj = () => PLAN;
     if (settled()) { const u = curUid(); if (u && hintW !== u + p) { hintW = u + p; try { localStorage.setItem(K_HINT, JSON.stringify({uid: u, pro: p})); } catch (e) {} } return p; }
     return p || (Date.now() - boot0 < 10000 && hintPro());
   }
-  // Pro that someone pays for, which is what includes Studyboard AI (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
-  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI, so they can still subscribe
+  // Pro that someone pays for, which is what includes Studyboard AI Pro (the AI server's own rule, cloudflare/ai-pro tierOf). Pro from
+  // a grant, a code or a promotion, and the free weeks, have every Pro feature but not Studyboard AI Pro, so they can still subscribe
   const aiIncluded = () => { const e = ent(); if (!e || !paid()) return false; if (e.plan === "lifetime") return e.source !== "lifetime";
-    // Studyboard Plus is paid Pro without Studyboard AI: the server marks it ai_included false from the price paid
+    // Studyboard Plus is paid Pro without Studyboard AI Pro: the server marks it ai_included false from the price paid
     return e.plan === "pro" && (!e.pro_until || ts(e.pro_until) > now()) && e.source !== "promo" && e.source !== "code" && !e.lite && e.ai_included !== false; };
   const freeTrialOnly = () => { const e = ent(); return !!e && e.plan === "free" && trialing(e); };
   const limitsPro = () => paid() && !freeTrialOnly();
@@ -136,7 +136,7 @@ window.__sbPlanObj = () => PLAN;
   // Lite: a lite grant or a one-month code. Pro's features, unlimited devices and Pro groups, the free plan's storage
   const liteNow = () => { const e = ent(); return paid() && !!e && !!e.lite; };
   const groupsPro = () => limitsPro() || liteNow();
-  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI (the server sets ai_included from the price paid)
+  // Studyboard Plus: a paid plan whose price leaves out Studyboard AI Pro (the server sets ai_included from the price paid)
   const plusNow = () => { const e = ent(); return paywall() && paid() && !!e && e.plan === "pro" && e.ai_included === false; };
   const fileCapMB = () => cfg.limits[limitsPro() ? "pro" : "free"].fileMB;
   const mode = () => !paywall() ? "off" : !paid() ? "free" : P.mode === "signed" ? "signed" : P.mode === "unsigned-fallback" ? "unsigned-fallback" : "signed";
@@ -259,7 +259,7 @@ window.__sbPlanObj = () => PLAN;
       if (error) { if (missing(error)) { P.tablesMissing = true; P.row = {uid, ent: null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row); } return false; }
       const was = JSON.stringify((P.row && P.row.uid === uid && P.row.ent) || null);
       P.row = {uid, ent: data || null, at: Date.now()}; P.rowLive = true; write(K_ENT, P.row);
-      // A new or ended plan changes whether Studyboard AI is included
+      // A new or ended plan changes whether Studyboard AI Pro is included
       if (was !== JSON.stringify(data || null)) { try { if (typeof aiProRefresh === "function") aiProRefresh().then(j => { if (j) try { scheduleRender(); } catch(e) {} }); } catch(e) {} }
       return true;
     } catch (e) { return false; }
@@ -632,7 +632,7 @@ window.__sbPlanObj = () => PLAN;
   const directCheckout = period => checkoutCall({plan: period, src: "app"});
   // Tests run the real call with their own server (window.__SB_TEST only)
   if (window.__SB_TEST) window.__sbCheckoutCall = (what, client, user) => checkoutCall(what, client, user);
-  // what: {plan} for a subscription, or {pack} for Studyboard Credits. The server decides every price.
+  // what: {plan} for a subscription, or {pack} for Studyboard Bucks (the server's credit packs). The server decides every price.
   async function checkoutCall(what, client, user){
     const c = client || sb, u = client ? user : sbUser;
     if (!c || !u || u.is_anonymous) return null;
@@ -646,10 +646,10 @@ window.__sbPlanObj = () => PLAN;
     } catch (e) { return null; }
   }
   function buy(period){
-    period = ["monthly", "semester", "yearly", "plus"].includes(period) ? period : "monthly";
+    period = ["monthly", "quarterly", "yearly", "plus"].includes(period) ? period : "monthly";
     if (period === "plus" && !plusOn()) { toast("Studyboard Plus isn't available here. Choose a Pro plan."); return false; }
     if (!paid()) { track("buy", P.reason); write(K_ATTR, {r: P.reason || "", t: Date.now(), uid: curUid()}); }
-    if (period === "semester" && !semesterOn()) period = "monthly";
+    if (period === "quarterly" && !quarterlyOn()) period = "monthly";
     const userId = sbUser ? sbUser.id : null;
     if (route() === "store") {
       if (regionOff()) { toast(REGION_OFF_MSG); return false; }
@@ -743,6 +743,41 @@ window.__sbPlanObj = () => PLAN;
     if (cfg.manage_url) { openExternal(cfg.manage_url); return; }
     toast("To change or cancel your plan, use the link in your receipt email.");
   }
+  // Easy cancel: a subscription that's still set to renew, next to Manage Plan. It only stops future payments: Pro stays until
+  // the end of the time already paid for, and nothing is refunded. A card plan is cancelled here, after one confirm (the server
+  // sets it to cancel at the period's end); App Store and Google Play plans open the store's page, which works the same way.
+  const cancelable = () => { const e = ent(); return !!e && ["stripe", "apple", "google"].includes(e.source) && e.plan !== "lifetime" && e.will_renew !== false && !inPreview(); };
+  const GOOGLE_SUBS = "https://play.google.com/store/account/subscriptions?package=com.studyboardapp.studyboard";
+  async function cancelPlan(btn){
+    const e = ent() || {};
+    if (e.source === "apple") { if (!nativeFire("plan-manage", e)) openExternal("https://apps.apple.com/account/subscriptions"); return; }
+    if (e.source === "google") { if (!nativeFire("plan-manage", e)) openExternal(GOOGLE_SUBS); return; }
+    if (route() === "store") { toast("This plan was bought on the Studyboard website. Cancel it there, where you subscribed."); return; }
+    if (!sb || !sbUser) { toast("Sign in first, then try again."); return; }
+    const until = e.pro_until ? dateStr(e.pro_until) : "";
+    const yes = await askBox({title: "Cancel Your Subscription?", danger: true, yes: "Cancel Subscription", no: "Keep Pro",
+      text: `Your plan stops renewing, so you won't be charged again. You keep Pro ${until ? `until ${until}` : "until the end of the time you've paid for"}. Payments already made aren't refunded.`});
+    if (!yes) return;
+    if (btn) btn.disabled = true;
+    try {
+      const {data, error} = await sb.functions.invoke("create-portal-session", {body: {flow: "cancel"}});
+      let body = data;
+      if (error) { try { body = error.context && typeof error.context.json === "function" ? await error.context.json() : null; } catch (x) { body = null; } }
+      const end = body && body.ends_at ? dateStr(body.ends_at) : until;
+      if (!error && body && body.canceled) {
+        if (P.row && P.row.ent) P.row.ent = Object.assign({}, P.row.ent, {will_renew: false});   // shown at once; the server's record follows
+        toast(`Canceled. You won't be charged again${end ? `, and you keep Pro until ${end}` : ""}.`, null, null, {done: true});
+        if (dlg.open && dlg.querySelector(".plan-sheet")) proSheet();
+        setTimeout(() => { refresh().catch(() => {}); }, 4000);
+        return;
+      }
+      const code = body && body.error;
+      if (code === "already_canceled") { toast(`Your plan is already canceled${end ? `. You keep Pro until ${end}` : ""}.`); refresh().catch(() => {}); return; }
+      if (code === "no_subscription" || code === "no_billing") { toast("There's no card subscription on this account to cancel."); return; }
+      toast((body && typeof body.message === "string" && cleanMsg(body.message)) || "Couldn't cancel just now. Check your connection and try again.", null, null, {error: true});
+    } catch (x) { toast("Couldn't cancel just now. Check your connection and try again.", null, null, {error: true}); }
+    finally { if (btn) btn.disabled = false; }
+  }
   async function startTrial(){
     if (!sbUser) { toast("Sign in first to start your free trial."); return; }
     try {
@@ -772,7 +807,7 @@ window.__sbPlanObj = () => PLAN;
       ["Themes", `${freeThemes} Plain Colors`, `All ${SKINS.length} Themes`],
       ["Online Backups", f.cloudBackupDays ? `${f.cloudBackupDays} Days` : "On Your Device", `${p.cloudBackupDays} Days Online`],
       ["Study Group Members", `Up to ${f.groupMembers} Members`, p.groupMembers === Infinity ? "Unlimited Members" : `Up to ${p.groupMembers} Members`]
-    ].concat(window.SBPRO ? SBPRO.compareRows() : []).map(r => plusOn() && r[0] === "Studyboard AI" ? [r[0], r[1], r[2] + " (Not in Plus)"] : r).sort((a, b) => (b[0] === "Studyboard AI") - (a[0] === "Studyboard AI"));
+    ].concat(window.SBPRO ? SBPRO.compareRows() : []).map(r => plusOn() && r[0] === "Studyboard AI Pro" ? [r[0], r[1], r[2] + " (Not in Plus)"] : r).sort((a, b) => (b[0] === "Studyboard AI Pro") - (a[0] === "Studyboard AI Pro"));
   }
   function meter(label, used, max){
     const pct = max === Infinity || !max ? Math.min(100, used > 0 ? 2 : 0) : Math.min(100, used / max * 100);
@@ -800,24 +835,23 @@ window.__sbPlanObj = () => PLAN;
     if (trialing(e)) return {title: "Your Pro Trial Is On", sub: `Your free trial ends ${dateStr(e.trial_until)}.`};
     if (!e.pro_until) return {title: THANKS, sub: ""};
     if (e.source === "promo") return {title: THANKS, sub: `Pro was granted to your account until ${dateStr(e.pro_until)}.`};
-    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI."};
+    if (plusNow()) return {title: "You're on Studyboard Plus. Thank you for supporting Studyboard!", sub: (e.will_renew === false ? `Plus ends ${dateStr(e.pro_until)}.` : `Renews ${dateStr(e.pro_until)}.`) + " Every Pro theme and feature, with AI from your own key. Switch to Pro in Manage Plan to add Studyboard AI Pro."};
     return {title: THANKS, sub: e.will_renew === false ? `Pro ends ${dateStr(e.pro_until)}. You can turn renewal back on any time.` : `Renews ${dateStr(e.pro_until)}.`};
   }
   const APPLE_RENEW = "Payment will be charged to your Apple ID account at confirmation of purchase. The subscription renews automatically unless it is cancelled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours before the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase. Any unused portion of a free trial period, if offered, is forfeited when you buy a subscription.";
   const GOOGLE_RENEW = "Payment will be charged to your Google Play account at confirmation of purchase. The subscription renews automatically unless it is cancelled before the end of the current period. You can manage and cancel your subscriptions in Google Play, Payments and subscriptions, Subscriptions.";
   const WEB_RENEW_NOTRIAL = "Your card is charged today and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
   const WEB_RENEW = "Your card is charged when the free trial ends unless you cancel before then, and again at the start of each period until you cancel. Cancel any time from Manage Plan; you keep Pro until the end of the period you paid for.";
-  // The semester plan is 4 months. On the website it renews; in the App Store and Google Play (which have no 4-month
-  // renewing length) it's paid once and doesn't renew, and shows only once its price is set in studyboard_config
-  // prices.storeSemester (see PRO-PLANS-GUIDE.md)
-  const semPrice = () => route() === "store" ? cfg.prices.storeSemester : cfg.prices.semester;
-  const semOnce = () => route() === "store";
-  const semesterOn = () => typeof semPrice() === "string" && !!semPrice();
+  // The quarterly plan renews every 3 months. On the website it's on once prices.quarterly is set; in the App Store and
+  // Google Play (a 3-month auto-renewing subscription) once its price is set in studyboard_config prices.storeQuarterly
+  // (see PRO-PLANS-GUIDE.md)
+  const qPrice = () => route() === "store" ? cfg.prices.storeQuarterly : cfg.prices.quarterly;
+  const quarterlyOn = () => typeof qPrice() === "string" && !!qPrice();
   const cardTrialOk = () => { const e = ent(); return +cfg.prices.checkoutTrialDays > 0 && !(e && (e.trial_until || e.source === "stripe" || e.external_id)); };
   const trialDaysShown = () => route() === "store" ? +(cfg.prices.storeTrialDays != null ? cfg.prices.storeTrialDays : cfg.prices.trialDays) || 0 : cardTrialOk() ? +cfg.prices.checkoutTrialDays : 0;
   function renewalText(pr, trial){
     const store = route() === "store", t = trialDaysShown();
-    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${semesterOn() && !semOnce() ? `, ${semPrice()} every 4 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.${semesterOn() && semOnce() ? ` Semester: ${semPrice()} for 4 months of Pro, paid once. It doesn't renew and has no free trial.` : ""}`;
+    const head = `Studyboard Pro is an auto-renewing subscription: ${pr.monthly} per month${quarterlyOn() ? `, ${qPrice()} every 3 months` : ""} or ${pr.yearly} per year${t ? `, after a ${t}-day free trial` : ""}.`;
     // in the iPhone app for a United States account: the checkout is on the website, said before they tap
     const outside = !store && nativeStore() ? "You'll check out securely on the Studyboard website, and Pro turns on here by itself. " : "";
     const plus = plusOn() ? ` Studyboard Plus is an auto-renewing subscription: ${plusPrice()} per month.` : "";
@@ -826,17 +860,17 @@ window.__sbPlanObj = () => PLAN;
   function priceButtons(){
     if (regionOff()) return `<p class="plan-fine mini">${esc(REGION_OFF_MSG)}</p>`;
     if (nativeBuyOff()) return `<p class="plan-fine mini">Buying Pro in the app isn't available in this build yet.</p>`;
-    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), sm = semesterOn() ? price(semPrice()) : null;
+    const pr = cfg.prices, m = price(pr.monthly), y = price(pr.yearly), qm = quarterlyOn() ? price(qPrice()) : null;
     const save = m && y && y < m * 12 ? Math.round((1 - y / (m * 12)) * 100) : 0;
     const per = (amt, months, s) => amt ? `${String(s).replace(/[\d.,]+/, (amt / months).toFixed(2))} a month` : "";
     const trial = trialDaysShown() ? `${trialDaysShown()}-Day Free Trial` : "";
     // one plan is picked from the start (Yearly, the best value), and one clear button buys it; tapping a tile only picks it
-    const ids = ["monthly"].concat(sm ? ["semester"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
-    const NAME = {monthly: "Monthly", semester: "Semester", yearly: "Yearly"}, AMT = {monthly: pr.monthly, semester: semPrice(), yearly: pr.yearly};
+    const ids = ["monthly"].concat(qm ? ["quarterly"] : [], ["yearly"]), pick = ids.includes(P.pick) ? P.pick : "yearly";
+    const NAME = {monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly"}, AMT = {monthly: pr.monthly, quarterly: qPrice(), yearly: pr.yearly};
     const tile = (id, cls, inner) => `<button type="button" class="plan-price${cls}" data-act="plan-pick" data-id="${id}" role="radio" aria-checked="${pick === id}">${inner}</button>`;
-    return `<div class="plan-prices${sm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
+    return `<div class="plan-prices${qm ? " three" : ""}" role="radiogroup" aria-label="Choose a plan">
         ${tile("monthly", "", `<span class="pp-name">Monthly</span><span class="pp-amt">${esc(pr.monthly)}<small> / month</small></span>${trial ? `<span class="pp-sub">${esc(trial)}</span>` : ""}`)}
-        ${sm ? tile("semester", "", `<span class="pp-name">Semester</span><span class="pp-amt">${esc(semPrice())}<small> for the whole term</small></span><span class="pp-sub">${esc((semOnce() ? ["4 months, paid once, doesn't renew"] : ["Renews every 4 months", trial, "About " + per(sm, 4, semPrice())]).filter(Boolean).join(" · "))}</span>`) : ""}
+        ${qm ? tile("quarterly", "", `<span class="pp-name">Quarterly</span><span class="pp-amt">${esc(qPrice())}<small> / 3 months</small></span><span class="pp-sub">${esc(["Renews every 3 months", trial, "About " + per(qm, 3, qPrice())].filter(Boolean).join(" · "))}</span>`) : ""}
         ${tile("yearly", " best", `${save ? `<span class="pp-flag">Save ${save}%</span>` : ""}<span class="pp-name">Yearly</span><span class="pp-amt">${esc(pr.yearly)}<small> / year</small></span><span class="pp-sub">${esc([trial, y && "Just " + per(y, 12, pr.yearly)].filter(Boolean).join(" · "))}</span>`)}
       </div>
       <button type="button" class="btn primary plan-go" data-act="plan-buy" data-id="${pick}">${trial ? "Start Free Trial" : "Get Pro"} · ${esc(NAME[pick])}, ${esc(AMT[pick])}</button>
@@ -849,7 +883,7 @@ window.__sbPlanObj = () => PLAN;
   const plusOn = () => !!cfg.plus_plan && !!plusPrice() && route() !== "store";
   function plusOfferHtml(){
     if (!plusOn()) return "";
-    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
+    return `<div class="plan-plus"><span class="plan-plus-t"><b>Don't Need Studyboard AI Pro?</b><span class="mini">Studyboard Plus has every Pro theme and feature except the built-in Studyboard AI Pro. AI with your own key still works. ${esc(plusPrice())} a month, cancel any time.</span></span><button type="button" class="btn" data-act="plan-buy" data-id="plus">Get Plus · ${esc(plusPrice())}/mo</button></div>`;
   }
   function proSheet(reason){
     linkCheck();   // EU: whether the website may be offered (learned once per account and country; the sheet redraws if it changes)
@@ -866,12 +900,12 @@ window.__sbPlanObj = () => PLAN;
         ${reason ? `<p class="plan-reason" role="status">${IC.info}<span>${esc(reason)}</span></p>` : ""}
         <div class="plan-hero${pro ? " is-pro" : ""}"><span class="plan-orb" aria-hidden="true">${IC.spark}</span><div><b>${esc(st.title)}</b>${st.sub ? `<p class="mini">${esc(st.sub)}</p>` : ""}</div></div>
         ${window.SBEARLY ? SBEARLY.sheetHtml() : ""}
-        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button><button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
+        ${pro ? `<div class="plan-actions"><button type="button" class="btn primary" data-act="plan-manage">Manage Plan</button>${cancelable() ? `<button type="button" class="btn" data-act="plan-cancel">Cancel Subscription</button>` : ""}<button type="button" class="btn" data-act="plan-devices">Your Devices</button></div>${usageHtml}` : ""}
         ${noAcct ? `<div class="plan-gift"><span class="plan-gift-ic" aria-hidden="true">🎁</span><span><b>Create a Free Account to Get Two Weeks of Pro</b><span class="mini">Every Pro theme and feature for 14 days. No card needed, and everything you make stays when the two weeks end.</span></span><button type="button" class="btn primary" data-act="plan-signup">Create a Free Account</button></div>` : ""}
         ${paywall() ? `<p class="plan-state mini" role="status"><b>Plan:</b> ${esc(planLabel())}</p>` : ""}
         ${paywall() && !pro ? priceButtons() + webAltHtml() : ""}
-        ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
-        ${paywall() && pro && !aiIncluded() && !plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
+        ${paywall() && pro && plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">You're on Studyboard Plus, which doesn't include Studyboard AI Pro. Switch to a Pro plan in Manage Plan to add it; the change is prorated.</p><p><button type="button" class="btn small" data-act="plan-manage">Switch to Pro</button></p></div>` : ""}
+        ${paywall() && pro && !aiIncluded() && !plusNow() ? `<div class="plan-upai"><b>Get Studyboard AI Pro</b><p class="mini">${esc(trialing(ent()) && (ent() || {}).source === "welcome" ? "Studyboard AI Pro isn't part of the free weeks. Subscribe to Pro to get it now." : "Your Pro was granted, so it doesn't include Studyboard AI Pro. Subscribe to Pro to add it. You keep everything you have now.")}</p></div>${priceButtons()}${webAltHtml()}` : ""}
         <div class="plan-compare" role="table" aria-label="Free and Pro">
           <div class="pc-row pc-head" role="row"><span role="columnheader"></span><span role="columnheader">Free</span><span role="columnheader" class="pc-pro">${PRO_BADGE}</span></div>
           ${rows.map(([k, f, p]) => `<div class="pc-row" role="row"><span role="rowheader">${esc(k)}</span><span role="cell">${esc(f)}</span><span role="cell" class="pc-pro">${esc(p)}</span></div>`).join("")}
@@ -963,6 +997,7 @@ window.__sbPlanObj = () => PLAN;
       case "plan-restore": restore(); return true;
       case "plan-code": if (dlg.open) dlg.close(); setTimeout(redeemSheet, 60); return true;
       case "plan-manage": manage(); return true;
+      case "plan-cancel": cancelPlan(el); return true;
       case "plan-trial": startTrial(); return true;
       case "plan-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (window.SBGUEST) SBGUEST.signUp("signup"); else if (typeof sbAsk === "function") sbAsk(); }, 120); return true;
       case "plan-devices": devicesSheet(false); return true;
@@ -992,10 +1027,10 @@ window.__sbPlanObj = () => PLAN;
     entitlement: () => ent() ? Object.assign({}, ent()) : null,
     can, usage,
     openSheet: proSheet,
-    // the Pro sheet with a plan already picked (the exam and term offers pick Semester; with no semester plan it stays on Yearly)
+    // the Pro sheet with a plan already picked (the exam and term offers pick Quarterly; with no quarterly plan it stays on Yearly)
     openSheetPick: (reason, pick) => { P.pick = pick; proSheet(reason); },
-    // the semester plan when it's on sale here: its price, and whether it's paid once (App Store, Google Play) or renews (website)
-    semester: () => { try { return semesterOn() ? {price: semPrice(), once: !!semOnce()} : null; } catch (e) { return null; } },
+    // the quarterly plan when it's on sale here: its price (it renews every 3 months everywhere)
+    quarterly: () => { try { return quarterlyOn() ? {price: qPrice()} : null; } catch (e) { return null; } },
     devicesSheet: () => devicesSheet(false),
     limitNote, runsLeft, useRun, runsGone, FREE_RUNS, limitsPro, liteNow, groupsPro, plusNow, plusOn, storeRoute: () => route() === "store", checkoutCall, openExternal, holdTab, dropTab, styleGrace, endStyleGrace, welcomeWeek, welcomeSaid, redeemSheet,
     buy, checkout: buy, restore, refresh, manage, refreshNow, mode,

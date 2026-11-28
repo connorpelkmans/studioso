@@ -38,3 +38,16 @@
 .gs-row.ok .gs-btn{min-height:36px;padding-block:4px}
 .gs-row.ok .gs-ck{width:20px;height:20px;margin-inline:2px}
 #view .gs-list li{border:0}
+/* Essentials: what turns on as you go, as small links under the list */
+.gs-unl{margin:8px 0 2px;padding:10px 8px 2px;border-top:1px solid color-mix(in srgb,var(--accent) 18%,var(--line))}
+.gs-unl-h{margin:0 0 6px;font:800 .72rem/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.gs-unl-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+#view .gs-unl-list li{border:0}
+.gs-unl-b{width:100%;display:flex;align-items:center;gap:8px;min-height:44px;padding:6px 10px 6px 8px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:12px;background:var(--surface);color:inherit;font:inherit;text-align:start;cursor:pointer}
+.gs-unl-b:hover{border-color:var(--accent)}
+.gs-unl-b:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gs-unl-ck{flex:none;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:color-mix(in srgb,var(--accent) 12%,var(--surface));color:var(--accent)}
+.gs-unl-b.ok .gs-unl-ck{background:var(--leaf);color:#fff}
+.gs-unl-t{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.gs-unl-t b{font-size:.9rem;color:var(--ink)}
+.gs-unl-t .mini{color:var(--muted)}

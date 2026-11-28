@@ -2,7 +2,7 @@
 import { DurableObject } from "cloudflare:workers";
 import Anthropic from "@anthropic-ai/sdk";
 import { FreeAllowance, FIRST_DECK_MODEL } from "./first-deck.js";
-import { Meter, Totals, handle, verifyUser, planOf, ageOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
+import { Meter, Totals, handle, verifyUser, planOf, ageOf, studentCapOf, WHISPER_MODEL, EMBED_MODEL, YT } from "./pro.js";
 
 // One per student, named by their Supabase user id
 export class StudentMeter extends DurableObject {
@@ -51,6 +51,7 @@ export default {
         user: token => verifyUser(token, env),
         plan: (token, uid) => planOf(token, uid, env),
         age: token => ageOf(token, env),
+        cap: token => studentCapOf(token, env),
         meter: id => env.STUDENT.getByName("u:" + id),
         totals: day => env.TOTALS.getByName("t:" + day),
         allowance: name => env.TOTALS.getByName(name),

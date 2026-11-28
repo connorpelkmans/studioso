@@ -34,13 +34,13 @@ const monday = () => { const d = new Date(F.NOW); d.setHours(0, 0, 0, 0); d.setD
       await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await redraw(page); await page.waitForTimeout(200);
       ok(!(await card(page)), "once used, the card is gone");
 
-      // this week's free sessions used up, the exam more than 3 days away: the follow-up, with the semester plan picked
+      // this week's free sessions used up, the exam more than 3 days away: the follow-up, with the quarterly plan picked
       await setS(page, {freeRuns: {wk: monday(), quiz: 3}}); await page.waitForTimeout(200);
       const f = await card(page);
       ok(f && f.kind === "fu" && /Pro through the end of term/.test(f.text), "free runs used up: the follow-up card: " + (f && f.text));
       await openNotices(page); await page.waitForTimeout(150); await page.click('.offer-card [data-act="offer-go"]'); await page.waitForSelector("dialog[open] .plan-sheet");
-      ok(await page.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-pick"][aria-checked="true"]'); return b ? b.dataset.id : ""; }) === "semester", "it opens the Pro sheet with Semester picked");
-      ok(/Semester/.test(await page.textContent("dialog[open] .plan-go")), "and the buy button says Semester");
+      ok(await page.evaluate(() => { const b = document.querySelector('dialog[open] [data-act="plan-pick"][aria-checked="true"]'); return b ? b.dataset.id : ""; }) === "quarterly", "it opens the Pro sheet with Quarterly picked");
+      ok(/Quarterly/.test(await page.textContent("dialog[open] .plan-go")), "and the buy button says Quarterly");
       await page.evaluate(() => document.querySelectorAll("dialog[open]").forEach(d => d.close())); await redraw(page); await page.waitForTimeout(200);
       ok(!(await card(page)), "the follow-up shows once");
       ok(page.errs.length === 0, "no page errors: " + page.errs.join(" | "));
@@ -68,14 +68,14 @@ const monday = () => { const d = new Date(F.NOW); d.setHours(0, 0, 0, 0); d.setD
       ok(!(await card(page)), "not within 2 days of the exam");
       await ctx.close();
     }
-    // The first week of a new term: the semester plan
+    // The first week of a new term: the quarterly plan
     {
       const s = F.SEED(); s.tasks.forEach(t => { if (t.id === "ex1") Object.assign(t, {due: F.plus(30), start: F.plus(30)}); }); s.settings = Object.assign({}, s.settings, {scrap: {cur: {s: F.plus(-3)}}});
       const {ctx, page} = await F.mk(browser, 390, 844, {free: true, seed: s});
       const c = await card(page);
-      ok(c && c.kind === "term" && /New term, fresh start\./.test(c.text) && /Pro for the whole term: \$15\.99 \(renews every 4 months, cancel any time\)\./.test(c.text), "first week of term: the new-term card: " + (c && c.text));
+      ok(c && c.kind === "term" && /New term, fresh start\./.test(c.text) && /Pro for the whole term: \$11\.99 every 3 months \(renews, cancel any time\)\./.test(c.text), "first week of term: the new-term card: " + (c && c.text));
       await openNotices(page); await page.waitForTimeout(150); await page.click('.offer-card [data-act="offer-go"]'); await page.waitForSelector("dialog[open] .plan-sheet");
-      ok(await page.evaluate(() => (document.querySelector('dialog[open] [data-act="plan-pick"][aria-checked="true"]') || {dataset: {}}).dataset.id) === "semester", "it opens the Pro sheet with Semester picked");
+      ok(await page.evaluate(() => (document.querySelector('dialog[open] [data-act="plan-pick"][aria-checked="true"]') || {dataset: {}}).dataset.id) === "quarterly", "it opens the Pro sheet with Quarterly picked");
       ok(page.errs.length === 0, "no page errors (term): " + page.errs.join(" | "));
       await ctx.close();
     }

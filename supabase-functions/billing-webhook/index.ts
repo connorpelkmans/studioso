@@ -12,7 +12,7 @@ type Apply = {
   // Whether the plan paid for includes Studyboard AI: false for Studyboard Plus
   ai?: boolean;
 };
-type Term = "monthly" | "semester" | "yearly";
+type Term = "monthly" | "quarterly" | "yearly";
 
 const GRACE_MS = 3 * 86400_000;
 const TOLERANCE_S = 300;
@@ -108,13 +108,14 @@ async function stripeGet(d: Deps, path: string): Promise<any | null> {
 export function priceAllowed(d: Deps, ids: string[], db: Record<string, string> = {}): boolean {
   const list = d.env("STRIPE_PRICE_IDS");
   if (!list.trim()) return true;
-  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY"), ...plusPrices(d, db)].map(s => s.trim()).filter(Boolean));
+  const allow = new Set([...list.split(","), d.env("STRIPE_PRICE_MONTHLY"), d.env("STRIPE_PRICE_QUARTERLY"), d.env("STRIPE_PRICE_SEMESTER"), d.env("STRIPE_PRICE_YEARLY"), ...plusPrices(d, db)].map(s => s.trim()).filter(Boolean));
   return ids.some(id => allow.has(id));
 }
-// How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for
-export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 90 ? "semester" : "monthly";
+// How long a plan is: its price id first (STRIPE_PRICE_*), then the length of the period paid for. A store's 3 months can
+// be 89 days, so anything from 80 days up to a year counts as quarterly (the old 4-month semester plan does too)
+export const termFromDays = (days: number): Term | undefined => !(days > 0) ? undefined : days >= 300 ? "yearly" : days >= 80 ? "quarterly" : "monthly";
 export function termOf(d: Deps, priceIds: string[], days: number): Term | undefined {
-  const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_SEMESTER", "semester"], ["STRIPE_PRICE_MONTHLY", "monthly"], ["STRIPE_PRICE_PLUS", "monthly"]];
+  const named: [string, Term][] = [["STRIPE_PRICE_YEARLY", "yearly"], ["STRIPE_PRICE_QUARTERLY", "quarterly"], ["STRIPE_PRICE_SEMESTER", "quarterly"], ["STRIPE_PRICE_MONTHLY", "monthly"], ["STRIPE_PRICE_PLUS", "monthly"]];
   for (const [k, t] of named) { const v = d.env(k).trim(); if (v && priceIds.includes(v)) return t; }
   return termFromDays(days);
 }
@@ -167,7 +168,7 @@ export function appleInvoice(o: any, customer: string, subId: string, startS: nu
     period_start: startS * 1000, period_end: endMs, currency: cur,
     amount_in: milli(inc, cur), amount_ex: milli(ex, cur), tax: milli(Math.max(0, inc - ex), cur),
     tax_country: EU3[String(o?.customer_address?.country || o?.customer_shipping?.address?.country || "").toUpperCase()] || "",
-    plan: ["monthly", "semester", "yearly"].includes(plan) ? plan : "",
+    plan: ["monthly", "quarterly", "semester", "yearly"].includes(plan) ? plan : "",
   };
 }
 async function appleQueue(d: Deps, o: any, customer: string, subId: string, startS: number, endMs: number) {
@@ -288,7 +289,8 @@ function rcUser(e: any): string | undefined {
   return validUid(ids.find(id => UUID.test(id)));
 }
 
-// Store products sold as the one-time semester plan: RC_SEMESTER_PRODUCTS (comma separated), else any id containing "semester"
+// Store products once sold as the one-time 4-month semester plan (replaced by the renewing quarterly plan, which needs no
+// special case): RC_SEMESTER_PRODUCTS (comma separated), else any id containing "semester"
 export function isSemesterProduct(d: Deps, id: unknown): boolean {
   const p = String(id || "").trim(); if (!p) return false;
   const list = (d.env("RC_SEMESTER_PRODUCTS") || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -345,12 +347,12 @@ async function handleRevenueCat(req: Request, d: Deps, raw: string): Promise<Res
       return done({ ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp + GRACE_MS), will_renew: true, external_id: ext,
         fresh: e.type === "INITIAL_PURCHASE", ...(e.period_type === "TRIAL" ? { trial_until: iso(exp) } : {}) });
     case "NON_RENEWING_PURCHASE": {
-      // The store semester plan: paid once, Pro for 4 months from the purchase (the event has no expiry for it)
+      // The old store semester plan: paid once, Pro for 4 months from the purchase (the event has no expiry for it)
       if (isSemesterProduct(d, e.product_id)) {
         const bought = Number(e.purchased_at_ms) || Number(e.event_timestamp_ms) || d.now();
         const paid = !(typeof e.price === "number" && e.price <= 0) && !(typeof e.price_in_purchased_currency === "number" && e.price_in_purchased_currency <= 0);
         return done({ ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(plusMonths(bought, 4) + GRACE_MS), will_renew: false,
-          external_id: ext, fresh: true, ...(paid ? { paid: true, term: "semester" as const } : {}) });
+          external_id: ext, fresh: true, ...(paid ? { paid: true, term: "quarterly" as const } : {}) });
       }
       return done(exp
         ? { ...base, event_id: e.id, state: "active", uid_hint: uid, pro_until: iso(exp), will_renew: false, external_id: ext, fresh: true }

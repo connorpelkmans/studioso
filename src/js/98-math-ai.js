@@ -297,6 +297,8 @@ window.SBMATHAI = (() => {
   const WORDP = /\b(how (far|long|much|many|fast)|what('?s| is) the (price|cost|total|speed|rate|answer)|per (hour|day|minute)|mph|km\/h|cost|costs|\$\d|each|split|tip|tax|discount|off)\b/i;
   const MINE = /\b(my|i'?m|i have|i've)\b[^?]*\b(tasks?|due|deadlines?|assignments?|grades?|gpa|marks?|courses?|classes?|exams?|schedule|calendar|notes?|decks?|cards?)\b|\b(due|deadline|overdue)\b/i;
   function isMath(q){
+    // something to remember or a range of chapters is never maths ("remember that Dr. Chen said the midterm covers chapters 1-6")
+    if (/^\s*(?:can you |please |pls )?(?:remember|note that|make a note|keep in mind|fyi|just so you know|heads up)\b|\b(?:chapters?|ch|pages?|pp|units?|weeks?|lectures?|modules?|sections?|slides?|lessons?)\.?\s*\d+\s*(?:-|–|to|through|thru)\s*\d+/i.test(String(q || ""))) return false;
     const s = String(q || "");
     if (s.length > 300) return false;
     if (HOWMANY_RE.test(low(s))) return true;
