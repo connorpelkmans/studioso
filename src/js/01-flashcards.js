@@ -576,6 +576,7 @@ function deckSheet(d){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Deck Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(d.name)}" autofocus placeholder="e.g. Population ecology"></label>
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
+      ${!isNew && window.SBXR ? SBXR.countsHtml(d, "") : ""}
       <label class="f"><span class="lh">Card Style <span class="hint">how cards look while you study</span></span><select name="cardStyle"><option value="">${esc((CARD_STYLES.find(x => x.id === deckDefaultStyle(d)) || CARD_STYLES[0]).name)} (default)</option>${cardStyleGroups().map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(x => `<option value="${x.id}" ${d.cardStyle === x.id ? "selected" : ""} ${owns("card", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>${window.SBVH ? SBVH.deckBtn(d) : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
@@ -583,7 +584,7 @@ function deckSheet(d){
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cs = String(fd.get("cardStyle") || "");
     if (isNew) { const nd = normDeck({id: uid(), created: Date.now(), name, courseId: fd.get("courseId") || "", cardStyle: cs}); ui.deckId = nd.id; saveDeck(nd, `Created ${name}`); }
-    else saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved");
+    else { const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, "") : []; saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved"); if (links.length) applyChanges(links, null); }
   });
   const del = $("#dkDel");
   if (del) del.addEventListener("click", () => { dlg.close(); ui.deckId = null; applyChanges([{kind: "deck", id: d.id, after: null}], `Deleted ${d.name}`); });
@@ -595,13 +596,16 @@ function cardSheet(d, cardId){
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
       <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      ${window.SBXR ? SBXR.countsHtml(d, c.id) : ""}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
+    const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, cardId) : [];
     x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    if (links.length) applyChanges(links, null);
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -785,7 +789,7 @@ function viewStudy(){
     const total = f.again + f.hard + f.good + f.easy, cards = new Set(f.q.slice(0, f.i).map(x => x.cardId)).size || total, again = Math.max(0, total - cards);
     // a solid session (15 or more cards, most of them known) is a good moment to ask for a review (99-review-ask.js decides whether)
     // the credits it earned, on their own screen (98-0study-credits.js): the cards gone through, each once
-    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards); } catch (e) {} }, 350); }
+    if (!f.rewarded) { f.rewarded = true; setTimeout(() => { try { if (typeof SBSC !== "undefined" && SBSC) SBSC.cardsDone(cards, cards >= 5 && total > 0 && (f.good + f.easy) / total >= 0.7); } catch (e) {} }, 350); }
     if (!f.momentSeen) { f.momentSeen = true; if (cards >= 15 && total && (f.good + f.easy) / total >= 0.7) setTimeout(() => fire("good-moment", "study"), 0); }
     return `<div class="view-head sd-head"><h2>Session Done</h2></div>${studyDoneHtml(f, cards, total, again)}`;
   }

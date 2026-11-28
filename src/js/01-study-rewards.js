@@ -201,8 +201,8 @@ function studyDoneHtml(f, cards, total, again){
   const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
   const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
   const t = goalCfg()[1], g = goalToday();
-  // Studyboard Credits earned in this session (98-0study-credits.js), and the next accessory they're saving up for
-  let next = null, got = 0; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
+  // Studyboard Credits earned in this session (98-0study-credits.js)
+  let got = 0; try { got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
   return `<section class="done-card sd">
       <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
         <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
@@ -214,7 +214,6 @@ function studyDoneHtml(f, cards, total, again){
         <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
       </div>
       ${got ? `<p class="sd-credits">${SBSC.coin(22)}<b>+${got} Credit${got === 1 ? "" : "s"}</b><span class="mini">earned this session</span></p>` : ""}
-      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "You can buy it now" : `${next.left.toLocaleString()} credit${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.have / next.price * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
       ${keepSafeHtml()}

@@ -34,8 +34,8 @@
     {id: "cape", rarity: "rare", name: "Hero Cape"},
     {id: "star", rarity: "rare", name: "Star Badge"},
     {id: "beanie", rarity: "rare", name: "Festive Beanie", festive: true},
-    {id: "cap", rarity: "exotic", name: "Graduation Cap"},
-    {id: "crown", rarity: "legendary", name: "Little Crown"}
+    {id: "cap", rarity: "rare", name: "Graduation Cap"},
+    {id: "crown", rarity: "exotic", name: "Little Crown"}
   ];
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
@@ -160,7 +160,7 @@
   /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
      its price in Studyboard Credits (PRICE); none of them needs Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
-  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary"};
   // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
   const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
@@ -229,7 +229,7 @@
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
     const pats = o.pat || patsNow(), colOf = id => tintOf(id) || ACC_DEF[id] || (o.wearColor || wearColor(c));
     const patd = (id, art) => pats[id] ? withPat(art, id, pats[id], colOf(id)) : art;
-    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}${MORE_BY[id] && MORE_BY[id].anim ? " cp-legend" : ""}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
     // anchors.cape (optional): where the cape itself hangs when it can't start at the neck (a cat in a cup: from the cup's back rim,
@@ -253,7 +253,7 @@
     const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
-    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}${a.anim ? " cp-legend" : ""}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${capeBack}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
@@ -1776,6 +1776,8 @@
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
      (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  // sound effects (01-sfx.js)
+  const sfxPlay = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
   const revealQ = [];
   let revealOn = false, revealT = 0, pressing = false;
   document.addEventListener("pointerdown", () => { pressing = true; }, true);
@@ -1887,7 +1889,7 @@
       <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    try { sbHaptic("success", {force: true}); } catch (e) {}
+    try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("present");
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('.cpu-acts [data-cpg="open"]'); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let done = false;
@@ -1904,7 +1906,7 @@
       // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
       try { SC().grant(hat.id); } catch (e) {}
       setCfg({gift: {[gf.key]: 1}});
-      try { sbHaptic("success", {force: true}); } catch (e) {}
+      try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("unwrap");
       o.classList.add("cpg-opening");
       setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
@@ -1937,7 +1939,7 @@
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); if (!a.paid && !a.gift) sfxPlay("reveal", {rarity: rarityOf(a)});
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let closed = false;
@@ -1955,6 +1957,7 @@
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
+      if (a.after) setTimeout(() => { try { if (a.after === "picker") openPicker(); else if (a.after === "shop") styleShop("companions"); } catch (e) {} }, still() ? 0 : 300);
       revealT = setTimeout(revealSoon, 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
@@ -2803,7 +2806,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
-      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Epic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
       ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id)) && (!a.gift || isEarned(a))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
@@ -2859,13 +2862,12 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // it goes straight on
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
-    sbHaptic("success", {force: true});
-    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    sbHaptic("success", {force: true}); sfxPlay("buy");
+    // the new accessory is shown big, in its burst of light, wherever it was bought; closing that goes back to the Wardrobe or the
+    // Style Shop it was bought from
+    if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
-    if (back) {
-      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
-      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
-    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
+    if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price, after: back})); clearTimeout(revealT); revealT = setTimeout(revealSoon, 300); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";

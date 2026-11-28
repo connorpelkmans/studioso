@@ -379,16 +379,20 @@ const EXAMPREP = (() => {
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
-    const doneS = sess.filter(s => s.done), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
+    const doneS = sess.filter(s => s.done || Number(s.part) >= 5), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
     const byTopic = {}; let wsum = 0, rsum = 0;
     topics.forEach(t => {
-      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.filter(s => s.done).reduce((a, s) => a + (s.min || 0), 0);
+      // a session counts in full once it's done; before that, the time actually focused on it counts, up to its length
+      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.reduce((a, s) => a + (s.done ? (s.min || 0) : Math.min(s.min || 0, Math.max(0, Number(s.part) || 0))), 0);
       const cov = t.done && !planned ? 1 : planned ? Math.min(1, got / planned) : 0;
       const links = t.links || [], ds = links.filter(l => l.k === "deck" && decks[l.id] && decks[l.id].mastery > 0), qs = links.filter(l => l.k === "quiz" && quiz[l.id] != null);
       const mastery = ds.length ? ds.reduce((a, l) => a + decks[l.id].mastery, 0) / ds.length : null, qz = qs.length ? qs.reduce((a, l) => a + quiz[l.id], 0) / qs.length / 100 : null;
       if (mastery != null) ev.cards++; if (qz != null) ev.quizzes++;
       let parts = [[cov, 0.5]]; if (mastery != null) parts.push([mastery, 0.3]); if (qz != null) parts.push([qz, 0.2]);
-      const ws = parts.reduce((a, p) => a + p[1], 0), r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
+      // evidence that isn't there yet (no flashcards, no quiz) holds half its share back: doing the sessions shows the work, not
+      // what you can recall, so sessions alone top out in the mid-70s and the rest is shown with cards and quizzes
+      const missing = (mastery == null ? 0.3 : 0) + (qz == null ? 0.2 : 0);
+      const ws = parts.reduce((a, p) => a + p[1], 0) + missing / 2, r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
       const base = t.done ? 0.6 : prior[t.conf] != null ? prior[t.conf] : 0.2;
       const r = clamp(base + (1 - base) * r0, 0, 1);
       byTopic[t.id] = {cov: Math.round(cov * 100), pct: Math.round(r * 100), mastery: mastery == null ? null : Math.round(mastery * 100), quiz: qz == null ? null : Math.round(qz * 100)};
@@ -507,13 +511,20 @@ function inputFor(ex, P, topics, due){
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 // doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+// The topics readiness is measured over: the plan's own, or, for a plan made without named topics, the exam itself (the planner
+// puts its sessions on topic "t0", the exam's name), so those plans get a readiness too
+function readyTopics(ex, P){
+  if (P.topics.length) return P.topics;
+  return sessionsOf(ex.id).some(s => s.topicId === "t0") ? [{id: "t0", name: ex.title || "the exam", conf: "ok", weight: null, done: false, links: [], edited: false}] : [];
+}
 function readyFor(ex, doneOf){
-  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
-  P.topics.forEach(t => (t.links || []).forEach(l => {
-    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
+  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {}, topics = readyTopics(ex, P);
+  topics.forEach(t => (t.links || []).forEach(l => {
+    // a linked deck: how well its cards are known now, with forgetting (DR, the same score as everywhere else), not just its boxes
+    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).ready / 100};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), part: Number(s.focusMin) || 0, done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
@@ -530,7 +541,7 @@ function forecastOf(ex){
   const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
-  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const topics = readyTopics(ex, P).map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
   const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it

@@ -103,8 +103,9 @@
 }
 
 /* ---------- Chests (98-0study-credits.js) ----------
-   Rarity colours match the accessories': grey Common, blue Rare, purple Exotic, yellow Legendary */
+   Rarity colours match the accessories': grey Common, blue Rare, purple Epic, yellow Legendary */
 .ch-common{--ch:#8A93A3;--ch-glow:rgba(160,170,185,.55)}
+.ch-uncommon{--ch:#15803D;--ch-glow:rgba(60,190,110,.6)}
 .ch-rare{--ch:#2563EB;--ch-glow:rgba(70,130,255,.6)}
 .ch-exotic{--ch:#7C3AED;--ch-glow:rgba(160,100,255,.65)}
 .ch-legendary{--ch:#FACC15;--ch-glow:rgba(255,205,60,.8)}
@@ -246,3 +247,37 @@
 /* the number and the coin a touch higher than the word, so the three look level */
 :is(.scr-live,.scr-pill) > b{position:relative;top:-.02em}
 :is(.scr-live,.scr-pill) > img{position:relative;top:0}
+/* Exam readiness on a reward screen: before → after, the new part of the bar filling in green with one soft shine */
+.scr-ready{display:grid;gap:10px;text-align:start;padding:12px 14px;border-radius:16px;background:color-mix(in srgb,#1F9D6B 8%,var(--surface));border:1px solid color-mix(in srgb,#1F9D6B 30%,var(--line))}
+.scr-ready-h{display:flex;align-items:center;gap:6px;font:800 .72rem var(--display);letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,#1F9D6B 80%,var(--ink))}
+.scr-rd{display:grid;gap:6px;position:relative}
+.scr-rd-top{display:flex;align-items:baseline;gap:10px}
+.scr-rd-t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
+.scr-rd-t b{font:700 .95rem var(--display);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scr-rd-t .mini{color:var(--muted)}
+.scr-rd-n{font:900 1.35rem var(--display);font-variant-numeric:tabular-nums;color:var(--ink)}
+.scr-rd-n b{font:inherit}
+.scr-rd-bar{position:relative;height:10px;border-radius:6px;background:color-mix(in srgb,var(--line) 75%,var(--surface));overflow:hidden}
+.scr-rd-was{position:absolute;left:0;top:0;bottom:0;border-radius:6px 0 0 6px;background:color-mix(in srgb,#1F9D6B 45%,var(--surface))}
+.scr-rd-gain{position:absolute;top:0;bottom:0;border-radius:0 6px 6px 0;background:linear-gradient(90deg,#2BB57E,#1F9D6B);transition:width .9s cubic-bezier(.25,.9,.3,1);overflow:hidden}
+.scr-rd-gain::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);transform:translateX(-120%)}
+.scr-rd.on .scr-rd-gain::after{animation:scr-rd-shine .9s .55s ease-out 1 forwards}
+@keyframes scr-rd-shine{to{transform:translateX(120%)}}
+.scr-rd-up{justify-self:start;font:800 .74rem var(--display);color:#fff;background:#1F9D6B;border-radius:999px;padding:2px 9px;opacity:0;transform:translateY(3px) scale(.92);transition:opacity .3s .75s ease,transform .35s .75s cubic-bezier(.2,1.6,.4,1)}
+.scr-rd.on .scr-rd-up{opacity:1;transform:none}
+.scr-still .scr-rd-gain,.scr-still .scr-rd-up{transition:none}
+.scr-still .scr-rd-gain::after{display:none}
+@media (prefers-reduced-motion:reduce){.scr-rd-gain,.scr-rd-up{transition:none}.scr-rd-gain::after{display:none}}
+/* the task card's line */
+.scr-mini-rd{display:flex;align-items:center;gap:5px;margin-top:3px;font-size:.78rem;color:color-mix(in srgb,#1F9D6B 75%,var(--ink))}
+.scr-mini-rd svg{flex:none;width:13px;height:13px}
+:root[data-theme="dark"] .scr-ready-h,:root[data-theme="dark"] .scr-mini-rd{color:#6FE0AE}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .scr-ready-h,:root:not([data-theme="light"]) .scr-mini-rd{color:#6FE0AE}}
+/* Which flashcards count: a picked deck's cards, to narrow it (under its row) */
+.xr-cards{margin:-2px 0 6px 30px}
+.xr-cards>summary{cursor:pointer;font-size:.85rem;font-weight:700;color:var(--accent);min-height:28px;display:flex;align-items:center;gap:6px}
+.xr-cards>summary .mini{font-weight:500;color:var(--muted)}
+.xr-cards-in{display:grid;gap:2px;max-height:240px;overflow:auto;padding:4px 0 2px}
+.xr-cards-in .mi-check{font-size:.88rem}
+.xr-for{border:0;padding:0;margin:0;display:grid;gap:4px}
+.xr-for legend{padding:0;margin-bottom:4px}
