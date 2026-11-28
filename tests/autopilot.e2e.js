@@ -95,7 +95,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     ok(await overflow(p) <= 0, "no horizontal overflow at 390px (Today's Plan)");
 
     // See What Changed lists each move, from → to and why
-    await p.click('.ap-line [data-act="ap-open"]'); await p.waitForSelector("dialog[open] .ap-sheet");
+    await p.click('.ap-line [data-act="ap-open"]'); await p.waitForSelector("dialog[open] .ap-sheet"); await settle(p, 100);
     const rows = await p.locator(".ap-sheet .ap-list li").allTextContents();
     ok(rows.length === run.n, `${rows.length} rows, one per move`);
     ok(rows.some(r => /Review lecture 7/.test(r) && /Tue, Nov 3 → /.test(r) && /Missed, moved to your next free time/.test(r)), "the Study task's row: " + rows.find(r => /Review lecture 7/.test(r)));
@@ -152,7 +152,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
 
     // A future day off from the Calendar's day sheet: Saturday the 7th
     const b7 = await tasks(p), sat = Object.values(b7).filter(x => x.due === "2026-11-07" && x.status !== "done" && (x.prepFor || x.breakdownOf)).map(x => x.id);
-    await act(p, "cr-day", "2026-11-07"); await p.waitForSelector("dialog[open] .cr-sheet .ap-dayrow");
+    await act(p, "cr-day", "2026-11-07"); await p.waitForSelector("dialog[open] .cr-sheet .ap-dayrow"); await settle(p, 100); // on a phone the sheet's slide-up waits for its first drawn frames (99-smooth.js hold), which run on the page's clock
     await p.click(".cr-sheet .ap-dayrow button"); await settle(p, 500);
     const A7 = await tasks(p);
     ok(sat.length >= 1 && sat.every(id => !A7[id] || A7[id].due !== "2026-11-07"), "Saturday's sessions and steps moved off it: " + sat.join(","));
@@ -169,7 +169,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     ok(same(a.pre, AT, Object.keys(a.pre)), "Ask Me First: nothing moved on its own");
     const al = await line(a);
     ok(/^Autopilot can move \d+ things? to fit your plan\. See What Changes · Apply · Not Now$/.test(al), "it proposes on the same line: " + al);
-    await a.click('.ap-line [data-act="ap-open"]'); await a.waitForSelector("dialog[open] .ap-sheet");
+    await a.click('.ap-line [data-act="ap-open"]'); await a.waitForSelector("dialog[open] .ap-sheet"); await settle(a, 100);
     ok(await a.locator(".ap-sheet h2").textContent() === "What Would Change" && await a.locator(".ap-sheet .ap-list li").count() >= 3, "See What Changes lists the proposal");
     await a.click('.ap-sheet [data-act="ap-apply"]'); await settle(a, 400);
     const AA = await tasks(a);
@@ -215,7 +215,7 @@ const SOFT = ["s1", "s2", "s3", "s4", "s5", "m2", "m3", "m4", "st"], FIXED = ["l
     ok(await f.locator("#toastMsg").textContent() === "Today is a day off. Nothing is planned that day.", "free: the toast says so");
     ok(await f.evaluate(() => !!window.SBSTREAK.state().cfg.rests["2026-11-04"]), "free: the Gentle Streak counts it as a rest day");
     // Saturday has a prep session and a milestone: they stay, and the toast offers Move Them (Pro)
-    await act(f, "cr-day", "2026-11-07"); await f.waitForSelector("dialog[open] .cr-sheet .ap-dayrow");
+    await act(f, "cr-day", "2026-11-07"); await f.waitForSelector("dialog[open] .cr-sheet .ap-dayrow"); await settle(f, 100); // on a phone the sheet's slide-up waits for its first drawn frames (99-smooth.js hold), which run on the page's clock
     await f.click(".cr-sheet .ap-dayrow button"); await settle(f, 400);
     ok(same(fb, await tasks(f), Object.keys(fb)), "free: Saturday's sessions stay where they are");
     ok(/^Sat, Nov 7 is a day off\. \d+ things? (is|are) still planned that day\.$/.test(await f.locator("#toastMsg").textContent()) && await f.locator("#toastExtra").textContent() === "Move Them", "free: the toast offers Move Them: " + await f.locator("#toastMsg").textContent());
