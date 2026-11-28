@@ -34,8 +34,8 @@
     {id: "cape", rarity: "rare", name: "Hero Cape"},
     {id: "star", rarity: "rare", name: "Star Badge"},
     {id: "beanie", rarity: "rare", name: "Festive Beanie", festive: true},
-    {id: "cap", rarity: "exotic", name: "Graduation Cap"},
-    {id: "crown", rarity: "legendary", name: "Little Crown"}
+    {id: "cap", rarity: "rare", name: "Graduation Cap"},
+    {id: "crown", rarity: "exotic", name: "Little Crown"}
   ];
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],

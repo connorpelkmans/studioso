@@ -69,13 +69,13 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     ok(/Wear/.test(w.scarf) && w.owned.includes("Cozy Scarf") && w.owned.includes("Round Glasses"), "props earned before credits are still yours: " + w.scarf);
     ok(!w.owned.includes("Little Crown") && !w.owned.some(n => /Phoenix/.test(n)), "a prop unlocked by milestones after credits went in (the crown), or a newer prop (Phoenix Crest), is taken back: " + w.owned.join(", "));
     ok(await p.evaluate(() => { const S = window.__sbSync.state.settings, c = S.comp || {}, w = (c.wear || {})["plain-mochi"] || []; return !c.earned && w.join() === "scarf" && S.sc.own.scarf === 0 && S.sc.own.glasses === 0; }), "the kept ones are owned for good at no cost, the old record is cleared, and only the taken-back crown comes off");
-    ok(/100/.test(w.hat) && /Common/.test(w.hat) && w.hatBuy && !w.crownBuy, "the hat is Common at 100 and affordable; the Legendary crown isn't: " + w.hat);
+    ok(/100/.test(w.hat) && /Common/.test(w.hat) && w.hatBuy && !w.crownBuy, "the hat is Common at 100 and affordable; the Epic crown isn't: " + w.hat);
     ok(w.how, "How to Earn Credits lists each kind of work");
 
     // 4. short of credits: the buy sheet says how many more, with no Buy button
     await p.click('.cp-pickbody .cp-acc-tile[data-acc="crown"]'); await p.waitForSelector(".cp-buy");
     const short = await p.evaluate(() => ({txt: document.querySelector(".cp-buy").innerText, buy: !!document.querySelector('.cp-buy [data-act="comp-buy"]')}));
-    ok(/648 more to earn/.test(short.txt) && !short.buy, "the crown (Legendary, 1,000) is 648 short, with no Buy button");
+    ok(/148 more to earn/.test(short.txt) && !short.buy, "the crown (Epic, 500) is 148 short, with no Buy button");
     await p.click('.cp-buy [data-act="comp-buy-back"]'); await p.waitForSelector(".cp-pickbody");
     ok(true, "Back returns to the companion picker");
 
@@ -94,7 +94,7 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
 
     // 6. the chat knows prices
     const info = await p.evaluate(() => SBCOMP.earnInfo("how do i get the little crown"));
-    ok(/1,000 credits/.test(info) && /252 credits/.test(info), "asking how to get the crown gives its price and the balance: " + info);
+    ok(/500 credits/.test(info) && /252 credits/.test(info), "asking how to get the crown gives its price and the balance: " + info);
 
     const closeReward = () => p.evaluate(() => { const b = document.querySelector(".scr-rw [data-scr=ok]"); if (b) b.click(); }).then(() => p.waitForTimeout(500));
     // 7. presentations: 3 a slide inside its time, +20 the whole talk on target, +30 the first time; 2 runs a day each, sections count their slides
