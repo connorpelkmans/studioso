@@ -1081,6 +1081,13 @@ function normTask(t){
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  // the cards picked from a picked deck (deck id → card ids); a deck with no entry counts in full
+  if (t.readyCards != null) {
+    if (t.readyCards && typeof t.readyCards === "object" && !Array.isArray(t.readyCards)) {
+      const o = {}; Object.keys(t.readyCards).slice(0, 30).forEach(k => { const v = t.readyCards[k]; if (k.length <= 80 && Array.isArray(v)) o[k] = v.filter(x => typeof x === "string" && x.length <= 80).slice(0, 1000); });
+      if (Object.keys(o).length) t.readyCards = o; else delete t.readyCards;
+    } else delete t.readyCards;
+  }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
@@ -13234,7 +13241,7 @@ const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids)
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + JSON.stringify(ex.readyCards || "") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -13245,31 +13252,37 @@ function examEvidence(ex){
   let out = null;
   const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
   if (linked.length) {
+    // a picked deck counts in full, or only the cards picked from it (readyCards: deck id → card ids)
+    const rc = ex.readyCards && typeof ex.readyCards === "object" ? ex.readyCards : {};
+    const cardsOf = d => { const ids = Array.isArray(rc[d.id]) ? new Set(rc[d.id]) : null; return d.cards.filter(live).filter(c => !ids || ids.has(c.id)); };
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
-    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+    out = {how: "linked", decks: ds, cards: ds.flatMap(cardsOf), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   // Automatic AI's reading of the exam's topics against what each deck holds
   if (!out && aiIds) {
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -13277,7 +13290,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -13288,7 +13301,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -13299,7 +13312,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), JSON.stringify(t.readyCards || ""), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -13840,6 +13853,9 @@ const SFX = (() => {
   const N = n => 440 * Math.pow(2, (n - 69) / 12);  // a MIDI note
   const arp = (ctx, out, t, notes, step, o) => notes.forEach((n, i) => { tone(ctx, out, t + i * step, N(n), (o && o.dur) || 0.5, Object.assign({type: "triangle", gain: 0.16}, o)); tone(ctx, out, t + i * step, N(n + 12), ((o && o.dur) || 0.5) * 0.6, {gain: 0.05}); });
   const chord = (ctx, out, t, notes, dur, gain) => notes.forEach((n, i) => { tone(ctx, out, t, N(n), dur, {type: "triangle", gain: gain || 0.09, a: 0.02, detune: (i % 2 ? 4 : -4)}); tone(ctx, out, t, N(n), dur, {type: "sawtooth", gain: (gain || 0.09) * 0.25, a: 0.03, lp: 1800}); });
+  // a clean chime: in-tune partials (1, 2, 3) that fade at different rates; softer than bell()
+  function chime(ctx, out, t, f, dur, gain){ [[1, 1], [2, .32], [3, .12]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.8), {gain: gain * a, a: 0.003})); tone(ctx, out, t, f * 1.003, dur, {gain: gain * .35, a: 0.003}); }
+  const BUY_STYLE = "sparkle";
   const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
   const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
 
@@ -13871,8 +13887,21 @@ const SFX = (() => {
     win: (c, o, t, x) => { if (x.coins) { S.coinLand(c, o, t); for (let i = 0; i < 6; i++) S.coin(c, o, t + 0.15 + i * 0.06, {i}); return 1; }
       const r = RANK[x.rarity] || 0; S.reward(c, o, t, {level: r >= 3 ? 3 : 2}); if (r >= 2) sparkle(c, o, t + 0.5, 3 + r * 2, 0.05); return 1.7; },
     // buying an accessory: a cash register's ka-ching
-    buy: (c, o, t) => { noise(c, o, t, 0.06, {type: "lowpass", f: 900, gain: 0.2, a: 0.002}); tone(c, o, t, 200, 0.07, {to: 120, gain: 0.15});
-      bell(c, o, t + 0.07, N(98), 0.7, 0.1); bell(c, o, t + 0.14, N(103), 1.0, 0.1); for (let i = 0; i < 5; i++) S.coin(c, o, t + 0.22 + i * 0.05, {i: i + 2}); return 1.1; },
+    // buying an accessory. Three takes (x.v): "register" a clean cha-ching, "sparkle" a happy rising purchase jingle, "pouch" coins
+    // poured into a pouch then a confirming ding. Bells here use in-tune partials (no clanky overtones) and sit an octave lower
+    buy: (c, o, t, x) => { const v = x.v || BUY_STYLE;
+      if (v === "register") {
+        noise(c, o, t, 0.03, {f: 3800, q: 2, gain: 0.12, a: 0.001}); noise(c, o, t + 0.05, 0.035, {f: 3000, q: 2, gain: 0.1, a: 0.001});
+        chime(c, o, t + 0.1, N(88), 1.1, 0.16); chime(c, o, t + 0.1, N(95), 0.9, 0.08);
+        [0, 1, 2].forEach(i => S.coin(c, o, t + 0.32 + i * 0.07, {i: i + 1})); return 1.3; }
+      if (v === "pouch") {
+        for (let i = 0; i < 7; i++) bell(c, o, t + i * 0.045 + (i % 2) * 0.012, N(91 - i), 0.16, 0.06);
+        tone(c, o, t + 0.34, 180, 0.12, {to: 110, gain: 0.12, lp: 600}); noise(c, o, t + 0.34, 0.08, {type: "lowpass", f: 700, gain: 0.08});
+        chime(c, o, t + 0.45, N(84), 0.9, 0.13); chime(c, o, t + 0.53, N(88), 1.0, 0.11); return 1.5; }
+      // sparkle: coins, then a bright major arpeggio that lands on a soft chord
+      [0, 1, 2].forEach(i => S.coin(c, o, t + i * 0.05, {i: i + 2}));
+      [76, 80, 83, 88].forEach((n, i) => { chime(c, o, t + 0.12 + i * 0.075, N(n), 0.55, 0.11); });
+      chord(c, o, t + 0.42, [64, 68, 71, 76], 0.9, 0.05); sparkle(c, o, t + 0.45, 4, 0.035); return 1.4; },
     // a new accessory: a magical rise, more sparkle the rarer it is
     reveal: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
       tone(c, o, t, 500, 0.6, {to: 1600, glide: 0.5, type: "sine", gain: 0.06, a: 0.1}); arp(c, o, t + 0.15, [72, 79, 84, 88, 91].slice(0, 3 + Math.min(2, r)), 0.08, {dur: 0.5, gain: 0.1});
@@ -23216,6 +23245,7 @@ function deckSheet(d){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Deck Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(d.name)}" autofocus placeholder="e.g. Population ecology"></label>
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
+      ${!isNew && window.SBXR ? SBXR.countsHtml(d, "") : ""}
       <label class="f"><span class="lh">Card Style <span class="hint">how cards look while you study</span></span><select name="cardStyle"><option value="">${esc((CARD_STYLES.find(x => x.id === deckDefaultStyle(d)) || CARD_STYLES[0]).name)} (default)</option>${cardStyleGroups().map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(x => `<option value="${x.id}" ${d.cardStyle === x.id ? "selected" : ""} ${owns("card", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>${window.SBVH ? SBVH.deckBtn(d) : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
@@ -23223,7 +23253,7 @@ function deckSheet(d){
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cs = String(fd.get("cardStyle") || "");
     if (isNew) { const nd = normDeck({id: uid(), created: Date.now(), name, courseId: fd.get("courseId") || "", cardStyle: cs}); ui.deckId = nd.id; saveDeck(nd, `Created ${name}`); }
-    else saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved");
+    else { const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, "") : []; saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved"); if (links.length) applyChanges(links, null); }
   });
   const del = $("#dkDel");
   if (del) del.addEventListener("click", () => { dlg.close(); ui.deckId = null; applyChanges([{kind: "deck", id: d.id, after: null}], `Deleted ${d.name}`); });
@@ -23235,13 +23265,16 @@ function cardSheet(d, cardId){
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
       <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      ${window.SBXR ? SBXR.countsHtml(d, c.id) : ""}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
+    const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, cardId) : [];
     x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    if (links.length) applyChanges(links, null);
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -24108,8 +24141,8 @@ function studyDoneHtml(f, cards, total, again){
   const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
   const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
   const t = goalCfg()[1], g = goalToday();
-  // Studyboard Credits earned in this session (98-0study-credits.js), and the next accessory they're saving up for
-  let next = null, got = 0; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
+  // Studyboard Credits earned in this session (98-0study-credits.js)
+  let got = 0; try { got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
   return `<section class="done-card sd">
       <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
         <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
@@ -24121,7 +24154,6 @@ function studyDoneHtml(f, cards, total, again){
         <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
       </div>
       ${got ? `<p class="sd-credits">${SBSC.coin(22)}<b>+${got} Credit${got === 1 ? "" : "s"}</b><span class="mini">earned this session</span></p>` : ""}
-      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "You can buy it now" : `${next.left.toLocaleString()} credit${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.have / next.price * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
       ${keepSafeHtml()}
@@ -45002,10 +45034,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // What the Add box holds: a friend link or code, a username, or neither (usernames never have a dash, codes always do)
     function parseAdd(s){
       const v = String(s || "").trim();
-      if (!v) return {kind: "bad", msg: "Type a friend's @username, or paste their friend link."};
+      if (!v) return {kind: "bad", msg: "Type a friend's @username or their friend code."};
       const code = codeOf(v);
       if (code) return {kind: "code", code};
-      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That link isn't a friend link. Ask them to send it again."};
+      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That isn't a friend code. Ask them for the code in their Friends, like ABCD-1234."};
       const name = v.replace(/^@/, "");
       if (!/^[A-Za-z][A-Za-z0-9_.]{2,19}$/.test(name)) return {kind: "bad", msg: "Type their whole username, like @sam.lee."};
       return {kind: "name", name};
@@ -45130,20 +45162,20 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function bodyHtml(){
     if (S.setup) return `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>`;
     const L = S.lists, link = linkOf(S.code);
-    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend link · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
+    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend code · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
       `<button type="button" class="btn small primary" data-act="frd-accept" data-id="${esc(r.user_id)}">Accept</button><button type="button" class="btn small" data-act="frd-decline" data-id="${esc(r.user_id)}">Decline</button>`)).join("");
     const friends = L.friends.map(r => row(r, "", `<details class="grp-more g2-mm frd-more"><summary class="g2-dots" aria-label="More for ${esc(r.display_name || "this friend")}">⋯</summary><div class="grp-menu">
       <button type="button" class="btn" data-act="frd-remove" data-id="${esc(r.user_id)}">Remove Friend</button><button type="button" class="btn" data-act="frd-block" data-id="${esc(r.user_id)}">Block</button></div></details>`)).join("");
     const sent = L.sent.map(r => row(r, esc("Waiting · asked " + FRIENDS.ago(r.since)), `<button type="button" class="btn small" data-act="frd-cancel" data-id="${esc(r.user_id)}">Cancel</button>`)).join("");
     return `${S.err ? `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>` : ""}
-      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Link</h3>
-        <p class="mini">Send it to someone you study with. They'll ask to be your friend, and you choose whether to accept.</p>
-        ${S.code ? `<div class="frd-link-row"><code class="frd-code">${esc(link || S.code)}</code></div>
-        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-share">${!link ? "Copy Code" : navigator.share ? "Share Link" : "Copy Link"}</button><button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Link</button></div>
-        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code for your friend link")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
-        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your link…</p>`}</section>
+      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Code</h3>
+        <p class="mini">Give it to someone you study with. They type it in Add a Friend, then you choose whether to accept.</p>
+        ${S.code ? `<div class="frd-link-row"><code class="frd-code frd-code-big" aria-label="Your friend code: ${esc(S.code.split("").join(" "))}">${esc(S.code)}</code></div>
+        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-copy">Copy Code</button>${link && (navigator.share || (window.SBGROUPS && SBGROUPS.share && SBGROUPS.share.sendText)) ? `<button type="button" class="btn small" data-act="frd-share">Share</button>` : ""}<button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Code</button></div>
+        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code with your friend code")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
+        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your code…</p>`}</section>
       ${L.incoming.length ? sec("Requests", L.incoming.length, incoming) : ""}
-      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username, or send them your friend link."}</li>`)}
+      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username or friend code, or give them yours."}</li>`)}
       ${L.sent.length ? sec("Sent", L.sent.length, sent) : ""}
       <p class="hint-line">Friends see your display name and @username. Nobody can search for you: they need your exact username or your link.</p>`;
   }
@@ -45160,14 +45192,14 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!live()) { toast(inPreview() ? "Friends work on the Studyboard website and in the app." : "Sign in to your free Studyboard account to add friends."); return; }
     S.msg = ""; S.msgBad = false;
     openSheet(`<form class="sheet frd-sheet" id="frdSheet">${head("Friends")}<div class="sheet-body">
-      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend link" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
+      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend code" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
       <p class="frd-msg" id="frdMsg" role="status" aria-live="polite"></p>
       <div id="frdBody">${bodyHtml()}</div></div></form>`, fd => { add(String(fd.get("who") || "")); return false; });
     load(true);
     if (!S.code) ensureCode();
   }
   async function ensureCode(fresh){
-    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend link no longer works."); }
+    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend code no longer works."); }
     catch (e) { if (e.setup) { S.setup = true; S.err = e.message; } else say(e.message, true); drawSheet(); }
   }
   async function add(raw){
@@ -45195,12 +45227,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     try { pv = await api.preview(code); } catch (e) { err = e.message; }
     if (!dlg.open || !dlg.querySelector("#frdLinkSheet")) return;
     if (!pv) {
-      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend link isn't working anymore. Ask them to send you a new one.")}</p></div>
+      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend code isn't working anymore. Ask them for their current code.")}</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
       return;
     }
     const name = esc(pv.display_name || "Classmate"), un = pv.username ? `<span class="mini">@${esc(pv.username)}</span>` : "";
-    const say2 = {self: "This is your own friend link. Send it to someone you study with.", friends: `You and ${name} are already friends.`,
+    const say2 = {self: "This is your own friend code. Give it to someone you study with.", friends: `You and ${name} are already friends.`,
       asked: `You've asked ${name} to be friends. They'll see it in their Friends.`, asked_you: `${name} asked to be your friend.`}[pv.state];
     const can = pv.state === "none" || pv.state === "asked_you";
     openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body">
@@ -45244,15 +45276,20 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
           api.block(id).then(() => { toast(`Blocked ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
         });
         return true;
+      // the code itself, to paste or read out; Share sends it in a message (with a link that opens it, for whoever's on a phone)
+      case "frd-copy": {
+        const G = window.SBGROUPS && SBGROUPS.share;
+        if (G && G.copyText) G.copyText(S.code, "Code copied. They type it in Friends, Add a Friend."); else navigator.clipboard.writeText(S.code).then(() => toast("Code copied"), () => {});
+        return true;
+      }
       case "frd-share": {
-        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = "Add me as a friend on Studyboard";
-        if (!link) { if (G && G.copyText) G.copyText(S.code, "Code copied. They can type it in Friends > Add a Friend."); return true; }
-        if (G && G.sendText) G.sendText("Studyboard Friend Link", txt, link); else navigator.clipboard.writeText(link).then(() => toast("Copied"), () => {});
+        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = `Add me as a friend on Studyboard. My friend code is ${S.code}`;
+        if (G && G.sendText) G.sendText("Studyboard Friend Code", txt, link); else navigator.clipboard.writeText(`${txt}`).then(() => toast("Copied"), () => {});
         return true;
       }
       case "frd-qr": S.qr = !S.qr; drawSheet(); return true;
       case "frd-newlink":
-        confirmSheet("Make a New Link?", "Your current friend link and QR code stop working. Friends you already have stay your friends.", "Make a New Link", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
+        confirmSheet("Make a New Code?", "Your current friend code and QR code stop working. Friends you already have stay your friends.", "Make a New Code", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
         return true;
       case "frd-link-ask": busy(async () => {
         const r = await api.askCode(id);
@@ -45275,7 +45312,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (!live()) return "";
     const L = S.lists;
     if (!FRIENDS.showCard({live: true, loaded: S.rows != null && !S.err, hidden: cardHidden(), friends: L.friends.length, incoming: L.incoming.length, sent: L.sent.length})) return "";
-    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Send them your friend link. Once you're friends, you'll find each other here.</span></div>
+    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Give them your friend code. Once you're friends, you'll find each other here.</span></div>
       <div class="row-actions"><button type="button" class="btn primary small" data-act="frd-open">Add a Friend</button><button type="button" class="link-btn" data-act="frd-card-hide">Not Now</button></div></section>`;
   }
   hook("groupsHead", groupsHead);
@@ -61942,16 +61979,19 @@ var SBSC = (() => {
      answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
      credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
      How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
-     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
-     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 2 days,
+     an Uncommon every 4, a Rare a week, an Epic every 3 weeks and a Legendary about every 2 months.
+     What's inside grows with the rarity, roughly in step with the prices (Common 100 up to Legendary 1,000), a little better
+     for the rarer ones; on average a chest holds about 36 credits. */
   const CHEST = {
-    common: {name: "Common", min: 5, max: 20, p: 0.70},
-    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
-    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
-    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+    common: {name: "Common", min: 12, max: 23, p: 0.54},
+    uncommon: {name: "Uncommon", min: 27, max: 45, p: 0.25},
+    rare: {name: "Rare", min: 45, max: 75, p: 0.145},
+    exotic: {name: "Epic", min: 83, max: 135, p: 0.05},
+    legendary: {name: "Legendary", min: 180, max: 300, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
-  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const RIM = {common: "#8A93A3", uncommon: "#15803D", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
   const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
   function rollChest(kind){
     try {
@@ -61961,7 +62001,7 @@ var SBSC = (() => {
       if (Math.random() >= chance) return null;
       const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
       let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
-      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "uncommon", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
       const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
       const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
       setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});
@@ -62275,6 +62315,74 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
+  /* ---------- How much more ready for an exam this work made you ----------
+     Exam readiness (examReadiness, 01-helpers.js: the same number the exam shows everywhere) for each exam in the next 60 days,
+     noted while nothing is being earned (readyBase); a reward screen shows the exams it went up for since then, before and
+     after, with a soft chime. Readiness from somewhere else (another device, a slider) is noted quietly, never shown as earned. */
+  const READY_DAYS = 60;
+  let readyBase = null;
+  const readyNow = () => {
+    const m = {}, today = todayISO(), last = typeof addDays === "function" ? addDays(today, READY_DAYS) : "9999";
+    try { Object.values(state.tasks || {}).forEach(t => {
+      if (!t || !MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < today || t.due > last) return;
+      const r = examReadiness(t); m[t.id] = r && r.pct != null ? r.pct : 0;
+    }); } catch (e) {}
+    return m;
+  };
+  const readySet = () => { readyBase = readyNow(); };
+  function readyUps(){
+    const before = readyBase, now = readyNow(); readyBase = now;
+    if (!before) return [];
+    const today = todayISO();
+    return Object.keys(now).filter(id => before[id] != null && now[id] - before[id] >= 1).map(id => {
+      const t = state.tasks[id], days = Math.max(0, Math.round((parse(t.due) - parse(today)) / 864e5));
+      return {id, title: t.title || "Exam", from: before[id], to: now[id], days};
+    }).sort((a, b) => (b.to - b.from) - (a.to - a.from) || a.days - b.days).slice(0, 2);
+  }
+  // A soft, short rising chime (two bell-like notes), quiet, only when Reward Sounds is on (Settings, Appearance)
+  const FX_KEY = "studyboard:fx";
+  const fxOn = () => { try { return localStorage.getItem(FX_KEY) !== "off"; } catch (e) { return true; } };
+  let fxAc = null;
+  function chime(force){
+    try {
+      if ((!fxOn() && !force) || document.hidden || (window.__SB_TEST && !window.__SB_FX)) return;
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      fxAc = fxAc || new C(); if (fxAc.state === "suspended") fxAc.resume();
+      const t0 = fxAc.currentTime + 0.02, out = fxAc.createGain(); out.gain.value = 0.11; out.connect(fxAc.destination);
+      [[659.25, 0], [987.77, 0.11]].forEach(([f, at]) => {
+        [[1, 1], [2.01, 0.18]].forEach(([mul, lv]) => {
+          const o = fxAc.createOscillator(), g = fxAc.createGain(), s = t0 + at;
+          o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(lv, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0008, s + (mul > 1 ? 0.35 : 0.9));
+          o.connect(g); g.connect(out); o.start(s); o.stop(s + 1);
+        });
+      });
+    } catch (e) {}
+  }
+  window.SBSC_FX = force => chime(force);
+  const TARGET = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+  const whenTxt = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+  const readyHtml = ups => !ups || !ups.length ? "" : `<div class="scr-ready" role="group" aria-label="Exam readiness">
+      <div class="scr-ready-h">${TARGET}<span>Exam Readiness</span></div>
+      ${ups.map(u => `<div class="scr-rd" data-from="${u.from}" data-to="${u.to}" aria-label="${esc(u.title)}: ${u.from} percent ready, now ${u.to} percent">
+        <div class="scr-rd-top"><span class="scr-rd-t"><b>${esc(u.title)}</b><span class="mini">${whenTxt(u.days)}</span></span><span class="scr-rd-n"><b data-rn>${u.from}</b>%</span></div>
+        <div class="scr-rd-bar" aria-hidden="true"><i class="scr-rd-was" style="width:${u.from}%"></i><i class="scr-rd-gain" style="left:${u.from}%;width:0"></i></div>
+        <span class="scr-rd-up" aria-hidden="true">+${u.to - u.from}% ready</span></div>`).join("")}</div>`;
+  // the bars fill to their new readiness, the numbers count up, and the chime plays once
+  function readyPlay(o, still, at){
+    const rows = [...o.querySelectorAll(".scr-rd")]; if (!rows.length) return;
+    setTimeout(() => {
+      if (!o.isConnected) return;
+      rows.forEach((row, i) => setTimeout(() => {
+        const a = Number(row.dataset.from), b = Number(row.dataset.to), g = row.querySelector(".scr-rd-gain");
+        if (g) g.style.width = (b - a) + "%";
+        countUp(row.querySelector("[data-rn]"), a, b, still ? 0 : 900);
+        row.classList.add("on");
+      }, still ? 0 : i * 260));
+      chime();
+      try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
+    }, still ? 0 : at);
+  }
   const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
@@ -62318,13 +62426,13 @@ var SBSC = (() => {
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     // nothing earned: no screen at all (a limit reached, a quiz with no right answers); a pass, a good session or a mastered talk
     // still gets its sound
-    if (!gained) { if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
+    if (!gained) { readySet(); if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
     let welcome = 0;
     if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
-    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome, ready: readyUps()}));
     showNext();
   }
   // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
@@ -62357,6 +62465,7 @@ var SBSC = (() => {
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     mount(o);
@@ -62369,6 +62478,7 @@ var SBSC = (() => {
     setTimeout(() => coinRun(r.gained, cMs), (still ? 0 : 350) + (lvl >= 2 ? 450 : 150));
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
+    readyPlay(o, still, tickAt * 1000 + 700);
     setTimeout(() => countUp(big, 0, r.gained, cMs, () => { o.classList.add("scr-landed"); sfx("coinLand"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
@@ -62390,16 +62500,17 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-</span>`;
+      ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
     mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     sfx("pop");
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
-    setTimeout(close, 3600);
+    setTimeout(close, r.ready && r.ready.length ? 5200 : 3600);
   }
   function openWardrobe(){
     try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
@@ -62465,25 +62576,28 @@ var SBSC = (() => {
   });
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
-  function notice(){
+  // nothing to show: readiness as it is now is the new starting point for the next reward screen
+  function notice(){ if (!notice0()) readySet(); }
+  function notice0(){
     try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return false; }
     const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
     doneSeen = done;
-    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return false; }
     const gained = t.earned - seenTotal;
     // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
-    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return false; }
     if (fresh.length) {
       const top = fresh.slice(0, 3);
       reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
-      return;
+      return true;
     }
     // credits with no one piece of work behind them (counted quietly): the balance just goes up
     seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
+    return false;
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
@@ -62494,7 +62608,7 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); readySet(); }, 3000); setTimeout(openLeftovers, 12000);
     // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
     setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
   /* ---------- "+7 credits": a little chip while studying ----------
@@ -62534,7 +62648,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Epic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -74803,7 +74917,7 @@ var COMP_ACC_MORE = K => {
     {id: "chefhat", name: "Chef's Hat", rarity: "rare", def: "#FFFFFF", icon: [12, .9], art: () =>
       `<path d="M-10.5 0V-8.5Q-17.5 -10 -15.5 -16.5Q-13 -22.5 -6.5 -20.5Q-3 -27.5 4 -25.8Q10.5 -24.5 10.4 -19.4Q17.5 -18.5 16.2 -12Q15 -7.5 10.5 -8.5V0Z" ${WF} ${OUT(2.4)}/><path d="M-4.5 -9V-1M1 -10V-1M6 -9V-1" stroke="#C9C3D6" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 -15.5Q-9 -19 -5 -18M1 -23Q5 -23.6 7 -21" fill="none" stroke="#E4DEEE" stroke-width="1.6" stroke-linecap="round"/>
       <path d="M-11.5 -2.6H11.5V4H-11.5Z" ${WF} ${OUT(2.2)}/><path d="M-11.5 -2.6H11.5V4H-11.5Z" fill="#B9B2C4" opacity=".25"/>`},
-    {id: "propeller", name: "Propeller Beanie", rarity: "rare", def: "#5A95FF", icon: [12, .9], art: () =>
+    {id: "propeller", name: "Propeller Beanie", rarity: "legendary", def: "#5A95FF", icon: [12, .9], art: () =>
       `<path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" ${WF}/><path d="M0 -17Q-6 -10 -6.2 2H6.2Q6 -10 0 -17Z" fill="#FFD35A"/><path d="M-15 2C-15.5 -10 -11 -14.6 -7.4 -16Q-11 -8 -11 2Z" fill="#E5484D"/><path d="M15 2C15.5 -10 11 -14.6 7.4 -16Q11 -8 11 2Z" fill="#E5484D"/><path d="M-16 -1.6H16V4H-16Z" fill="none"/>
       <path d="M-15 2C-15.5 -12 -8 -17 0 -17S15.5 -12 15 2Z" fill="none" ${OUT(2.4)}/><path d="M-16 -1.6H16V4H-16Z" ${WF} ${OUT(2)}/><path d="M-16 -1.6H16V4H-16Z" fill="${INK}" opacity=".18"/><path d="M0 -17V-22.5" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>
       <g class="cp-spin"><ellipse cx="-6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#E5484D" ${OUT(1.6)}/><ellipse cx="6.6" cy="-23.4" rx="6.6" ry="2.1" fill="#FFD35A" ${OUT(1.6)}/></g><circle cx="0" cy="-23.4" r="1.9" fill="#fff" ${OUT(1.3)}/>`},
@@ -74819,7 +74933,7 @@ var COMP_ACC_MORE = K => {
       `<path d="M-12 -6Q-22.5 -8 -24.5 -23Q-18.5 -15 -10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M12 -6Q22.5 -8 24.5 -23Q18.5 -15 10 -13.5Z" fill="#F3E6C8" ${OUT(2.2)}/><path d="M-17 -9.6l-1.4 2.6M-20.6 -13.6l-2 2M17 -9.6l1.4 2.6M20.6 -13.6l2 2" stroke="#C9B48E" stroke-width="1.3" stroke-linecap="round"/>
       <path d="M-14.5 2C-15 -12 -8 -17.5 0 -17.5S15 -12 14.5 2Z" ${WF} ${OUT(2.4)}/><path d="M0 -17V0" stroke="${INK}" stroke-opacity=".2" stroke-width="3.2"/><path d="M-9 -12.5Q-11 -7 -11 -2" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2.2" stroke-linecap="round"/>
       <path d="M-15.5 -2.4Q0 .8 15.5 -2.4V4Q0 7.2 -15.5 4Z" fill="#8B6A4F" ${OUT(2.2)}/>${[-10, -5, 0, 5, 10].map(x => `<circle cx="${x}" cy="${f(1.6 + .02 * (100 - x * x) * .3)}" r="1.15" fill="#E4E8EF" ${OUT(.8)}/>`).join("")}`},
-    {id: "shroomcap", name: "Toadstool Cap", rarity: "exotic", def: "#E5484D", art: () =>
+    {id: "shroomcap", name: "Toadstool Cap", rarity: "rare", def: "#E5484D", art: () =>
       `<path d="M-21.5 1Q-22.5 -10.5 -12 -17.5Q0 -24.5 12 -17.5Q22.5 -10.5 21.5 1Q0 -3 -21.5 1Z" ${WF} ${OUT(2.4)}/><path d="M-19.5 1Q0 -2.6 19.5 1Q12 6 0 6Q-12 6 -19.5 1Z" fill="#FFF1DC" ${OUT(2)}/><path d="M-12 2.6l1 2M-6 2.1l.4 2.6M0 1.9V4.6M6 2.1l-.4 2.6M12 2.6l-1 2" stroke="#D9C2A0" stroke-width="1.1" stroke-linecap="round"/>
       <circle cx="-11" cy="-9" r="3.2" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="-.5" cy="-16" r="3.4" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="10.5" cy="-10" r="3.6" fill="#FFF8F0" ${OUT(1.3)}/><circle cx="3.5" cy="-6.2" r="1.9" fill="#FFF8F0" ${OUT(1.1)}/><circle cx="-16.4" cy="-3" r="1.7" fill="#FFF8F0" ${OUT(1)}/><circle cx="16.8" cy="-3.2" r="1.5" fill="#FFF8F0" ${OUT(1)}/>`},
     {id: "plume", name: "Musketeer Hat", rarity: "exotic", def: "#8E6BE0", art: () =>
@@ -74838,7 +74952,7 @@ var COMP_ACC_MORE = K => {
         <path d="M-15.5 -2Q0 2 15.5 -2V3.6Q0 7.6 -15.5 3.6Z" fill="${GOLD}" ${OUT(2.2)}/><path d="M-13 -.6Q0 2.8 13 -.6" fill="none" stroke="#FFF3B0" stroke-width="1.2" stroke-linecap="round"/>
         <path d="M0 -3.4L3.2 1.4L0 6.2L-3.2 1.4Z" fill="#E5484D" ${OUT(1.4)}/><path d="M-1 -.4L0 -1.8" stroke="#fff" stroke-width="1" stroke-linecap="round"/><circle cx="-9" cy="1.4" r="1.5" fill="#FF9A3C" ${OUT(1)}/><circle cx="9" cy="1.4" r="1.5" fill="#FF9A3C" ${OUT(1)}/>
         ${tw(-19, -20, 3.2, 0)}${tw(20, -25, 3.6, .8)}${tw(-4, -36, 2.6, 1.6)}`; }},
-    {id: "halo", name: "Celestial Halo", rarity: "legendary", def: "#FFD35A", art: () =>
+    {id: "halo", name: "Celestial Halo", rarity: "exotic", def: "#FFD35A", art: () =>
       `<ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" stroke="#FFE58A" stroke-opacity=".45" stroke-width="9"/><ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" stroke="${INK}" stroke-width="6.2"/><ellipse cx="0" cy="-15" rx="16.5" ry="5.2" fill="none" ${WS("#FFD35A")} stroke-width="3.8"/>
       <path d="M-11 -18.6Q-4 -20.6 4 -20.2" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>${star(-17.5, -22, 2.2, "#FFF3B0", .9)}${star(15, -7.5, 1.8, "#FFF3B0", .8)}
       ${tw(18, -24, 3.4, 0)}${tw(-20, -10, 2.6, 1)}${tw(3, -27, 2.4, 1.7)}`},
@@ -74889,7 +75003,7 @@ var COMP_ACC_MORE = K => {
       `${bridge(g, 2.4, 1.8)}${temples(g)}${[g.lx, g.rx].map(x => `${star(x, g.y + g.R * .1, g.R * 1.3, "", 2.1).replace('fill=""', WF)}<path d="M${f(x - g.R * .45)} ${f(g.y - g.R * .1)}l${f(g.R * .35)} ${f(-g.R * .4)}" stroke="#fff" stroke-opacity=".85" stroke-width="1.5" stroke-linecap="round"/>`).join("")}`},
     {id: "monocle", name: "Monocle", rarity: "rare", def: "#E0B03A", art: g => {
       const R = g.R * 1.05, x = g.rx, y = g.y;
-      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.7)} ${f(y + R * 2.4)} ${f(x + R * .5)} ${f(y + R * 3.8)}`, 1.2, WS("#E0B03A"))}<circle cx="${x}" cy="${y}" r="${f(R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="4.6"/><circle cx="${x}" cy="${y}" r="${f(R)}" fill="none" ${WS("#E0B03A")} stroke-width="2.6"/><g transform="translate(${x} ${y})">${shine(R)}</g>`; }},
+      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.55)} ${f(y + R * 1.9)} ${f(x + R * .6)} ${f(y + R * 2.9)}`, 1.2, WS("#E0B03A"))}<circle cx="${x}" cy="${y}" r="${f(R)}" fill="#fff" fill-opacity=".2" stroke="${INK}" stroke-width="4.6"/><circle cx="${x}" cy="${y}" r="${f(R)}" fill="none" ${WS("#E0B03A")} stroke-width="2.6"/><g transform="translate(${x} ${y})">${shine(R)}</g>`; }},
     {id: "cateye", name: "Cat-Eye Glasses", rarity: "rare", def: "#E5484D", art: g => {
       const lens = R => `M${f(-R)} ${f(-R * .32)}Q${f(-R * .1)} ${f(-R * .95)} ${f(R * 1.38)} ${f(-R * 1.08)}Q${f(R * 1.08)} ${f(R * .2)} ${f(R * .6)} ${f(R * .68)}Q${f(-R * .4)} ${f(R * 1.08)} ${f(-R * .95)} ${f(R * .36)}Q${f(-R * 1.15)} ${f(-R * .05)} ${f(-R)} ${f(-R * .32)}Z`;
       return `${bridge(g, 2, 1.8, WS("#E5484D"))}${pair(g, R => `<path d="${lens(R)}" fill="#fff" fill-opacity=".16" stroke="${INK}" stroke-width="4.2" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#E5484D")} stroke-width="2.3" stroke-linejoin="round"/><circle cx="${f(R * 1.08)}" cy="${f(-R * .82)}" r="1.1" fill="#fff"/><circle cx="${f(R * .7)}" cy="${f(-R * .86)}" r=".8" fill="#fff"/>`)}`; }},
@@ -74900,7 +75014,7 @@ var COMP_ACC_MORE = K => {
     {id: "visor", name: "Cyber Visor", rarity: "exotic", def: "#2FB5C9", art: g => {
       const x0 = f(g.lx - g.R - Math.min(3.5, g.ext)), x1 = f(g.rx + g.R + Math.min(3.5, g.ext)), h = g.R * .78, d = rr(x0, g.y - h, x1 - x0, h * 2, h * .9);
       return `<path d="${d}" fill="none" ${WS("#2FB5C9")} stroke-opacity=".35" stroke-width="6"/><path d="${d}" ${WF} fill-opacity=".55" ${OUT(2.4)}/><path d="M${f(x0 + 3)} ${f(g.y - h * .42)}H${f(x1 - 3)}" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" stroke-linecap="round"/><path d="M${f(x0 + 4)} ${f(g.y + h * .35)}H${f(x0 + 10)}M${f(x1 - 10)} ${f(g.y + h * .35)}H${f(x1 - 4)}" stroke="#fff" stroke-opacity=".5" stroke-width="1" stroke-linecap="round"/><circle cx="${f(x1 - 2.6)}" cy="${f(g.y - h * .6)}" r="1" fill="#E5FFFF"/>`; }},
-    {id: "pixelshades", name: "Pixel Shades", rarity: "exotic", def: "#1E1A28", art: g => {
+    {id: "pixelshades", name: "Pixel Shades", rarity: "rare", def: "#1E1A28", art: g => {
       const u = f(Math.max(1.6, g.R * .34)), n = Math.max(4, Math.round((g.R * 2.3) / u)), y0 = g.y - u * 1.6;
       const x0 = f(g.lx - n * u / 2), x1 = f(g.rx + n * u / 2);
       const lens = cx => { const l = cx - n * u / 2; return `<rect x="${f(l)}" y="${f(y0 + u)}" width="${f(n * u)}" height="${u}"/><rect x="${f(l)}" y="${f(y0 + u * 2)}" width="${f((n - 1) * u)}" height="${u}"/><rect x="${f(l + u)}" y="${f(y0 + u * 3)}" width="${f((n - 2) * u)}" height="${u}"/>`; };
@@ -74930,10 +75044,10 @@ var COMP_ACC_MORE = K => {
       const wing = (x, s) => `<g transform="translate(${f(x)} ${f(y - R * .5)}) scale(${f(s * Math.max(.45, k))} ${f(Math.max(.45, k))})">${[[38, 15], [62, 13], [86, 10]].map(([an, l]) => `<g transform="rotate(${an})">${feather(l * R / 7, 3.6 * R / 7, `fill="#FF5A2B"`, 1.5)}${feather(l * R / 7 * .6, 1.8 * R / 7, `fill="#FFD35A"`)}</g>`).join("")}</g>`;
       return `${wing(Rx + R * .9, 1)}${wing(L - R * .9, -1)}<path d="${outer}${hole(L)}${hole(Rx)}" fill-rule="evenodd" ${WF} ${OUT(2.2)}/><path d="${hole(L)}${hole(Rx)}" fill="none" stroke="#FFF3B0" stroke-width="1.1"/><path d="M${f(m)} ${f(y - R * 1.3)}l2 2.4l-2 2.4l-2 -2.4Z" fill="#E5484D" ${OUT(1.1)}/>
         ${tw(L - X(2.2), y + R * .8, 2.6, 0)}${tw(Rx + X(2.4), y + R * .9, 2.8, 1)}${tw(m, y - R * 2.2, 2.2, 1.7)}`; }},
-    {id: "sunburst", name: "Sunburst Shades", rarity: "legendary", def: "#FF7A2F", art: g => {
+    {id: "sunburst", name: "Sunburst Shades", rarity: "exotic", def: "#FF7A2F", art: g => {
       const rays = R => { let p = ""; for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 + Math.PI / 10, c = Math.cos(a), s = Math.sin(a), w = .2; p += `M${f(R * 1.08 * Math.cos(a - w))} ${f(R * 1.08 * Math.sin(a - w))}L${f(R * 1.62 * c)} ${f(R * 1.62 * s)}L${f(R * 1.08 * Math.cos(a + w))} ${f(R * 1.08 * Math.sin(a + w))}Z`; } return `<path d="${p}" fill="#FFC93C" ${OUT(1.2)}/>`; };
       return `${bridge(g, 2.6, 2, GOLD)}${pair(g, R => `${rays(R)}<circle r="${f(R * 1.06)}" ${WF} fill-opacity=".85" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R * 1.06)}" fill="none" stroke="${GOLD}" stroke-width="2.4"/>${shine(R)}`)}${tw(g.lx - g.R * 2, g.y - g.R * 1.3, 2.6, 0)}${tw(g.rx + g.R * 2, g.y + g.R * 1.2, 2.4, 1.2)}`; }},
-    {id: "aurora", name: "Aurora Visor", rarity: "legendary", def: "#7CF5FF", art: g => {
+    {id: "aurora", name: "Aurora Visor", rarity: "exotic", def: "#7CF5FF", art: g => {
       const L = f(g.lx - g.R - Math.min(4, g.ext)), Rr = f(g.rx + g.R + Math.min(4, g.ext)), R = g.R, y = g.y, m = g.mx;
       const d = `M${L} ${f(y - R * .8)}Q${m} ${f(y - R * 1.3)} ${Rr} ${f(y - R * .8)}Q${f(Rr + 2.4)} ${f(y)} ${f(Rr - .6)} ${f(y + R * .8)}Q${m} ${f(y + R * 1.2)} ${f(L + .6)} ${f(y + R * .8)}Q${f(L - 2.4)} ${f(y)} ${L} ${f(y - R * .8)}Z`;
       return `<defs><linearGradient id="cpgAurora" x1="0" y1="0" x2="1" y2=".4"><stop offset="0" stop-color="#4CFFB0"/><stop offset=".5" stop-color="#4FD6FF"/><stop offset="1" stop-color="#C77BFF"/></linearGradient></defs><path d="${d}" fill="none" ${WS("#7CF5FF")} stroke-opacity=".4" stroke-width="7"/><path d="${d}" fill="url(#cpgAurora)" fill-opacity=".72" ${OUT(2.4)}/>
@@ -74984,11 +75098,11 @@ var COMP_ACC_MORE = K => {
     {id: "crystal", name: "Crystal Pendant", rarity: "exotic", def: "#8E6BE0", art: hw =>
       `<path d="${arcP(hw, -2, 9, .9)}" fill="none" stroke="#3A3450" stroke-width="1.6"/><circle cx="0" cy="13.6" r="8" ${WF} opacity=".28"/>
       <rect x="-2.1" y="4.6" width="4.2" height="2.6" rx=".8" fill="${GOLD}" ${OUT(1.1)}/><path d="M0 7L4.2 10V16.4L0 21.4L-4.2 16.4V10Z" ${WF} ${OUT(1.6)}/><path d="M0 7V21.4M-4.2 10L0 12.6L4.2 10" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width=".9"/><path d="M-2.6 11.6V15.8" stroke="#fff" stroke-opacity=".85" stroke-width="1.1" stroke-linecap="round"/>${star(5.6, 6.6, 1.6, "#fff")}`},
-    {id: "rocker", name: "Rocker Collar", rarity: "exotic", def: "#2B2233", art: hw => {
+    {id: "rocker", name: "Rocker Collar", rarity: "rare", def: "#2B2233", art: hw => {
       const studs = along(hw, 3.2, 3.3, Math.max(4, Math.round(hw / 4.4)), .78);
       return `${line2(`M${f(-hw * .6)} ${ny(hw, 1.5, 3.3, -hw * .6)}Q0 ${f(18 + hw * .08)} ${f(hw * .6)} ${ny(hw, 1.5, 3.3, hw * .6)}`, 1.8, "#C9D0DA").replace(/stroke="#C9D0DA" stroke-width="1.8"/, `stroke="#C9D0DA" stroke-width="1.8" stroke-dasharray="2.4 1.4"`)}${band(hw, -4, 3.2, 2.4, 3.3, WF, 2)}
         ${studs.map(([x, y]) => `<path d="M${f(x - 1.7)} ${f(y - .6)}L${x} ${f(y + 3.6)}L${f(x + 1.7)} ${f(y - .6)}Z" fill="#E4E8EF" ${OUT(1)}/>`).join("")}${along(hw, -1, 3.3, Math.max(4, Math.round(hw / 4.4)), .7).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1" fill="#C9D0DA"/>`).join("")}`; }},
-    {id: "jester", name: "Jester Collar", rarity: "exotic", def: "#8E6BE0", icon: [-8, .9], art: hw => {
+    {id: "jester", name: "Jester Collar", rarity: "rare", def: "#8E6BE0", icon: [-8, .9], art: hw => {
       const n = 7, pts = along(hw, -2, 3.2, n, .86), w = hw * .86 * 2 / (n - 1) * .62;
       return `${pts.map(([x, y], i) => { const tx = f(x * 1.12), ty = f(y + 11 - Math.abs(x / hw) * 2); return `<path d="M${f(x - w)} ${f(y - .5)}L${tx} ${ty}L${f(x + w)} ${f(y - .5)}Z" ${i % 2 ? `fill="#FFD35A"` : WF} ${OUT(1.6)}/><circle cx="${tx}" cy="${f(ty + 1.2)}" r="1.7" fill="${GOLD}" ${OUT(1)}/>`; }).join("")}${band(hw, -4, 3.2, -.6, 3.2, WF, 1.8)}`; }},
     {id: "fairylights", name: "Fairy Lights", rarity: "exotic", def: "#FFD35A", art: hw => {
@@ -75001,7 +75115,7 @@ var COMP_ACC_MORE = K => {
         <path d="M${f(-hw)} -1.6Q0 7.4 ${f(hw)} -1.6" fill="none" ${WS("#2F6FD6")} stroke-width="2.8"/><path d="M${f(-hw)} 1.8Q0 13 ${f(hw)} 1.8" fill="none" stroke="#2FC9B5" stroke-width="2.4"/><path d="M${f(-hw)} -3.4Q0 4.6 ${f(hw)} -3.4M${f(-hw)} .1Q0 10.2 ${f(hw)} .1M${f(-hw)} 3.6Q0 15.6 ${f(hw)} 3.6" fill="none" stroke="${GOLD_D}" stroke-width=".8"/>
         ${drops.map(([x, y], i) => `<path d="M${x} ${f(y - 1.6)}Q${f(x - 2)} ${f(y + 1.6)} ${x} ${f(y + 3.4)}Q${f(x + 2)} ${f(y + 1.6)} ${x} ${f(y - 1.6)}Z" ${i % 2 ? `fill="#E5484D"` : WF} ${OUT(.9)}/>`).join("")}
         ${tw(f(-hw - 3), -7, 2.8, 0)}${tw(f(hw + 3), 6, 3, .9)}${tw(0, 19, 2.2, 1.7)}`; }},
-    {id: "amulet", name: "Infinity Amulet", rarity: "legendary", def: "#F5C542", icon: [-9, .9], art: hw => {
+    {id: "amulet", name: "Infinity Amulet", rarity: "exotic", def: "#F5C542", icon: [-9, .9], art: hw => {
       let rays = ""; for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; rays += `M${f(6.4 * Math.cos(a - .22))} ${f(13 + 6.4 * Math.sin(a - .22))}L${f(9.2 * Math.cos(a))} ${f(13 + 9.2 * Math.sin(a))}L${f(6.4 * Math.cos(a + .22))} ${f(13 + 6.4 * Math.sin(a + .22))}Z`; }
       return `${line2(arcP(hw, -2.5, 9.5, .9), 1.6, WS("#F5C542")).replace(`stroke-width="1.6"`, `stroke-width="1.6" stroke-dasharray="1.6 1"`)}<circle cx="0" cy="13" r="11" fill="#FFE58A" opacity=".35"/><path d="${rays}" ${WF} ${OUT(1)}/>
         <circle cx="0" cy="13" r="6.4" ${WF} ${OUT(1.8)}/><circle cx="0" cy="13" r="4.2" fill="#E5484D" ${OUT(1.2)}/><path d="M-2.4 12.8a2.4 2.4 0 0 1 2.4 -2.4" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/><circle cx="1.4" cy="14.6" r=".7" fill="#fff" opacity=".7"/>
@@ -75012,7 +75126,7 @@ var COMP_ACC_MORE = K => {
       const plume = ([x, y], len, wd) => `<g transform="translate(${x} ${y}) rotate(${f(180 - 62 * x / hw)})">${feather(len, wd, WF, 1.6)}${feather(len * .62, wd * .5, `fill="#FFD35A"`)}<path d="M0 -1V${f(-len * .78)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9" stroke-linecap="round"/></g>`;
       const tail = (x, l, a) => `<g transform="translate(${f(x)} ${ny(hw, -.5, 4.5, x)}) rotate(${a})">${feather(l, 4.6, WF, 1.6)}${feather(l * .68, 2.2, `fill="#FFD35A"`)}<path d="M0 -1V${f(-l * .82)}" stroke="#fff" stroke-opacity=".55" stroke-width=".9"/><circle cy="${f(-l * .86)}" r="1.5" fill="#FFF3B0"/></g>`;
       return `${tail(hw * .42, 24, 170)}${tail(hw * .42 + 3.4, 19, 152)}${band(hw, -4.5, 3.2, 1.5, 3.2, WF, 2)}${pts.map(([p]) => plume(p, 12, 5.4)).join("")}<path d="M${f(-hw + 2)} -2.2Q0 3.4 ${f(hw - 2)} -2.2" fill="none" stroke="#FFD35A" stroke-width="1.4" stroke-linecap="round"/>${tw(f(-hw - 2), -6, 2.8, 0)}${tw(f(hw * .42 + 11), 22, 2.8, 1)}${tw(f(-hw * .4), 15, 2.2, 1.7)}`; }},
-    {id: "ermine", name: "Royal Ermine Collar", rarity: "legendary", def: "#FFF8F0", art: hw => {
+    {id: "ermine", name: "Royal Ermine Collar", rarity: "exotic", def: "#FFF8F0", art: hw => {
       const spots = along(hw, 0, 3.6, Math.max(4, Math.round(hw / 5)), .78);
       return `${line2(`M${f(-hw * .62)} ${ny(hw, 2.6, 3.6, -hw * .62)}Q0 ${f(17 + hw * .05)} ${f(hw * .62)} ${ny(hw, 2.6, 3.6, hw * .62)}`, 2, GOLD).replace(`stroke="${GOLD}" stroke-width="2"`, `stroke="${GOLD}" stroke-width="2" stroke-dasharray="2.6 1.2"`)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF} ${OUT(1.8)}/>`).join("")}${band(hw + 1, -5, 3.3, 4.4, 3.8, WF, 2.2)}${along(hw + 1, 4.4, 3.8, Math.max(7, Math.round(hw / 2.6)), .96).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" ${WF}/>`).join("")}<path d="M${f(-hw + 2)} -1.6Q0 4 ${f(hw - 2)} -1.6" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/>
         ${spots.map(([x, y]) => `<path d="M${x} ${f(y - 1.8)}Q${f(x + 1.3)} ${f(y + .6)} ${x} ${f(y + 2.6)}Q${f(x - 1.3)} ${f(y + .6)} ${x} ${f(y - 1.8)}Z" fill="${INK}"/><circle cx="${f(x - 1.6)}" cy="${f(y - 1.4)}" r=".55" fill="${INK}"/><circle cx="${f(x + 1.6)}" cy="${f(y - 1.4)}" r=".55" fill="${INK}"/>`).join("")}
@@ -75106,7 +75220,7 @@ var COMP_ACC_MORE = K => {
       let sl = ""; for (let i = 1; i < n; i++) { const y = -hh + i * (hh * 2 / n); sl += `M${f(-hw)} ${f(y)}H${f(hw)}`; }
       return `${bridge(g, 1.6, 2, WS("#FF4F8B"))}${temples(g, 1.8, WS("#FF4F8B"))}${[g.lx, g.rx].map(x => `<g transform="translate(${x} ${g.y})"><path d="${lens}" fill="#fff" fill-opacity=".1" stroke="${INK}" stroke-width="4.4"/><path d="${sl}" ${WS("#FF4F8B")} stroke-width="1.5"/><path d="${lens}" fill="none" ${WS("#FF4F8B")} stroke-width="2.4"/></g>`).join("")}`; }},
     // Epic
-    {id: "xray", name: "X-Ray Specs", rarity: "exotic", def: "#E5484D", art: g => {
+    {id: "xray", name: "X-Ray Specs", rarity: "rare", def: "#E5484D", art: g => {
       const spiral = R => { let p = "", n = 40; for (let i = 0; i <= n; i++) { const t = i / n, a = t * Math.PI * 5, r = R * .82 * t; p += (i ? "L" : "M") + f(r * Math.cos(a)) + " " + f(r * Math.sin(a)); } return p; };
       return `${bridge(g, 2.4, 1.8, WS("#E5484D"))}${temples(g, 1.6, WS("#E5484D"))}${pair(g, R => `<circle r="${f(R)}" fill="#FFF8F0" stroke="${INK}" stroke-width="5"/><path d="${spiral(R)}" fill="none" stroke="${INK}" stroke-width="1.3" stroke-linecap="round"/><circle r="${f(R)}" fill="none" ${WS("#E5484D")} stroke-width="3"/>`)}`; }},
     {id: "butterflyglasses", name: "Butterfly Glasses", rarity: "exotic", def: "#8E6BE0", art: g =>
@@ -75177,12 +75291,12 @@ var COMP_ACC_MORE = K => {
     {id: "cameo", name: "Cameo Brooch", rarity: "rare", at: "mid", def: "#F2B5C4", art: () => `<ellipse rx="7.6" ry="9.4" fill="${GOLD}" ${OUT(1.6)}/>${[0, 1, 2, 3, 4, 5, 6, 7].map(i => { const a = i * Math.PI / 4; return `<circle cx="${f(7.6 * Math.cos(a))}" cy="${f(9.4 * Math.sin(a))}" r=".9" fill="#FFF8F0"/>`; }).join("")}<ellipse rx="5.6" ry="7.4" ${WF} ${OUT(1)}/><path d="M1.4 -5Q-2.6 -5 -2.6 -1.4L-4 .4L-2.6 1.2Q-2.8 3 -1.2 3.4L-.8 5.6H3Q2.6 2.6 3.4 .6Q4.2 -4.6 1.4 -5Z" fill="#FFF8F0"/>`},
     // Epic
     {id: "rune", name: "Glowing Rune", rarity: "exotic", at: "mid", def: "#7CF5FF", art: () => `<circle r="10.4" ${WF} opacity=".28"/><circle r="7.6" fill="#2A1F5C" ${OUT(1.6)}/><circle r="6" fill="none" ${WS("#7CF5FF")} stroke-width="1.1"/><path d="M0 -4.6L4 2.4H-4ZM0 4.6L-4 -2.4H4Z" fill="none" ${WS("#7CF5FF")} stroke-width="1" stroke-linejoin="round"/><circle r="1.2" ${WF}/>${[0, 1, 2, 3, 4, 5].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<path d="M${f(6.9 * Math.cos(a))} ${f(6.9 * Math.sin(a))}l${f(.01 + Math.cos(a))} ${f(Math.sin(a))}" stroke="#fff" stroke-width="1" stroke-linecap="round"/>`; }).join("")}`},
-    {id: "mechcore", name: "Power Core", rarity: "exotic", at: "mid", def: "#4FD6FF", art: () => { let h = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; h += (i ? "L" : "M") + f(8.6 * Math.cos(a)) + " " + f(8.6 * Math.sin(a)); }
+    {id: "mechcore", name: "Power Core", rarity: "rare", at: "mid", def: "#4FD6FF", art: () => { let h = ""; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; h += (i ? "L" : "M") + f(8.6 * Math.cos(a)) + " " + f(8.6 * Math.sin(a)); }
       return `<path d="${h}Z" fill="#8E96A6" ${OUT(1.6)}/>${[0, 2, 4].map(i => { const a = i * Math.PI / 3 + Math.PI / 6; return `<circle cx="${f(6.8 * Math.cos(a))}" cy="${f(6.8 * Math.sin(a))}" r=".9" fill="#DDE2EA" ${OUT(.6)}/>`; }).join("")}<circle r="6.6" ${WF} opacity=".35"/><circle r="4.6" ${WF} ${OUT(1.2)}/><circle r="2.8" fill="none" stroke="#fff" stroke-width=".9"/><circle r="1.1" fill="#fff"/>`; }},
-    {id: "butterflybrooch", name: "Jeweled Butterfly", rarity: "exotic", at: "pin", def: "#8E6BE0", art: () => `${[[-1, 1], [1, 1]].map(([sx]) => `<g transform="scale(${sx} 1)"><ellipse cx="4.6" cy="-3" rx="4.8" ry="3.8" transform="rotate(-25 4.6 -3)" ${WF} ${OUT(1.3)}/><ellipse cx="3.6" cy="3.4" rx="3.2" ry="2.6" transform="rotate(30 3.6 3.4)" ${WF} ${OUT(1.3)}/><circle cx="5.4" cy="-3.6" r="1.2" fill="#7CF5FF" ${OUT(.6)}/><circle cx="3.6" cy="3.6" r=".9" fill="#FF9AD5"/></g>`).join("")}<ellipse rx="1.3" ry="5" fill="${GOLD}" ${OUT(1)}/>${line2("M-.4 -4.6q-1 -2.4 -2.8 -3M.4 -4.6q1 -2.4 2.8 -3", .6, GOLD)}`},
+    {id: "butterflybrooch", name: "Jeweled Butterfly", rarity: "rare", at: "pin", def: "#8E6BE0", art: () => `${[[-1, 1], [1, 1]].map(([sx]) => `<g transform="scale(${sx} 1)"><ellipse cx="4.6" cy="-3" rx="4.8" ry="3.8" transform="rotate(-25 4.6 -3)" ${WF} ${OUT(1.3)}/><ellipse cx="3.6" cy="3.4" rx="3.2" ry="2.6" transform="rotate(30 3.6 3.4)" ${WF} ${OUT(1.3)}/><circle cx="5.4" cy="-3.6" r="1.2" fill="#7CF5FF" ${OUT(.6)}/><circle cx="3.6" cy="3.6" r=".9" fill="#FF9AD5"/></g>`).join("")}<ellipse rx="1.3" ry="5" fill="${GOLD}" ${OUT(1)}/>${line2("M-.4 -4.6q-1 -2.4 -2.8 -3M.4 -4.6q1 -2.4 2.8 -3", .6, GOLD)}`},
     // Legendary
-    {id: "wingedheart", name: "Winged Heart Crest", rarity: "legendary", at: "mid", def: "#E5484D", art: () => `${[-1, 1].map(sx => `<g transform="scale(${sx} 1)">${[[-58, 9], [-82, 10.5], [-106, 9]].map(([a, l]) => `<g transform="translate(4 -1) rotate(${-a})">${feather(l, 2.6, `fill="#FFF8F0"`, 1.2)}</g>`).join("")}</g>`).join("")}${heart(0, 0, 6.4, `fill="${GOLD}"`, 1.6)}${heart(0, .3, 4.6, WF)}<path d="M-2.8 -2.4q.8 -1.4 2.2 -1.2" fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>${tw(-12, -8, 2.6, 0)}${tw(12, 6, 2.4, 1)}`},
-    {id: "starorder", name: "Order of the Stars", rarity: "legendary", at: "mid", def: "#DDE2EA", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
+    {id: "wingedheart", name: "Winged Heart Crest", rarity: "exotic", at: "mid", def: "#E5484D", art: () => `${[-1, 1].map(sx => `<g transform="scale(${sx} 1)">${[[-58, 9], [-82, 10.5], [-106, 9]].map(([a, l]) => `<g transform="translate(4 -1) rotate(${-a})">${feather(l, 2.6, `fill="#FFF8F0"`, 1.2)}</g>`).join("")}</g>`).join("")}${heart(0, 0, 6.4, `fill="${GOLD}"`, 1.6)}${heart(0, .3, 4.6, WF)}<path d="M-2.8 -2.4q.8 -1.4 2.2 -1.2" fill="none" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>${tw(-12, -8, 2.6, 0)}${tw(12, 6, 2.4, 1)}`},
+    {id: "starorder", name: "Order of the Stars", rarity: "exotic", at: "mid", def: "#DDE2EA", art: () => { let p = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, q = i % 2 ? 5.6 : (i % 4 ? 8.6 : 10.4); p += (i ? "L" : "M") + f(q * Math.cos(a)) + " " + f(q * Math.sin(a)); }
       return `<path d="M-3 6L-6 15L-3 13.4L-1.4 15.6L.4 7ZM3 6L6 15L3 13.4L1.4 15.6L-.4 7Z" fill="#E5484D" ${OUT(1.2)}/><path d="${p}Z" ${WF} ${OUT(1.5)}/><path d="${p}Z" fill="#fff" opacity=".25"/><circle r="5.4" ${WF} ${OUT(1.3)}/><circle r="3.9" fill="#2563EB" ${OUT(.9)}/>${star(0, 0, 2.6, GOLD)}${tw(-11, -9, 2.8, 0)}${tw(11, -4, 2.4, 1.1)}`; }}
   ];
   CHEST.forEach(a => { a.slot = "chest"; });
@@ -75254,8 +75368,6 @@ var COMP_ACC_MORE = K => {
       const bell = x => `<g transform="translate(${x} -6.8)"><path d="M-2.8 2.2Q-3 -2.8 0 -3Q3 -2.8 2.8 2.2Z" fill="${GOLD}" ${OUT(1.3)}/><circle cy="2.4" r=".9" fill="${INK}"/><path d="M-1.4 -1q.6 -.9 1.4 -1" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/></g>`;
       return `${side}<g transform="scale(-1 1)">${side}</g>${line2("M-17 3Q-15 -9 0 -9.8Q15 -9 17 3", 3, "#7A4E2D")}${bell(-7.4)}${bell(7.4)}${tw(-21, -14, 2.8, 0)}${tw(21, -30, 2.4, .9)}${tw(0, -20, 2, 1.6)}`; }}
   );
-  FACE.push(
-  );
   NECK.push(
     // Halloween: a bow tie that's a little bat
     {id: "batbowtie", name: "Bat Bow Tie", rarity: "legendary", def: "#3A2A5C", gift: true, icon: [-4, 1.15], art: () => {
@@ -75277,7 +75389,139 @@ var COMP_ACC_MORE = K => {
       <path d="M-7 0L-4.6 -2.4L-2.4 0L0 -2.4L2.4 0L4.6 -2.4L7 0Q7.6 9 0 10Q-7.6 9 -7 0Z" ${WF} ${OUT(1.6)}/><circle cx="-3.4" cy="4" r="1" fill="#fff" opacity=".75"/><circle cx="2.6" cy="6.4" r="1.2" fill="#fff" opacity=".75"/><circle cx="3.6" cy="2.4" r=".7" fill="#fff" opacity=".75"/>
       <path d="M-4.4 -7.2L-3 -10L-1.4 -7.8L0 -10.6L1.6 -7.8L3 -10L4.4 -7.2Q0 -5.6 -4.4 -7.2Z" ${WF} ${OUT(1.2)}/>${tw(-8.6, -8, 2.2, 0)}${tw(8.4, 4, 2, 1)}</g>`}
   );
+  /* ---------------- Animated ones: something on them moves (98-companion.css, .cpa-*), and holds still with reduced motion ----------------
+     A moving part sits in a <g> of its own with no transform attribute (a CSS animation would replace it) */
+  const A = (k, inner, st) => `<g class="cpa cpa-${k}"${st ? ` style="${st}"` : ""}>${inner}</g>`;
+  const puffs2 = (pts, fill) => `${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="3.6"/>`).join("")}${pts.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" ${fill}/>`).join("")}`;
+  HEAD.push(
+    // Legendary: a gold crown with a flame flickering on each point
+    {id: "flamecrown", name: "Flame Crown", rarity: "legendary", def: "#F5C542", anim: true, icon: [12, .85], art: () => {
+      const flame = (x, y, s, d) => `<g transform="translate(${x} ${y}) scale(${s})">${A("flicker", `<path d="M0 0C-3.4 -1 -3.6 -5 -1.2 -8.4C-1 -6 .4 -5.4 .6 -7.4C2.8 -5.4 3.6 -1.4 0 0Z" fill="#FF7A2F" ${OUT(1)}/><path d="M0 -.6C-1.6 -1.2 -1.6 -3.2 -.4 -4.8C.2 -3.6 1.6 -3 1.4 -2C1.4 -1.2 .8 -.6 0 -.6Z" fill="#FFE07A"/>`, `animation-delay:${d}s`)}</g>`;
+      return `${flame(-16, -10.6, 1, 0)}${flame(0, -13.6, 1.2, -.6)}${flame(16, -10.6, 1, -1.1)}<path d="M-14 3L-16 -10L-8 -4L0 -13L8 -4L16 -10L14 3Z" ${WF} ${OUT(2.4)}/><rect x="-14.5" y="-1" width="29" height="6.6" rx="3" fill="${GOLD_D}" ${OUT(2)}/>${[-7, 0, 7].map((x, i) => `<circle cx="${x}" cy="2.3" r="1.5" fill="${["#E5484D", "#5A95FF", "#4CB782"][i]}"/>`).join("")}<path d="M-9 -2.4L-11.6 -7.4" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/>`; }},
+    // Legendary: three tiny planets circling the head on a glowing ring
+    {id: "orbithalo", name: "Orbit Halo", rarity: "legendary", def: "#9AD8FF", anim: true, icon: [12, .9], art: () => {
+      const T = [4.6, 3.6, 5.8], P = [["#5A95FF", 2.4, 0], ["#FF9A3C", 2.8, 1], ["#E5484D", 1.8, 0]];
+      // an orbit: a sideways swing and an up-and-down swing a quarter-turn apart make a flat circle
+      const planet = (k) => { const [c, r, ring] = P[k], h = T[k] / 2, d0 = -T[k] * k / 3;
+        return A("orbx", A("orby", `<circle cx="0" cy="-16" r="${r}" fill="${c}" ${OUT(1)}/>${ring ? `<ellipse cx="0" cy="-16" rx="${r * 1.8}" ry="${r * .55}" fill="none" stroke="#FFE07A" stroke-width=".9"/>` : ""}<circle cx="${-r * .35}" cy="${-16 - r * .35}" r="${r * .3}" fill="#fff" opacity=".7"/>`, `--ry:4.6px;animation-duration:${h}s;animation-delay:${d0 - h / 2}s`), `--rx:16.5px;animation-duration:${h}s;animation-delay:${d0}s`); };
+      return `${aura(0, -16, 22, 9, "#9AD8FF")}<ellipse cx="0" cy="-16" rx="16.5" ry="4.6" fill="none" ${WS("#9AD8FF")} stroke-opacity=".35" stroke-width="4"/><ellipse cx="0" cy="-16" rx="16.5" ry="4.6" fill="none" ${WS("#9AD8FF")} stroke-width="1.2"/>${[0, 1, 2].map(planet).join("")}${tw(-19, -24, 2.8, 0)}${tw(19, -9, 2.4, .9)}${tw(4, -27, 2, 1.7)}`; }}
+  );
+  FACE.push(
+    // Legendary: a dark visor with a red light sweeping side to side
+    {id: "laservisor", name: "Laser Visor", rarity: "legendary", def: "#1E1B26", anim: true, art: g => {
+      const x0 = g.lx - g.R - Math.min(3.5, g.ext), x1 = g.rx + g.R + Math.min(3.5, g.ext), h = g.R * .8, d = rr(x0, g.y - h, x1 - x0, h * 2, h * .9), sx = f((x1 - x0) / 2 - h);
+      return `${A("aura", `<path d="${d}" fill="none" stroke="#FF2E4D" stroke-width="3" opacity=".55"/>`)}<clipPath id="cpaVisor"><path d="${d}"/></clipPath><path d="${d}" ${WF} ${OUT(2.4)}/><g clip-path="url(#cpaVisor)">${[-.4, 0, .4].map(k => `<path d="M${f(x0)} ${f(g.y + k * h)}H${f(x1)}" stroke="#fff" stroke-opacity=".07" stroke-width=".6"/>`).join("")}
+        ${A("scan", `<ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * 1.6)}" ry="${f(h * .9)}" fill="#FF2E4D" opacity=".28"/><ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * .8)}" ry="${f(h * .45)}" fill="#FF2E4D" opacity=".75"/><ellipse cx="${g.mx}" cy="${g.y}" rx="${f(h * .35)}" ry="${f(h * .22)}" fill="#FFD2D8"/>`, `--sx:${sx}px`)}</g>
+        <path d="M${f(x0 + 3)} ${f(g.y - h * .55)}H${f(x1 - 3)}" stroke="#fff" stroke-opacity=".3" stroke-width="1" stroke-linecap="round"/>${tw(x0 - 1.5, g.y - h * 1.6, 2.6, 0)}${tw(x1 + 1.5, g.y + h * 1.4, 2.2, 1)}`; }}
+  );
+  NECK.push(
+    // Legendary: a scarf in moving northern lights
+    {id: "aurorascarf", name: "Aurora Scarf", rarity: "legendary", def: "#4CFFB0", anim: true, art: hw => {
+      const k = f(hw * .45 - 9.5), e = f(hw + 4), band = `M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 5.5Q0 12 ${-hw} 5.5Q${-e} 0 ${-hw} -5Z`, tail = `M${f(+k + 6)} 4L${f(+k + 9)} 21L${f(+k + 18)} 19.5L${f(+k + 13)} 3Z`;
+      return `<defs><linearGradient id="cpaAur" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="6" spreadMethod="reflect"><stop offset="0" style="stop-color:var(--cp-wear,#4CFFB0)"/><stop offset=".5" stop-color="#4FD6FF"/><stop offset="1" stop-color="#C77BFF"/></linearGradient><clipPath id="cpaAurC"><path d="${band}"/><path d="${tail}"/></clipPath></defs>
+        ${aura(0, 4, f(hw + 6), 12, "#4CFFB0")}<path d="${band}" fill="#2A1F5C"/><path d="${tail}" fill="#2A1F5C"/><g clip-path="url(#cpaAurC)">${A("flow", `<rect x="${f(-hw - 60)}" y="-8" width="${f(hw * 2 + 120)}" height="34" fill="url(#cpaAur)"/>`)}</g>
+        <path d="${band}" fill="none" ${OUT(2.4)}/><path d="${tail}" fill="none" ${OUT(2.4)}/><path d="M${f(-hw + 2)} -1.5Q0 5 ${f(hw - 2)} -1.5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="${f(+k + 9.5)}" cy="4" r="4.4" fill="#2A1F5C" ${OUT(2.4)}/><circle cx="${f(+k + 9.5)}" cy="4" r="2.2" ${WF}/>${tw(f(-hw - 3), -6, 2.8, 0)}${tw(f(+k + 20), 22, 2.6, 1)}${tw(f(hw * .2), 11, 2, 1.7)}`; }}
+  );
+  /* ---------------- More animated Legendaries: the ones students ask for ---------------- */
+  FACE.push(
+    // shades with a rainbow shimmer sweeping across the lenses
+    {id: "holoshades", name: "Hologram Shades", rarity: "legendary", def: "#C0C6D4", anim: true, art: g => {
+      const lens = R => `M${f(-R * 1.1)} ${f(-R * .7)}H${f(R * 1.05)}Q${f(R * 1.15)} ${f(R * .4)} ${f(R * .4)} ${f(R * .9)}Q${f(-R * .4)} ${f(R * 1.1)} ${f(-R * .95)} ${f(R * .5)}Q${f(-R * 1.2)} ${f(-R * .1)} ${f(-R * 1.1)} ${f(-R * .7)}Z`;
+      return `<defs><linearGradient id="cpaHolo" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="24" y2="8" spreadMethod="reflect"><stop offset="0" stop-color="#FF7AC8"/><stop offset=".33" stop-color="#7CF5FF"/><stop offset=".66" stop-color="#B7FF7A"/><stop offset="1" stop-color="#B57BFF"/></linearGradient><clipPath id="cpaHoloC"><path d="${lens(g.R)}"/></clipPath></defs>
+        ${bridge(g, 2.4, 1.6, WS("#C0C6D4"))}${temples(g, 1.4, WS("#C0C6D4"))}${pair(g, R => `<path d="${lens(R)}" fill="#3A3450"/><g clip-path="url(#cpaHoloC)">${A("flow", `<rect x="${f(-R * 6)}" y="${f(-R * 2)}" width="${f(R * 12)}" height="${f(R * 4)}" fill="url(#cpaHolo)" opacity=".85"/>`, "animation-duration:4s")}${A("sweep", `<path d="M${f(-R * .5)} ${f(-R * 1.2)}L${f(R * .1)} ${f(-R * 1.2)}L${f(-R * .5)} ${f(R * 1.2)}L${f(-R * 1.1)} ${f(R * 1.2)}Z" fill="#fff" opacity=".85"/>`, `--sw:${f(R * 2.6)}px`)}</g><path d="${lens(R)}" fill="none" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="${lens(R)}" fill="none" ${WS("#C0C6D4")} stroke-width="1.8" stroke-linejoin="round"/>${shine(R)}`)}
+        ${tw(g.lx - g.R * 1.6, g.y - g.R * 1.3, 2.6, 0)}${tw(g.rx + g.R * 1.6, g.y + g.R, 2.2, 1)}`; }}
+  );
+  /* ---------------- Animated, round two: motion big enough to see at companion size ---------------- */
+  // a soft glow that breathes behind a Legendary
+  const aura = (cx, cy, rx, ry, col) => A("aura", `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${col}" opacity=".35"/>`);
+  const flameP = `<path d="M0 0C-3.4 -1 -3.6 -5 -1.2 -8.4C-1 -6 .4 -5.4 .6 -7.4C2.8 -5.4 3.6 -1.4 0 0Z"`;
+  HEAD.push(
+    // Legendary: a crown with lightning crackling between its points
+    {id: "stormking", name: "Storm King Crown", rarity: "legendary", def: "#C9D6EA", anim: true, icon: [12, .85], art: () => {
+      const bolt = (d, del) => A("arc", `<path d="${d}" fill="none" stroke="#7CF5FF" stroke-width="5.4" stroke-linejoin="round" opacity=".45"/><path d="${d}" fill="none" stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#3FD0FF" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#fff" stroke-width=".7" stroke-linejoin="round"/>`, `animation-delay:${del}s`);
+      return `${aura(0, -12, 21, 12, "#7CF5FF")}${bolt("M-16 -13L-12 -17L-9.6 -12.6L-5.6 -18L-2.4 -14L0 -18.6", 0)}${bolt("M16 -13L12 -17L9.6 -12.6L5.6 -18L2.4 -14L0 -18.6", -2.5)}${bolt("M-16 -13L-14 -20L-10 -18.6L-7 -24", -1.25)}${bolt("M16 -13L14 -20L10 -18.6L7 -24", -3.75)}
+        <path d="M-14 3L-16 -13L-8 -5L0 -17L8 -5L16 -13L14 3Z" ${WF} ${OUT(2.4)}/><path d="M-9 -2.4L-11.6 -9" stroke="#fff" stroke-opacity=".6" stroke-width="1.8" stroke-linecap="round"/><rect x="-14.5" y="-1" width="29" height="6.6" rx="3" fill="#5B5670" ${OUT(2)}/>
+        ${[-16, 0, 16].map((x, i) => `<circle cx="${x}" cy="${i === 1 ? -18 : -13.4}" r="2.4" fill="#7CF5FF" ${OUT(1.2)}/>`).join("")}${[-7, 0, 7].map(x => `<path d="M${x} -.2L${x + 1.6} 2.2L${x} 4.6L${x - 1.6} 2.2Z" fill="#9AF0FF"/>`).join("")}${tw(-20, -22, 2.8, 0)}${tw(20, -26, 2.4, .9)}`; }},
+    // Legendary: a black hole above the head, its disc swirling round a glowing core
+    {id: "blackhole", name: "Black Hole Halo", rarity: "legendary", def: "#B57BFF", anim: true, icon: [16, .85], art: () => {
+      let dots = ""; for (let i = 0; i < 22; i++) { const a = i * Math.PI * 2 / 22, r = 9 + (i % 3) * 2.6; dots += `<ellipse cx="${f(r * Math.cos(a))}" cy="${f(r * Math.sin(a))}" rx="${f(3 - (i % 3) * .6)}" ry="${f(1.3 - (i % 3) * .25)}" transform="rotate(${f(a * 180 / Math.PI + 90)} ${f(r * Math.cos(a))} ${f(r * Math.sin(a))})" fill="${["#fff", "#FF7AC8", "#8E5BFF"][i % 3]}"/>`; }
+      return `${aura(0, -21, 22, 9, "#B57BFF")}<g transform="translate(0 -21) scale(1 .34)">${A("vortex", `<circle r="17" fill="none" stroke="#B57BFF" stroke-opacity=".5" stroke-width="5"/>${dots}`)}</g>
+        <ellipse cx="0" cy="-21" rx="17.6" ry="6" fill="none" ${WS("#B57BFF")} stroke-width="1.6"/><circle cx="0" cy="-22" r="5.2" fill="#0E0B18" stroke="#FFB3F0" stroke-width="1.4"/>${A("aura", `<circle cx="0" cy="-22" r="7" fill="none" stroke="#FF9AD5" stroke-width="1.2"/>`)}
+        <path d="M-17.6 -21Q0 -16 17.6 -21" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1" stroke-linecap="round"/>${tw(-21, -30, 2.8, 0)}${tw(20, -14, 2.4, 1)}`; }}
+  );
+  FACE.push(
+    // Rare: spirals turning in the lenses
+    {id: "hypno", name: "Hypno Specs", rarity: "legendary", def: "#2B2233", anim: true, art: g => {
+      const spiral = R => { let p = "", n = 40; for (let i = 0; i <= n; i++) { const t = i / n, a = t * Math.PI * 6, r = R * .86 * t; p += (i ? "L" : "M") + f(r * Math.cos(a)) + " " + f(r * Math.sin(a)); } return p; };
+      return `${bridge(g, 2.4, 1.8, WS("#2B2233"))}${temples(g, 1.6, WS("#2B2233"))}${pair(g, R => `<circle r="${f(R)}" fill="#fff" stroke="${INK}" stroke-width="4.6"/>${A("spin", `<circle r="${f(R)}" fill="none"/><path d="${spiral(R)}" fill="none" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round"/>`, "animation-duration:2.6s")}<circle r="${f(R)}" fill="none" ${WS("#2B2233")} stroke-width="2.6"/>`)}`; }}
+  );
+  CHEST.push(
+    // Epic: a pinwheel that spins
+    {id: "pinwheel", name: "Pinwheel Pin", rarity: "legendary", at: "pin", slot: "chest", def: "#FF5C8A", anim: true, art: () =>
+      `<g transform="scale(1.35)">${A("spin", `<circle r="9" fill="none"/>${[0, 90, 180, 270].map((a, i) => `<g transform="rotate(${a})"><path d="M0 0L0 -8.6Q5 -8.6 5.6 -3.4Z" ${i % 2 ? `fill="${["#FFD35A", "#5A95FF"][i >> 1]}"` : WF} ${OUT(1.3)}/></g>`).join("")}`, "animation-duration:1.5s")}<circle r="1.6" fill="#fff" ${OUT(1)}/></g>`},
+    // Legendary: a plasma core, its rings spinning opposite ways round a pulsing heart
+    {id: "plasmacore", name: "Plasma Core", rarity: "legendary", at: "mid", slot: "chest", def: "#4FD6FF", anim: true, art: () =>
+      `${aura(0, 0, 13, 13, "#4FD6FF")}<circle r="9.6" fill="#1E1B26" ${OUT(1.8)}/>${A("spin", `<circle r="8" fill="none" ${WS("#4FD6FF")} stroke-width="2" stroke-dasharray="4 2.3"/>`, "animation-duration:4s")}
+      ${A("spinr", `<circle r="5.4" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1.2" stroke-dasharray="2 1.6"/>`)}${A("aura", `<circle r="3.6" ${WF}/>`)}<circle r="2" fill="#fff"/>${tw(-12, -9, 2.8, 0)}${tw(12, 8, 2.4, 1)}`}
+  );
+  /* ---------------- More animated Legendaries ---------------- */
+  const flake = (x, y, r) => `<path d="M${x} ${f(y - r)}V${f(y + r)}M${f(x - r * .87)} ${f(y - r / 2)}L${f(x + r * .87)} ${f(y + r / 2)}M${f(x - r * .87)} ${f(y + r / 2)}L${f(x + r * .87)} ${f(y - r / 2)}" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>`;
+  const glowDot = (x, y, r, c) => `<circle cx="${x}" cy="${y}" r="${f(r * 2.4)}" fill="${c}" opacity=".35"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x}" cy="${y}" r="${f(r * .45)}" fill="#fff"/>`;
+  const orbit = (rx, ry, cy, dur, d, inner) => A("orbx", A("orby", inner, `--ry:${ry}px;animation-duration:${dur}s;animation-delay:${f(d - dur / 2)}s`), `--rx:${rx}px;animation-duration:${dur}s;animation-delay:${d}s`);
+  const L = (o) => Object.assign({rarity: "legendary", anim: true}, o);
+  HEAD.push(
+    L({id: "lavacrown", name: "Lava Crown", def: "#2A2026", icon: [12, .85], art: () => {
+      // a crown of cooled black rock; molten lava glows in its cracks, pools along the band, and slowly drips from the points,
+      // with embers rising off the top
+      const crown = "M-15.5 3.4L-17 -9.6L-11.6 -5.4L-8.2 -16.4L-3.6 -7.4L0 -20.6L3.6 -7.4L8.2 -16.4L11.6 -5.4L17 -9.6L15.5 3.4Q0 6.4 -15.5 3.4Z";
+      const vein = "M-13 1L-12.4 -4.6L-10 -2.4M-7.6 -1.6L-7.8 -11.6M-3 .4L-1.6 -5.4L0 -2.4L1.2 -13.6M4 -.4L6.4 -6M8 0L8.4 -10.6M11.4 -2L13.2 -5.2";
+      const drip = (x, y, d) => `<g transform="translate(${x} ${y})">${A("lavadrip", `<path d="M0 0q-1.3 2.2 0 3.6q1.3 -1.4 0 -3.6Z" fill="url(#cpaMol)"/>`, `animation-delay:${d}s`)}</g>`;
+      const ember = (x, d, c) => `<g transform="translate(${x} -16)">${A("rise", `<circle r="1.1" fill="${c}"/><circle r="2.4" fill="${c}" opacity=".25"/>`, `animation-delay:${d}s;animation-duration:2.4s`)}</g>`;
+      return `<defs><linearGradient id="cpaRock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5B4A52"/><stop offset="1" stop-color="#1E1418"/></linearGradient><linearGradient id="cpaMol" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE38A"/><stop offset=".5" stop-color="#FF8A2B"/><stop offset="1" stop-color="#D9341C"/></linearGradient><clipPath id="cpaLavaC"><path d="${crown}"/></clipPath></defs>
+        ${aura(0, -6, 22, 14, "#FF6A2B")}${ember(-9, 0, "#FFB347")}${ember(-1, -1.3, "#FFE07A")}${ember(7, -2.2, "#FF8A2B")}${ember(13, -.7, "#FFB347")}
+        <path d="${crown}" fill="url(#cpaRock)" ${OUT(2.4)}/><g clip-path="url(#cpaLavaC)">${A("glow", `<path d="${vein}" fill="none" stroke="#FF5A1F" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/><path d="${vein}" fill="none" stroke="url(#cpaMol)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`)}
+        ${A("glow", `<path d="${vein}" fill="none" stroke="#FFF3B0" stroke-width=".5" stroke-linecap="round"/>`, "animation-delay:-1.2s")}<path d="M-16 1.6Q0 4.8 16 1.6V6H-16Z" fill="url(#cpaMol)"/>${A("glow", `<path d="M-16 2.2Q0 5.4 16 2.2" fill="none" stroke="#FFF3B0" stroke-width=".9"/>`, "animation-delay:-.6s")}</g>
+        <path d="${crown}" fill="none" ${OUT(2.4)}/><path d="M-6.6 -11.6L-7.6 -8M-.6 -16L-1.2 -11.4M9.2 -12.6L8.8 -9.6" stroke="#8A7680" stroke-width="1" stroke-linecap="round"/>
+        ${drip(-8.2, -15.8, 0)}${drip(0, -20, -1.4)}${drip(8.2, -15.8, -2.6)}${drip(-12, 4.4, -.8)}${drip(5, 5.2, -2)}${tw(-20, -18, 2.6, 0)}${tw(20, -13, 2.4, 1)}`; }}),
+    L({id: "fairyring", name: "Fairy Ring", def: "#FF9AD5", icon: [12, .85], art: () => {
+      // fairies: a glowing body with two wings that flutter, circling on soft orbits
+      const fairy = (c) => `<circle cx="0" cy="-12" r="4.2" fill="${c}" opacity=".3"/>${A("flap", `<ellipse cx="-1.8" cy="-13.2" rx="2" ry="1.2" fill="#fff" opacity=".85" stroke="${c}" stroke-width=".4"/>`, "transform-origin:100% 60%;animation-duration:.3s")}${A("flap", `<ellipse cx="1.8" cy="-13.2" rx="2" ry="1.2" fill="#fff" opacity=".85" stroke="${c}" stroke-width=".4"/>`, "transform-origin:0% 60%;animation-duration:.3s")}<circle cx="0" cy="-12" r="1.5" fill="${c}"/><circle cx="-.4" cy="-12.4" r=".6" fill="#fff"/>`;
+      const leaf = (x, y, a) => `<path d="M${x} ${y}q2.6 -2.2 4.6 -.2q-2 2.2 -4.6 .2Z" transform="rotate(${a} ${x} ${y})" fill="url(#cpaLeaf)" ${OUT(.9)}/>`;
+      return `<defs>${'<linearGradient id="cpaLeaf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BE7A8"/><stop offset="1" stop-color="#3E9A5B"/></linearGradient>'}</defs>${line2("M-17 1.4Q0 -9 17 1.4", 2.6, "#3E9A5B")}${[[-14, -1, -30], [-7, -5.4, -10], [1, -6.6, 15], [8, -5, 30], [14, -1.4, 50]].map(([x, y, a]) => leaf(x, y, a)).join("")}
+        ${[[-15.4, -.6, 4.2], [-9.4, -4.4, 3.6], [-2.6, -6.4, 4.8], [4.4, -6, 3.8], [10.4, -3.8, 4.4], [15.8, .2, 3.4]].map(([x, y, r], i) => flower(x, y, r, i % 2 ? `fill="#FFF8F0"` : WF, i % 2 ? "#FFB347" : "#FFE07A")).join("")}
+        ${[0, 1, 2].map(k => orbit(18, 5.4, -10, 4 + k * .9, -k * 2.3, fairy(["#FFC94A", "#7FD3FF", "#FF8FD0"][k]))).join("")}${tw(-21, -18, 2.6, 0)}${tw(19, -22, 2.4, 1.2)}${tw(2, -24, 2, 2)}`; }})
+  );
+  FACE.push(
+    L({id: "embereyes", name: "Ember Eyes", def: "#C2361C", art: g =>
+      `${bridge(g, 2.4, 1.8, "#3A3450")}${temples(g, 1.6, "#3A3450")}${pair(g, R => `${[-.4, .1, .5].map((x, i) => `<g transform="translate(${f(R * x)} ${f(-R * .6)})">${A("rise", `<circle r=".9" fill="#FFB347"/>`, `animation-delay:${-i * .8}s;animation-duration:1.8s`)}</g>`).join("")}<circle r="${f(R)}" fill="#2A1410" stroke="${INK}" stroke-width="4.6"/>${A("glow", `<circle r="${f(R * .7)}" ${WF}/><circle r="${f(R * .4)}" fill="#FFB347"/>`)}<circle r="${f(R)}" fill="none" stroke="#5B3A2E" stroke-width="2.4"/>${shine(R)}`)}`}),
+    L({id: "crystalball", name: "Crystal Ball Monocle", def: "#B57BFF", art: g => {
+      // sized and hung like the plain Monocle: the same lens size over the eye, and the same gold chain dangling from it
+      const R = g.R * 1.05, x = g.rx, y = g.y;
+      return `${line2(`M${f(x + R * .72)} ${f(y + R * .72)}Q${f(x + R * 1.55)} ${f(y + R * 1.9)} ${f(x + R * .6)} ${f(y + R * 2.9)}`, 1.2, GOLD)}<g transform="translate(${x} ${y})">${aura(0, 0, f(R * 1.35), f(R * 1.35), "#B57BFF")}<clipPath id="cpaBall"><circle r="${f(R * .92)}"/></clipPath><circle r="${f(R)}" ${WF}/><g clip-path="url(#cpaBall)">${A("spin", `<circle r="${f(R)}" fill="none"/><path d="M${f(-R * .7)} 0Q${f(-R * .3)} ${f(-R * .7)} ${f(R * .3)} ${f(-R * .3)}Q${f(R * .8)} 0 ${f(R * .2)} ${f(R * .5)}" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/><path d="M${f(R * .5)} ${f(R * .6)}Q0 ${f(R * .9)} ${f(-R * .5)} ${f(R * .3)}" fill="none" stroke="#FFD1F0" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"/>`, "animation-duration:5s")}</g><circle r="${f(R)}" fill="none" stroke="${INK}" stroke-width="4.4"/><circle r="${f(R)}" fill="none" stroke="${GOLD}" stroke-width="2.2"/>${shine(R)}</g>${tw(x - R * 2.6, y - R, 2.4, 0)}`; }})
+  );
+  NECK.push(
+    L({id: "dragonscale", name: "Dragon Scale Scarf", def: "#2E9E8A", art: hw => {
+      // every scale is its own: shaded teal to violet along the scarf, and each catches the light in turn, so a glint ripples
+      // across the scales from one end to the other
+      const e = f(hw + 4), band = `M${-hw} -5Q0 2 ${hw} -5Q${e} 0 ${hw} 6Q0 13 ${-hw} 6Q${-e} 0 ${-hw} -5Z`;
+      const HUE = ["#2EC4A0", "#2EA6C4", "#3A7FD6", "#6A5BD6", "#2EC4A0"];
+      let sc = "";
+      for (let r = 0; r < 4; r++) for (let x = -hw - 3.4; x < hw + 3.4; x += 3.6) {
+        const cx = x + (r % 2) * 1.8, t = (cx + hw) / (2 * hw), cy = -3.6 + r * 3 + 3.3 * (1 - Math.min(1, (cx / hw) ** 2));
+        const col = HUE[Math.max(0, Math.min(4, Math.round(t * 4 + (r % 2) * .5)))];
+        const sh = `M${f(cx - 1.9)} ${f(cy)}Q${f(cx - 1.9)} ${f(cy + 2.6)} ${f(cx)} ${f(cy + 3.4)}Q${f(cx + 1.9)} ${f(cy + 2.6)} ${f(cx + 1.9)} ${f(cy)}Z`;
+        sc += `<path d="${sh}" fill="${col}" stroke="${INK}" stroke-opacity=".45" stroke-width=".6"/>${A("glint", `<path d="${sh}" fill="#E8FFF7"/><path d="M${f(cx - .9)} ${f(cy + .6)}Q${f(cx)} ${f(cy + .2)} ${f(cx + .9)} ${f(cy + .6)}" fill="none" stroke="#fff" stroke-width=".7" stroke-linecap="round"/>`, `animation-delay:${f(t * 1.6 + r * .12)}s`)}`;
+      }
+      return `<clipPath id="cpaScale"><path d="${band}"/></clipPath><path d="${band}" ${WF}/><g clip-path="url(#cpaScale)">${sc}</g><path d="${band}" fill="none" ${OUT(2.4)}/>${tw(f(-hw - 3), -7, 2.6, 0)}${tw(f(hw + 3), 7, 2.4, 1.2)}`; }}),
+    L({id: "celestialchain", name: "Celestial Chain", def: "#F5C542", art: hw => {
+      const pts = along(hw, -2, 6, 5, .7), P = [["#5A95FF", 2.4, 1], ["#FF9A3C", 2, 0], ["#E5484D", 3.2, 1], ["#4CB782", 2, 0], ["#B57BFF", 2.4, 0]];
+      return `${line2(arcP(hw, -2, 6, .92), 1, WS("#F5C542"))}${pts.map(([x, y], i) => { const [c, r, ring] = P[i], l = 4 + (i % 2) * 2; return `<g transform="translate(${x} ${y})">${A("swing", `<path d="M0 0V${l}" stroke="${GOLD}" stroke-width=".8"/><circle cy="${f(l + r)}" r="${r}" fill="${c}" ${OUT(1)}/>${ring ? `<ellipse cy="${f(l + r)}" rx="${f(r * 1.8)}" ry="${f(r * .5)}" fill="none" stroke="#FFE58A" stroke-width=".8"/>` : ""}<circle cx="${f(-r * .35)}" cy="${f(l + r * .6)}" r="${f(r * .3)}" fill="#fff" opacity=".7"/>`, `animation-delay:${-i * .7}s`)}</g>`; }).join("")}${tw(f(-hw - 2), -6, 2.6, 0)}${tw(f(hw + 2), 8, 2.4, 1.2)}`; }})
+  );
   HEAD.forEach(a => { a.slot = "head"; }); FACE.forEach(a => { a.slot = "face"; }); NECK.forEach(a => { a.slot = "neck"; });
+  // halos float just above the head, all at the same height: the bottom of each ring sits 6.8 above the top of the head
+  const LOWER = {halo: 3, orbithalo: 4.6, blackhole: 8.2};
+  HEAD.forEach(a => { const dy = LOWER[a.id]; if (dy) { const art = a.art; a.art = (...x) => `<g transform="translate(0 ${dy})">${art(...x)}</g>`; } });
   return HEAD.concat(FACE, NECK, CHEST);
 };
 /* ===== module: 98-companion.js ===== */
@@ -75316,8 +75560,8 @@ var COMP_ACC_MORE = K => {
     {id: "cape", rarity: "rare", name: "Hero Cape"},
     {id: "star", rarity: "rare", name: "Star Badge"},
     {id: "beanie", rarity: "rare", name: "Festive Beanie", festive: true},
-    {id: "cap", rarity: "exotic", name: "Graduation Cap"},
-    {id: "crown", rarity: "legendary", name: "Little Crown"}
+    {id: "cap", rarity: "rare", name: "Graduation Cap"},
+    {id: "crown", rarity: "exotic", name: "Little Crown"}
   ];
   const GENERIC = {
     tap: ["Hi hi! I'm so happy you're here!", "You're doing amazing today!", "One step at a time, and you're crushing it!", "I believe in you so much!", "Yay, it's you! Hello!", "Let's keep the awesome going!"],
@@ -75511,7 +75755,7 @@ var COMP_ACC_MORE = K => {
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
     const pats = o.pat || patsNow(), colOf = id => tintOf(id) || ACC_DEF[id] || (o.wearColor || wearColor(c));
     const patd = (id, art) => pats[id] ? withPat(art, id, pats[id], colOf(id)) : art;
-    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}${MORE_BY[id] && MORE_BY[id].anim ? " cp-legend" : ""}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
     // anchors.cape (optional): where the cape itself hangs when it can't start at the neck (a cat in a cup: from the cup's back rim,
@@ -75535,7 +75779,7 @@ var COMP_ACC_MORE = K => {
     const ck = cheeksSvg(c), skin = ck ? shape(hasHead ? partSvg(P.head) : partSvg(P.body)) + shape(partSvg(P.face)) : "";
     const R = `x="-40" y="-40" width="200" height="200"`;
     const cheeks = ck && skin ? `<mask id="cpck" maskUnits="userSpaceOnUse" ${R}><g filter="url(#cpckf)">${skin}</g>${bodyWear ? `<g filter="url(#cpckb)">${bodyWear}</g>` : ""}</mask><filter id="cpckf" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/><feMorphology operator="erode" radius="1.7"/></filter><filter id="cpckb" filterUnits="userSpaceOnUse" ${R}><feColorMatrix values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0"/></filter><g mask="url(#cpck)">${ck}</g>` : ck;
-    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
+    const face = `${g("face")}${cheeks}${eyesSvg(c.eyes)}${mouthSvg(c)}${worn.includes("glasses") ? glassesSvg(c.eyes, tintOf("glasses")) : ""}${MORE.filter(a => a.slot === "face" && worn.includes(a.id)).map(a => `<g class="cp-acc cp-acc-${a.id}${a.anim ? " cp-legend" : ""}" style="--cp-wear:${tintOf(a.id) || ACC_DEF[a.id] || colOf(a.id)}">${a.art(faceFit(c.eyes, c))}</g>`).join("")}`;
     const svg = `<svg class="cp-svg" viewBox="0 0 ${VB} ${VB}" overflow="visible" aria-hidden="true" focusable="false" data-e="${o.eyes || "open"}" data-m="${o.mouth || "neutral"}" data-prop="${o.prop || ""}">
       <g class="cp-rig">${capeBack}${g("back")}${g("tail")}${g("wingL")}${g("wingR")}${hasHead ? "" : g("earL") + g("earR")}${g("feet")}
         <g class="cp-bodyg">${g("body")}${c.wearOnHead || c.scarfOverArms ? "" : bodyWear}${g("over")}<g class="cp-prop">${at([hands[0], hands[1], num(hands[2]) ? hands[2] : 1], BOOK)}</g>${g("armL")}${g("armR")}${c.scarfOverArms && !c.wearOnHead ? bodyWear : ""}</g>
@@ -77239,6 +77483,7 @@ var COMP_ACC_MORE = K => {
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
+      if (a.after) setTimeout(() => { try { if (a.after === "picker") openPicker(); else if (a.after === "shop") styleShop("companions"); } catch (e) {} }, still() ? 0 : 300);
       revealT = setTimeout(revealSoon, 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
@@ -78144,12 +78389,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
     sbHaptic("success", {force: true}); sfxPlay("buy");
-    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    // the new accessory is shown big, in its burst of light, wherever it was bought; closing that goes back to the Wardrobe or the
+    // Style Shop it was bought from
+    if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
-    if (back) {
-      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
-      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
-    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
+    if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price, after: back})); clearTimeout(revealT); revealT = setTimeout(revealSoon, 300); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";
@@ -94014,16 +94258,20 @@ const EXAMPREP = (() => {
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
-    const doneS = sess.filter(s => s.done), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
+    const doneS = sess.filter(s => s.done || Number(s.part) >= 5), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
     const byTopic = {}; let wsum = 0, rsum = 0;
     topics.forEach(t => {
-      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.filter(s => s.done).reduce((a, s) => a + (s.min || 0), 0);
+      // a session counts in full once it's done; before that, the time actually focused on it counts, up to its length
+      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.reduce((a, s) => a + (s.done ? (s.min || 0) : Math.min(s.min || 0, Math.max(0, Number(s.part) || 0))), 0);
       const cov = t.done && !planned ? 1 : planned ? Math.min(1, got / planned) : 0;
       const links = t.links || [], ds = links.filter(l => l.k === "deck" && decks[l.id] && decks[l.id].mastery > 0), qs = links.filter(l => l.k === "quiz" && quiz[l.id] != null);
       const mastery = ds.length ? ds.reduce((a, l) => a + decks[l.id].mastery, 0) / ds.length : null, qz = qs.length ? qs.reduce((a, l) => a + quiz[l.id], 0) / qs.length / 100 : null;
       if (mastery != null) ev.cards++; if (qz != null) ev.quizzes++;
       let parts = [[cov, 0.5]]; if (mastery != null) parts.push([mastery, 0.3]); if (qz != null) parts.push([qz, 0.2]);
-      const ws = parts.reduce((a, p) => a + p[1], 0), r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
+      // evidence that isn't there yet (no flashcards, no quiz) holds half its share back: doing the sessions shows the work, not
+      // what you can recall, so sessions alone top out in the mid-70s and the rest is shown with cards and quizzes
+      const missing = (mastery == null ? 0.3 : 0) + (qz == null ? 0.2 : 0);
+      const ws = parts.reduce((a, p) => a + p[1], 0) + missing / 2, r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
       const base = t.done ? 0.6 : prior[t.conf] != null ? prior[t.conf] : 0.2;
       const r = clamp(base + (1 - base) * r0, 0, 1);
       byTopic[t.id] = {cov: Math.round(cov * 100), pct: Math.round(r * 100), mastery: mastery == null ? null : Math.round(mastery * 100), quiz: qz == null ? null : Math.round(qz * 100)};
@@ -94142,13 +94390,20 @@ function inputFor(ex, P, topics, due){
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 // doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+// The topics readiness is measured over: the plan's own, or, for a plan made without named topics, the exam itself (the planner
+// puts its sessions on topic "t0", the exam's name), so those plans get a readiness too
+function readyTopics(ex, P){
+  if (P.topics.length) return P.topics;
+  return sessionsOf(ex.id).some(s => s.topicId === "t0") ? [{id: "t0", name: ex.title || "the exam", conf: "ok", weight: null, done: false, links: [], edited: false}] : [];
+}
 function readyFor(ex, doneOf){
-  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
-  P.topics.forEach(t => (t.links || []).forEach(l => {
-    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
+  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {}, topics = readyTopics(ex, P);
+  topics.forEach(t => (t.links || []).forEach(l => {
+    // a linked deck: how well its cards are known now, with forgetting (DR, the same score as everywhere else), not just its boxes
+    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).ready / 100};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), part: Number(s.focusMin) || 0, done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
@@ -94165,7 +94420,7 @@ function forecastOf(ex){
   const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
-  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const topics = readyTopics(ex, P).map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
   const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
@@ -95243,6 +95498,61 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
+// A picked deck's cards, to narrow it to some of them (after its row, shown with CSS beside it)
+function xrCardsPick(t, d){
+  const rc = t.readyCards && Array.isArray(t.readyCards[d.id]) ? new Set(t.readyCards[d.id]) : null, live = d.cards.filter(x => !x.draft);
+  const on = rc ? live.filter(x => rc.has(x.id)).length : live.length;
+  return `<details class="xr-cards" data-xrc="${esc(d.id)}"><summary>Choose Cards <span class="mini">${on === live.length ? "all cards" : `${on} of ${live.length} cards`}</span></summary><div class="xr-cards-in">${live.map(x =>
+    `<label class="mi-check"><input type="checkbox" name="c:${esc(d.id)}" value="${esc(x.id)}"${!rc || rc.has(x.id) ? " checked" : ""}> <span>${esc(String(x.front || "").slice(0, 90))}</span></label>`).join("")}</div></details>`;
+}
+/* Linking from the flashcards side (the Edit Card and Edit Deck sheets): which upcoming exams a card or deck counts toward.
+   An exam still on Automatic switches to the decks you pick, starting from what Automatic used, so its readiness doesn't drop. */
+const upcomingExams = courseId => { const today = todayISO(); return Object.values(state.tasks || {}).filter(t => isExam(t) && t.status !== "done" && t.due && t.due >= today)
+  .sort((a, b) => ((b.courseId === courseId) - (a.courseId === courseId)) || a.due.localeCompare(b.due)).slice(0, 12); };
+function manualOf(t){
+  if ((t.readyDecks || []).length) return {decks: t.readyDecks.slice(), cards: Object.assign({}, t.readyCards || {})};
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: [], readyCards: null})), by = {};
+  const owner = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { owner[c.id] = d.id; }));
+  (ev.cards || []).forEach(c => { const did = owner[c.id]; if (did) (by[did] = by[did] || []).push(c.id); });
+  const cards = {}; Object.keys(by).forEach(did => { const d = state.decks[did], live = d ? d.cards.filter(x => !x.draft).length : 0; if (by[did].length < live) cards[did] = by[did]; });
+  return {decks: Object.keys(by), cards};
+}
+const autoHas = (t, deckId, cardId) => { if ((t.readyDecks || []).length) return false; const ev = examEvidence(t); return cardId ? (ev.cards || []).some(c => c.id === cardId) : (ev.decks || []).some(d => d.id === deckId) || (ev.cards || []).some(c => (state.decks[deckId] || {cards: []}).cards.includes(c)); };
+// "manual", "auto" or "" (a card, or a deck when cardId is empty)
+function countsFor(t, deckId, cardId){
+  if ((t.readyDecks || []).length) {
+    if (!t.readyDecks.includes(deckId)) return "";
+    const ids = t.readyCards && Array.isArray(t.readyCards[deckId]) ? t.readyCards[deckId] : null;
+    if (!cardId) return ids ? "some" : "manual";
+    return !ids || ids.includes(cardId) ? "manual" : "";
+  }
+  return autoHas(t, deckId, cardId) ? "auto" : "";
+}
+// the change to an exam that makes a card (or, with no cardId, a whole deck) count toward it or not
+function linkChange(examId, deckId, cardId, on){
+  const t = state.tasks[examId], d = state.decks[deckId]; if (!t || !d) return null;
+  const m = manualOf(t), has = m.decks.includes(deckId), live = d.cards.filter(x => !x.draft).map(x => x.id);
+  if (!cardId) { if (on) { if (!has) m.decks.push(deckId); delete m.cards[deckId]; } else { m.decks = m.decks.filter(x => x !== deckId); delete m.cards[deckId]; } }
+  else if (on) { if (!has) { m.decks.push(deckId); m.cards[deckId] = [cardId]; } else if (m.cards[deckId] && !m.cards[deckId].includes(cardId)) { m.cards[deckId] = m.cards[deckId].concat(cardId); if (m.cards[deckId].length >= live.length) delete m.cards[deckId]; } }
+  else if (has) { const cur = m.cards[deckId] || live; m.cards[deckId] = cur.filter(x => x !== cardId); if (!m.cards[deckId].length) { delete m.cards[deckId]; m.decks = m.decks.filter(x => x !== deckId); } }
+  const n = clone(t); if (m.decks.length) n.readyDecks = m.decks.slice(0, 30); else delete n.readyDecks;
+  const rc = {}; Object.keys(m.cards).forEach(k => { if (m.decks.includes(k)) rc[k] = m.cards[k]; }); if (m.decks.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
+  return {kind: "task", id: examId, after: n};
+}
+// the "Counts Toward" list for the Edit Card and Edit Deck sheets (empty with no upcoming exams)
+function countsHtml(d, cardId){
+  const xs = upcomingExams(d.courseId); if (!xs.length) return "";
+  return `<fieldset class="f xr-for"><legend class="lh">Counts Toward <span class="hint">the exams whose readiness ${cardId ? "this card" : "this deck"} counts for</span></legend>${xs.map(t => { const s = countsFor(t, d.id, cardId), c = courseOf(t.courseId), on = !!s && s !== "some";
+    // a deck with only some of its cards picked: unticked, with how many (ticking it makes the whole deck count)
+    const some = s === "some" ? (n => ` · ${n} of ${d.cards.filter(x => !x.draft).length} cards count`)((t.readyCards[d.id] || []).length) : "";
+    return `<label class="mi-check"><input type="checkbox" name="xrFor" value="${esc(t.id)}" data-was="${on ? 1 : 0}"${on ? " checked" : ""}> <span>${esc(t.title)} <span class="mini">${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}${s === "auto" ? " · picked automatically" : ""}${some}</span></span></label>`; }).join("")}</fieldset>`;
+}
+// the changes from that list, as the sheet is saved
+function countsChanges(form, deckId, cardId){
+  const out = []; form.querySelectorAll('input[name="xrFor"]').forEach(i => { const was = i.dataset.was === "1"; if (i.checked !== was) { const c = linkChange(i.value, deckId, cardId, i.checked); if (c) out.push(c); } });
+  return out;
+}
+window.SBXR = {countsHtml, countsChanges, countsFor, linkChange, upcomingExams};
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
    school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
 function decksSheet(id){
@@ -95258,20 +95568,29 @@ function decksSheet(id){
       <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>${!isQuizHolder(d) && d.cards.some(x => !x.draft) ? xrCardsPick(t, d) : ""}`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;
     const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
     if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    // the cards picked in each deck (all of them: the deck counts in full)
+    const rc = {}; ids.forEach(did => { const d = state.decks[did]; if (!d || isQuizHolder(d)) return; const live = d.cards.filter(x => !x.draft).map(x => x.id), on = fd.getAll("c:" + did).map(String).filter(x => live.includes(x));
+      if (dlg.querySelector(`[data-xrc="${CSS.escape(did)}"]`) && on.length < live.length) rc[did] = on; });
     const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    if (ids.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
     dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
     return false;
   });
   // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
   const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
   dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
-  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true;
+    const pk = i.closest("[data-xrc]");
+    if (pk && i.checked) { const di = box.querySelector(`input[name="d"][value="${CSS.escape(pk.dataset.xrc)}"]`); if (di) di.checked = true; }
+    if (pk) { const all = pk.querySelectorAll('input[type="checkbox"]'), on = [...all].filter(x => x.checked).length, s2 = pk.querySelector("summary .mini"); if (s2) s2.textContent = on === all.length ? "all cards" : `${on} of ${all.length} cards`; }
+    sync(); }));
   sync();
 }
 // Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
@@ -133415,12 +133734,15 @@ const AUTOPILOT = (() => {
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Sound Effects<span class="sub">Short, happy sounds when you earn credits, open a chest, spin the prize wheel, unlock an accessory, pass a quiz and a few other big moments. Never while you type or scroll. <button type="button" class="link-btn" data-act="sfx-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="sfx" ${window.SBSFX && SBSFX.on() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Reward Sounds<span class="sub">A soft chime when a study session makes you more ready for an exam. <button type="button" class="link-btn" data-act="fx-try">Play It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="fx-sounds" ${(() => { try { return localStorage.getItem("studyboard:fx") !== "off"; } catch (e) { return true; } })() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "fx-sounds") { ls("studyboard:fx", el.checked ? null : "off"); if (el.checked && window.SBSC_FX) window.SBSC_FX(); return true; }
+    if (act === "fx-try") { if (window.SBSC_FX) window.SBSC_FX(true); return true; }
     if (act === "sfx-try") { if (window.SBSFX) { if (!SBSFX.on()) toast("Turn Sound Effects on to hear them."); else { SBSFX.play("chest", {rarity: "rare"}); setTimeout(() => SBSFX.play("coinLand"), 1300); } } return true; }
     if (act === "sfx") { if (window.SBSFX) { SBSFX.set(el.checked); if (el.checked) SBSFX.play("coinLand"); } return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
