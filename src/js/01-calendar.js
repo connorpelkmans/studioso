@@ -999,7 +999,10 @@ function qodPop(html, cls){
   requestAnimationFrame(() => w.classList.add("in"));
   const b = w.querySelector("[data-qod-close]"); if (b) b.focus();
 }
+// The daily quote pop-up is switched off for now (the code stays). Set to true to bring back the pop-up and its Settings rows.
+const DAILY_QUOTE_ON = false;
 function dailyQuote(force){
+  if (!force && !DAILY_QUOTE_ON) return;
   if (!force && styleCfg().quotes === false) return;
   if (!force && navigator.webdriver && !window.__qodTest) return;
   const d = todayISO();

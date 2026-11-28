@@ -12647,8 +12647,8 @@ function kitFollow(kind, list, cur, auto){
 function animRows(){
   const c = styleCfg(), row = (key, icon, title, sub) => `<div class="cap-row"><span style="flex:1;font-weight:600">${icon} ${title}<span class="sub">${sub}</span></span><label class="anim-tog"><input type="checkbox" data-act="anim-toggle" data-key="${key}" ${c[key] !== false ? "checked" : ""}> On</label></div>`;
   return row("motion", "✨", "Background Animations", "Moving artwork and little scene details in artwork themes.") + row("celebrate", "🎉", "Completion Animations", "Confetti, fireworks or the theme's own animation when you finish a task.")
-    + row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
-    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`;
+    + (!DAILY_QUOTE_ON ? "" : row("quotes", "💬", "Daily Quote", "A short motivational quote the first time you open Studyboard each day.")
+    + `<button data-act="daily-quote"><span>${STREAK_HIDDEN ? "Today's Quote" : "Today's Quote and Streak"}<span class="sub">${esc(STREAK_HIDDEN ? "See today's quote again" : streakLine())}</span></span></button>`);
 }
 function styleShop(tab){
   if (typeof PLAN !== "undefined" && PLAN && PLAN.endStyleGrace && PLAN.endStyleGrace()) { try { applySkin(); } catch (e) {} render(); }
@@ -17891,7 +17891,10 @@ function qodPop(html, cls){
   requestAnimationFrame(() => w.classList.add("in"));
   const b = w.querySelector("[data-qod-close]"); if (b) b.focus();
 }
+// The daily quote pop-up is switched off for now (the code stays). Set to true to bring back the pop-up and its Settings rows.
+const DAILY_QUOTE_ON = false;
 function dailyQuote(force){
+  if (!force && !DAILY_QUOTE_ON) return;
   if (!force && styleCfg().quotes === false) return;
   if (!force && navigator.webdriver && !window.__qodTest) return;
   const d = todayISO();
