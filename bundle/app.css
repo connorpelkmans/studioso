@@ -1956,6 +1956,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .pr-chip{flex:none;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;border-radius:999px;padding:3px 8px 3px 7px;white-space:nowrap;font-variant-numeric:normal}
 .pr-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
 .pr-chip.gt-chip::before{display:none}
+/* the course pill on Also Today rows is the same size as the one beside Do This Next (103-phone-design.css) */
+.plan-row .pr-chip:not(.gt-chip){box-sizing:border-box;height:22px;padding:0 9px 0 8px}
 .pr-why{grid-area:why;justify-self:end;display:inline-flex;align-items:center;gap:6px;max-width:21em;min-width:0;border:0;background:none;padding:4px 6px;border-radius:8px;font-size:.82rem;color:var(--muted);text-align:right}
 button.pr-why{cursor:pointer}
 button.pr-why:hover{background:var(--soft);color:var(--ink)}
@@ -11061,7 +11063,8 @@ p.pr-wait{flex-direction:row}
 .pr-eyebrow{font:700 .74rem var(--display);letter-spacing:.06em;color:var(--pc,var(--accent,#7A4FD6));text-transform:uppercase;overflow-wrap:anywhere}
 .pr-rtitle b{font:700 1.7rem var(--display)}
 .pr-rtitle b span{font-size:1.05rem;font-weight:600;color:var(--muted)}
-.pr-chip{padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
+/* only the presenter's own result chips: a bare .pr-chip is also the course pill on Today's Plan, which this made big */
+.pr-chip:is(.c-ok,.c-warn,.c-over,.c-early){padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
 .pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}.pr-chip.c-early{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
 .pr-runsel select{height:40px;border-radius:999px;padding:0 12px}
 .pr-rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}

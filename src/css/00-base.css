@@ -1956,6 +1956,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .pr-chip{flex:none;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;border-radius:999px;padding:3px 8px 3px 7px;white-space:nowrap;font-variant-numeric:normal}
 .pr-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
 .pr-chip.gt-chip::before{display:none}
+/* the course pill on Also Today rows is the same size as the one beside Do This Next (103-phone-design.css) */
+.plan-row .pr-chip:not(.gt-chip){box-sizing:border-box;height:22px;padding:0 9px 0 8px}
 .pr-why{grid-area:why;justify-self:end;display:inline-flex;align-items:center;gap:6px;max-width:21em;min-width:0;border:0;background:none;padding:4px 6px;border-radius:8px;font-size:.82rem;color:var(--muted);text-align:right}
 button.pr-why{cursor:pointer}
 button.pr-why:hover{background:var(--soft);color:var(--ink)}
