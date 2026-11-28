@@ -18,7 +18,7 @@ var SBPRO = null;
   hook("focus", e => {
     if (!e || (e.type !== "end" && e.type !== "early") || e.mode !== "focus" || !(Number(e.minutes) > 0)) return;
     const t = e.taskId ? state.tasks[e.taskId] : null, start = new Date(Date.now() - Number(e.minutes) * 60000);
-    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : "", t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
+    const row = {d: iso(start), h: start.getHours(), m: Math.round(Number(e.minutes)), c: t ? t.courseId || "" : String(e.courseId || ""), t: t ? t.id : "", r: String(e.routine || "").slice(0, 24)};
     setS({focusLog: focusLog().concat([row]).slice(-600)});
   });
   hook("fc-rated", () => {
