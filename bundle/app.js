@@ -52744,7 +52744,9 @@ function cleanFile(r) {
   /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
      Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
      course list points at the one that stays. Two courses you made yourself are never merged */
-  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  // (made by a school sync: its id is the sync's own. A course you made that a sync was pointed at carries the sync's details
+  // too, but it's still yours: it was folded into a later copy you made, which then took the school course with it when deleted)
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object" && String(c.id || "").startsWith(f + "c_"));
   const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
   const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
   function dupePlan(){
