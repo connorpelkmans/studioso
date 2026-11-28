@@ -329,8 +329,10 @@
       const NS = "http://www.w3.org/2000/svg", sv = document.createElementNS(NS, "svg");
       sv.setAttribute("viewBox", "-26 -26 52 52"); sv.setAttribute("width", "52"); sv.setAttribute("height", "52");
       sv.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;pointer-events:none";
-      // (twinkles and the clipped strips that slide across a foil or lens are left out: they reach far past what shows)
-      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw,.cpa-flow,.cpa-sweep").forEach(t => t.remove());
+      // measured still (cp-still: a moving part would make the size depend on the moment), without twinkles, soft glows (cpa-aura)
+      // or the clipped strips that slide across a foil or lens: they reach past the thing itself
+      sv.setAttribute("class", "cp-still");
+      sv.innerHTML = `<g>${inner}</g>`; sv.querySelectorAll(".cp-tw,.cpa-flow,.cpa-sweep,.cpa-aura").forEach(t => t.remove());
       document.body.appendChild(sv); const bb = sv.firstChild.getBBox(); sv.remove();
       if (!(bb.width > 0 && bb.height > 0)) return null;
       const k = Math.min(1.6, ICON_W / bb.width, ICON_H / bb.height);
