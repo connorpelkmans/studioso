@@ -13857,7 +13857,7 @@ const SFX = (() => {
   function chime(ctx, out, t, f, dur, gain){ [[1, 1], [2, .32], [3, .12]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.8), {gain: gain * a, a: 0.003})); tone(ctx, out, t, f * 1.003, dur, {gain: gain * .35, a: 0.003}); }
   const BUY_STYLE = "sparkle";
   const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
-  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
+  const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4, mythic: 5};
 
   // ---- the sounds: each returns how long it lasts ----
   const S = {
@@ -62126,7 +62126,7 @@ var SBSC = (() => {
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
   // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
   const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
-  // 1 in 100 Legendary slots is a wheel-only prize; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
+  // 1 wheel in 100 has a Mythical in place of its Legendary; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
   const WHEEL_ONLY_P = (() => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:wheel-only")) return 1; } catch (e) {} return 0.01; })();
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
@@ -62190,21 +62190,23 @@ var SBSC = (() => {
     const x2 = proNow();
     WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
       const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !a.wheel && !used.has(a.id));
-      // the wheel-only prizes (the Holographic Top Hat): each Legendary slot has a WHEEL_ONLY_P chance of being one not yet won
-      const rare1 = list.filter(a => a.rarity === r && a.wheel && !a.owned && !used.has(a.id));
       for (let i = 0; i < count; i++) {
-        const a = rare1.length && Math.random() < WHEEL_ONLY_P ? rare1.splice(Math.floor(Math.random() * rare1.length), 1)[0] : pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
         if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }
     });
+    // 1 wheel in 100: a Mythical (one not yet won) takes the Legendary's place, at the Legendary's odds (2%, 4% with Pro)
+    const myth = list.filter(a => a.rarity === "mythic" && !a.owned);
+    const li = out.findIndex(x => x.r === "legendary");
+    if (myth.length && li >= 0 && Math.random() < WHEEL_ONLY_P) { const a = myth[Math.floor(Math.random() * myth.length)]; out[li] = {k: "item", r: "mythic", id: a.id, name: a.name, p: out[li].p}; }
     (x2 ? WHEEL_COINS_PRO : WHEEL_COINS).forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
     // items spread between the coins, so the small slices aren't all bunched together
     const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
     while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
     return mixed;
   }
-  const RCOL = {legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
+  const RCOL = {mythic: ["#FF8A8A", "#C8102E"], legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
   // The wheel: 12 equal slices, so every prize shows (each accessory's own picture on a badge in its rarity's colour, each coin
   // prize a coin and its number). Which one it lands on follows the odds (the prize list under it says them); the slice sizes don't.
   function wheelSvg(prizes){
@@ -62223,8 +62225,8 @@ var SBSC = (() => {
       let art;
       if (pz.k === "item") {
         const ic = (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "").replace("<svg ", `<svg x="${C - 19}" y="${C - R + 21}" width="38" height="38" `);
-        const ring = {legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
-        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="#F5B700" stroke-width="1.2"/>` : ""}`;
+        const ring = {mythic: "#DC2626", legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
+        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" || pz.r === "mythic" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="${ring}" stroke-width="1.2"/>` : ""}`;
       } else {
         art = `<image href="${COIN_SRC}" x="${C - 15}" y="${C - R + 18}" width="30" height="30"/><text x="${C}" y="${C - R + 66}" text-anchor="middle" class="wh-n${pz.r ? " on-dark" : ""}">${pz.n}</text>`;
       }
@@ -62241,7 +62243,7 @@ var SBSC = (() => {
   }
   const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
   const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
-  const RNAME = {legendary: "Legendary", exotic: "Epic", rare: "Rare"};
+  const RNAME = {mythic: "Mythical", legendary: "Legendary", exotic: "Epic", rare: "Rare"};
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
@@ -75472,8 +75474,8 @@ var COMP_ACC_MORE = K => {
   const orbit = (rx, ry, cy, dur, d, inner) => A("orbx", A("orby", inner, `--ry:${ry}px;animation-duration:${dur}s;animation-delay:${f(d - dur / 2)}s`), `--rx:${rx}px;animation-duration:${dur}s;animation-delay:${d}s`);
   const L = (o) => Object.assign({rarity: "legendary", anim: true}, o);
   HEAD.push(
-    // Only from the prize wheel: when the wheel's Legendary slot is picked, a 1 in 100 chance it's this (98-0study-credits.js)
-    {id: "holotophat", name: "Holographic Top Hat", rarity: "legendary", anim: true, wheel: true, def: "#D9B8FF", icon: [12, .85], art: () => {
+    // Mythical, only from the prize wheel: 1 in 100 wheels have it in place of the Legendary (98-0study-credits.js)
+    {id: "holotophat", name: "Holographic Top Hat", rarity: "mythic", anim: true, wheel: true, def: "#D9B8FF", icon: [12, .85], art: () => {
       // the Holographic flashcard style's foil (pink, sky, mint, butter, lilac) as diagonal bands 48 px apart along x, so a 48 px
       // slide (cpa-flow) loops without a seam; drawn flat like the other hats, with a gold band and a diamond at the front
       const HOLO = ["#FFB3E6", "#B3D4FF", "#B3FFE0", "#FFF1A8", "#D6B3FF", "#FFB3E6"];
@@ -75482,12 +75484,13 @@ var COMP_ACC_MORE = K => {
       const brim = "M-19.2 .2Q-20 -4.4 -14.4 -3.6Q0 -1 14.4 -3.6Q20 -4.4 19.2 .2Q18 4.8 0 5.2Q-18 4.8 -19.2 .2Z";
       const foil = clip => `<g clip-path="url(#${clip})">${A("flow", `<rect x="-80" y="-40" width="160" height="52" fill="url(#cpaHt)"/>`, "animation-duration:6s")}</g>`;
       return `<defs><linearGradient id="cpaHt" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="36" y2="20.78" spreadMethod="repeat">${HOLO.map((c, k) => `<stop offset="${k / 5}" stop-color="${c}"/>`).join("")}</linearGradient>
-        <linearGradient id="cpaHtGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7D45A"/><stop offset=".5" stop-color="#EDB92E"/><stop offset="1" stop-color="#C98E16"/></linearGradient>
+        <linearGradient id="cpaHtGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FCD34D"/><stop offset=".5" stop-color="#EAB024"/><stop offset="1" stop-color="#B4790C"/></linearGradient><clipPath id="cpaHtBand"><path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z"/></clipPath>
         <clipPath id="cpaHtC"><path d="${crown}"/></clipPath><clipPath id="cpaHtT"><path d="${top}"/></clipPath><clipPath id="cpaHtB"><path d="${brim}"/></clipPath></defs>
-        <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtC")}<g clip-path="url(#cpaHtC)">${A("sweep", `<path d="M-3 -36L4 -36L-6 8L-13 8Z" fill="#fff" opacity=".8"/><path d="M6 -36L8 -36L-2 8L-4 8Z" fill="#fff" opacity=".55"/>`, "--sw:18px")}</g><path d="${crown}" fill="none" ${OUT(2.6)}/>
+        <path d="${crown}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtC")}<path d="${crown}" fill="none" ${OUT(2.6)}/>
         <path d="M-7 -22.6V-13" stroke="#fff" stroke-opacity=".8" stroke-width="2.2" stroke-linecap="round"/>
         <path d="${top}" fill="#EBDDFF" ${OUT(2.2)}/>${foil("cpaHtT")}<path d="${top}" fill="#fff" opacity=".35"/><path d="${top}" fill="none" ${OUT(2.2)}/>
-        <path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><path d="M0 -12.6L3.6 -8.4L0 -2.4L-3.6 -8.4Z" fill="none" ${OUT(1.4)}/><path d="M0 -12.6L-3.6 -8.4H0Z" fill="#FFFFFF"/><path d="M0 -12.6L3.6 -8.4H0Z" fill="#CDE6FF"/><path d="M-3.6 -8.4H0V-2.4Z" fill="#A6D0FF"/><path d="M3.6 -8.4H0V-2.4Z" fill="#6FA8EE"/>${A("glint", `<path d="M0 -12.6L3.6 -8.4L0 -2.4L-3.6 -8.4Z" fill="#fff" opacity=".9"/>`, "animation-delay:-1.4s")}<path d="M-1.6 -10.4L-.9 -9.6" stroke="#fff" stroke-width=".8" stroke-linecap="round"/>
+        <path d="M-10.9 -10.6Q0 -8.4 10.9 -10.6L10.6 -4.2Q0 -2 -10.6 -4.2Z" fill="url(#cpaHtGold)" ${OUT(2)}/><g clip-path="url(#cpaHtBand)">${A("sweep", `<path d="M-2 -12L1 -12L-1 -2L-4 -2Z" fill="#fff" opacity=".9"/>`, "--sw:13px;animation-delay:-1.8s")}</g>
+        <g transform="translate(0 1)"><path d="M-2 -12.4H2L4.2 -9.6L0 -4.4L-4.2 -9.6Z" fill="#DDEFFF" ${OUT(1.1)}/><path d="M-2 -12.4H2L1.2 -9.6H-1.2Z" fill="#F4FBFF"/><path d="M-2 -12.4L-4.2 -9.6H-1.2Z" fill="#FFFFFF"/><path d="M2 -12.4L4.2 -9.6H1.2Z" fill="#B8DAFF"/><path d="M-4.2 -9.6H-1.2L0 -4.4Z" fill="#A3CEFF"/><path d="M-1.2 -9.6H1.2L0 -4.4Z" fill="#DDEFFF"/><path d="M1.2 -9.6H4.2L0 -4.4Z" fill="#6FA6EC"/><path d="M-2 -12.4L-1.2 -9.6L0 -4.4L1.2 -9.6L2 -12.4M-4.2 -9.6H4.2" fill="none" stroke="#7FA8E0" stroke-opacity=".6" stroke-width=".4" stroke-linejoin="round"/><path d="M-2 -12.4H2L4.2 -9.6L0 -4.4L-4.2 -9.6Z" fill="none" ${OUT(1.1)}/>${A("glint", `<path d="M-2 -12.4H2L4.2 -9.6L0 -4.4L-4.2 -9.6Z" fill="#fff" opacity=".85"/>`, "animation-delay:-1.4s")}<g transform="translate(4.4 -12.4)">${A("glint", `<path d="M0 -1.8Q.3 -.3 1.8 0Q.3 .3 0 1.8Q-.3 .3 -1.8 0Q-.3 -.3 0 -1.8Z" fill="#fff"/>`, "animation-delay:-1.1s")}</g></g>
         <path d="${brim}" fill="#EBDDFF" ${OUT(2.6)}/>${foil("cpaHtB")}<path d="${brim}" fill="none" ${OUT(2.6)}/><path d="M-16.4 -2Q-8 .6 0 .9" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="1" stroke-linecap="round"/>
         ${tw(-17, -22, 2.8, 0)}${tw(16, -31, 2.2, .9)}${tw(20, -12, 1.8, 1.7)}`; }},
     L({id: "lavacrown", name: "Lava Crown", def: "#2A2026", icon: [12, .85], art: () => {
@@ -75704,10 +75707,11 @@ var COMP_ACC_MORE = K => {
   }
   /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
      its price in Studyboard Credits (PRICE); none of them needs Pro */
-  const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
-  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary"};
+  // Mythical (red) is above Legendary: only the prize wheel gives it (the Holographic Top Hat)
+  const RARITY = ["common", "uncommon", "rare", "exotic", "legendary", "mythic"];
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary", mythic: "Mythical"};
   // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
-  const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
+  const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000, mythic: 2000};
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
   const MORE_BY = {};
   MORE.forEach(a => {
@@ -75717,7 +75721,7 @@ var COMP_ACC_MORE = K => {
     // the art for the wardrobe's tile and the new-prop reveal (a face item is drawn for eyes 22 apart)
     ACC_ART[a.id] = a.slot === "face" ? a.art(faceFit({lx: -11, rx: 11, y: 0, r: 4.4})) : a.slot === "neck" ? a.art(21) : a.art();
     // a prize-wheel-only item (wheel: true) is never sold and stays hidden until won, like a gift
-    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift || !!a.wheel, wheel: !!a.wheel, giftNote: a.wheel ? "only won on the prize wheel (when the wheel's Legendary comes up, there's a 1 in 100 chance it's this one)" : undefined});
+    ACC.push({id: a.id, name: a.name, rarity: a.rarity, slot: a.slot, gift: !!a.gift || !!a.wheel, wheel: !!a.wheel, giftNote: a.wheel ? "only won on the prize wheel (when the wheel's Legendary comes up, there's a 1 in 100 chance a Mythical takes its place, and this is it)" : undefined});
   });
   // every prop is priced by its rarity, bought with earned credits, never Pro
   ACC.forEach(a => { a.price = PRICE[RARITY.includes(a.rarity) ? a.rarity : "common"]; });
@@ -75775,7 +75779,7 @@ var COMP_ACC_MORE = K => {
     const tintOf = id => hexOk(tints[id]) ? tints[id] : "";
     const pats = o.pat || patsNow(), colOf = id => tintOf(id) || ACC_DEF[id] || (o.wearColor || wearColor(c));
     const patd = (id, art) => pats[id] ? withPat(art, id, pats[id], colOf(id)) : art;
-    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}${MORE_BY[id] && MORE_BY[id].anim ? " cp-legend" : ""}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
+    const acc = (id, a, art) => worn.includes(id) ? `<g class="cp-acc cp-acc-${id}${MORE_BY[id] && MORE_BY[id].anim ? " cp-legend" + (MORE_BY[id].rarity === "mythic" ? " cp-mythic" : "") : ""}"${tintOf(id) || ACC_DEF[id] ? ` style="--cp-wear:${tintOf(id) || ACC_DEF[id]}"` : ""}>${at(a, patd(id, art || ACC_ART[id]))}</g>` : "";
     const capePart = art => worn.includes("cape") ? `<g class="cp-acc cp-acc-cape"${tintOf("cape") ? ` style="--cp-wear:${tintOf("cape")}"` : ""}>${at(capeA, patd("cape", art))}</g>` : "";
     const hasHead = !!partSvg(P.head);
     // anchors.cape (optional): where the cape itself hangs when it can't start at the neck (a cat in a cup: from the cup's back rim,
@@ -78921,7 +78925,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // The accessories it has earned (it can wear), by name, for the chat's "what accessories do I have"
     ownedNames: () => { try { return ACC.filter(a => canWear(a)).map(a => a.name); } catch (e) { return []; } },
     // how each accessory is got, in words (for the chat: "how do I get the little crown"): bought with Studyboard Credits
-    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.wheel ? "Win it on the prize wheel (a 1 in 100 chance when the wheel's Legendary comes up)" : x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
+    unlockWays: () => { try { return ACC.map(x => ({name: x.name, have: canWear(x), price: x.price, ways: [x.wheel ? "Win it on the prize wheel (a Mythical: 1 in 100 wheels have it in place of the Legendary)" : x.gift ? `Find it ${x.giftNote || "in a holiday present"}` : `Buy it in the Wardrobe for ${creditsTxt(x.price)}${x.festive ? " (Dec 1 to Jan 6)" : ""}`]})); } catch (e) { return []; } },
     // Studyboard Credits for the chat ("how many credits do I have")
     credits: () => credits(),
     wornNames: () => { try { const c = current(); return c ? wearOf(c).map(id => (ACC.find(a => a.id === id) || {}).name).filter(Boolean) : []; } catch (e) { return []; } },

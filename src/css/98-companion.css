@@ -135,12 +135,14 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-rar-rare{background:#2563EB}
 .cp-rar-exotic{background:#7C3AED}
 .cp-rar-legendary{background:#FACC15;color:#3A2A00}
+.cp-rar-mythic{background:#DC2626;color:#fff}
 .cp-acc-tile{position:relative}
 .cp-acc-tile.cp-r-uncommon{border-color:color-mix(in srgb,#15803D 30%,var(--line))}
 .cp-acc-tile.cp-r-rare{border-color:color-mix(in srgb,#2563EB 35%,var(--line))}
 .cp-acc-tile.cp-r-exotic{border-color:color-mix(in srgb,#7C3AED 40%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#7C3AED 7%,var(--surface)),var(--surface))}
 .cp-acc-tile.cp-r-legendary{border-color:color-mix(in srgb,#E6A800 60%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#FACC15 14%,var(--surface)),var(--surface))}
-.cp-acc-tile.on.cp-r-legendary,.cp-acc-tile.on.cp-r-exotic,.cp-acc-tile.on.cp-r-rare,.cp-acc-tile.on.cp-r-uncommon{border-color:var(--accent)}
+.cp-acc-tile.cp-r-mythic{border-color:color-mix(in srgb,#DC2626 60%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,#DC2626 12%,var(--surface)),var(--surface))}
+.cp-acc-tile.on.cp-r-mythic,.cp-acc-tile.on.cp-r-legendary,.cp-acc-tile.on.cp-r-exotic,.cp-acc-tile.on.cp-r-rare,.cp-acc-tile.on.cp-r-uncommon{border-color:var(--accent)}
 .cp-acc-grp{margin:6px 0 0;font:700 .85rem/1.2 var(--display);display:flex;align-items:baseline;gap:6px}
 .cpu .cp-rar{font-size:.72rem;padding:4px 10px;animation:cpu-up .5s ease-out .6s both}
 /* Legendary twinkles and the propeller's spin: still under reduced motion */
@@ -410,7 +412,7 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 }
 .cp-still .cpa,.cpu-still .cpa,.cp-front.cp-still .cpa{animation:none!important}
 /* a glint is a flash of light: without its animation it isn't there at all */
-.cpa-glint{opacity:0}
+.cpa-glint,.cpa-sweep{opacity:0}
 @keyframes cpa-wobble{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
 @keyframes cpa-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.2px)}}
 @keyframes cpa-drop{0%{transform:translateY(0);opacity:0}15%{opacity:.9}70%{opacity:.9}100%{transform:translateY(8px);opacity:0}}
@@ -441,8 +443,10 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 /* Animated Legendaries wear a soft golden light that breathes around them, so they stand apart from everything else */
 @media (prefers-reduced-motion:no-preference){
   .cp-legend{animation:cp-legend 3.4s cubic-bezier(.45,0,.55,1) infinite}
+  .cp-legend.cp-mythic{animation-name:cp-mythic}
 }
 .cp-still .cp-legend,.cpu-still .cp-legend{animation:none}
 @keyframes cp-legend{0%,100%{filter:drop-shadow(0 0 .6px rgba(255,214,110,.5))}50%{filter:drop-shadow(0 0 3.2px rgba(255,214,110,.95)) drop-shadow(0 0 1px rgba(255,255,255,.8))}}
 @keyframes cpa-glint{0%,40%,100%{opacity:0}52%{opacity:.85}64%{opacity:0}}
 @keyframes cpa-lavadrip{0%{transform:scale(.3,.2);opacity:0}15%{opacity:1}55%{transform:scale(1,1);opacity:1}100%{transform:translateY(7px) scale(.7,1.2);opacity:0}}
+@keyframes cp-mythic{0%,100%{filter:drop-shadow(0 0 .6px rgba(255,80,80,.5))}50%{filter:drop-shadow(0 0 3.2px rgba(255,60,60,.9)) drop-shadow(0 0 1px rgba(255,255,255,.8))}}

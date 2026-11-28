@@ -320,7 +320,7 @@ var SBSC = (() => {
   const WHEEL_COINS = [[25, 0.18], [50, 0.16], [75, 0.14], [100, 0.10], [150, 0.08], [200, 0.06]];
   // Pro: every spin (exam ones too) has double the accessory chances (4%, 8% each, 12% each: 56%), and the coins share the other 44%
   const WHEEL_COINS_PRO = [[25, 0.11], [50, 0.10], [75, 0.08], [100, 0.06], [150, 0.05], [200, 0.04]];
-  // 1 in 100 Legendary slots is a wheel-only prize; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
+  // 1 wheel in 100 has a Mythical in place of its Legendary; tests can force it (window.__SB_TEST, studyboard:wheel-only = 1)
   const WHEEL_ONLY_P = (() => { try { if (window.__SB_TEST && localStorage.getItem("studyboard:wheel-only")) return 1; } catch (e) {} return 0.01; })();
   const SPINS_A_WEEK = 3, ITEM_FALLBACK = {legendary: 500, exotic: 250, rare: 150};
   const gradePct = t => t && t.mark && !t.mark.ex && Number(t.mark.outOf) > 0 && t.mark.got !== "" && t.mark.got != null && !isNaN(Number(t.mark.got)) ? Number(t.mark.got) / Number(t.mark.outOf) * 100 : null;
@@ -384,21 +384,23 @@ var SBSC = (() => {
     const x2 = proNow();
     WHEEL_ITEMS.forEach(([r, count, p0]) => { const p = x2 ? p0 * 2 : p0;
       const pool = list.filter(a => a.rarity === r && !a.owned && !a.festive && !a.wheel && !used.has(a.id));
-      // the wheel-only prizes (the Holographic Top Hat): each Legendary slot has a WHEEL_ONLY_P chance of being one not yet won
-      const rare1 = list.filter(a => a.rarity === r && a.wheel && !a.owned && !used.has(a.id));
       for (let i = 0; i < count; i++) {
-        const a = rare1.length && Math.random() < WHEEL_ONLY_P ? rare1.splice(Math.floor(Math.random() * rare1.length), 1)[0] : pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
+        const a = pool.length ? pool.splice(Math.floor(Math.random() * pool.length), 1)[0] : null;
         if (a) { used.add(a.id); out.push({k: "item", r, id: a.id, name: a.name, p}); }
         else out.push({k: "coins", r, n: ITEM_FALLBACK[r], p});
       }
     });
+    // 1 wheel in 100: a Mythical (one not yet won) takes the Legendary's place, at the Legendary's odds (2%, 4% with Pro)
+    const myth = list.filter(a => a.rarity === "mythic" && !a.owned);
+    const li = out.findIndex(x => x.r === "legendary");
+    if (myth.length && li >= 0 && Math.random() < WHEEL_ONLY_P) { const a = myth[Math.floor(Math.random() * myth.length)]; out[li] = {k: "item", r: "mythic", id: a.id, name: a.name, p: out[li].p}; }
     (x2 ? WHEEL_COINS_PRO : WHEEL_COINS).forEach(([n, p]) => out.push({k: "coins", r: "", n, p}));
     // items spread between the coins, so the small slices aren't all bunched together
     const mixed = []; const c2 = out.filter(x => !x.r), i2 = out.filter(x => x.r);
     while (c2.length || i2.length) { if (c2.length) mixed.push(c2.shift()); if (i2.length) mixed.push(i2.shift()); }
     return mixed;
   }
-  const RCOL = {legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
+  const RCOL = {mythic: ["#FF8A8A", "#C8102E"], legendary: ["#FFE680", "#F5B700"], exotic: ["#B794FF", "#6D28D9"], rare: ["#7FB0FF", "#1D4ED8"]};
   // The wheel: 12 equal slices, so every prize shows (each accessory's own picture on a badge in its rarity's colour, each coin
   // prize a coin and its number). Which one it lands on follows the odds (the prize list under it says them); the slice sizes don't.
   function wheelSvg(prizes){
@@ -417,8 +419,8 @@ var SBSC = (() => {
       let art;
       if (pz.k === "item") {
         const ic = (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "").replace("<svg ", `<svg x="${C - 19}" y="${C - R + 21}" width="38" height="38" `);
-        const ring = {legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
-        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="#F5B700" stroke-width="1.2"/>` : ""}`;
+        const ring = {mythic: "#DC2626", legendary: "#F5B700", exotic: "#7C3AED", rare: "#2563EB"}[pz.r] || "#2B2233";
+        art = `<circle cx="${C}" cy="${C - R + 40}" r="25" fill="${ring}" stroke="#2B2233" stroke-width="2.5" class="wh-badge"/><circle cx="${C}" cy="${C - R + 40}" r="20" fill="#fff"/>${ic}${pz.r === "legendary" || pz.r === "mythic" ? `<path d="M${C + 19} ${C - R + 14}l2.2 5 5 2.2-5 2.2-2.2 5-2.2-5-5-2.2 5-2.2z" fill="#fff" stroke="${ring}" stroke-width="1.2"/>` : ""}`;
       } else {
         art = `<image href="${COIN_SRC}" x="${C - 15}" y="${C - R + 18}" width="30" height="30"/><text x="${C}" y="${C - R + 66}" text-anchor="middle" class="wh-n${pz.r ? " on-dark" : ""}">${pz.n}</text>`;
       }
@@ -435,7 +437,7 @@ var SBSC = (() => {
   }
   const prizeName = pz => pz.k === "item" ? pz.name : `${pz.n} credits`;
   const prizeIcon = pz => pz.k === "item" ? (window.SBCOMP && SBCOMP.propIcon ? SBCOMP.propIcon(pz.id) : "") : `<img src="${COIN_SRC}" alt="" width="28" height="28">`;
-  const RNAME = {legendary: "Legendary", exotic: "Epic", rare: "Rare"};
+  const RNAME = {mythic: "Mythical", legendary: "Legendary", exotic: "Epic", rare: "Rare"};
   function spinSoon(){
     if (!spinQueue().length || screensOff()) return;
     const ae = document.activeElement;
