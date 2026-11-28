@@ -61,6 +61,16 @@ function playAlarm(name, vol, repeats){
   audioIdle((t - ac.currentTime) * 1000 + 300);
   return true;
 }
+// A short coin chime: focus time saved when a session is skipped or reset (quieter than the alarm, and only with a sound chosen)
+function playCoin(){
+  const cfg = pomoCfg(); if (cfg.sound === "none") return false;
+  const ac = audio(); if (!ac) return false;
+  const v = Math.max(0.05, Math.min(1, Number(cfg.volume) || 0.7)) * 0.7, t = ac.currentTime + 0.03;
+  tone(ac, ac.destination, t, 1567.98, 0.16, "square", 0.09 * v); tone(ac, ac.destination, t, 1567.98, 0.2, "sine", 0.35 * v);
+  tone(ac, ac.destination, t + 0.09, 2093, 0.5, "square", 0.08 * v); tone(ac, ac.destination, t + 0.09, 2093, 0.6, "sine", 0.4 * v);
+  audioIdle(1000);
+  return true;
+}
 // The sound system is switched off once a sound has played: left running, iOS counts the app as playing audio (a speaker
 // in the Dynamic Island, squeezing the timer out of it). Switching it back on later needs no tap.
 let audioIdleT = 0;
@@ -112,6 +122,8 @@ const pomoEarly = (min, why) => {
   if (A) { try { A.early(m, pomo.taskId, why); } catch(e) { console.warn(e); } }
   else { try { if (typeof SBSTATS !== "undefined") SBSTATS.addFocus(m, "timer"); pomoToday(); pomo.minutes += m; pomoSave(); } catch(e) { console.warn(e); } }
   fire("focus", {type: "early", mode: "focus", minutes: m, taskId: pomo.taskId, why});
+  // the time you focused is kept: a coin chime says so (the credits card shows what it earned, 98-0study-credits.js)
+  try { playCoin(); sbHaptic("success"); } catch(e) {}
 };
 function pomoReset(){ const was = pomo.running, el = pomoElapsedMin(); pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); pomoEarly(el, "reset"); if (was) fire("focus", {type: "stop", mode: pomo.mode, taskId: pomo.taskId}); }
 function pomoSetMode(m){ const el = pomoElapsedMin(); if (el > 0) pomoEarly(el, m === pomo.mode ? "reset" : "skip"); pomo.mode = m; pomo.preset = 0; pomo.len = 0; pomo.running = false; pomo.left = 0; clearTimeout(pomoTimer); pomoSave(); pomoUI(true); }

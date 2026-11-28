@@ -286,6 +286,14 @@ var SBSC = (() => {
         lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0, s: today > FOCUS_MIN_A_DAY ? "Past 3 hours today, so not all of it counted" : "1 credit for every minute"}]});
     }, 60);
   });
+  // Focus stopped early (Skip or Reset): the minutes already focused still count, so a small card says what they earned
+  hook("focus", e => {
+    if (!e || e.type !== "early" || e.mode !== "focus" || !(Number(e.minutes) >= 1)) return;
+    setTimeout(() => {
+      const m = Math.round(e.minutes);
+      reward({kind: "focus", compact: true, kick: e.why === "skip" ? "Focus Skipped: Time Kept" : "Focus Reset: Time Kept", title: `${m} focused minute${m === 1 ? "" : "s"} counted`, lines: [{t: `${m} focused minute${m === 1 ? "" : "s"}`, n: 0}]});
+    }, 60);
+  });
   // Flashcards: at the Session Done screen (01-flashcards.js)
   function cardsDone(n){
     n = Math.max(0, Math.round(Number(n) || 0)); if (!n) return;
