@@ -113,6 +113,9 @@ function friendsInit(o){
     await page.waitForSelector("dialog[open] .fs-in", {timeout: 9000});
     ok(/Sent to You/.test(await page.textContent("dialog[open] .fs-in")), "the sheet says where Later keeps it");
     await page.click('dialog[open] .fs-in [data-act="close"]'); await page.waitForTimeout(300);
+    // put off once, it doesn't pop up again on every reload (it waits in Sent to You)
+    await page.reload(); await page.waitForTimeout(3500);
+    ok(!(await page.$("dialog[open] .fs-in")), "after Later, a reload doesn't show it again");
     await page.evaluate(() => { const B = window.__sbBreakdown; B.ui.tab = "flashcards"; B.render(); }); await page.waitForTimeout(400);
     ok(await page.evaluate(() => { const d = document.querySelector('[data-act="grp-share-menu"] .fs-dot'); return !!d && d.textContent === "1"; }), "Share or Import shows a 1");
     await page.click('[data-act="grp-share-menu"]'); await page.waitForSelector("dialog[open] .fs-inbox-opt");

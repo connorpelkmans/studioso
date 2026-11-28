@@ -29,6 +29,19 @@
     return r ? r.data : null;
   }
   const S = {uid: "", seen: new Set(), chan: null, busy: false, setup: false, at: 0, rows: []};
+  /* What's already been offered is kept on this device (per account), so a send shows once: put off with Later, closed with ✕,
+     Esc or a tap outside, it waits in Sent to You instead of popping up again on every reload. A send drops off once it's
+     gone from the waiting list (added, declined or past its 30 days) */
+  const seenKey = id => "studyboard:fsSeen:" + id;
+  function seenLoad(id){ try { const o = JSON.parse(localStorage.getItem(seenKey(id)) || "{}"); return new Set(Object.keys(o && typeof o === "object" ? o : {})); } catch (e) { return new Set(); } }
+  function seenSave(){
+    if (!S.uid) return;
+    try {
+      const live = new Set(S.rows.map(r => r.id)), o = {};
+      [...S.seen].filter(id => !S.rows.length || live.has(id)).slice(-300).forEach(id => { o[id] = 1; });
+      localStorage.setItem(seenKey(S.uid), JSON.stringify(o));
+    } catch (e) {}
+  }
 
   /* What goes */
   function payloadOf(kind, ref){
@@ -89,7 +102,7 @@
   /* Receiving */
   async function check(){
     if (!live() || S.busy || S.setup) return;
-    const id = me().id; if (S.uid !== id) { S.uid = id; S.seen = new Set(); listen(); }
+    const id = me().id; if (S.uid !== id) { S.uid = id; S.seen = seenLoad(id); listen(); }
     S.busy = true;
     try {
       const rows = await rpc("my_friend_shares");
@@ -102,7 +115,7 @@
   // One at a time; if something else is open, a note with View instead of taking over the screen
   function offer(list){
     const r = list[0]; if (!r) return;
-    S.seen.add(r.id);
+    S.seen.add(r.id); seenSave();
     if (dlg.open) { toast(`${FS.line(r)}: ${r.title}`, null, {label: "View", fn: () => sheet(r, list.slice(1))}); return; }
     sheet(r, list.slice(1));
   }
