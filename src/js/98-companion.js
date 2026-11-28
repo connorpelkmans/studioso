@@ -1957,6 +1957,7 @@
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
+      if (a.after) setTimeout(() => { try { if (a.after === "picker") openPicker(); else if (a.after === "shop") styleShop("companions"); } catch (e) {} }, still() ? 0 : 300);
       revealT = setTimeout(revealSoon, 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
@@ -2862,12 +2863,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
     sbHaptic("success", {force: true}); sfxPlay("buy");
-    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    // the new accessory is shown big, in its burst of light, wherever it was bought; closing that goes back to the Wardrobe or the
+    // Style Shop it was bought from
+    if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
-    if (back) {
-      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
-      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
-    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
+    if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price, after: back})); clearTimeout(revealT); revealT = setTimeout(revealSoon, 300); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";

@@ -13853,6 +13853,9 @@ const SFX = (() => {
   const N = n => 440 * Math.pow(2, (n - 69) / 12);  // a MIDI note
   const arp = (ctx, out, t, notes, step, o) => notes.forEach((n, i) => { tone(ctx, out, t + i * step, N(n), (o && o.dur) || 0.5, Object.assign({type: "triangle", gain: 0.16}, o)); tone(ctx, out, t + i * step, N(n + 12), ((o && o.dur) || 0.5) * 0.6, {gain: 0.05}); });
   const chord = (ctx, out, t, notes, dur, gain) => notes.forEach((n, i) => { tone(ctx, out, t, N(n), dur, {type: "triangle", gain: gain || 0.09, a: 0.02, detune: (i % 2 ? 4 : -4)}); tone(ctx, out, t, N(n), dur, {type: "sawtooth", gain: (gain || 0.09) * 0.25, a: 0.03, lp: 1800}); });
+  // a clean chime: in-tune partials (1, 2, 3) that fade at different rates; softer than bell()
+  function chime(ctx, out, t, f, dur, gain){ [[1, 1], [2, .32], [3, .12]].forEach(([m, a], k) => tone(ctx, out, t, f * m, dur / (1 + k * 0.8), {gain: gain * a, a: 0.003})); tone(ctx, out, t, f * 1.003, dur, {gain: gain * .35, a: 0.003}); }
+  const BUY_STYLE = "sparkle";
   const sparkle = (ctx, out, t, n, gain) => { const P = [84, 86, 88, 91, 93, 96, 98, 100, 103]; for (let i = 0; i < n; i++) bell(ctx, out, t + i * 0.055, N(P[i % P.length]), 0.35, (gain || 0.06) * (1 - i / (n * 1.6))); };
   const RANK = {common: 0, uncommon: 1, rare: 2, exotic: 3, legendary: 4};
 
@@ -13884,8 +13887,21 @@ const SFX = (() => {
     win: (c, o, t, x) => { if (x.coins) { S.coinLand(c, o, t); for (let i = 0; i < 6; i++) S.coin(c, o, t + 0.15 + i * 0.06, {i}); return 1; }
       const r = RANK[x.rarity] || 0; S.reward(c, o, t, {level: r >= 3 ? 3 : 2}); if (r >= 2) sparkle(c, o, t + 0.5, 3 + r * 2, 0.05); return 1.7; },
     // buying an accessory: a cash register's ka-ching
-    buy: (c, o, t) => { noise(c, o, t, 0.06, {type: "lowpass", f: 900, gain: 0.2, a: 0.002}); tone(c, o, t, 200, 0.07, {to: 120, gain: 0.15});
-      bell(c, o, t + 0.07, N(98), 0.7, 0.1); bell(c, o, t + 0.14, N(103), 1.0, 0.1); for (let i = 0; i < 5; i++) S.coin(c, o, t + 0.22 + i * 0.05, {i: i + 2}); return 1.1; },
+    // buying an accessory. Three takes (x.v): "register" a clean cha-ching, "sparkle" a happy rising purchase jingle, "pouch" coins
+    // poured into a pouch then a confirming ding. Bells here use in-tune partials (no clanky overtones) and sit an octave lower
+    buy: (c, o, t, x) => { const v = x.v || BUY_STYLE;
+      if (v === "register") {
+        noise(c, o, t, 0.03, {f: 3800, q: 2, gain: 0.12, a: 0.001}); noise(c, o, t + 0.05, 0.035, {f: 3000, q: 2, gain: 0.1, a: 0.001});
+        chime(c, o, t + 0.1, N(88), 1.1, 0.16); chime(c, o, t + 0.1, N(95), 0.9, 0.08);
+        [0, 1, 2].forEach(i => S.coin(c, o, t + 0.32 + i * 0.07, {i: i + 1})); return 1.3; }
+      if (v === "pouch") {
+        for (let i = 0; i < 7; i++) bell(c, o, t + i * 0.045 + (i % 2) * 0.012, N(91 - i), 0.16, 0.06);
+        tone(c, o, t + 0.34, 180, 0.12, {to: 110, gain: 0.12, lp: 600}); noise(c, o, t + 0.34, 0.08, {type: "lowpass", f: 700, gain: 0.08});
+        chime(c, o, t + 0.45, N(84), 0.9, 0.13); chime(c, o, t + 0.53, N(88), 1.0, 0.11); return 1.5; }
+      // sparkle: coins, then a bright major arpeggio that lands on a soft chord
+      [0, 1, 2].forEach(i => S.coin(c, o, t + i * 0.05, {i: i + 2}));
+      [76, 80, 83, 88].forEach((n, i) => { chime(c, o, t + 0.12 + i * 0.075, N(n), 0.55, 0.11); });
+      chord(c, o, t + 0.42, [64, 68, 71, 76], 0.9, 0.05); sparkle(c, o, t + 0.45, 4, 0.035); return 1.4; },
     // a new accessory: a magical rise, more sparkle the rarer it is
     reveal: (c, o, t, x) => { const r = RANK[x.rarity] || 0;
       tone(c, o, t, 500, 0.6, {to: 1600, glide: 0.5, type: "sine", gain: 0.06, a: 0.1}); arp(c, o, t + 0.15, [72, 79, 84, 88, 91].slice(0, 3 + Math.min(2, r)), 0.08, {dur: 0.5, gain: 0.1});
@@ -24122,8 +24138,8 @@ function studyDoneHtml(f, cards, total, again){
   const missed = Object.keys(f.missed || {}).length, known = Math.max(0, cards - missed), pct = cards ? known / cards : 0;
   const R = 84, C = 2 * Math.PI * R, gain = Math.max(0, masteredIn(f.deckIds || []) - (f.m0 || 0));
   const t = goalCfg()[1], g = goalToday();
-  // Studyboard Credits earned in this session (98-0study-credits.js), and the next accessory they're saving up for
-  let next = null, got = 0; try { next = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
+  // Studyboard Credits earned in this session (98-0study-credits.js)
+  let got = 0; try { got = typeof SBSC !== "undefined" && SBSC && f.cr0 != null ? Math.max(0, SBSC.earned(true) - f.cr0) : 0; } catch (e) {}
   return `<section class="done-card sd">
       <div class="sd-ring"><svg width="200" height="200" viewBox="0 0 200 200" role="img" aria-label="${known} of ${cards} known">
         <circle cx="100" cy="100" r="${R}" fill="none" stroke-width="14" class="gr-track"></circle>
@@ -24135,7 +24151,6 @@ function studyDoneHtml(f, cards, total, again){
         <div class="sd-tile"><b>${Math.min(g, t)}/${t}</b><span>${g >= t ? "goal done" : "today's goal"}</span></div>
       </div>
       ${got ? `<p class="sd-credits">${SBSC.coin(22)}<b>+${got} Credit${got === 1 ? "" : "s"}</b><span class="mini">earned this session</span></p>` : ""}
-      ${next ? `<div class="sd-next"><div class="sd-next-t"><b>${esc(buddyName())}'s ${esc(next.name)}</b><span class="mini">${next.left === 0 ? "You can buy it now" : `${next.left.toLocaleString()} credit${next.left === 1 ? "" : "s"} to go`}</span></div><div class="sd-bar"><i style="width:${Math.round(next.have / next.price * 100)}%"></i></div></div>` : ""}
       ${again ? `<p class="mini">${total} reviews in all: ${again} ${again === 1 ? "was a card" : "were cards"} you missed and saw again.</p>` : ""}
       <p class="mini">Cards you knew come back in a few days. Cards marked Again come back today.${f.hinted ? ` You used ${f.hinted} hint${f.hinted === 1 ? "" : "s"}.` : ""}</p>
       ${keepSafeHtml()}
@@ -77327,6 +77342,7 @@ var COMP_ACC_MORE = K => {
         later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000);
       }
       revealOn = false;
+      if (a.after) setTimeout(() => { try { if (a.after === "picker") openPicker(); else if (a.after === "shop") styleShop("companions"); } catch (e) {} }, still() ? 0 : 300);
       revealT = setTimeout(revealSoon, 900);
     };
     o.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-cpu]"); if (b) close(b.dataset.cpu === "wear"); });
@@ -78232,12 +78248,11 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
     sbHaptic("success", {force: true}); sfxPlay("buy");
-    if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
+    // the new accessory is shown big, in its burst of light, wherever it was bought; closing that goes back to the Wardrobe or the
+    // Style Shop it was bought from
+    if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
-    if (back) {
-      toast(`The ${a.name} is yours! ${creditsTxt(credits())} left.`);
-      if (act && cur) { hold(2200); act.eyes("happy"); act.motion("hop"); spawnFx("sparkle", 5); if (talkOn()) say(`How do I look in the ${a.name}? Your hard work paid for it!`); later(() => act && act.eyes(mood === "doze" ? "sleepy" : "open"), 2000); }
-    } else if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price})); revealSoon(); }
+    if (!revealQ.some(x => x.id === a.id)) { revealQ.push(Object.assign({}, a, {paid: a.price, after: back})); clearTimeout(revealT); revealT = setTimeout(revealSoon, 300); }
   }
   function smartRow(){
     const on = autoOn(), u = aiUsage(), paid = on && smartOn() && u.mode === "paid";

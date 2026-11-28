@@ -82,7 +82,10 @@ const WANT = {focus: 130, cards: 100, quiz: 29, task: 93};
     // 5. buying the hat: it's yours, it goes on, the balance drops
     await p.click('.cp-pickbody .cp-acc-tile[data-acc="hat"]'); await p.waitForSelector('.cp-buy [data-act="comp-buy"]');
     ok(/252 left after/.test(await p.textContent(".cp-buy")), "the buy sheet says what's left after (252)");
-    await p.click('.cp-buy [data-act="comp-buy"]'); await p.waitForSelector(".cp-pickbody"); await p.waitForTimeout(300);
+    await p.click('.cp-buy [data-act="comp-buy"]');
+    // the new accessory is shown big in its burst of light first; closing that goes back to the picker it was bought from
+    await p.waitForSelector(".cpu .cpu-name", {timeout: 5000}); ok((await p.textContent(".cpu .cpu-name")) === "Tiny Hat" && /Bought with 100 credits/.test(await p.textContent(".cpu")), "buying shows the hat in its burst of light, bought with 100 credits");
+    await p.click(".cpu [data-cpu]"); await p.waitForSelector(".cp-pickbody"); await p.waitForTimeout(300);
     const bought = await p.evaluate(() => ({bal: SBSC.balance(), worn: SBCOMP.wornNames(), pill: document.querySelector(".cp-pickbody .scr-pill [data-scr-bal]").textContent, own: (window.__sbSync.state.settings.sc || {}).own}));
     ok(bought.bal === 252 && bought.pill === "252", "352 - 100 = 252 credits left: " + JSON.stringify(bought));
     ok(bought.worn.includes("Tiny Hat"), "the hat goes straight on");
