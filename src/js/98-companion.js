@@ -163,7 +163,9 @@
   const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary"};
   // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
   const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
-  const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
+  // accessories still being decided (idea: true) show only with the preview flag (localStorage studyboard:acc-ideas = 1)
+  const ideasOn = (() => { try { return localStorage.getItem("studyboard:acc-ideas") === "1"; } catch (e) { return false; } })();
+  const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id) && (!a.idea || ideasOn));
   const MORE_BY = {};
   MORE.forEach(a => {
     MORE_BY[a.id] = a; ACC_SLOT[a.id] = a.slot;
