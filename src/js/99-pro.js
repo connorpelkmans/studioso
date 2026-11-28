@@ -3375,7 +3375,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-nav{order:1}
   .pdr-bar > .pdr-zoom{order:2}
   .pdr-bar > .pdr-out{order:3;margin-left:auto}
-  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:7;bottom:calc((var(--pdr-dock) - 44px) / 2)}
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
