@@ -7,7 +7,7 @@ Studyboard has a **Free** plan and a **Pro** plan built in. The paywall is **on*
 ### What's Free and What's Pro
 
 **Free, forever** (this is what gets people to download Studyboard):
-- The whole planner: Board, Timeline, Schedule, Today's Plan, Focus, notes and stickers (with `[[` linked notes), flashcards with Smart scheduling (FSRS, the default for every deck) and quizzes, Grade Tracker (with a **Target Grade** on each course page: Today's Plan gives a little more time to courses under their target, and says why), Rough Week Rescue and Search Everywhere.
+- The whole planner: Board, Timeline, Schedule, Today's Plan, Focus, notes and stickers (with `[[` linked notes), flashcards (reviewed on the Classic steps: 1, 3, 7, 14 and 30 days) and quizzes, Grade Tracker (with a **Target Grade** on each course page: Today's Plan gives a little more time to courses under their target, and says why), Rough Week Rescue and Search Everywhere.
 - Sync on up to **2 devices**.
 - Brightspace, Canvas and Blackboard sync, with the desktop sign-in or calendar links.
 - Reminders and notifications, including phone push.
@@ -27,6 +27,7 @@ Studyboard has a **Free** plan and a **Pro** plan built in. The paywall is **on*
 - Every premium theme, including the 4 seasons (Winter, Spring, Summer and Fall), plus every premium card style, note shape, pin and sticker pack, and all 46 Theme Collections.
 - 30 days of online backup history.
 - Study groups of up to **100 members** with unlimited message history.
+- **Smart Flashcards:** Smart scheduling (FSRS, which learns how quickly the student forgets each card; the default for every deck on Pro), deck stats and picture cards. Free accounts review on the Classic steps, and Smart in a deck's Scheduling shows the Pro sheet. A deck that was on Smart keeps its cards' due dates; new reviews use Classic until Pro is back.
 - **Insights** (in the Weekly Review) and a **Term Recap** you can save as an image. Free accounts get neither.
 - **Smart flashcards:** deck stats, picture cards, and cards made automatically from the diagrams and labelled pictures in uploaded PDFs (photos too, on browsers that can read text, behind Early Access). New cards arrive as drafts to check first. Picture cards are shared, with their pictures, only through a share link or a published deck, and only by someone with Pro; anyone who opens the link or adds the deck gets them and can study them (public pages never show them). Group shares and deck files leave them out.
   - **Image cards** (image occlusion): the editor draws boxes, ovals and freehand shapes, moves and resizes them, groups several into one card, has Undo and pinch or button zoom, and fills a drawn box from the PDF's (or the photo's) own text. A deck's pictures can be edited later; cards whose masks remain keep their history. Study modes: Hide One, Guess One; Hide All, Guess One; Hide All, Tap to Peek. Optional Type Answers checks the typed label with the written-quiz fuzzy match. Data: `c.img.m` stays `[x, y, w, h]` with an optional 5th item (`"e"` oval, `"p…"` freehand points), plus optional `c.img.g` (grouped masks) and `c.img.s` (picture set id), so older cards keep working.
