@@ -2819,7 +2819,10 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
-body:has(#dlg[open]) #lmsRelog{display:none}
+/* hidden while a sheet is open without display:none, which replayed its slide-in (popping up again) every time a sheet closed */
+body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
+#lmsRelog{transition:bottom .2s ease}
+@media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){

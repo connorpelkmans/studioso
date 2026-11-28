@@ -7065,11 +7065,11 @@ const DEV_AI_ACT = /(^|-)ai(-|$)|hint|explain|first-deck|^fd-|^cp-|companion|qui
 // answer that's waiting on the download doesn't just look slow
 function devDlPill(p){
   let el = document.getElementById("devDlPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  // pillSet (01-helpers.js): a model that's already there (done at once) shows nothing, rather than a pill that flashes up and goes
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "devDlPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${devBrowser()} is downloading its free AI (one time only)${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Your answer comes once it's ready.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function devWarm(){
   if (DEVAI.kind !== "chrome" || DEVAI.warm || !["downloadable", "downloading"].includes(DEVAI.status)) return DEVAI.warm;
@@ -7658,11 +7658,10 @@ function aiReadyWhich(){
 // A pill at the bottom with the progress, like Chrome's own
 function aiReadyPill(p, label){
   let el = document.getElementById("aiReadyPill");
-  if (p == null || p >= 1) { if (el) { el.classList.remove("show"); setTimeout(() => { if (el && !el.classList.contains("show")) el.remove(); }, 400); } return; }
+  if (p == null || p >= 1) { if (el) pillSet(el, false, () => el.remove()); return; }
   if (!el) { el = document.createElement("div"); el.id = "aiReadyPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); }
-  const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
   el.textContent = `${label} is getting ready in the background${p > 0 ? `: ${Math.round(p * 100)}%` : "…"} Keep going, nothing waits on it.`;
-  requestAnimationFrame(() => el.classList.add("show"));
+  pillSet(el, true);
 }
 function aiReadyStart(w){
   if (w.kind === "e4b") { e4bAgree(true); return; }
@@ -13018,20 +13017,48 @@ function newTask(fields){
 const TOAST_EL = document.getElementById("toast");
 const toastEl = () => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); return TOAST_EL; };
 const toastPart = id => TOAST_EL.querySelector("#" + id);
-try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); if (PILLS.size) pillRehost(); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
 let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
-let toastSeq = 0;
-function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+let toastSeq = 0, toastWaiting = false;
+function toastHide(){ clearTimeout(toastT); ++toastSeq; toastWaiting = false; const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
   let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
+}
+/* The small notices at the bottom of the screen (Syncing…, an AI download's progress) share this, so none of them flashes:
+   one that would be up for under a third of a second shows nothing, one that's shown stays up at least a second, and a hide
+   followed at once by a show (one sync right after another, the next step of a download) leaves it up instead of flickering.
+   done() runs once it has faded out (to remove it). */
+const PILLS = new Set();
+function pillSet(el, on, done){
+  PILLS.add(el);
+  const s = el._pill || (el._pill = {});
+  clearTimeout(s.t);
+  if (on) {
+    if (el.classList.contains("show")) return;
+    s.t = setTimeout(() => {
+      const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+      void el.offsetWidth;   // drawn once without .show, so it fades in rather than popping up
+      el.classList.add("show"); s.at = Date.now();
+    }, 300);
+  } else if (el.classList.contains("show")) {
+    s.t = setTimeout(() => {
+      el.classList.remove("show");
+      if (done) s.t = setTimeout(() => { if (!el.classList.contains("show")) { PILLS.delete(el); done(); } }, 400);
+    }, Math.max(350, 1200 - (Date.now() - (s.at || 0))));
+  } else { PILLS.delete(el); if (done) done(); }
+}
+// a pill that's up stays where it can be seen: a sheet that closes, or is redrawn whole, would take it along, so it goes back to
+// the pop-up under it or the page
+function pillRehost(){
+  PILLS.forEach(el => { if (!el.classList.contains("show")) return; const p = el.parentNode; if (p === document.body || (p && p.isConnected && p.open)) return; toastHost().appendChild(el); });
 }
 // "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
 let syncPillN = 0;
@@ -13039,8 +13066,7 @@ function syncPill(on){
   syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
   let el = document.getElementById("syncPill");
   if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
-  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
-  else el.classList.remove("show");
+  pillSet(el, !!syncPillN);
 }
 /* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
    student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
@@ -13070,22 +13096,46 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  const host = toastHost();
-  if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
-  // then jump: wait until the pop-up has settled
-  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
-  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
-  else { ++toastSeq; t.classList.add("show"); }
+  toastShowIn(toastHost(), false);
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
-  try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
+  toastMeasure();
 }
 function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
+  toastT = setTimeout(() => { ++toastSeq; toastWaiting = false; toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+// Shows the toast in host. A pop-up still moving into place (its entrance animation) carries the toast with it, so it would show
+// in the wrong spot and then jump: it waits until the pop-up has settled. fade: it was already up somewhere else and has moved,
+// so it fades in where it is now rather than jumping there
+function toastShowIn(host, fade){
+  const t = TOAST_EL;
+  if (t.parentNode !== host) host.appendChild(t);
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  const seq = ++toastSeq;
+  if (moving.length) {
+    toastWaiting = true; t.classList.remove("show");
+    Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) { toastWaiting = false; t.classList.add("show"); toastMeasure(); } });
+  } else {
+    toastWaiting = false; t.classList.add("show");
+    if (fade) { try { if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) t.animate([{opacity: 0}, {opacity: 1}], {duration: 180, easing: "ease-out"}); } catch (e) {} }
+  }
+}
+const toastMeasure = () => { try { document.documentElement.style.setProperty("--toast-h", TOAST_EL.offsetHeight + "px"); } catch (e) {} };
+/* A pop-up closing puts a toast that's up in it back where it can be seen (the pop-up under it, or the page) before the screen is
+   next drawn. It used to vanish with the sheet until the close event came a moment later, then pop back up somewhere else.
+   Esc and form buttons close a sheet without close(), so this watches the open attribute itself. (A sheet opening over a toast
+   leaves it where it is: moved into the sheet it would sit over the sheet's own buttons) */
+function toastRehost(){
+  const t = TOAST_EL;
+  pillRehost();
+  const p = t.parentNode, stale = p !== document.body && !(p && p.isConnected && p.open);
+  if (!stale) return;
+  if (!(t.classList.contains("show") || toastWaiting)) { document.body.appendChild(t); return; }
+  toastShowIn(toastHost(), true); toastMeasure();
+}
+try { new MutationObserver(recs => { if (recs.some(r => r.target.tagName === "DIALOG")) toastRehost(); }).observe(document.body, {attributes: true, attributeFilter: ["open"], subtree: true}); } catch (e) {}
 /* Haptics: one small vocabulary for the whole app, on phones and tablets only.
    tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
    drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
@@ -44177,10 +44227,12 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   function showPrompt(id){
     const t = state.tasks[id], el = $("#grPrompt");
     if (!t || t.status !== "done" || t.mark || !el || dlg.open) return;
+    // "How long did it take?" is still up in the same spot: wait for it rather than covering it
+    if (document.querySelector(".acc-chip:not([hidden])")) { clearTimeout(promptT); promptT = setTimeout(() => showPrompt(id), 5000); return; }
     const c = courseOf(t.courseId);
     el.innerHTML = `<span class="gp-t"><b>Got a Mark Back?</b> Add it for ${esc(t.title)} to see where you stand${c ? ` in ${esc(courseLabel(c))}` : ""}. You can also add it later.</span>
       <span class="gp-a"><button class="btn small primary" data-act="gp-add" data-id="${esc(id)}">Add Mark</button><button class="btn small" data-act="gp-close">Not Now</button><button class="link-btn gp-off" data-act="gp-off">Don't Ask Again</button></span>`;
-    el.hidden = false; requestAnimationFrame(() => el.classList.add("show"));
+    el.hidden = false; void el.offsetWidth; el.classList.add("show");   // drawn once without .show first, so it slides in rather than popping up
     clearTimeout(hideT); hideT = setTimeout(hidePrompt, 16000);
   }
   function hidePrompt(){ const el = $("#grPrompt"); if (!el) return; el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.hidden = true; }, 250); }
@@ -49062,7 +49114,10 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
-body:has(#dlg[open]) #lmsRelog{display:none}
+/* hidden while a sheet is open without display:none, which replayed its slide-in (popping up again) every time a sheet closed */
+body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
+#lmsRelog{transition:bottom .2s ease}
+@media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){
@@ -90130,7 +90185,7 @@ const QADD = (() => {
   // After files are uploaded into a course
   async function offer(made, opts){
     const el = (made || []).filter(f => f.courseId && f.kind === "file" && wrapEligible(f, opts));
-    const by = {}; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
+    const by = {}, found = []; el.forEach(f => { (by[f.courseId] = by[f.courseId] || []).push(f); });
     for (const cid of Object.keys(by)) {
       const c = courseOf(cid); if (!c) continue;
       const items = [];
@@ -90140,9 +90195,16 @@ const QADD = (() => {
       const add = QADD.fresh(objsOf(courseOf(cid)), cands); if (!add.length) continue;
       const src = items.map(x => x.name).join(", ");
       OB.pending[cid] = {list: add, src};
-      toast(`Found ${add.length} learning objective${add.length === 1 ? "" : "s"} in ${clip(items[0].name, 40)}${items.length > 1 ? " and more" : ""}`, null, {label: "Review", fn: () => reviewSheet(cid)});
+      found.push({cid, n: add.length, name: items[0].name, more: items.length > 1});
       if (ui.tab === "courses" && ui.courseId === cid) scheduleRender();
     }
+    if (!found.length) return;
+    // one message for the whole upload (not one per course, each replacing the last at once), and only once the upload's own
+    // message ("Filed 3 files", with its Undo) has had its time, so that one doesn't flash up and vanish
+    for (let i = 0; i < 12 && document.querySelector("#toast.show"); i++) await new Promise(r => setTimeout(r, 1000));
+    const f0 = found[0], n = found.reduce((a, x) => a + x.n, 0);
+    toast(found.length === 1 ? `Found ${n} learning objective${n === 1 ? "" : "s"} in ${clip(f0.name, 40)}${f0.more ? " and more" : ""}`
+      : `Found ${n} learning objectives in ${found.length} courses`, null, {label: "Review", fn: () => reviewSheet(f0.cid)});
   }
   const origUpload = uploadFiles;
   uploadFiles = async function(list, opts){
@@ -108364,9 +108426,10 @@ hook("act", (act, el, id) => {
 const css = document.createElement("style");
 css.textContent = `
 .lc-next{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(228px + env(safe-area-inset-bottom,0px));z-index:49;width:min(560px,calc(100vw - 32px));box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
-@media (min-width:761px){.lc-next{bottom:92px}
-/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons */
-dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}}
+@media (min-width:761px){.lc-next{bottom:92px}}
+/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons (at every width: on a
+   phone it stayed fixed inside the sheet, rode along with the sheet's slide-in, then jumped into place when the slide ended) */
+dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}
 /* in the sheet's From Lecture to Exam card (any width) it is part of the card, under the step it's about */
 .lc-chain > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0;box-shadow:none;z-index:auto}
 .lc-next-t{margin:0;flex:1 1 220px;min-width:0;font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}

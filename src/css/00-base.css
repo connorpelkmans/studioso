@@ -443,6 +443,13 @@ legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .menu-list .sw{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
+/* where a notice sits can change while it's up (the keyboard closes, a message shows below it): it glides there instead of jumping */
+.toast{transition:opacity .2s,bottom .25s ease,transform .25s ease}
+@media (prefers-reduced-motion:reduce){.toast{transition:opacity .2s}}
+html[data-motion="static"] .toast{transition:opacity .2s}
+/* above the other things that sit at the bottom of the screen (a recording pill, a preview banner, the time zone note, all at 60),
+   so a message never shows up underneath one of them, looking as if it was gone at once */
+#toast.toast{z-index:61}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* v2 additions */
@@ -2609,8 +2616,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 @keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
 html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
-/* with a message showing too, the notice moves up above it */
-html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
+.toast.sync-pill{font-variant-numeric:tabular-nums}
+/* with a message showing too, the notice moves up just above it (by the message's own height, which 01-helpers.js measures) */
+html:has(body > #toast.show) body > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}
+/* (on a phone a message in a sheet shows at the top, so there it stays put) */
+@media (min-width:640px){html:has(dialog[open] > #toast.show) dialog[open] > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}}
+/* phones: in the same spot as the message (above the tab bar), so it doesn't sit in the middle of the list */
+@media (max-width:639px){
+  .toast.sync-pill{bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));max-width:calc(100vw - 24px)}
+  html.kb-open .toast.sync-pill{bottom:calc(var(--kb-h,0px) + 12px)}
+  dialog[open] > .toast.sync-pill{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
 /* Right-to-left pages (01-i18n.js sets dir="rtl" for a finished Arabic, Hebrew, Farsi or Urdu translation). The shell uses logical
    sides (inset-inline, padding-inline-start), so the sidebar, the Add button and the Time Today control mirror with the page;
    these are the few rules that can't be written that way */

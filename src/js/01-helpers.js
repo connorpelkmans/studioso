@@ -436,20 +436,48 @@ function newTask(fields){
 const TOAST_EL = document.getElementById("toast");
 const toastEl = () => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); return TOAST_EL; };
 const toastPart = id => TOAST_EL.querySelector("#" + id);
-try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
+try { new MutationObserver(() => { if (!TOAST_EL.isConnected) document.body.appendChild(TOAST_EL); if (PILLS.size) pillRehost(); }).observe(document.body, {childList: true, subtree: true}); } catch (e) {}
 let toastT, toastUndoFn = null, toastExtraFn = null, toastExtra2Fn = null, toastMs = 0, toastErr = false, toastAt = 0, toastView = null;
 // Long enough to read (about 15 characters a second), longer with a button to press
 const toastLen = (msg, undoFn, n) => Math.max(n ? 9000 : undoFn ? 8000 : 2600, Math.min(12000, 1500 + String(msg || "").length * 65));
 // extra is one {label, fn} or a list of up to two. opts.error: stays until dismissed and is announced at once.
 // opts.view: the toast (and its buttons) goes away when the page changes, for buttons that only make sense on this page
 const toastViewKey = () => { try { return ui.tab + "|" + (ui.courseId || ""); } catch (e) { return ""; } };
-let toastSeq = 0;
-function toastHide(){ clearTimeout(toastT); const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
+let toastSeq = 0, toastWaiting = false;
+function toastHide(){ clearTimeout(toastT); ++toastSeq; toastWaiting = false; const t = toastEl(); if (t) t.classList.remove("show", "toast-err"); toastErr = false; toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; toastView = null; }
 // The top-most open modal (focus is kept inside it), so a toast is never hidden behind a pop-up
 function toastHost(){
   let ms = []; try { ms = [...document.querySelectorAll("dialog[open]")].filter(d => d.matches(":modal")); } catch (e) { try { if (dlg.open) ms = [dlg]; } catch (x) {} }
   const a = document.activeElement;
   return ms.filter(d => d.isConnected && d.contains(a)).pop() || ms.filter(d => d.isConnected).pop() || document.body;
+}
+/* The small notices at the bottom of the screen (Syncing…, an AI download's progress) share this, so none of them flashes:
+   one that would be up for under a third of a second shows nothing, one that's shown stays up at least a second, and a hide
+   followed at once by a show (one sync right after another, the next step of a download) leaves it up instead of flickering.
+   done() runs once it has faded out (to remove it). */
+const PILLS = new Set();
+function pillSet(el, on, done){
+  PILLS.add(el);
+  const s = el._pill || (el._pill = {});
+  clearTimeout(s.t);
+  if (on) {
+    if (el.classList.contains("show")) return;
+    s.t = setTimeout(() => {
+      const h = toastHost(); if (el.parentNode !== h) h.appendChild(el);
+      void el.offsetWidth;   // drawn once without .show, so it fades in rather than popping up
+      el.classList.add("show"); s.at = Date.now();
+    }, 300);
+  } else if (el.classList.contains("show")) {
+    s.t = setTimeout(() => {
+      el.classList.remove("show");
+      if (done) s.t = setTimeout(() => { if (!el.classList.contains("show")) { PILLS.delete(el); done(); } }, 400);
+    }, Math.max(350, 1200 - (Date.now() - (s.at || 0))));
+  } else { PILLS.delete(el); if (done) done(); }
+}
+// a pill that's up stays where it can be seen: a sheet that closes, or is redrawn whole, would take it along, so it goes back to
+// the pop-up under it or the page
+function pillRehost(){
+  PILLS.forEach(el => { if (!el.classList.contains("show")) return; const p = el.parentNode; if (p === document.body || (p && p.isConnected && p.open)) return; toastHost().appendChild(el); });
 }
 // "Syncing…" at the bottom of the screen for as long as a school site sync runs (its three dots pulse); nested syncs share it
 let syncPillN = 0;
@@ -457,8 +485,7 @@ function syncPill(on){
   syncPillN = Math.max(0, syncPillN + (on ? 1 : -1));
   let el = document.getElementById("syncPill");
   if (!el) { el = document.createElement("div"); el.id = "syncPill"; el.className = "toast sync-pill"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite"); el.innerHTML = `Syncing<span class="sp-dots" aria-hidden="true"><i></i><i></i><i></i></span>`; }
-  if (syncPillN) { const h = toastHost(); if (el.parentNode !== h) h.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); }
-  else el.classList.remove("show");
+  pillSet(el, !!syncPillN);
 }
 /* Unhappy moments: an error message, or a free-plan limit, offers "Tell Us" (the feedback form, with the message filled in), so a
    student who's stuck reaches the person who makes the app, and the App Store review prompt stays quiet for a while (99-review-ask.js) */
@@ -488,22 +515,46 @@ function toast(msg, undoFn, extra, opts){
   if (more[1] && !x2) { x2 = document.createElement("button"); x2.id = "toastExtra2"; x.after(x2); x2.addEventListener("click", () => { const f = toastExtra2Fn; toastExtra2Fn = null; t.classList.remove("show"); if (f) f(); }); }
   toastExtra2Fn = more[1] ? more[1].fn : null;
   if (x2) { x2.hidden = !more[1]; if (more[1]) x2.textContent = more[1].label; }
-  const host = toastHost();
-  if (t.parentNode !== host) host.appendChild(t);
   toastView = opts && opts.view ? toastViewKey() : null;
-  // a pop-up still moving into place (its entrance animation) carries the toast with it, so it would show in the wrong spot and
-  // then jump: wait until the pop-up has settled
-  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
-  if (moving.length) { t.classList.remove("show"); const seq = ++toastSeq; Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) t.classList.add("show"); }); }
-  else { ++toastSeq; t.classList.add("show"); }
+  toastShowIn(toastHost(), false);
   toastMs = toastLen(msg, undoFn, more.length); toastAt = Date.now();
   if (err || t.contains(document.activeElement)) clearTimeout(toastT); else toastTimer(toastMs);
-  try { document.documentElement.style.setProperty("--toast-h", t.offsetHeight + "px"); } catch(e) {}
+  toastMeasure();
 }
 function toastTimer(ms){
   clearTimeout(toastT);
-  toastT = setTimeout(() => { toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
+  toastT = setTimeout(() => { ++toastSeq; toastWaiting = false; toastEl().classList.remove("show"); toastUndoFn = null; toastExtraFn = null; toastExtra2Fn = null; }, ms);
 }
+// Shows the toast in host. A pop-up still moving into place (its entrance animation) carries the toast with it, so it would show
+// in the wrong spot and then jump: it waits until the pop-up has settled. fade: it was already up somewhere else and has moved,
+// so it fades in where it is now rather than jumping there
+function toastShowIn(host, fade){
+  const t = TOAST_EL;
+  if (t.parentNode !== host) host.appendChild(t);
+  const moving = host !== document.body && host.getAnimations ? host.getAnimations().filter(a => a.playState !== "finished" && a.playState !== "idle") : [];
+  const seq = ++toastSeq;
+  if (moving.length) {
+    toastWaiting = true; t.classList.remove("show");
+    Promise.all(moving.map(a => a.finished.catch(() => {}))).then(() => { if (seq === toastSeq && t.parentNode === host && host.isConnected) { toastWaiting = false; t.classList.add("show"); toastMeasure(); } });
+  } else {
+    toastWaiting = false; t.classList.add("show");
+    if (fade) { try { if (!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) t.animate([{opacity: 0}, {opacity: 1}], {duration: 180, easing: "ease-out"}); } catch (e) {} }
+  }
+}
+const toastMeasure = () => { try { document.documentElement.style.setProperty("--toast-h", TOAST_EL.offsetHeight + "px"); } catch (e) {} };
+/* A pop-up closing puts a toast that's up in it back where it can be seen (the pop-up under it, or the page) before the screen is
+   next drawn. It used to vanish with the sheet until the close event came a moment later, then pop back up somewhere else.
+   Esc and form buttons close a sheet without close(), so this watches the open attribute itself. (A sheet opening over a toast
+   leaves it where it is: moved into the sheet it would sit over the sheet's own buttons) */
+function toastRehost(){
+  const t = TOAST_EL;
+  pillRehost();
+  const p = t.parentNode, stale = p !== document.body && !(p && p.isConnected && p.open);
+  if (!stale) return;
+  if (!(t.classList.contains("show") || toastWaiting)) { document.body.appendChild(t); return; }
+  toastShowIn(toastHost(), true); toastMeasure();
+}
+try { new MutationObserver(recs => { if (recs.some(r => r.target.tagName === "DIALOG")) toastRehost(); }).observe(document.body, {attributes: true, attributeFilter: ["open"], subtree: true}); } catch (e) {}
 /* Haptics: one small vocabulary for the whole app, on phones and tablets only.
    tap (light: a task checked off, a card graded) · tick (a selection snaps: a day, a column) · lift (a drag picks up, a long press)
    drop (something lands) · success (a Focus finished, a plan cleared, a new best) · warning (something deleted) · error (a wrong pair, a failed save)
