@@ -170,16 +170,19 @@ var SBSC = (() => {
      answered right, a focus session finished, a presentation slide practiced. It's found quietly (a small note, and a chest by the
      credits chip) and opened at the end of the session, just before the credits screen. Bigger work finds one more often.
      How rare a chest is follows the accessories' rarities and colours. At most CHESTS_A_DAY a day.
-     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 1.3 days,
-     a Rare every 4 days, an Epic every 2 weeks and a Legendary about every 2 months. */
+     A steady study day (20 cards, about 8 right quiz answers, a focus session) finds about one: a Common about every 2 days,
+     an Uncommon every 4, a Rare a week, an Epic every 3 weeks and a Legendary about every 2 months.
+     What's inside grows with the rarity, roughly in step with the prices (Common 100 up to Legendary 1,000), a little better
+     for the rarer ones; on average a chest holds about 36 credits. */
   const CHEST = {
-    common: {name: "Common", min: 5, max: 20, p: 0.70},
-    rare: {name: "Rare", min: 20, max: 50, p: 0.22},
-    exotic: {name: "Epic", min: 50, max: 100, p: 0.065},
-    legendary: {name: "Legendary", min: 100, max: 200, p: 0.015}
+    common: {name: "Common", min: 12, max: 23, p: 0.54},
+    uncommon: {name: "Uncommon", min: 27, max: 45, p: 0.25},
+    rare: {name: "Rare", min: 45, max: 75, p: 0.145},
+    exotic: {name: "Epic", min: 83, max: 135, p: 0.05},
+    legendary: {name: "Legendary", min: 180, max: 300, p: 0.015}
   };
   const CHEST_CHANCE = {cards: 0.025, quiz: 0.04, focus: 0.25, pres: 0.04}, CHESTS_A_DAY = 4;
-  const RIM = {common: "#8A93A3", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
+  const RIM = {common: "#8A93A3", uncommon: "#15803D", rare: "#2563EB", exotic: "#7C3AED", legendary: "#FACC15"};
   const pending = () => (Array.isArray(sc().chq) ? sc().chq : []).filter(c => c && CHEST[c.t]);
   function rollChest(kind){
     try {
@@ -189,7 +192,7 @@ var SBSC = (() => {
       if (Math.random() >= chance) return null;
       const day = todayISO(), found = Number((sc().chd || {})[day]) || 0; if (found >= CHESTS_A_DAY) return null;
       let r = Math.random(), t = "common"; try { const f = window.__SB_TEST && localStorage.getItem("studyboard:chest-test"); if (f && CHEST[f]) { t = f; r = -1; } } catch (e) {}
-      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
+      if (r >= 0) for (const k of ["legendary", "exotic", "rare", "uncommon", "common"]) { if (r < CHEST[k].p) { t = k; break; } r -= CHEST[k].p; }
       const c = {id: uid(), t, c: CHEST[t].min + Math.floor(Math.random() * (CHEST[t].max - CHEST[t].min + 1)), k: kind, at: Date.now()};
       const old = Object.fromEntries(Object.entries(sc().chd || {}).filter(([d]) => d >= addDays(day, -7)));
       setSc({chq: pending().concat(c), chd: Object.assign(old, {[day]: found + 1})});

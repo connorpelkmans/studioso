@@ -104,7 +104,7 @@ async function main(browser, w){
     ok(await txt(page, ".frd-head-btn .frd-badge") === "1", tag + " the Friends button counts requests waiting for you");
     ok(!(await page.isVisible(".frd-card")), tag + " no first-time card once there's someone");
     await page.click(".frd-head-btn"); await page.waitForSelector("#frdSheet .frd-sec"); await page.waitForTimeout(300);
-    ok(/Used your friend link/.test(await txt(page, '.frd-sec:has-text("Requests")')), tag + " a request says it came from your link");
+    ok(/Used your friend code/.test(await txt(page, '.frd-sec:has-text("Requests")')), tag + " a request says it came from your link");
     await page.screenshot({path: path.join(shots, `friends-${w}-requests.png`)});
     await page.click('[data-act="frd-accept"][data-id="u3"]'); await page.waitForTimeout(500);
     ok(/You and Jo are now friends/.test(await txt(page, "#frdMsg")) && /Jo/.test(await txt(page, '.frd-sec:has-text("Friends")')), tag + " Accept: Jo is a friend");

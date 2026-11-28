@@ -249,8 +249,9 @@
   /*GK-START*/
   const GK = (() => {
     const TABS = {
-      study: [["study", "Study"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]],
-      project: [["overview", "Overview"], ["tasks", "Tasks"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]]
+      // Most-used first: what you come for, then the chat, then the occasional tabs, Members last
+      study: [["study", "Study"], ["chat", "Chat"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["members", "Members"]],
+      project: [["overview", "Overview"], ["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["members", "Members"]]
     };
     const ROLES = [["lead", "Lead"], ["researcher", "Researcher"], ["editor", "Editor"], ["presenter", "Presenter"], ["designer", "Designer"]];
     const LIM = {question: 300, detail: 1000, answer: 1000, linkTitle: 120, linkNote: 200, minutes: 2000, actions: 12, peerNote: 300};
@@ -1207,9 +1208,9 @@
   }
   // Each kind of group has its own sections, one tab at a time
   const GFEAT = {
-    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"],
-            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]],
-    project: [["tasks", "Tasks"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]]
+    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"], ["chat", "Chat"],
+            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]],
+    project: [["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]]
   };
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
@@ -1221,6 +1222,37 @@
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
+  // A new group starts with the core of its kind turned on. The rest waits in Edit > Features.
+  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: everything free is on
+  // (if Meetings is turned off, Find a Time moves to Overview).
+  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: []};
+  const defaultHidden = (kind, course) => GDEF_OFF[kind === "project" ? "project" : "study"].filter(k => !(k === "deadlines" && course));
+  // A week after a lean new group gets its second member, the owner's next action there shows what else it can turn on (once)
+  const LEANK = () => "studyboard:grpLean:" + myId();
+  const leanAll = () => { try { return JSON.parse(localStorage.getItem(LEANK()) || "{}") || {}; } catch (e) { return {}; } };
+  const leanSet = (gid, v) => { const x = leanAll(); if (v) x[gid] = v; else delete x[gid]; try { localStorage.setItem(LEANK(), JSON.stringify(x)); } catch (e) {} };
+  function moreTipDue(g){
+    const mark = g && leanAll()[g.id];
+    if (!mark || mark.shown || !isOwner(g)) return null;
+    const off = GFEAT[isProj(g) ? "project" : "study"].filter(([k]) => hiddenOf(g).has(k));
+    if (!off.length) { leanSet(g.id, null); return null; }
+    const second = (S.members[g.id] || []).map(m => ts(m.joined_at)).filter(Boolean).sort((a, b) => a - b)[1];
+    return second && Date.now() - second >= 7 * 864e5 ? off : null;
+  }
+  function moreTipSheet(g, off){
+    leanSet(g.id, Object.assign({}, leanAll()[g.id], {shown: Date.now()}));
+    const proj = isProj(g);
+    openSheet(`<div class="sheet grp-more-tip">${head(proj ? "Add More to Your Project" : "Add More to Your Group")}<div class="sheet-body">
+      <p style="margin:0 0 8px">${esc(g.name)} started with just the basics. Now that your ${proj ? "team" : "group"} is up and running, you can turn on more:</p>
+      <ul class="gk-kind-feats">${off.map(([, l]) => `<li>${esc(l)}</li>`).join("")}</ul>
+      <p class="mini" style="margin:8px 0 0">Only you can change this, in Edit under Features. You can turn anything off again later.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="grp-more-feats" data-id="${esc(g.id)}">Choose Features</button></div></div>`);
+  }
+  document.addEventListener("click", e => {
+    const el = e.target.closest && e.target.closest("#grpDetail [data-act]"), gid = ui.grp;
+    if (!el || !gid) return;
+    setTimeout(() => { if (dlg.open || ui.grp !== gid) return; const g = groupOf(gid), off = moreTipDue(g); if (off) moreTipSheet(g, off); }, 500);
+  });
   // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
   const ROOM = {};
   function roomLine(g){
@@ -3345,12 +3377,12 @@
 
   // What each kind of group comes with, shown when you choose one so the difference is clear
   const KIND_INFO = {
-    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and quizzes, and see who scores highest in a Quiz Battle", "Propose study sessions and see who is coming", "A weekly challenge with daily check-ins", "Ask questions and mark the answer that helped", "Share the cards you keep missing and see which ones trip up the group"]},
-    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and meeting notes whose action items become tasks"]}
+    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and practice quizzes so everyone can study them", "Propose study sessions and see who is coming, or study together right now", "Chat with the group", "Your course's deadlines, when the group is for a course"], more: "Add questions and answers, whiteboards and more any time in Edit."},
+    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and a team chat", "Meetings with notes, and Find a Time to pick a time that works for everyone", "Shared whiteboards, concept maps and presentations"], more: "Turn off anything your team doesn't need any time in Edit."}
   };
   const kindPreview = k => `<div class="gk-kind-note grp-kind-note" data-for="${k}"${k === "study" ? "" : " hidden"}><p class="gk-kind-lead">${esc(KIND_INFO[k].lead)}</p>
-      <div class="gk-kind-tabs" aria-label="Tabs you get">${GK.tabsFor(k).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
-      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>`;
+      <div class="gk-kind-tabs" aria-label="Tabs you start with">${GK.tabsFor(k).filter(([t]) => !GDEF_OFF[k].includes(t) && !PROSEC.has(t)).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
+      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul><p class="mini" style="margin:6px 0 0">${esc(KIND_INFO[k].more)}</p></div>`;
   function newGroupSheet(g){
     const edit = !!g, proj = edit && isProj(g);
     const opts = coursesArr().map(c => `<option value="${esc(courseLabel(c))}">${esc(c.name)}</option>`).join("");
@@ -3419,7 +3451,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
           } else if (goal) { try { await api.updateGroup(gid, {weekly_goal: goal}); } catch(e) {} }
           if (gcolor) { try { await api.updateGroup(gid, {color: gcolor}); } catch(e) {} }
           if (icon) { try { await setGroupIcon({id: gid}, icon); } catch(e) { note = ` The icon couldn't be saved. ${e.message}`; } }
-          if (tpl && tpl.kind === kind && (tpl.hidden || []).length) { try { await api.updateGroup(gid, {hidden_features: tpl.hidden.filter(k => GFEAT[kind].some(x => x[0] === k))}); } catch(e) {} }
+          const fromTpl = !!tpl && tpl.kind === kind, hid = fromTpl ? (tpl.hidden || []).filter(k => GFEAT[kind].some(x => x[0] === k)) : defaultHidden(kind, course);
+          if (hid.length) { try { await api.updateGroup(gid, {hidden_features: hid}); if (!fromTpl) leanSet(gid, {at: Date.now()}); } catch(e) {} }
           if (dlg.open) dlg.close(); S.groups = null; ui.tab = "groups"; ui.grp = gid; render(); await loadGroups();
           if (tpl && tpl.kind === "project" && kind === "project" && (tpl.tasks || []).length) tplTasksWhenReady(gid, tpl.id);
           askColorSoon(gid); toast(`${name} is ready. Invite your ${kind === "project" ? "team" : "classmates"}.${note}`, null, {label: "Invite", fn: () => inviteSheet(groupOf(gid))});
@@ -3655,6 +3688,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
       case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
+      case "grp-more-feats": { const gg = groupOf(id); if (!gg || !isOwner(gg)) return true; newGroupSheet(gg); setTimeout(() => { const f = dlg.querySelector(".grp-feats"); if (f) f.scrollIntoView({block: "start", behavior: "smooth"}); }, 60); return true; }
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
@@ -4540,12 +4574,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   /* Where it all shows */
   function gxPane(g, k){
     const proj0 = isProj(g);
-    const ftSec = (k === "meetings" || (!proj0 && k === "sessions")) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
+    const ftSec = (k === "meetings" || (!proj0 && k === "sessions") || (proj0 && k === "overview" && !featOn(g, "meetings"))) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
     // Group Uploads work in every group project: each file counts in its uploader's own storage
     if (!gxOn(g)) return k === "members" ? `<div id="gxPro">${gxProBox(g)}</div>` : proj0 && k === "files" ? (featOn(g, "uploads") ? gxUploadsHtml(g) : "") : ftSec;
     const proj = isProj(g);
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
-    if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
+    if (proj && k === "overview") return ftSec + `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
     if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));

@@ -105,6 +105,7 @@
 /* ---------- Chests (98-0study-credits.js) ----------
    Rarity colours match the accessories': grey Common, blue Rare, purple Epic, yellow Legendary */
 .ch-common{--ch:#8A93A3;--ch-glow:rgba(160,170,185,.55)}
+.ch-uncommon{--ch:#15803D;--ch-glow:rgba(60,190,110,.6)}
 .ch-rare{--ch:#2563EB;--ch-glow:rgba(70,130,255,.6)}
 .ch-exotic{--ch:#7C3AED;--ch-glow:rgba(160,100,255,.65)}
 .ch-legendary{--ch:#FACC15;--ch-glow:rgba(255,205,60,.8)}
