@@ -5078,6 +5078,12 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 .cp-front.cp-still .cp-breathe,.cp-front.cp-still .cp-shadow{animation:none!important}
 .cp-front.cp-paused *{animation-play-state:paused!important}
 html.cp-hover{cursor:pointer}
+/* Drag and drop: lifted while carried (swaying with the way it's carried), then it plops down where it's let go */
+.cp-front .cp.cp-drag{translate:0 -14px;scale:1.06;rotate:var(--cp-tilt,0deg);transition:translate .16s ease-out,scale .16s ease-out,rotate .12s linear;z-index:2}
+.cp-front .cp.cp-drag .cp-shadow{translate:0 10px;scale:.7;opacity:.55;transition:translate .16s,scale .16s,opacity .16s}
+.cp-front .cp.cp-drag .cp-breathe{animation-play-state:paused}
+.cp-front .cp.cp-plop{transition:opacity .2s ease}
+html.cp-grabbing,html.cp-grabbing *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 .cp-move,.cp-breathe{position:absolute;inset:0;display:block;transform-origin:50% 93%;will-change:transform}
 .cp-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block}
 .cp-shadow{position:absolute;left:24%;right:24%;bottom:4%;height:7%;border-radius:50%;background:radial-gradient(closest-side,rgba(28,20,40,.26),rgba(28,20,40,0));display:block}
