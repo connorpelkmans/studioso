@@ -34,6 +34,7 @@
   "92-accuracy.css",
   "97-notecards.css",
   "90-grade-trend.css",
+  "90-grade-insights.css",
   "96-classmates.css",
   "97-groups-nudge.css",
   "99-review-streaks.css",
@@ -63,7 +64,8 @@
   "99-essentials.css",
   "01-plan-move.css",
   "99-heatmap.css",
-  "01-wrap-up.css"
+  "01-wrap-up.css",
+  "99-card-lift.css"
  ],
  "js": [
   "00-core.js",
@@ -90,6 +92,7 @@
   "01-remotex.js",
   "01-style-shop.js",
   "01-helpers.js",
+  "01-sfx.js",
   "01-board.js",
   "01-courses.js",
   "01-plan-move.js",
@@ -156,6 +159,9 @@
   "97-sharing.js",
   "90-grades.js",
   "90-grade-trend.js",
+  "90-grade-insights.js",
+  "90-grade-forecast.js",
+  "90-grade-habits.js",
   "92-estimates.js",
   "92-cushion.js",
   "95-lms.js",

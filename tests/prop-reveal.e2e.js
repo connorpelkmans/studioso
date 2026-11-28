@@ -1,12 +1,12 @@
 // node tests/prop-reveal.e2e.js [screenshot folder]
-// A new companion prop (bought with Studyboard Credits, or earned before credits) is shown in the middle of the screen in a burst of
+// A new companion prop (bought with Studyboard Credits) is shown in the middle of the screen in a burst of
 // light: its name, Put It On and Later.
 // Put It On dresses the companion; Later or Escape closes it; it waits while a sheet is open; one shows at a time.
 const path = require("path"), assert = require("assert");
 const {chromium, executablePath} = require("./pw");
 const FILE = "file://" + path.join(__dirname, "..", "index.html"), SHOTS = process.argv[2] || "";
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
-const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tasks: [], courses: [], settings: {capacity: 15, comp: {earned: {medal: 1, scarf: 1}}}};
+const SEED = {v: 2, updated: 1, notes: [], files: [], events: [], decks: [], tasks: [], courses: [], settings: {capacity: 15, sc: {intro: 1, own: {medal: 100, scarf: 100}}}};
 (async () => {
   const browser = await chromium.launch({executablePath}), errs = [];
   try {

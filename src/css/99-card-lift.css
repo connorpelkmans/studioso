@@ -1,0 +1,5 @@
+/* Cards rising under the pointer (study groups, courses, Writing, concept maps, decks and quizzes in their older list style):
+   the browser draws each card as one steady picture the whole time, as Review's deck, quiz and presentation cards already are.
+   Before, it only did that while a card was moving, so the text changed sharpness as a card started and stopped, and parts of
+   the card drawn apart from it moved a pixel out of step with the rest. The motion itself is unchanged. */
+html body :is(.cm-mapcard,.deck.deck-fc,.qz-card,.wsr-card,.grp-card.g2-card,#view .course-card.c2-card){will-change:transform,translate;backface-visibility:hidden;-webkit-backface-visibility:hidden}

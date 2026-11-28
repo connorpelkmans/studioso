@@ -46,7 +46,8 @@
     try { await C.busy; } finally { C.busy = null; }
     const sig = C.items.map(i => i.id + i.updated_at).join("|");
     const changed = sig !== C.sig; C.sig = sig;
-    if (changed) { X.rerenderList(); X.refreshReady(); fillSecs(); }
+    if (changed) { X.rerenderList(); X.refreshReady(); }
+    fillSecs();   // always: the group's Shared tab says "Loading…" until the first load ends, even when it found nothing
     return changed;
   }
   // a linked copy follows the group's plan, speakers and name (unless it's your own)

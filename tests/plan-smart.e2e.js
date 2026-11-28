@@ -20,6 +20,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
     o = o || {};
     const ctx = await browser.newContext({viewport: {width: 1280, height: 900}});
     await ctx.addInitScript(([seed, th]) => { try { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1");
+      localStorage.setItem("studioso:sb", JSON.stringify("local"));   // this device only: no Supabase sign-in sheet over the plan
       const d = new Date(), t = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); if (!sessionStorage.getItem("seeded")) { localStorage.setItem("coursework:today", JSON.stringify({d: t, h: th})); sessionStorage.setItem("seeded", "1"); } } catch (e) {} },
       [{v: 2, courses: [{id: "c1", name: "Biology", code: "BIO1", color: "#3B6FE0"}], settings: {capacity: 15, dailyHours: 3}, updated: 1, tasks, events: o.events || []}, o.th || 3]);
     await ctx.clock.install({time: new Date(iso(new Date()) + "T12:00:00")});

@@ -126,7 +126,9 @@ function mathFitAll(list){
   const room = new Map();
   xs.forEach(x => {
     if (!room.has(x.box)) { const cs = getComputedStyle(x.box); room.set(x.box, x.box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0)); }
-    x.room = room.get(x.box); x.w = x.el.offsetWidth;
+    // a formula on its own line ($$...$$) is a block as wide as the note, so it's measured by what KaTeX drew inside it
+    const k = x.el.classList.contains("mth-d") && x.el.querySelector(".katex-html");
+    x.room = room.get(x.box); x.w = k ? Math.max(k.scrollWidth, k.offsetWidth) : x.el.offsetWidth;
   });
   xs.forEach(x => { if (x.room > 0 && x.w > x.room) x.el.style.fontSize = Math.max(0.6, Math.floor(x.room / x.w * 100) / 100) + "em"; });
 }

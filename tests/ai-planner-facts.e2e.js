@@ -29,7 +29,8 @@ const SEED = {v: 2, updated: 1, settings: {capacity: 15}, courses: [
     const ctx = await browser.newContext({viewport: {width: 1280, height: 800}});
     await ctx.addInitScript(seed => { try { if (!localStorage.getItem("coursework:v2")) { localStorage.setItem("coursework:v2", JSON.stringify(seed)); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studioso:sb", JSON.stringify("local")); localStorage.setItem("studyboard:tour", "done");
       localStorage.setItem("studyboard:aiKeys", JSON.stringify({gemini: "AIzaTESTTESTTESTTESTTESTTEST12345"})); localStorage.setItem("studyboard:aiConsent", JSON.stringify({gemini: {v: 1, at: 1}})); } } catch (e) {} }, SEED);
-    await ctx.route(/generativelanguage\.googleapis\.com/, route => { ctx.last = route.request().postData(); route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify({answer: "ok", sources: [], followUps: [], actions: []})}]}, finishReason: "STOP"}]})}); });
+    // only the companion's own questions count: automatic AI (Today's Plan) calls Gemini too, whenever it's due
+    await ctx.route(/generativelanguage\.googleapis\.com/, route => { const d = route.request().postData() || ""; if (d.includes("STUDENT'S QUESTION")) ctx.last = d; route.fulfill({status: 200, contentType: "application/json", body: JSON.stringify({candidates: [{content: {parts: [{text: JSON.stringify({answer: "ok", sources: [], followUps: [], actions: []})}]}, finishReason: "STOP"}]})}); });
     const page = await ctx.newPage(); const errs = []; page.on("pageerror", e => errs.push(e.message));
     await page.goto(base); await page.waitForFunction(() => window.SBCOMP && SBCOMP.tab && window.__sbPlan);
     await page.evaluate(() => SBCOMPTAB.open()); await page.waitForSelector("#cptIn");

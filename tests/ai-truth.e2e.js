@@ -28,7 +28,7 @@ function fake(){
   const oa = [];
   await ctx.route(/api\.openalex\.org\/works/, r => { oa.push(new URL(r.request().url()).searchParams.get("search"));
     r.fulfill({status: 200, contentType: "application/json", headers: {"access-control-allow-origin": "*"}, body: JSON.stringify({results: [{id: "https://openalex.org/W1", title: "Aquaporins speed water transport in plant roots", publication_year: 2019,
-      abstract_inverted_index: {"Aquaporins": [0], "are": [1], "membrane": [2], "channels": [3], "that": [4], "speed": [5], "osmosis": [6], "in": [7], "root": [8], "cells,": [9], "raising": [10], "water": [11], "uptake": [12], "by": [13], "about": [14], "40": [15], "percent": [16], "under": [17], "drought": [18], "conditions": [19], "in": [20], "our": [21], "trials.": [22]},
+      abstract_inverted_index: {"Aquaporins": [0], "are": [1], "membrane": [2], "channels": [3], "that": [4], "speed": [5], "osmosis": [6], "in": [7, 20], "root": [8], "cells,": [9], "raising": [10], "water": [11], "uptake": [12], "by": [13], "about": [14], "40": [15], "percent": [16], "under": [17], "drought": [18], "conditions": [19], "our": [21], "trials.": [22]},
       open_access: {oa_url: "https://example.org/aquaporins"}, cited_by_count: 120}]})}); });
   await ctx.addInitScript(([f, T]) => { window.__SB_TEST = true; window.__SB_DEVICE_AI_TEST = true; window.__SB_WEB_TEST = true; (0, eval)(`(${f})`)();
     localStorage.setItem("studioso:sb", '"local"'); localStorage.setItem("sb:onboarded", "1"); localStorage.setItem("studyboard:tour", "done"); localStorage.setItem("studioso:welcomed", "1"); localStorage.setItem("studyboard:whatsNew", JSON.stringify({v: "9.9.9"}));

@@ -140,7 +140,7 @@ t("vetAi: plain text, grounded, deduped, capped; counts what it dropped", () => 
 });
 t("vetAi output also passes the app's card gate (aiGateCards)", () => {
   const v = NC.vetAi([{front: "Where does photosynthesis take place?", back: "In the chloroplasts"}, {front: "What absorbs red and blue light?", back: "Chlorophyll"}], SOURCE, {tidy: Q.aiTidyText});
-  const g = Q.aiGateCards(v.cards, {max: 10}); assert.strictEqual(g.cards.length, 2); assert.deepStrictEqual(g.dropped, {dup: 0, long: 0, empty: 0, copied: 0});
+  const g = Q.aiGateCards(v.cards, {max: 10}); assert.strictEqual(g.cards.length, 2); assert.deepStrictEqual(g.dropped, {dup: 0, long: 0, empty: 0, copied: 0, vague: 0});
 });
 t("the source of the module follows the repo conventions", () => {
   assert(/\/\* ===== module: 97-notecards\.js ===== \*\/[\s\S]*\/\* ===== module: 97-breakdown\.js ===== \*\//.test(src) && src.indexOf("module: 97-notecards.js") < src.indexOf("module: 97-breakdown.js"), "js module sits before 97-breakdown.js");

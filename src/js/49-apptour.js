@@ -233,6 +233,8 @@
     render(); window.scrollTo(0, s.scrollY || 0);
     if (opened && opened.isConnected) { try { opened.focus({preventScroll: true}); } catch (e) {} }
     saved = null; opened = null;
+    // the welcome spin waits for the tour a new student chose at the end of the welcome setup (40-onboarding.js)
+    try { if (localStorage.getItem("sb:welcomeSpin") === "tour") { localStorage.removeItem("sb:welcomeSpin"); if (typeof SBSC !== "undefined" && SBSC && SBSC.welcomeSpin) SBSC.welcomeSpin(); } } catch (e) {}
     if (completed && ui.tab === "board") setTimeout(() => { const q = $("#qaIn"); if (q && !dlg.open) { const bar = q.closest(".qa-bar"); if (bar) { bar.classList.add("ob-glow"); setTimeout(() => bar.classList.remove("ob-glow"), 2600); } } }, 200);
   }
 

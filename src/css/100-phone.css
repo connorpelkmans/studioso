@@ -22,7 +22,7 @@
 /* Notes on a phone: a little smaller, held upright or turned sideways (a phone on its side is wider than 700px, and the notes
    used to grow and shift each time it turned) */
 @media (max-width:700px), (max-height:500px) and (pointer:coarse){
-  .note{transform:rotate(var(--rot)) scale(.88)}
+  .note{--note-s:.88;transform:rotate(var(--rot)) scale(.88)}
   .note.dragging{transform:rotate(calc(var(--rot) + 3deg)) scale(.92)}
   .note.editing{transform:none}
 }

@@ -48,8 +48,16 @@
             <ul class="sd-list">${common.map(h => `<li class="sd-off"><span><b>${esc(h.name)}</b><span class="mini">${esc(dayName(h.date, {weekday: "short", month: "short", day: "numeric", year: h.date.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric"}))}</span></span><select data-hol="${esc(h.key)}" aria-label="${esc(h.name)}"><option value="">Ask Me</option><option value="off"${ans[h.key] === "off" ? " selected" : ""}>Day Off</option><option value="on"${ans[h.key] === "on" ? " selected" : ""}>Classes</option></select></li>`).join("")}</ul></details>` : ""}
         </section>` : "";
     const refText = () => { const r = refDay(); return r === today ? "Today is" : `${parse(r).toLocaleDateString(undefined, {weekday: "long"})} (${dayName(r, {month: "short", day: "numeric"})}) is`; };
+    // Term dates: the same First Class / Last Class as each course's Lectures tab (course.classDates), set for every course at once
+    const cs = coursesArr(), withT = cs.find(c => c.classDates && isDate(c.classDates.from) && isDate(c.classDates.until));
+    const t0 = withT ? withT.classDates : {from: "", until: ""};
+    const termHtml = cs.length ? `<section class="sd-sec sd-term"><h3 class="fsec">Term Dates</h3>
+          <p class="mini sd-why">Classes show on your Schedule between these days only, so finals week and the break stay clear.</p>
+          <div class="two"><label class="f"><span class="lh">First Class</span><input type="date" name="sdTermFrom" value="${esc(t0.from)}"></label><label class="f"><span class="lh">Last Class</span><input type="date" name="sdTermUntil" value="${esc(t0.until)}"></label></div>
+        </section>` : "";
     openSheet(`<form class="sheet sd-sheet">${head("School Days")}
       <div class="sheet-body">
+        ${termHtml}
         <section class="sd-sec"><h3 class="fsec">Days Off</h3>
           <p class="mini sd-why">Breaks, reading week and snow days. Classes don't show, and Today's Plan treats them as free days.</p>
           <ul class="sd-list" id="sdList">${offRows()}</ul>
@@ -80,8 +88,14 @@
     </form>`, fd => {
       const on = fd.get("sdMode") === "cycle";
       if (on && !draft.days.length) { toast("Pick at least one school day"); return false; }
+      const tf = String(fd.get("sdTermFrom") || ""), tu = String(fd.get("sdTermUntil") || "");
+      if (termHtml && (!!tf !== !!tu || (tf && tu < tf))) { toast(!tf || !tu ? "Pick both the first and the last class, or leave both empty" : "The last class needs to be on or after the first"); return false; }
       const cycle = on ? {n: draft.n, ref: refDay(), k: Math.min(draft.n, k), days: draft.days.slice().sort(), names: draft.names} : null;
-      save({off, cycle, pub, ans}, "School days saved");
+      // new term dates go on every course (Undo in the notice takes them back); empty ones clear them
+      const tch = !termHtml ? [] : coursesArr().filter(c => { const d = c.classDates || {}; return tf ? d.from !== tf || d.until !== tu : !!(d.from || d.until); })
+        .map(c => { const n = clone(c); if (tf) n.classDates = {from: tf, until: tu}; else delete n.classDates; return {kind: "course", id: c.id, after: n}; });
+      save({off, cycle, pub, ans}, tch.length ? "" : "School days saved");
+      if (tch.length) applyChanges(tch, tf ? `School days saved. Classes run ${fmtShort(tf)} to ${fmtShort(tu)}.` : "School days saved. Term dates cleared.");
     });
     const f = dlg.querySelector(".sd-sheet"), $f = q => f.querySelector(q);
     const drawK = () => { const sel = $f("#sdK"); k = Math.min(k, draft.n); sel.innerHTML = Array.from({length: draft.n}, (_, i) => `<option value="${i + 1}"${i + 1 === k ? " selected" : ""}>${esc(cycName(draft.names, i + 1))}</option>`).join(""); $f("#sdRefL").textContent = refText(); };

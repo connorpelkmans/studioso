@@ -77,8 +77,9 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); }; const eq = (a, b, m) => 
   objs.clear(); aiCalls = 0;
   let slow; const gate = new Promise(res => { slow = res; });
   const rush = deps(); rush.ai = async x => { aiCalls++; await gate; return reply(x); };
-  const ps = []; for (let i = 0; i < 60; i++) ps.push(call({...fresh(), text: "word ".repeat(4000)}, {ip: "10.0.0." + i, deps: rush}));
-  await new Promise(res => setTimeout(res, 50));
+  let settled = 0; const ps = []; for (let i = 0; i < 60; i++) ps.push(call({...fresh(), text: "word ".repeat(4000)}, {ip: "10.0.0." + i, deps: rush}).then(x => { settled++; return x; }));
+  // wait until every request has either reached the AI (and is held at the gate) or been turned away (a fixed wait was flaky on a slow machine)
+  for (const t0 = Date.now(); settled + aiCalls < 60 && Date.now() - t0 < 10000;) await new Promise(res => setTimeout(res, 10));
   const v = await obj("t:" + DAY).view();
   ok(v.spent + v.held <= 7000, `while running, everything held stays under the cap (${v.held} held)`);
   ok(aiCalls > 0 && aiCalls < 60, `only as many run at once as fit (${aiCalls} of 60)`);

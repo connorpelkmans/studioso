@@ -2695,7 +2695,7 @@
       case "grp-pt-view": if (x) { x.view = el.dataset.v === "board" ? "board" : "list"; ptRefresh(g.id); } return true;
       case "grp-pt-status": { const t = x && x.tasks.find(k => k.id === id); if (t && !t._tmp && PT_STATUS.some(k => k[0] === el.dataset.s)) ptMutate(g.id, id, {status: el.dataset.s}); return true; }
       case "grp-pt-plan": if (g && isProj(g)) planSheet(g); return true;
-      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true), 40); return true;
+      case "grp-pt-plan-ai": if (dlg.open) dlg.close(); setTimeout(() => aiSetupSheet(true, {feature: "Start From a Plan", alt: {text: "add the project's tasks one at a time.", label: "Add a Task", act: "grp-pt-new"}}), 40); return true;
       case "grp-pt-new": if (g && isProj(g)) ptAddSheet(g); return true;
       case "grp-pt-retry": if (g) { ptInit(g.id).err = ""; loadPT(g.id); ptRefresh(g.id); } return true;
       case "grp-pt-list": if (x) { x.list = id; x.filter = "all"; ptRefresh(g.id); } return true;
@@ -3064,10 +3064,11 @@
 
   /* Sheets */
   const loadingSheet = title => openSheet(`<div class="sheet">${head(title)}<div class="sheet-body"><p class="status-msg"><span class="ai-spin" aria-hidden="true"></span> One moment…</p></div></div>`);
-  function needOnline(){
+  // title: what needs the account ("Study Groups Need a Free Account"); sharing by default
+  function needOnline(title){
     if (online()) return true;
     const local = !sbConfig();
-    openSheet(`<div class="sheet">${head("Sharing Needs a Studyboard Account")}<div class="sheet-body">
+    openSheet(`<div class="sheet">${head(title || "Sharing Needs a Studyboard Account")}<div class="sheet-body">
       <p style="margin:0">${inPreview() ? "Share links and study groups work on the Studyboard website and in the desktop app." : "Sign in to your free Studyboard account, then try again."}</p>
       <p class="mini" style="margin:0">No account? Share a deck as a file from its Share menu.</p></div>
       <div class="sheet-foot"><button type="button" class="btn" data-act="grp-import">Import a Deck File</button><span class="spacer"></span>${inPreview() ? "" : `<button type="button" class="btn primary" data-act="${local ? "sb-connect" : "sb-signin"}">${local && !SB_HOSTED ? "Set Up Sync" : "Sign In"}</button>`}</div></div>`);
@@ -3521,7 +3522,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
   // For the chat ("create a study group called P3"): New Group, filled in, for the student to check and create (it needs their account
   // and the internet for the invite code, so it's never made behind their back). false when it can't open here.
   window.SBGRPNEW = (name, project) => {
-    try { if (typeof needOnline === "function" && !needOnline()) return false; newGroupSheet(null);
+    try { if (typeof needOnline === "function" && !needOnline("Study Groups Need a Free Account")) return false; newGroupSheet(null);
       setTimeout(() => { const d = document.querySelector("dialog[open]"); if (!d) return;
         if (project) { const b = d.querySelector('.grp-kind [data-kind="project"]'); if (b) b.click(); }
         const i = d.querySelector('input[name="name"]'); if (i && name) { i.value = String(name).slice(0, 80); i.dispatchEvent(new Event("input", {bubbles: true})); } }, 60);
@@ -3596,9 +3597,9 @@ ${kindPreview("study")}${kindPreview("project")}`;
         try { const ok = await api.restoreGroup(id); toast(ok ? `Restored ${b ? b.name : "the group"}` : "That group can't be restored anymore"); } catch(e) { toast(e.message); }
         S.groups = null; loadGroups(); })(); return true;
       case "grp-import": importDeckFile(); return true;
-      case "grp-name": if (needOnline()) nameSheet(false, null); return true;
+      case "grp-name": if (needOnline("Your Name Needs a Free Account")) nameSheet(false, null); return true;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
-      case "grp-new": if (needOnline()) newGroupSheet(null); return true;
+      case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
@@ -4642,7 +4643,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     // a member's picture as the group shows it (their companion in their colour, or initials)
     avatar: (gid, id, name, face) => av(name, id, gid, face),
     // Settings > Account > Profile (display name and username together)
-    profile: () => { if (needOnline()) ensureName(() => nameSheet(false, null)); },
+    profile: () => { if (needOnline("Your Name Needs a Free Account")) ensureName(() => nameSheet(false, null)); },
     // a member's colour in a group, so a Study Together room shows each person in the same colour as the group does
     hue: (gid, id, name) => memberHue(gid, id, name),
     // open a group on its Whiteboards tab

@@ -174,6 +174,8 @@ window.SBTRUTH = (() => {
     if (!s || !L || s.split(/\s+/).length > 9 || WRITE.test(s.replace(/\b(mark|set)\b/g, ""))) return "";
     let r0 = null; try { r0 = facts(lastQ); } catch (e) {}
     if (!r0) return "";
+    // (a hello or a question about the app isn't a planner question to follow on from: "hi!" then "what's left in BSNC 1055?")
+    { const H = window.SBAPPHELP; try { if (H && H.answer(L)) return ""; } catch (e) {} }
     if (AFTER.test(s)) return "__AFTER__";
     // "who teaches that class", "what's my grade in that course": the course the last answer was about
     if (/\b(that|this|the same|its) (class|course)\b/.test(s)) { const tail = String(said || "").slice(-700), cs = coursesArr().map(c => ({c, i: Math.max(tail.lastIndexOf(c.code || "\u0000"), low(tail).lastIndexOf(low(c.name)))})).filter(x => x.i >= 0).sort((a, b) => b.i - a.i);

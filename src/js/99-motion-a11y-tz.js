@@ -188,13 +188,19 @@
     return `<div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Animations<span class="sub" data-anim-status>${esc(statusText())}</span></span>${seg("anim-mode", [["full", "On"], ["off", "Off"]], effPref(), "Animations")}</div>
     <div class="cap-row sb-wide" data-group="appearance"><span style="flex:1;font-weight:600;min-width:12rem">Text Size</span>${seg("text-size", TS, tsNow(), "Text size")}</div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Sound Effects<span class="sub">Short, happy sounds when you earn credits, open a chest, spin the prize wheel, unlock an accessory, pass a quiz and a few other big moments. Never while you type or scroll. <button type="button" class="link-btn" data-act="sfx-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="sfx" ${window.SBSFX && SBSFX.on() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Reward Sounds<span class="sub">A soft chime when a study session makes you more ready for an exam. <button type="button" class="link-btn" data-act="fx-try">Play It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="fx-sounds" ${(() => { try { return localStorage.getItem("studyboard:fx") !== "off"; } catch (e) { return true; } })() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "fx-sounds") { ls("studyboard:fx", el.checked ? null : "off"); if (el.checked && window.SBSC_FX) window.SBSC_FX(); return true; }
+    if (act === "fx-try") { if (window.SBSC_FX) window.SBSC_FX(true); return true; }
+    if (act === "sfx-try") { if (window.SBSFX) { if (!SBSFX.on()) toast("Turn Sound Effects on to hear them."); else { SBSFX.play("chest", {rarity: "rare"}); setTimeout(() => SBSFX.play("coinLand"), 1300); } } return true; }
+    if (act === "sfx") { if (window.SBSFX) { SBSFX.set(el.checked); if (el.checked) SBSFX.play("coinLand"); } return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }
     if (act === "a11y-contrast") { ls("studyboard:contrast", el.checked ? "1" : null); applyContrast(); try { artSig = ""; renderSkinArt(); } catch (e) {} return true; }
     if (act === "tz-keep") { ls(ACK_KEY, deviceZone()); closeNote(); refreshAfterZone(); return true; }
@@ -687,6 +693,9 @@ setTimeout(async () => {
     for (let i = 0; i < 24; i++) {
       await sleep(5000);
       if ($("#toast").classList.contains("show") || (typeof dlg !== "undefined" && dlg.open)) continue;
+      // not on the day of the welcome setup (it may finish while this waits): Getting Started offers backups already, and a new
+      // student has enough to read. It comes on a later visit.
+      try { const at = window.SBOB && SBOB.setupAt ? SBOB.setupAt() : 0; if ((at && Date.now() - at < 864e5) || (window.SBOB && SBOB.pending())) return; } catch (e) {}
       localStorage.setItem(K, String(Date.now()));
       toast("Your browser may clear website data on its own. Keep your planner safe: install Studyboard as an app, sign in, or export a backup.", null,
         {label: "Protect My Data", fn: () => storageProtect(true).then(r => { toast(r === "granted" ? "Done. This browser won't clear your Studyboard data to free up space." : "Your browser said not yet. Install Studyboard as an app (or add it to your Home Screen), then try again in Settings. Meanwhile, sign in or export a backup."); scheduleRender(); })});

@@ -227,6 +227,8 @@ var SBPRO = null;
     const up = climbs.filter(x => x.t.cur - x.t.first >= 2).sort((a, b) => (b.t.cur - b.t.first) - (a.t.cur - a.t.first))[0];
     if (up) out.push({k: "Biggest Climb", big: courseLabel(up.c), line: `From ${Math.round(up.t.first)}% to ${Math.round(up.t.cur)}%${up.t.letter ? ` (${up.t.letter})` : ""}. That came from the work you put in.`});
     else { const best = climbs.sort((a, b) => b.t.cur - a.t.cur)[0]; if (best) out.push({k: "Top Course", big: courseLabel(best.c), line: `Finishing at ${Math.round(best.t.cur)}%${best.t.letter ? ` (${best.t.letter})` : ""}.`}); }
+    // the term in grades: GPA against last term, the best mark, and the study pattern that went with better marks (90-grade-habits.js)
+    try { if (window.SBGINS && SBGINS.recapSlides) out.push(...SBGINS.recapSlides(T)); } catch (e) { console.warn("recap: grades", e); }
     return out;
   }
   const seenRecap = () => Array.isArray(S().recapSeen) ? S().recapSeen : [];
@@ -277,7 +279,7 @@ var SBPRO = null;
   /* Settings > Studyboard Pro */
   const FEATURES = [];
   function addFeature(f){ if (f && f.id && !FEATURES.some(x => x.id === f.id)) FEATURES.push(f); }
-  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI (62 to 76%)", pro: "Answers 99% of Questions", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
+  addFeature({id: "sbai", name: "Studyboard AI Pro", where: "Settings, AI", act: "ai-setup", free: "On-Device AI: 62 to 76% Right", pro: "99% Right, on Any Device", icon: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'});
   addFeature({id: "forecast", name: "Exam Day Forecast", where: "In an exam's Prep Plan: where your readiness is heading by exam day, and the topic to work on next", act: "prep-plan", icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>'});
   addFeature({id: "insights", name: "Insights", where: "In Courses, Grades and Weekly Review", act: "pro-ins-open", icon: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'});
   addFeature({id: "recap", name: "Term Recap", where: "On Today's Plan and in Courses when a term ends", act: "pro-recap-open", icon: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'});
@@ -306,7 +308,8 @@ var SBPRO = null;
     smartremind: "Nudges at the start of your free time when a big task needs it.",
     "cards-link": "Turn a YouTube video or web page into flashcards and a summary note.",
     examsheet: "Every formula, definition and diagram for an exam on one printable sheet.",
-    email: "Forward school emails and Studyboard finds the deadlines in them."
+    email: "Forward school emails and Studyboard finds the deadlines in them.",
+    present: "Record your practice talks, see your stats, get coaching, and use your phone as a remote. Timing, plans and group practice stay free."
   };
   // The few that matter most stay in the Free and Pro table; the rest are under Show All Pro Features
   const TOP = ["sbai", "forecast", "calsync", "reader", "lecture", "writing", "cmap", "autopilot", "rubric", "insights"];
