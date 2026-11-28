@@ -32,6 +32,12 @@ function reply(body){
   const refOf = re => { const line = text.split("\n").find(l => re.test(l)); const m = line && /^([A-Z]\d+) \|/.exec(line); return m ? m[1] : ""; };
   if (/You pick the control in a settings screen/.test(sys)) { const line = text.split("\n").find(l => /Daily Quote/.test(l)); return {i: line ? Number(line.split(" | ")[0]) : -1, value: "off"}; }
   if (/Describe a student's whiteboard/.test(sys)) return {about: "A labelled diagram of an animal cell", words: "Cell parts, nucleus, membrane", spots: [{what: "labelled cell diagram", x0: 0.1, y0: 0.1, x1: 0.6, y1: 0.7}]};
+  // the Companion tab's step that works out what a request wants (it then does it itself)
+  if (/You read one message a student sent/.test(sys)) { const m = (/The message: "(.*)"$/m.exec(text) || [])[1] || "";
+    if (/^move my essay to march 14$/.test(m)) return {intent: "move_task", task: "essay", date: "2031-03-14"};
+    if (/^make (it|essay draft) high priority$/i.test(m)) return {intent: "set_priority", task: /\bit\b/.test(m) ? "it" : "Essay draft", priority: "high"};
+    if (/^put a cell quiz in for bio/.test(m)) return {intent: "add_task", title: "Cell quiz", course: "Biology", date: "2031-04-02", time: "09:30"};
+    return {intent: "question"}; }
   const q = (/THE STUDENT ASKS: (.*)$/m.exec(text) || /STUDENT'S QUESTION: (.*)$/m.exec(text) || [])[1] || "";
   if (/always broken/.test(q)) return {answer: "string", followUps: [], show: [], changes: []};
   if (/powerhouse note/.test(q)) return {answer: "Your Mitochondria note is on My Notes.", show: [refOf(/^N\d+ \|.*Mitochondria/)], changes: []};
@@ -188,14 +194,15 @@ function reply(body){
   ok(/WAS JUST LOOKING AT \(before opening the Companion tab\): the Review/.test(lastBody()), "the Companion tab knows the page the student came from");
   await page.click(".cpt-show-b"); await page.waitForTimeout(600);
   ok(await S(() => ui.tab) === "notes", "a found thing in the Companion tab opens with one tap");
+  // (the Companion tab does what it's asked straight away, with Undo, instead of asking to confirm)
   await S(() => SBCOMPTAB.open("move my essay to march 14 and make it high priority"));
-  await page.waitForSelector('[data-act="cpt-change"]', {timeout: 15000});
-  await page.click('[data-act="cpt-change"]'); await confirmShown(); await page.click("#asYes"); await page.waitForTimeout(500);
-  ok(await S(() => state.tasks.t1.due) === "2031-03-14", "changes from the Companion tab are confirmed the same way");
-  await S(() => SBCOMPTAB.open("add a bio quiz on april 2 at 9:30"));
-  const addBtn = page.locator(".cpt-action", {hasText: "Cell quiz"}).locator('[data-act="cpt-change"]');
-  await addBtn.waitFor({timeout: 15000}); await addBtn.click(); await confirmShown(); await page.click("#asYes"); await page.waitForTimeout(500);
-  ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1")), "the Companion tab adds tasks the same way");
+  // (March 14 from the words: the next one to come)
+  const mar14 = () => /^\d{4}-03-14$/.test(state.tasks.t1.due) && new Date(state.tasks.t1.due + "T23:59:59") > new Date() && state.tasks.t1.priority === "high";
+  await page.waitForFunction(`(() => { const state = window.__sbApp.state; return (${mar14})(); })()`, null, {timeout: 15000}).catch(() => {});
+  ok(await S(mar14), "two changes in one message from the Companion tab are both made: " + await S(() => state.tasks.t1.due + " " + state.tasks.t1.priority));
+  await S(() => SBCOMPTAB.open("put a cell quiz in for bio on april 2 at 9:30"));
+  await page.waitForFunction(() => Object.values(state.tasks).some(t => t.title === "Cell quiz"), null, {timeout: 15000}).catch(() => {});
+  ok(await S(() => Object.values(state.tasks).some(t => t.title === "Cell quiz" && t.courseId === "c1" && /-04-02$/.test(t.due) && t.time === "09:30")), "the Companion tab adds tasks, to the right course and day");
 
   // The Companion tab answers far more kinds of questions from the student's data, the app and their materials
   const bodyOf = b => (b.contents || []).flatMap(c => c.parts || []).map(p => p.text || "").join("\n");

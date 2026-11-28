@@ -539,7 +539,7 @@ Examples:
       let L = pool;
       const cn = TR && TR.courseIn ? TR.courseIn(q) : null; if (cn) L = L.filter(t => t.courseId === cn.id);
       // (the days that pick them, not the day they go to: "move everything due wednesday to friday")
-      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
+      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|week\b|weekend|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
       const r = TR && TR.range && /\b(today|tonight|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|overdue|late|next \d+ days)\b/.test(sel) ? TR.range(sel, todayISO()) : null;
       if (r) L = L.filter(t => t.due && t.due >= r.from && t.due <= r.to);
       if (!cn && !r) return null;
@@ -2603,7 +2603,7 @@ ANSWERING
       // push it 2 days", "got 17/20 on quiz 4 and 40/50 on the lab report, mark both done"): each part done in turn, the way the chat does
       // one on its own ("it" is the task the part before was about; "both" or "them" are the tasks done so far)
       if (multi && !made) { T.status = "Doing those one at a time…"; draw();
-        const outs = [], touched = []; let prev = "";
+        const outs = [], touched = [], chs = [], shows = []; let prev = "";
         for (const p0 of SBTRUTH.steps(q)) {
           let p1 = p0;
           if (prev) p1 = p1.replace(/\b(it|that one)\b/i, prev);
@@ -2618,12 +2618,14 @@ ANSWERING
           let r = null; LASTD = null; const cant = x => !(x && x.answer) || (LASTD && LASTD.intent === "cant") || /^I can't do that from the chat yet/.test(x.answer);
           if (dev) r = await deviceAct(p1, c, true).catch(() => null);
           if (cant(r)) { LASTD = null; const r1 = await intentAct(p1, c, att).catch(() => null); if (!cant(r1) || !(r && r.answer)) r = r1; }
-          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) r = {answer: r2.answer}; }
+          // (a change Ask proposes is kept, to review and confirm: it used to say "Here's the change." with nothing to confirm)
+          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) { const pk = SBASSIST.pack(r2); r = {answer: r2.answer}; chs.push(...pk.changes); shows.push(...pk.show);
+            const c0 = pk.changes.find(c => c.t && c.t.kind === "task" && c.t.id && state.tasks[c.t.id]); if (c0) r.did = {task: state.tasks[c0.t.id].title}; } }
           if (r && r.answer) { outs.push(r.answer); const nm = (r.did && r.did.task) || (LASTD && LASTD.task) || ""; const t = nm ? taskOf0(nm, null, true) : null; if (t) { prev = t.title; if (!touched.includes(t.title)) touched.push(t.title); }
             // (not only tasks: "dr chen's course to room NUR 210 and make it teal" is that course; an event or deck just changed too)
             else { const other = (r.ref && refName(r.ref)) || (LASTD && (LASTD.item || LASTD.course || LASTD.deck)) || ""; if (other) prev = String(other); } }
         }
-        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: []}; }
+        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: [], changes: chs.length ? chs : undefined, show: shows.length ? shows.slice(0, 5) : undefined}; }
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
       else if (!att.length && !made) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
