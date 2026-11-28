@@ -104,6 +104,29 @@ function friendsInit(o){
     ok(!(await page.evaluate(() => Object.values(window.__sbBreakdown.state().decks).some(d => d.name === "Spam"))), "No Thanks adds nothing");
     ok(!errs.length, "no page errors (receiving): " + errs.join(" | "));
     await ctx.close();
+
+    // 4. Later: it waits in Flashcards › Share or Import › Sent to You, with a count on that button
+    ctx = await browser.newContext({viewport: {width: 1280, height: 900}}); page = await ctx.newPage(); errs = [];
+    page.on("pageerror", e => errs.push(e.message));
+    await page.addInitScript(stubInit, {me: "u1"}); await page.addInitScript(friendsInit, {waiting: [waiting[0]]});
+    await page.goto("file://" + file);
+    await page.waitForSelector("dialog[open] .fs-in", {timeout: 9000});
+    ok(/Sent to You/.test(await page.textContent("dialog[open] .fs-in")), "the sheet says where Later keeps it");
+    await page.click('dialog[open] .fs-in [data-act="close"]'); await page.waitForTimeout(300);
+    await page.evaluate(() => { const B = window.__sbBreakdown; B.ui.tab = "flashcards"; B.render(); }); await page.waitForTimeout(400);
+    ok(await page.evaluate(() => { const d = document.querySelector('[data-act="grp-share-menu"] .fs-dot'); return !!d && d.textContent === "1"; }), "Share or Import shows a 1");
+    await page.click('[data-act="grp-share-menu"]'); await page.waitForSelector("dialog[open] .fs-inbox-opt");
+    ok(/Sent to You\s*1/.test(await page.textContent("dialog[open] .fs-inbox-opt")), "Share or Import lists Sent to You first, with its count");
+    await page.screenshot({path: shots + "/fs-inbox-menu.png"});
+    await page.click("dialog[open] .fs-inbox-opt"); await page.waitForSelector("dialog[open] .fs-open");
+    ok(/Organic Chem/.test(await page.textContent("dialog[open] .fs-list")) && /from Sam/.test(await page.textContent("dialog[open] .fs-list")), "Sent to You lists the deck and who sent it");
+    await page.screenshot({path: shots + "/fs-inbox.png"});
+    await page.click("dialog[open] .fs-open"); await page.waitForSelector("dialog[open] #fsYes");
+    await page.click("#fsYes"); await page.waitForTimeout(800);
+    ok(await page.evaluate(() => Object.values(window.__sbBreakdown.state().decks).some(d => d.name === "Organic Chem")), "Add from there makes your copy");
+    ok(await page.evaluate(() => !document.querySelector('[data-act="grp-share-menu"] .fs-dot')), "and the count goes away");
+    ok(!errs.length, "no page errors (Sent to You): " + errs.join(" | "));
+    await ctx.close();
   } finally { await browser.close(); }
   console.log(`friend-share e2e: ${n} checks passed`);
 })().catch(e => { console.error(e); process.exit(1); });
