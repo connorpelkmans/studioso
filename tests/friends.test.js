@@ -20,7 +20,7 @@ eq(F.parseAdd("  sam_lee "), {kind: "name", name: "sam_lee"}, "a username withou
 eq(F.parseAdd("https://x.com/?friend=K7P4-QD9X"), {kind: "code", code: "K7P4-QD9X"}, "a pasted friend link");
 eq(F.parseAdd("K7P4-QD9X"), {kind: "code", code: "K7P4-QD9X"}, "a typed code");
 ok(F.parseAdd("").kind === "bad" && F.parseAdd("ab").kind === "bad" && F.parseAdd("1sam").kind === "bad" && F.parseAdd("sam lee").kind === "bad", "names that can't be usernames");
-ok(/isn't a friend link/.test(F.parseAdd("https://studyboardapp.com/?group=K7P4-QD9X").msg), "another kind of link says so");
+ok(/isn't a friend code/.test(F.parseAdd("https://studyboardapp.com/?group=K7P4-QD9X").msg), "another kind of link says so");
 
 // What a request's answer says; a username that may not exist never gets a different answer
 ok(/If @sam is on Studyboard/.test(F.answerText("sent", "@sam")), "sent by username: the same words whether or not the name exists");

@@ -30,3 +30,5 @@
   .frd-row .grp-item-btns{grid-column:2 / -1;justify-content:flex-start}
   .frd-row .grp-item-btns:has(.frd-more){grid-column:auto}
 }
+/* your friend code, big and spaced so it's easy to read out or type */
+.frd-code.frd-code-big{flex:0 1 auto;font:800 1.7rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.14em;padding:12px 18px;text-align:center;user-select:all;-webkit-user-select:all}

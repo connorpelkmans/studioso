@@ -18,10 +18,10 @@
     // What the Add box holds: a friend link or code, a username, or neither (usernames never have a dash, codes always do)
     function parseAdd(s){
       const v = String(s || "").trim();
-      if (!v) return {kind: "bad", msg: "Type a friend's @username, or paste their friend link."};
+      if (!v) return {kind: "bad", msg: "Type a friend's @username or their friend code."};
       const code = codeOf(v);
       if (code) return {kind: "code", code};
-      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That link isn't a friend link. Ask them to send it again."};
+      if (/[?&/]/.test(v)) return {kind: "bad", msg: "That isn't a friend code. Ask them for the code in their Friends, like ABCD-1234."};
       const name = v.replace(/^@/, "");
       if (!/^[A-Za-z][A-Za-z0-9_.]{2,19}$/.test(name)) return {kind: "bad", msg: "Type their whole username, like @sam.lee."};
       return {kind: "name", name};
@@ -146,20 +146,20 @@
   function bodyHtml(){
     if (S.setup) return `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>`;
     const L = S.lists, link = linkOf(S.code);
-    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend link · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
+    const incoming = L.incoming.map(r => row(r, esc(r.via === "link" ? "Used your friend code · " + FRIENDS.ago(r.since) : "Asked " + FRIENDS.ago(r.since)),
       `<button type="button" class="btn small primary" data-act="frd-accept" data-id="${esc(r.user_id)}">Accept</button><button type="button" class="btn small" data-act="frd-decline" data-id="${esc(r.user_id)}">Decline</button>`)).join("");
     const friends = L.friends.map(r => row(r, "", `<details class="grp-more g2-mm frd-more"><summary class="g2-dots" aria-label="More for ${esc(r.display_name || "this friend")}">⋯</summary><div class="grp-menu">
       <button type="button" class="btn" data-act="frd-remove" data-id="${esc(r.user_id)}">Remove Friend</button><button type="button" class="btn" data-act="frd-block" data-id="${esc(r.user_id)}">Block</button></div></details>`)).join("");
     const sent = L.sent.map(r => row(r, esc("Waiting · asked " + FRIENDS.ago(r.since)), `<button type="button" class="btn small" data-act="frd-cancel" data-id="${esc(r.user_id)}">Cancel</button>`)).join("");
     return `${S.err ? `<p class="frd-msg bad" role="alert">${esc(S.err)}</p>` : ""}
-      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Link</h3>
-        <p class="mini">Send it to someone you study with. They'll ask to be your friend, and you choose whether to accept.</p>
-        ${S.code ? `<div class="frd-link-row"><code class="frd-code">${esc(link || S.code)}</code></div>
-        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-share">${!link ? "Copy Code" : navigator.share ? "Share Link" : "Copy Link"}</button><button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Link</button></div>
-        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code for your friend link")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
-        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your link…</p>`}</section>
+      <section class="frd-link" aria-labelledby="frdLinkT"><h3 class="fsec" id="frdLinkT">Your Friend Code</h3>
+        <p class="mini">Give it to someone you study with. They type it in Add a Friend, then you choose whether to accept.</p>
+        ${S.code ? `<div class="frd-link-row"><code class="frd-code frd-code-big" aria-label="Your friend code: ${esc(S.code.split("").join(" "))}">${esc(S.code)}</code></div>
+        <div class="row-actions"><button type="button" class="btn small primary" data-act="frd-copy">Copy Code</button>${link && (navigator.share || (window.SBGROUPS && SBGROUPS.share && SBGROUPS.share.sendText)) ? `<button type="button" class="btn small" data-act="frd-share">Share</button>` : ""}<button type="button" class="btn small" data-act="frd-qr" aria-expanded="${S.qr}">${S.qr ? "Hide QR Code" : "Show QR Code"}</button><button type="button" class="link-btn" data-act="frd-newlink">Make a New Code</button></div>
+        ${S.qr && link && typeof QR !== "undefined" ? `<div class="frd-qr">${QR.svg(link, "QR code with your friend code")}<p class="mini">Scan it with a phone camera.</p></div>` : ""}`
+        : `<p class="mini"><span class="ai-spin" aria-hidden="true"></span> Getting your code…</p>`}</section>
       ${L.incoming.length ? sec("Requests", L.incoming.length, incoming) : ""}
-      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username, or send them your friend link."}</li>`)}
+      ${sec("Friends", L.friends.length, friends || `<li class="frd-empty mini">${S.rows == null ? "Loading…" : "No friends yet. Add someone by their @username or friend code, or give them yours."}</li>`)}
       ${L.sent.length ? sec("Sent", L.sent.length, sent) : ""}
       <p class="hint-line">Friends see your display name and @username. Nobody can search for you: they need your exact username or your link.</p>`;
   }
@@ -176,14 +176,14 @@
     if (!live()) { toast(inPreview() ? "Friends work on the Studyboard website and in the app." : "Sign in to your free Studyboard account to add friends."); return; }
     S.msg = ""; S.msgBad = false;
     openSheet(`<form class="sheet frd-sheet" id="frdSheet">${head("Friends")}<div class="sheet-body">
-      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend link" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
+      <label class="f"><span class="lh">Add a Friend</span><span class="frd-add"><input type="text" name="who" id="frdWho" maxlength="300" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="@username or friend code" value="${esc(prefill || "")}" data-noenter><button type="submit" class="btn primary" data-submit id="frdGo">Add</button></span></label>
       <p class="frd-msg" id="frdMsg" role="status" aria-live="polite"></p>
       <div id="frdBody">${bodyHtml()}</div></div></form>`, fd => { add(String(fd.get("who") || "")); return false; });
     load(true);
     if (!S.code) ensureCode();
   }
   async function ensureCode(fresh){
-    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend link no longer works."); }
+    try { if (!(await ready())) return; S.code = String(await api.code(fresh) || ""); drawSheet(); if (fresh) toast("Your old friend code no longer works."); }
     catch (e) { if (e.setup) { S.setup = true; S.err = e.message; } else say(e.message, true); drawSheet(); }
   }
   async function add(raw){
@@ -211,12 +211,12 @@
     try { pv = await api.preview(code); } catch (e) { err = e.message; }
     if (!dlg.open || !dlg.querySelector("#frdLinkSheet")) return;
     if (!pv) {
-      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend link isn't working anymore. Ask them to send you a new one.")}</p></div>
+      openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body"><p style="margin:0" role="alert">${esc(err || "That friend code isn't working anymore. Ask them for their current code.")}</p></div>
         <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn primary" data-act="close">OK</button></div></div>`);
       return;
     }
     const name = esc(pv.display_name || "Classmate"), un = pv.username ? `<span class="mini">@${esc(pv.username)}</span>` : "";
-    const say2 = {self: "This is your own friend link. Send it to someone you study with.", friends: `You and ${name} are already friends.`,
+    const say2 = {self: "This is your own friend code. Give it to someone you study with.", friends: `You and ${name} are already friends.`,
       asked: `You've asked ${name} to be friends. They'll see it in their Friends.`, asked_you: `${name} asked to be your friend.`}[pv.state];
     const can = pv.state === "none" || pv.state === "asked_you";
     openSheet(`<div class="sheet" id="frdLinkSheet">${head("Add a Friend")}<div class="sheet-body">
@@ -260,15 +260,20 @@
           api.block(id).then(() => { toast(`Blocked ${nm}.`); S.at = 0; setTimeout(() => openFriends(), 60); }, e => toast(e.message));
         });
         return true;
+      // the code itself, to paste or read out; Share sends it in a message (with a link that opens it, for whoever's on a phone)
+      case "frd-copy": {
+        const G = window.SBGROUPS && SBGROUPS.share;
+        if (G && G.copyText) G.copyText(S.code, "Code copied. They type it in Friends, Add a Friend."); else navigator.clipboard.writeText(S.code).then(() => toast("Code copied"), () => {});
+        return true;
+      }
       case "frd-share": {
-        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = "Add me as a friend on Studyboard";
-        if (!link) { if (G && G.copyText) G.copyText(S.code, "Code copied. They can type it in Friends > Add a Friend."); return true; }
-        if (G && G.sendText) G.sendText("Studyboard Friend Link", txt, link); else navigator.clipboard.writeText(link).then(() => toast("Copied"), () => {});
+        const link = linkOf(S.code), G = window.SBGROUPS && SBGROUPS.share, txt = `Add me as a friend on Studyboard. My friend code is ${S.code}`;
+        if (G && G.sendText) G.sendText("Studyboard Friend Code", txt, link); else navigator.clipboard.writeText(`${txt}`).then(() => toast("Copied"), () => {});
         return true;
       }
       case "frd-qr": S.qr = !S.qr; drawSheet(); return true;
       case "frd-newlink":
-        confirmSheet("Make a New Link?", "Your current friend link and QR code stop working. Friends you already have stay your friends.", "Make a New Link", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
+        confirmSheet("Make a New Code?", "Your current friend code and QR code stop working. Friends you already have stay your friends.", "Make a New Code", () => { setTimeout(() => { openFriends(); ensureCode(true); }, 60); });
         return true;
       case "frd-link-ask": busy(async () => {
         const r = await api.askCode(id);
@@ -291,7 +296,7 @@
     if (!live()) return "";
     const L = S.lists;
     if (!FRIENDS.showCard({live: true, loaded: S.rows != null && !S.err, hidden: cardHidden(), friends: L.friends.length, incoming: L.incoming.length, sent: L.sent.length})) return "";
-    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Send them your friend link. Once you're friends, you'll find each other here.</span></div>
+    return `<section class="frd-card" aria-labelledby="frdCardT"><div><b id="frdCardT">Studying With Someone?</b><span>Give them your friend code. Once you're friends, you'll find each other here.</span></div>
       <div class="row-actions"><button type="button" class="btn primary small" data-act="frd-open">Add a Friend</button><button type="button" class="link-btn" data-act="frd-card-hide">Not Now</button></div></section>`;
   }
   hook("groupsHead", groupsHead);
