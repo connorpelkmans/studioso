@@ -2883,6 +2883,8 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
 body:has(#dlg[open]) #lmsRelog{display:none}
+/* computers: a message sits at the bottom too (32px up from 980px wide), so the notice steps up above it instead of covering its button */
+@media (min-width:980px){body:has(#toast.show) #lmsRelog{bottom:calc(42px + var(--toast-h,44px) + env(safe-area-inset-bottom,0px))}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){

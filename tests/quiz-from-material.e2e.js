@@ -28,7 +28,7 @@ const SEED = {v: 2, updated: 1, courses: [{id: "c1", name: "Biology", code: "BIO
   await page.evaluate(() => { __sbSync.ui.rvView = "cards"; __sbSync.ui.deckId = null; __sbSync.render(); }); await page.waitForTimeout(200);
   ok(await page.evaluate(() => document.querySelectorAll("#view .rv-deck").length === 1 && !/Lecture 5 Quiz/.test(document.querySelector("#view .deck-grid").textContent)), "it never shows up as an empty deck in Flashcards");
   await page.evaluate(() => { __sbSync.ui.rvView = "quizzes"; __sbSync.render(); }); await page.waitForTimeout(200);
-  await page.click("#view .rv-quiz .rv-info"); await page.waitForTimeout(300);
+  await page.click('#view .rv-quiz .rv-peek[data-act="qz-open"]'); await page.waitForTimeout(300);
   ok(await page.evaluate(() => /from\s*Lecture 5/.test(document.querySelector("#view .deck-stats").textContent)), "its page says where it came from");
   ok(!errs.length, "no page errors: " + errs.join(" | "));
   await b.close(); console.log(`quiz-from-material.e2e: ${n} checks passed`);
