@@ -2884,7 +2884,10 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 #lmsRelog .lr-x:hover{opacity:1;background:color-mix(in srgb,var(--paper) 14%,transparent)}
 @keyframes lrIn{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translate(-50%,0)}}
 @media (prefers-reduced-motion:reduce){#lmsRelog{animation:none}}
-body:has(#dlg[open]) #lmsRelog{display:none}
+/* hidden while a sheet is open without display:none, which replayed its slide-in (popping up again) every time a sheet closed */
+body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
+#lmsRelog{transition:bottom .2s ease}
+@media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
 /* computers: a message sits at the bottom too (32px up from 980px wide), so the notice steps up above it instead of covering its button */
 @media (min-width:980px){body:has(#toast.show) #lmsRelog{bottom:calc(42px + var(--toast-h,44px) + env(safe-area-inset-bottom,0px))}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message

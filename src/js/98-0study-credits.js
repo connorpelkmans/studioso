@@ -696,7 +696,8 @@ var SBSC = (() => {
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     sfx("pop");
-    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    // (focus time kept from a skipped or reset session: a coin lands when the count finishes, so the credits are heard as well as seen)
+    setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600, r.kind === "focus" ? () => sfx("coinLand") : null), still ? 0 : 250);
     if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
