@@ -81,6 +81,9 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 }
 .head-actions > .top-add{order:-1}
 @media not all and (max-height:600px){ .top-add{display:none!important} }
+/* A phone's keyboard shrinking the app (the iPhone app resizes above it) isn't a short window: the header keeps its own
+   buttons, so the page and its toolbars don't shift while typing */
+html.kb-open .top-add{display:none!important}
 @media (max-width:979px) and (max-height:600px){
   body.cp-docked nav.tabs .in [data-tab="companion"]{font-size:0!important}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}

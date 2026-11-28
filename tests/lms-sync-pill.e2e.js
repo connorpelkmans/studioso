@@ -28,7 +28,7 @@ let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };
       await page.goto(base); await page.waitForFunction(() => window.SBLMS && SBLMS.brightspace, null, {timeout: 40000});
       await page.evaluate(() => { const L = SBLMS.brightspace; L.save({mode: "api", host: "https://learn.example.edu", map: {"7": "c1"}, last: Date.now() - 864e5}); });
       await page.evaluate(() => { window.__done = false; SBLMS.brightspace.syncNow().then(() => { window.__done = true; }); });
-      await page.waitForFunction(() => !!window.__lmsGate, null, {timeout: 8000}); await page.waitForTimeout(400);
+      await page.waitForFunction(() => !!window.__lmsGate, null, {timeout: 8000}); await page.waitForTimeout(800);
       const pill = () => page.evaluate(() => { const e = document.getElementById("syncPill"); if (!e) return null; const r = e.getBoundingClientRect(); return {text: e.textContent.trim(), dots: e.querySelectorAll(".sp-dots i").length, shown: +getComputedStyle(e).opacity > 0.9, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right)}; });
       const p1 = await pill();
       if (process.env.PILL_SHOT) await page.screenshot({path: path.join(process.env.PILL_SHOT, `pill-${w}.png`), clip: {x: Math.max(0, p1.left - 80), y: p1.top - 40, width: Math.min(w, p1.right - p1.left + 160), height: 120}});

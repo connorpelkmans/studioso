@@ -81,7 +81,7 @@ const SEED = () => ({v: 2, updated: 1, decks: [], tasks: [], notes: [],
 
     // Focus routines saved during Pro keep working
     await act("pomo-open"); await page.waitForTimeout(400);
-    await page.click('#pomoDlg .pr-chip[data-id="r2"]'); await page.waitForTimeout(400);
+    await page.click('#pomoDlg .rt-chip[data-id="r2"]'); await page.waitForTimeout(400);
     ok(await page.locator("dialog[open] .plan-sheet").count() === 0 && await page.evaluate(() => window.__sbProStudy.state().settings.routine === "r2"), "free: the second routine of your own still works");
 
     ok(errs.length === 0, "no console errors: " + errs.join(" | "));

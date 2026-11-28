@@ -65,7 +65,10 @@ const SEED = {v: 2, courses: [], tasks: [], decks: [], files: [], events: [], se
       }, {b64: png.toString("base64"), info, z});
     };
 
-    const d1 = await dots(1);
+    // A phone opens the board at its own 100%, which is 80% of the board's size (nbHome in 01-render.js)
+    const zh = await zoom(), d0 = await dots(zh);
+    ok(Math.abs(zh - 0.8) < 0.001 && d0.cnt > 500 && d0.gap > 15, "the phone's own 100% (80%) has the dark dots on the board's 9px grid: " + d0.gap.toFixed(1));
+    const d1 = await dots(await zoomTo(1));
     ok(d1.cnt > 500 && d1.gap > 15, "at 100% the dark dots sit on the board's 9px grid: " + d1.gap.toFixed(1));
     for (const want of [1.73, 0.61, 1.5, 0.83]) {
       const z = await zoomTo(want), r = await dots(z);

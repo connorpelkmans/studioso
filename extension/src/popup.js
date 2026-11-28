@@ -53,6 +53,7 @@ async function activeTab() {
 function errWords(e) {
   e = String(e || "");
   if (!e) return "";
+  if (/^offline$/i.test(e)) return "you're offline";
   if (/timeout/i.test(e)) return "the school site took too long to answer";
   if (/fetch|network|offline|ERR_|load failed/i.test(e)) return "the school site couldn't be reached";
   if (/\b40[13]\b|unauthori[sz]ed|forbidden/i.test(e)) return "you may have been signed out";

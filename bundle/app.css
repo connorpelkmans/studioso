@@ -422,6 +422,8 @@ label.f .lh .req{margin-left:0}
 input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:max(16px,1rem);font-weight:400}
 textarea{min-height:84px;resize:vertical}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+/* Focus: Studying For, then Working On (stacked on a phone, where task names need the width) */
+@media (max-width:600px){.pomo-for{grid-template-columns:minmax(0,1fr);gap:10px}}
 .two>*,label.f{min-width:0}
 label.f select,label.f input:not([type=checkbox]):not([type=radio]){max-width:100%;min-width:0}
 fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
@@ -443,6 +445,13 @@ legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .menu-list .sw{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
+/* where a notice sits can change while it's up (the keyboard closes, a message shows below it): it glides there instead of jumping */
+.toast{transition:opacity .2s,bottom .25s ease,transform .25s ease}
+@media (prefers-reduced-motion:reduce){.toast{transition:opacity .2s}}
+html[data-motion="static"] .toast{transition:opacity .2s}
+/* above the other things that sit at the bottom of the screen (a recording pill, a preview banner, the time zone note, all at 60),
+   so a message never shows up underneath one of them, looking as if it was gone at once */
+#toast.toast{z-index:61}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* v2 additions */
@@ -1305,6 +1314,12 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .note.rotating::after{content:attr(data-deg);position:absolute;left:50%;bottom:-30px;transform:translateX(-50%) rotate(calc(-1 * var(--rot)));background:#10254A;color:#fff;font:700 .75rem var(--display);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .note-task-tag{display:inline-flex;align-items:center;gap:2px;max-width:100%;border:0;border-radius:5px;background:rgba(255,255,255,.6);color:#1F3F9A;font:700 .72rem/1.3 var(--display);padding:2px 7px;margin:0 0 6px 4px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-task-tag:hover{background:#fff}
+/* A note's course tag and task tag: the same shape, one under the other, flush on the left with their text lined up (both have
+   the 3px edge), and a long task name ends in … instead of being cut off */
+.note > :is(.note-tag,.note-task-tag){display:flex;align-items:center;gap:3px;width:fit-content;max-width:100%;box-sizing:border-box;margin:0 0 5px;padding:2px 7px 2px 6px;border-radius:5px;font:700 .72rem/1.3 var(--display);text-align:left}
+.note > .note-task-tag{border-left:3px solid color-mix(in srgb,#1F3F9A 45%,transparent)}
+.note > .note-task-tag svg{flex:none;margin:0!important;vertical-align:0!important}
+.note-task-tag .ntt-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-task{padding:6px 8px;font-size:.875rem;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
 .tf-notes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .tf-note{position:relative;width:150px;min-height:70px;background:var(--nc);color:#2A2418;border-radius:3px 3px 8px 3px;padding:8px 26px 8px 9px;font-size:.84rem;line-height:1.35;box-shadow:0 3px 8px rgba(0,0,0,.15);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -1949,6 +1964,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .pr-chip{flex:none;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;border-radius:999px;padding:3px 8px 3px 7px;white-space:nowrap;font-variant-numeric:normal}
 .pr-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
 .pr-chip.gt-chip::before{display:none}
+/* the course pill on Also Today rows is the same size as the one beside Do This Next (103-phone-design.css) */
+.plan-row .pr-chip:not(.gt-chip){box-sizing:border-box;height:22px;padding:0 9px 0 8px}
 .pr-why{grid-area:why;justify-self:end;display:inline-flex;align-items:center;gap:6px;max-width:21em;min-width:0;border:0;background:none;padding:4px 6px;border-radius:8px;font-size:.82rem;color:var(--muted);text-align:right}
 button.pr-why{cursor:pointer}
 button.pr-why:hover{background:var(--soft);color:var(--ink)}
@@ -2662,8 +2679,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 @keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
 html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
-/* with a message showing too, the notice moves up above it */
-html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
+.toast.sync-pill{font-variant-numeric:tabular-nums}
+/* with a message showing too, the notice moves up just above it (by the message's own height, which 01-helpers.js measures) */
+html:has(body > #toast.show) body > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}
+/* (on a phone a message in a sheet shows at the top, so there it stays put) */
+@media (min-width:640px){html:has(dialog[open] > #toast.show) dialog[open] > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}}
+/* phones: in the same spot as the message (above the tab bar), so it doesn't sit in the middle of the list */
+@media (max-width:639px){
+  .toast.sync-pill{bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));max-width:calc(100vw - 24px)}
+  html.kb-open .toast.sync-pill{bottom:calc(var(--kb-h,0px) + 12px)}
+  dialog[open] > .toast.sync-pill{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
 /* Right-to-left pages (01-i18n.js sets dir="rtl" for a finished Arabic, Hebrew, Farsi or Urdu translation). The shell uses logical
    sides (inset-inline, padding-inline-start), so the sidebar, the Add button and the Time Today control mirror with the page;
    these are the few rules that can't be written that way */
@@ -2917,7 +2943,7 @@ dialog:has(.plan-sheet){width:min(600px,calc(100% - 24px))}
 @media (prefers-reduced-motion:no-preference){.plan-orb{animation:planGlow 3.6s ease-in-out infinite}}
 @keyframes planGlow{50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--hero-b) 8%,transparent),0 8px 28px var(--hero-glow)}}
 
-.cp-banner{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
+.cp-banner{font-variant-numeric:tabular-nums;position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:calc(100vw - 24px);padding:8px 8px 8px 16px;border-radius:999px;
   background:var(--surface);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35);font:600 .9rem var(--display)}
 .cp-banner .cp-txt{min-width:0;overflow-wrap:anywhere}
 @media (max-width:979px){
@@ -3939,10 +3965,13 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .kb-col.k-done .kb-band{opacity:.6}
 .kb-card.is-saving{opacity:.65}
 .kb-card{cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.kb-card.kb-lifted{opacity:.35}
-.kb-ghost{position:fixed;z-index:10000;pointer-events:none;margin:0;box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;list-style:none}
+/* Dragging a card: the same look as the Task Board's (00-base.css .ghost, .placeholder, .col.over): the card leaves a dashed gap
+   where it will land, the one in hand is tipped and lifted, and the column under it gets an accent ring */
+.kb-card.kb-lifted{display:none}
+.kb-ph{list-style:none;border:2px dashed var(--accent);border-radius:12px;background:color-mix(in srgb,var(--accent) 8%,transparent);box-sizing:border-box}
+.kb-ghost{position:fixed;z-index:10000;pointer-events:none;margin:0;transform:rotate(2deg) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);cursor:grabbing;list-style:none;will-change:transform}
 .kb-dragging .kb-card{cursor:grabbing}
-.kb-col.over{outline:2px dashed var(--gk,var(--accent));outline-offset:-2px;background:color-mix(in srgb,var(--gk,var(--accent)) 8%,transparent)}
+.kb-col.over{box-shadow:inset 0 0 0 2px var(--accent)}
 .card.gcard{cursor:grab}
 /* A card with a tab on its top-left corner is square there */
 .card.has-tab,.course-card,.deck,.grp-card,.deck-head,.grp-prev,.deck.deck-fc > .deck-face,.deck-fc .deck-lay .face{border-top-left-radius:0!important}
@@ -4069,6 +4098,12 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
   .frd-row .grp-item-btns{grid-column:2 / -1;justify-content:flex-start}
   .frd-row .grp-item-btns:has(.frd-more){grid-column:auto}
 }
+/* a friend's ⋯ menu isn't cut off by the list's rounded box; with no room below it opens upward */
+.frd-sec .grp-list{overflow:visible}
+.frd-sec .grp-list > li:first-child{border-top-left-radius:14px;border-top-right-radius:14px}
+.frd-sec .grp-list > li:last-child{border-bottom-left-radius:14px;border-bottom-right-radius:14px}
+.frd-more .grp-menu{left:auto;right:0;z-index:30}
+.frd-more.frd-up .grp-menu{top:auto;bottom:calc(100% + 4px)}
 /* your friend code, big and spaced so it's easy to read out or type */
 .frd-code.frd-code-big{flex:0 1 auto;font:800 1.7rem/1.2 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.14em;padding:12px 18px;text-align:center;user-select:all;-webkit-user-select:all}
 /* ===== module: 82-friend-share.css ===== */
@@ -4083,6 +4118,15 @@ dialog.ai-consent{width:min(520px,calc(100% - 24px));max-height:90vh;max-height:
 .fs-who .mini{color:var(--muted)}
 .fs-card{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .fs-sheet .grp-av{width:40px;height:40px;flex:none}
+/* Sent to You (Flashcards › Share or Import): what friends sent that's still waiting */
+button.fs-pick.fs-open{width:100%;border:0;background:none;color:inherit;font:inherit;text-align:start;padding:10px 6px;border-radius:10px}
+button.fs-pick.fs-open:hover{background:var(--soft)}
+button.fs-pick.fs-open:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.fs-open .fs-who{flex:1}
+.fs-go{margin-inline-start:auto;color:var(--muted);font-size:1.3rem;line-height:1}
+.fs-n{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-inline-start:4px;border-radius:9px;background:var(--late);color:#fff;font:700 .72rem/1 var(--display);vertical-align:2px}
+[data-act="grp-share-menu"]{position:relative}
+.fs-dot{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--late);color:#fff;font:700 .68rem/18px var(--display);text-align:center;pointer-events:none;box-shadow:0 0 0 2px var(--surface)}
 /* ===== module: 90-grades.css ===== */
 /* Grade Tracker and Rough Week Rescue */
 .gr-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
@@ -5277,6 +5321,12 @@ nav.tabs[data-pill="slim"] .in .nav-focus.active:not(.run) .nf-l::before{content
 .cp-front.cp-still .cp-breathe,.cp-front.cp-still .cp-shadow{animation:none!important}
 .cp-front.cp-paused *{animation-play-state:paused!important}
 html.cp-hover{cursor:pointer}
+/* Drag and drop: lifted while carried (swaying with the way it's carried), then it plops down where it's let go */
+.cp-front .cp.cp-drag{translate:0 -14px;scale:1.06;rotate:var(--cp-tilt,0deg);transition:translate .16s ease-out,scale .16s ease-out,rotate .12s linear;z-index:2}
+.cp-front .cp.cp-drag .cp-shadow{translate:0 10px;scale:.7;opacity:.55;transition:translate .16s,scale .16s,opacity .16s}
+.cp-front .cp.cp-drag .cp-breathe{animation-play-state:paused}
+.cp-front .cp.cp-plop{transition:opacity .2s ease}
+html.cp-grabbing,html.cp-grabbing *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
 .cp-move,.cp-breathe{position:absolute;inset:0;display:block;transform-origin:50% 93%;will-change:transform}
 .cp-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block}
 .cp-shadow{position:absolute;left:24%;right:24%;bottom:4%;height:7%;border-radius:50%;background:radial-gradient(closest-side,rgba(28,20,40,.26),rgba(28,20,40,0));display:block}
@@ -5350,8 +5400,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-bubble.cheer{font-size:.98rem;box-shadow:0 8px 26px color-mix(in srgb,var(--cp-wear,var(--accent)) 35%,transparent),0 0 0 2px color-mix(in srgb,var(--cp-wear,var(--accent)) 60%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--cp-wear,var(--accent)) 20%,var(--surface)),var(--surface) 75%)}
 .cp-bubble.cheer.on{animation:cpBubbleCheer .8s .25s ease-in-out 1}
 .cp-bubble.long,.cp-bubble.long.on{animation:none}
-@keyframes cpBubbleWobble{0%,100%{transform:none}35%{transform:rotate(-1.6deg)}70%{transform:rotate(1.2deg)}}
-@keyframes cpBubbleCheer{0%,100%{transform:none}20%{transform:translateY(-3px) rotate(-3deg)}45%{transform:translateY(-2px) rotate(3deg)}70%{transform:translateY(-1px) rotate(-1.5deg)}}
+/* the wiggle uses rotate and translate, not transform, so it adds to the bubble's pop-in (a transform transition still running)
+   instead of replacing it: with transform the bubble jumped to its resting spot the moment the wiggle began */
+@keyframes cpBubbleWobble{0%,100%{rotate:0deg}35%{rotate:-1.6deg}70%{rotate:1.2deg}}
+@keyframes cpBubbleCheer{0%,100%{translate:0 0;rotate:0deg}20%{translate:0 -3px;rotate:-3deg}45%{translate:0 -2px;rotate:3deg}70%{translate:0 -1px;rotate:-1.5deg}}
 .cp-front.cp-still .cp-bubble{animation:none!important;transition:opacity .2s!important}
 .cp-front.cp-still .cp-bubble.on{transform:none}
 @media (prefers-reduced-motion:reduce){.cp-bubble{transition:opacity .2s}.cp-bubble,.cp-bubble.on{transform:none;animation:none}}
@@ -5539,10 +5591,10 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cpt-show{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
 .cpt-show-b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The companion's Ask button (Companion tab, the speech bubble, Ask About This Task): one look everywhere, in every theme.
-   A pill with the companion's face in AI's soft purple, like every AI button; a theme's button gradient, hover
+   A solid purple pill with white text (not the soft purple of other AI buttons); a theme's button gradient, hover
    tint or photo glow never reaches it. Keyboard focus still gets a clear ring. */
-html .btn.primary.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid var(--ai-bd,#B9A2F5)!important;border-radius:999px!important;background:var(--ai-bg,#EFE9FE)!important;color:var(--ai-fg,#5B34C4)!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
-html .btn.primary.cp-ask-go:is(:hover,:active,:focus){background:var(--ai-bgh,#E4DAFD)!important;border-color:#8B5CF6!important;color:var(--ai-fg,#5B34C4)!important;filter:none!important;box-shadow:none!important;transform:none!important}
+html .btn.primary.cp-ask-go.cp-ask-go{display:inline-flex;align-items:center;justify-content:center;gap:.3em;flex:none;box-sizing:border-box;min-height:44px;padding:0 16px;border:1px solid #7C4DEB!important;border-radius:999px!important;background:#7C4DEB!important;color:#fff!important;font:700 1rem/1.2 var(--body);letter-spacing:normal;text-transform:none;white-space:nowrap;filter:none!important;box-shadow:none!important;text-shadow:none!important;transition:none}
+html .btn.primary.cp-ask-go.cp-ask-go:is(:hover,:active,:focus){background:#7C4DEB!important;border-color:#7C4DEB!important;color:#fff!important;filter:none!important;box-shadow:none!important;transform:none!important}
 html .btn.primary.cp-ask-go::before,html .btn.primary.cp-ask-go::after{content:none!important;display:none!important}
 html .btn.primary.cp-ask-go:focus-visible{outline:2px solid #7C4DEB!important;outline-offset:2px;box-shadow:0 0 0 2px var(--surface,#fff)!important}
 /* Every companion Ask (the Companion page, the speech bubble, a task's question box): just the word, centred and bigger */
@@ -6669,9 +6721,13 @@ button.snd-head:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
 .acc-log .btn{min-height:44px}
 .acc-log-btns{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acc-hint{margin:0;color:var(--muted)}
-body:has(.toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
-@media (min-width:980px){.acc-chip{bottom:24px}body:has(.toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}}
+/* it steps up above a message (#toast only: the Syncing and download pills used to push it up and down too), gliding rather than
+   jumping; on computers it sits in line with the message (beside the sidebar) all the time, so it never slides sideways when one shows */
+.acc-chip{transition:bottom .2s ease,background-color .15s,color .15s,border-radius .15s}
+body:has(#toast.show) .acc-chip{bottom:calc(168px + var(--toast-h,48px) + env(safe-area-inset-bottom,0px))}
+@media (min-width:980px){.acc-chip{bottom:24px;left:calc(50% + 68px);width:min(620px,calc(100vw - 300px))}body:has(#toast.show) .acc-chip{bottom:calc(42px + var(--toast-h,44px))}html[dir="rtl"] .acc-chip{left:calc(50% - 68px)}}
 @media (prefers-reduced-motion:reduce){.acc-chip{transition:none}}
+html[data-motion="static"] .acc-chip{transition:none}
 /* The check-in: how much is left? */
 .acc-sub{display:block;font-weight:400;font-size:.82rem;color:var(--muted);white-space:normal}
 .acc-left{display:grid;grid-template-columns:repeat(4,auto);gap:6px}
@@ -6695,7 +6751,7 @@ body:has(#toast.show) .acc-chip:not([hidden]) .acc-opt:not(.link){background:col
 body:has(#toast.show) .acc-chip:not([hidden]) :is(.acc-x,.acc-opt.link){color:inherit;opacity:.85}
 body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 24px));max-width:none;border-radius:0 0 16px 16px;box-shadow:0 12px 30px -8px rgba(8,20,50,.45)}
 @media (min-width:980px){
-  body:has(#toast.show) .acc-chip:not([hidden]){left:calc(50% + 68px);bottom:calc(32px + var(--toast-h,44px));width:min(620px,calc(100vw - 300px))}
+  body:has(#toast.show) .acc-chip:not([hidden]){bottom:calc(32px + var(--toast-h,44px))}
   body:has(.acc-chip:not([hidden])) #toast.show{width:min(620px,calc(100vw - 300px))}
 }
 /* ===== module: 97-notecards.css ===== */
@@ -6945,6 +7001,9 @@ html[data-hc="1"] .gt-line{stroke-width:2.8}
 .gr-card > .gi-tabs{margin-top:4px}
 .gi-pan{display:grid;gap:16px}
 .gi-pan > .gr-sub + .gr-sub{padding-top:14px;border-top:1px solid var(--line)}
+/* after a list of marks the dividing line sits as close under the last row as the lines between rows do (the grid's gap
+   put 16px more under the last one) */
+.gi-pan > .gr-sub:has(> ul.gr-work:last-child) + .gr-sub{margin-top:-16px}
 @media (max-width:520px){.gi-tabs{gap:2px;padding:3px}.gi-tab{flex:1 1 0;min-width:0;padding:6px 4px;font-size:.8rem;gap:4px}.gi-tab .n{padding:0 5px;font-size:.66rem}}
 /* phones: a mark row with two buttons (a missed item) puts them on their own line under the title, so the title isn't squeezed */
 @media (max-width:520px){.gr-work > li:has(> .gr-mz-acts){flex-wrap:wrap;row-gap:2px}.gr-work > li:has(> .gr-mz-acts) > .gr-row-main{flex:1 1 100%;min-height:0}.gr-work > li > .gr-mz-acts{flex:1 1 100%}}
@@ -7450,6 +7509,9 @@ nav.tabs:is([data-fit="2"],[data-fit="3"],[data-fit="4"],[data-fit="5"]) .nav-sy
 }
 .head-actions > .top-add{order:-1}
 @media not all and (max-height:600px){ .top-add{display:none!important} }
+/* A phone's keyboard shrinking the app (the iPhone app resizes above it) isn't a short window: the header keeps its own
+   buttons, so the page and its toolbars don't shift while typing */
+html.kb-open .top-add{display:none!important}
 @media (max-width:979px) and (max-height:600px){
   body.cp-docked nav.tabs .in [data-tab="companion"]{font-size:0!important}
   body.cp-docked nav.tabs .in [data-tab="companion"] svg{visibility:hidden}
@@ -8253,6 +8315,29 @@ h2.sec.c2-bh{align-items:center}
   .sch-b > .sch-bd > .sch-tc{display:block;flex:none;font:700 .74rem var(--display)}
 }
 .sch-bd > .sch-tc{display:none}
+/* a class under an hour that still has room for the band and a line (sch-slim, 01-calendar.js: about 43 minutes and up) keeps the
+   regular card's look, slimmer: the course band, then the kind and time on one line. Only shorter ones drop to the coloured line */
+@container (max-height:44px){
+  .sch-b.sch-slim > .sch-band{display:flex;padding:2px 8px}
+  .sch-b.sch-slim > .sch-band .cc-ic{width:13px;height:13px}
+  .sch-b.sch-slim > .sch-band b{font-size:.68rem!important}
+  .sch-b.sch-slim:has(> .sch-band) > .sch-bd{display:flex;align-items:center;gap:6px;flex:1;min-height:0;height:auto;padding:0 8px;box-shadow:none}
+  .sch-b.sch-slim > .sch-bd > .sch-tc{display:none}
+  .sch-b.sch-slim > .sch-bd > span{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.7rem}
+  .sch-b.sch-slim > .sch-bd > .sch-t{display:block;font-size:.74rem}
+  .sch-b.sch-slim > .sch-bd > span:nth-of-type(3){display:none}
+}
+/* shorter still (sch-tiny: under about 40 minutes), with no room for a band and a line: the whole card is the band, in the course
+   colour, with the icon, the course and the time in white on one row, so it still reads as the same card */
+.sch-col .sch-b.sch-tiny:has(> .sch-band){flex-direction:row!important;align-items:center;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 88%,#000),color-mix(in srgb,var(--c) 74%,var(--surface)))!important;border-color:transparent!important}
+.sch-col .sch-b.sch-tiny:has(> .sch-band):hover{filter:brightness(1.06)!important}
+.sch-b.sch-tiny > .sch-band{display:flex!important;flex:none;align-self:stretch;background:none!important;padding:0 6px 0 8px!important}
+.sch-b.sch-tiny > .sch-band .cc-ic{display:inline-flex!important;flex:none;width:13px!important;height:13px!important}
+.sch-b.sch-tiny > .sch-band b{font-size:.68rem!important}
+.sch-b.sch-tiny:has(> .sch-band) > .sch-bd{display:flex!important;align-items:center;flex:1;min-width:0;height:auto!important;padding:0 8px 0 0!important;box-shadow:none!important}
+.sch-b.sch-tiny > .sch-bd > .sch-tc{display:none!important}
+.sch-b.sch-tiny > .sch-bd > span{display:block!important;min-width:0;color:rgba(255,255,255,.88)!important;font-weight:600!important;font-size:.68rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sch-b.sch-tiny > .sch-bd > span:nth-of-type(2){display:none!important}
 .sch-chip{border-radius:8px!important;border-left-width:4px!important;padding:4px 7px!important;background:color-mix(in srgb,var(--c) 12%,var(--surface))!important;font-weight:700!important}
 .sch-nav .btn,.view-head .sch-nav .btn{border-radius:999px}
 .sch-now{height:2px!important}
@@ -8486,6 +8571,8 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
 .pt-panel .av-strip .av-chips{order:1;margin:0}
 .pt-panel .av-strip .av-line:not(:only-child){order:3;flex-basis:100%;margin:0;font-size:.85rem;color:var(--muted)}
 .pt-panel .av-strip:has(.av-chips) .av-line{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* no free time left (the day is over, or it's all taken): the message sits beside the Availability button, not under an empty row */
+.pt-panel .av-strip:not(:has(.av-chips)) .av-line{order:1;flex:1 1 220px;margin:0;font-size:.92rem;color:var(--ink)}
 .pt-panel .av-note{order:4;flex-basis:100%;margin:0}
 /* Phones: free windows as full-width rows (time on the left, length on the right) */
 @media (max-width:639px){
@@ -8495,6 +8582,7 @@ nav.tabs svg :is(path,rect,circle,line,polyline,polygon,ellipse){vector-effect:n
   .pt-panel .av-strip .av-top{margin:0;width:100%}
   .pt-panel .av-strip .av-acts{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
   .pt-panel .av-strip .av-acts .btn{width:100%;min-width:0;justify-content:center;white-space:nowrap}
+  .pt-panel .av-strip:not(:has(.av-chips)) .av-line{flex:none}
 }
 .pt-panel .plan-fixed ul{margin:0;gap:6px}
 .pt-panel .plan-fixed li{min-height:0;padding:8px 12px;border-radius:10px;border-left:4px solid var(--c,var(--line));background:var(--surface)}
@@ -8673,6 +8761,15 @@ ol.qzd-opts li{color:var(--ink)}
 .gp-d-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;font:800 .8rem var(--display);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .gp-d-h .spacer{flex:1}
 .gp-d-calc .gp-calc-out{margin-top:10px}
+/* Where You Stand: the goal and letter-line distances, as chips across the top of the dropdown */
+.gp-stand{grid-column:1/-1;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.gp-stand[hidden]{display:none}
+.gp-stand-chips{display:flex;flex-wrap:wrap;gap:6px}
+.gp-sc{display:inline-flex;align-items:center;min-height:26px;padding:0 10px;border-radius:999px;font:700 .82rem var(--body);background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--ink)}
+.gp-sc.gp-sc-ok{background:color-mix(in srgb,var(--leaf,#1E9E74) 15%,var(--surface));color:color-mix(in srgb,var(--leaf,#1E9E74) 70%,var(--ink))}
+.gp-sc.gp-sc-to{background:color-mix(in srgb,var(--accent) 13%,var(--surface))}
+.gp-stand .gi-edge-chip{padding:0 10px}
+.gp-stand-why{margin:8px 0 0;color:var(--muted)}
 @media (max-width:760px){.gp-drop{grid-template-columns:1fr;margin-left:0}}
 /* Files, Direction 1 */
 .fhead.g2-head{margin:0 0 10px;padding:0;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 2px 8px rgba(14,42,86,.08);overflow:hidden}
@@ -11112,7 +11209,8 @@ p.pr-wait{flex-direction:row}
 .pr-eyebrow{font:700 .74rem var(--display);letter-spacing:.06em;color:var(--pc,var(--accent,#7A4FD6));text-transform:uppercase;overflow-wrap:anywhere}
 .pr-rtitle b{font:700 1.7rem var(--display)}
 .pr-rtitle b span{font-size:1.05rem;font-weight:600;color:var(--muted)}
-.pr-chip{padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
+/* only the presenter's own result chips: a bare .pr-chip is also the course pill on Today's Plan, which this made big */
+.pr-chip:is(.c-ok,.c-warn,.c-over,.c-early){padding:7px 14px;border-radius:999px;font:700 .85rem var(--display)}
 .pr-chip.c-ok{background:#E3F5EA;color:#1D6B3D}.pr-chip.c-warn{background:#FFF3D6;color:#8A5A00}.pr-chip.c-over{background:#FDE7E5;color:#B42318}.pr-chip.c-early{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--muted)}
 .pr-runsel select{height:40px;border-radius:999px;padding:0 12px}
 .pr-rbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:18px;align-items:start}

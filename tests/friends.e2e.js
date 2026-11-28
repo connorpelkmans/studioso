@@ -120,6 +120,28 @@ async function main(browser, w){
     ok(!errs.length, tag + " no errors: " + errs.join(" | "));
     await ctx.close();
   }
+  // A friend request that arrives: a message on screen with View, and a count on the Groups icon (on any page)
+  {
+    const {ctx, page, errs} = await boot(browser, w, [{user_id: "u2", status: "pending", mine: false}]);
+    await page.waitForFunction(() => /Sam sent you a friend request/.test((document.getElementById("toast") || {}).textContent || ""), null, {timeout: 8000});
+    ok(true, tag + " a new friend request shows a message on screen");
+    ok(await page.evaluate(() => { const d = document.querySelector('nav.tabs [data-tab="groups"] .grp-dot'); return !!d && d.textContent === "1"; }), tag + " ... and a 1 on the Groups icon");
+    await page.evaluate(() => { const d = document.querySelector("dialog#dlg[open]"); if (d) d.close(); }); await page.click("#toast >> text=View"); await page.waitForSelector("#frdSheet .frd-row");
+    ok(/Sam/.test(await txt(page, "#frdSheet")), tag + " View opens the request");
+    await page.reload(); await page.waitForTimeout(3000);
+    ok(!/friend request/.test(await txt(page, "#toast.show")), tag + " a request is only announced once: " + await page.evaluate(() => { const t = document.getElementById("toast"); return t.className + " / " + t.textContent + " / " + localStorage.getItem("studyboard:friendReqSeen:u1"); }));
+    await page.evaluate(() => { const d = document.querySelector("dialog#dlg[open]"); if (d) d.close(); SBFRIENDS.open(); }); await page.waitForSelector("#frdSheet .frd-row");
+    await page.click('[data-act="frd-accept"]'); await page.waitForTimeout(600);
+    ok(await page.evaluate(() => !document.querySelector('nav.tabs [data-tab="groups"] .grp-dot')), tag + " once it's answered the Groups icon has no count");
+    // the ⋯ menu of the last friend isn't cut off by the list
+    await page.click(".frd-more summary"); await page.waitForTimeout(200);
+    const vis = await page.evaluate(() => { const m = document.querySelector(".frd-more[open] .grp-menu"), r = m.getBoundingClientRect(); const pts = [[r.left + 6, r.top + 6], [r.right - 6, r.bottom - 6]]; return pts.every(([x, y]) => m.contains(document.elementFromPoint(x, y))); });
+    await page.screenshot({path: path.join(shots, `friends-${w}-menu.png`)});
+    ok(vis, tag + " a friend's ⋯ menu shows in full: " + JSON.stringify(await page.evaluate(() => { const m = document.querySelector(".frd-more[open] .grp-menu"); return m ? [m.getAttribute("style"), m.getBoundingClientRect().toJSON(), (document.elementFromPoint(m.getBoundingClientRect().left + 6, m.getBoundingClientRect().top + 6) || {}).className] : "no menu"; })));
+    await page.screenshot({path: path.join(shots, `friends-${w}-menu.png`)});
+    ok(!errs.length, tag + " no errors: " + errs.join(" | "));
+    await ctx.close();
+  }
   // Opening someone's friend link
   {
     const {ctx, page, errs} = await boot(browser, w, [], "?friend=patx7777");

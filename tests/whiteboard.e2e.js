@@ -91,7 +91,9 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     await wb("tool", "hl"); await stroke([[F.x + 100, F.y + 260], [F.x + 400, F.y + 262]]);
     await wb("tool", "shape"); await wb("shape", "ellipse"); await stroke([[F.x + 500, F.y + 100], [F.x + 700, F.y + 220]]);
     await wb("tool", "pen");
-    const tri = [[F.x + 800, F.y + 300], [F.x + 900, F.y + 120], [F.x + 1000, F.y + 300], [F.x + 802, F.y + 298]];
+    // inside the board frame (on a wide screen the tools take a panel to its right, so the frame is about 740px wide)
+    const tri = [[F.x + 450, F.y + 360], [F.x + 550, F.y + 240], [F.x + 650, F.y + 360], [F.x + 452, F.y + 358]];
+    ok(tri.every(p => p[0] < F.x + F.w - 20 && p[1] < F.y + F.h - 20), "the triangle is drawn on the board");
     const dense = []; for (let i = 1; i < tri.length; i++) for (let k = 0; k < 12; k++) dense.push([tri[i - 1][0] + (tri[i][0] - tri[i - 1][0]) * k / 12 + (k % 3) * 2, tri[i - 1][1] + (tri[i][1] - tri[i - 1][1]) * k / 12 + (k % 2) * 3]);
     dense.push(tri[3]);
     await stroke(dense, true);
@@ -125,7 +127,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     ok((await live()).items[0].s === "Mitosis\nPMAT!", "and the edit is kept");
 
     await page.keyboard.press("Escape");
-    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.waitForTimeout(60);
+    await page.click('.wb-tray .wb-fontpick[data-id="font"]'); await page.waitForSelector('.wb-fontmenu', {timeout: 3000}).catch(() => {}); await page.waitForTimeout(60);
     ok(await page.locator('.wb-fontmenu [data-wb="font"]').count() === 5 && await page.locator('.wb-tray .wb-fontpick[data-id="font"][aria-expanded=true]').count() === 1, "the Text tool's writing style dropdown lists 5 styles");
     await page.keyboard.press("Escape"); await page.waitForTimeout(40);
     ok(await page.locator(".wb-fontmenu").count() === 0, "Escape closes it");
@@ -277,7 +279,7 @@ const SEED = {v: 2, courses: [{id: "c1", name: "Biology", code: "BIO 101", color
     L = await live();
     ok(L.strokes.length === keep.strokes.length && L.items.length === 1 && Math.abs((await page.evaluate(() => SBWB.cam())).z - zc) < 0.01, "after a reload the Whiteboard view, the board, its drawing and its zoom are all back");
     await act("wb-quick", "kanban"); await page.waitForTimeout(400);
-    ok((await saved()).length === 2 && await page.locator('.wb-boards [data-act="wb-go"]').count() === 2 && await page.locator('.wb-boards [data-act="wb-go"].on + [data-act="wb-opts"]').count() === 1 && (await live()).strokes.length === 0, "a second board starts empty, both show as tabs, and the ⋯ sits right after the open one");
+    ok((await saved()).length === 2 && await page.locator('.wb-boards [data-act="wb-go"]').count() === 2 && await page.locator('.wb-boards [data-act="wb-go"]:last-child.on').count() === 1 && await page.locator('.wb-boards > .nb-tlist + [data-act="wb-opts"]').count() === 1 && (await live()).strokes.length === 0, "a second board starts empty, both show as tabs (the new one last and open), and the ⋯ follows the tab list (f0fc29a: a steady tab order you can drag)");
     await page.click(`.wb-boards [data-act="wb-go"][data-id="${(await saved()).find(x => x.text === "Cell Biology").id}"]`); await page.waitForTimeout(300);
     ok((await live()).strokes.length === keep.strokes.length, "picking the first board in the dropdown opens it again");
 

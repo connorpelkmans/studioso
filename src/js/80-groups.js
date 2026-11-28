@@ -249,8 +249,9 @@
   /*GK-START*/
   const GK = (() => {
     const TABS = {
-      study: [["study", "Study"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]],
-      project: [["overview", "Overview"], ["tasks", "Tasks"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["chat", "Chat"], ["members", "Members"]]
+      // Most-used first: what you come for, then the chat, then the occasional tabs, Members last
+      study: [["study", "Study"], ["chat", "Chat"], ["sessions", "Sessions"], ["challenge", "Challenge"], ["boards", "Shared"], ["members", "Members"]],
+      project: [["overview", "Overview"], ["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files"], ["meetings", "Meetings"], ["boards", "Shared"], ["members", "Members"]]
     };
     const ROLES = [["lead", "Lead"], ["researcher", "Researcher"], ["editor", "Editor"], ["presenter", "Presenter"], ["designer", "Designer"]];
     const LIM = {question: 300, detail: 1000, answer: 1000, linkTitle: 120, linkNote: 200, minutes: 2000, actions: 12, peerNote: 300};
@@ -1044,7 +1045,8 @@
   }
   function updateNavBadge(){
     const b = $('nav.tabs [data-tab="groups"]'); if (!b) return;
-    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal();
+    // (friend requests waiting for you count too: 81-friends.js)
+    const n = Object.values(S.changed).reduce((a, x) => a + x, 0) + newsTotal() + (globalThis.SBFRIENDS && SBFRIENDS.waiting ? SBFRIENDS.waiting() : 0);
     let dot = $(".grp-dot", b);
     if (!n) { if (dot) dot.remove(); return; }
     if (!dot) { dot = document.createElement("span"); dot.className = "grp-dot"; b.appendChild(dot); }
@@ -1206,9 +1208,9 @@
   }
   // Each kind of group has its own sections, one tab at a time
   const GFEAT = {
-    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"],
-            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]],
-    project: [["tasks", "Tasks"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"], ["chat", "Chat"]]
+    study: [["decks", "Shared Decks"], ["quizzes", "Practice Quizzes"], ["qa", "Questions and Answers"], ["deadlines", "Deadlines"], ["chat", "Chat"],
+            ["sessions", "Sessions"], ["together", "Study Together"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]],
+    project: [["tasks", "Tasks"], ["chat", "Chat"], ["files", "Files and Links"], ["uploads", "File Uploads"], ["meetings", "Meetings"], ["findtime", "Find a Time"], ["boards", "Shared Whiteboards and Maps"]]
   };
   // Pro group features, in the same list with a PRO badge
   const GXFEAT = {
@@ -1220,6 +1222,37 @@
   const PROSEC = new Set(["weak", "challenge"]);
   const proSecOk = g => { try { return gxOn(g); } catch (e) { return true; } };
   const featOn = (g, k) => !hiddenOf(g).has(k) && (!PROSEC.has(k) || proSecOk(g));
+  // A new group starts with the core of its kind turned on. The rest waits in Edit > Features.
+  // Study: decks, quizzes, sessions, Study Together and chat (and deadlines when it's for a course). Project: everything free is on
+  // (if Meetings is turned off, Find a Time moves to Overview).
+  const GDEF_OFF = {study: ["qa", "deadlines", "findtime", "boards"], project: []};
+  const defaultHidden = (kind, course) => GDEF_OFF[kind === "project" ? "project" : "study"].filter(k => !(k === "deadlines" && course));
+  // A week after a lean new group gets its second member, the owner's next action there shows what else it can turn on (once)
+  const LEANK = () => "studyboard:grpLean:" + myId();
+  const leanAll = () => { try { return JSON.parse(localStorage.getItem(LEANK()) || "{}") || {}; } catch (e) { return {}; } };
+  const leanSet = (gid, v) => { const x = leanAll(); if (v) x[gid] = v; else delete x[gid]; try { localStorage.setItem(LEANK(), JSON.stringify(x)); } catch (e) {} };
+  function moreTipDue(g){
+    const mark = g && leanAll()[g.id];
+    if (!mark || mark.shown || !isOwner(g)) return null;
+    const off = GFEAT[isProj(g) ? "project" : "study"].filter(([k]) => hiddenOf(g).has(k));
+    if (!off.length) { leanSet(g.id, null); return null; }
+    const second = (S.members[g.id] || []).map(m => ts(m.joined_at)).filter(Boolean).sort((a, b) => a - b)[1];
+    return second && Date.now() - second >= 7 * 864e5 ? off : null;
+  }
+  function moreTipSheet(g, off){
+    leanSet(g.id, Object.assign({}, leanAll()[g.id], {shown: Date.now()}));
+    const proj = isProj(g);
+    openSheet(`<div class="sheet grp-more-tip">${head(proj ? "Add More to Your Project" : "Add More to Your Group")}<div class="sheet-body">
+      <p style="margin:0 0 8px">${esc(g.name)} started with just the basics. Now that your ${proj ? "team" : "group"} is up and running, you can turn on more:</p>
+      <ul class="gk-kind-feats">${off.map(([, l]) => `<li>${esc(l)}</li>`).join("")}</ul>
+      <p class="mini" style="margin:8px 0 0">Only you can change this, in Edit under Features. You can turn anything off again later.</p></div>
+      <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Not Now</button><button type="button" class="btn primary" data-act="grp-more-feats" data-id="${esc(g.id)}">Choose Features</button></div></div>`);
+  }
+  document.addEventListener("click", e => {
+    const el = e.target.closest && e.target.closest("#grpDetail [data-act]"), gid = ui.grp;
+    if (!el || !gid) return;
+    setTimeout(() => { if (dlg.open || ui.grp !== gid) return; const g = groupOf(gid), off = moreTipDue(g); if (off) moreTipSheet(g, off); }, 500);
+  });
   // Shared tab: whiteboards and concept maps, and how many more the group can share (3, or 10 in a Pro group: the server's count)
   const ROOM = {};
   function roomLine(g){
@@ -2069,7 +2102,7 @@
 </li>`; };
     const DOT = {todo: "#8A94A6", doing: "#2C55D6", done: "#1E9E74"};
     const col = (k, label, list, empty) => `<section class="kb-col k-${k}" data-kbcol="${k}" aria-label="${label}, ${list.length}" style="--sc:${DOT[k]}"><h4><span class="sd" aria-hidden="true"></span>${label}<small>${list.length}</small></h4><ul>${list.map(card).join("") || `<li class="kb-none">${empty}</li>`}</ul></section>`;
-    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Done", cols.done, "Nothing finished yet")}</div>`;
+    return `<div class="kb" role="group" aria-label="Task board. Drag a card to another column to change its status.">${col("todo", "To Do", cols.todo, "Nothing waiting")}${col("doing", "In Progress", cols.doing, "Nobody is working on anything")}${col("done", "Complete", cols.done, "Nothing finished yet")}</div>`;
   }
 
   /* Q&A board (study groups) */
@@ -2289,10 +2322,10 @@
 
   /* Project Tasks (groups.sql 1.13) */
   const PT_ICON = gi('<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M7.5 9.5l1.5 1.5 2.5-3M7.5 15.5l1.5 1.5 2.5-3M14 10h3.5M14 16h3.5"/>');
-  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Done"]];
+  const PT_FILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"], ["overdue", "Overdue"], ["done", "Complete"]];
   const PT_BFILTERS = [["all", "All"], ["mine", "Mine"], ["unassigned", "Unassigned"]];
   const PT_PRIO = [["", "None"], ["low", "Low"], ["med", "Medium"], ["high", "High"], ["urgent", "Urgent"]];
-  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Done"]];
+  const PT_STATUS = [["todo", "To Do"], ["doing", "In Progress"], ["review", "In Review"], ["done", "Complete"]];
   const ptInit = gid => (S.pt[gid] = S.pt[gid] || {ok: false, lists: [], tasks: [], filter: "all", list: "", arch: false, draft: {title: "", who: "", due: ""}, view: "list", busy: false, err: "", setup: false});
   const ptX = gid => { const x = S.pt[gid]; return x && x.ok ? x : null; };
   const ptTaskOf = id => { for (const k in S.pt) { const t = (S.pt[k].tasks || []).find(x => x.id === id); if (t) return t; } return null; };
@@ -2312,7 +2345,7 @@
     const me = myId(), done = t.status === "done", late = !done && GTL.due(t.due_at, today).late, ms = S.members[g.id] || [];
     const who = t.assignee_id && ms.some(m => m.user_id === t.assignee_id) ? t.assignee_id : "";
     const chip = who ? `<span class="pt-who">${av(mName(g.id, who), who)}<span>${esc(who === me ? "You" : mName(g.id, who))}</span></span>` : `<span class="pt-who none">Unassigned</span>`;
-    const mini = done ? `Done${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
+    const mini = done ? `Completed${t.completed_by ? " by " + esc(ptWho(g.id, t.completed_by)) : ""}` : "";
     const btns = (!done && !who ? `<button type="button" class="btn small" data-act="grp-pt-claim" data-id="${esc(t.id)}">Claim This</button>` : "");
     const pend = t._out || outPend(g.id, o => o.task === t.id);
     return `<li class="pt-task${done ? " is-done" : ""}${late ? " is-late" : ""}${t._tmp ? " is-saving" : ""}${pend ? " is-pending" : ""}" data-id="${esc(t.id)}"${t._tmp ? ' aria-busy="true"' : ""}>
@@ -2765,19 +2798,22 @@
     d.started = true;
     sbHaptic("lift");
     const r = d.el.getBoundingClientRect(), gh = d.el.cloneNode(true);
-    d.dx = d.x - r.left; d.dy = d.y - r.top;
+    d.dx = d.x - r.left; d.dy = d.y - r.top; d.gl = r.left; d.gt = r.top;
     gh.className += " kb-ghost"; gh.removeAttribute("data-id"); gh.setAttribute("aria-hidden", "true"); gh.style.width = r.width + "px"; gh.style.minWidth = r.width + "px"; gh.style.boxSizing = "border-box"; gh.style.left = r.left + "px"; gh.style.top = r.top + "px";
-    document.body.appendChild(gh); d.ghost = gh; d.el.classList.add("kb-lifted");
+    document.body.appendChild(gh); d.ghost = gh;
+    // as on the Task Board: the card leaves a gap where it will land, which moves as it's carried and the other cards make room
+    const ph = document.createElement("li"); ph.className = "kb-ph sm-skip"; ph.setAttribute("aria-hidden", "true"); ph.style.height = r.height + "px";
+    d.el.after(ph); d.el.classList.add("kb-lifted"); d.ph = ph; d.hCol = d.el.closest(".kb-col");
     const kb = d.el.closest(".kb"); if (kb) kb.classList.add("kb-dragging");
     kbTick();
   }
   function kbCol(x, y){ const u = document.elementFromPoint(x, y), c = u && u.closest && u.closest("#grpPT .kb-col"); return c || null; }
   function kbTick(){
     const d = kbDrag; if (!d || !d.started) return;
-    d.ghost.style.transform = `translate(${d.x - d.dx - parseFloat(d.ghost.style.left)}px, ${d.y - d.dy - parseFloat(d.ghost.style.top)}px) rotate(2deg)`;
+    d.ghost.style.translate = (d.x - d.dx - d.gl) + "px " + (d.y - d.dy - d.gt) + "px";
     const c = kbCol(d.x, d.y);
     $$("#grpPT .kb-col.over").forEach(k => { if (k !== c) k.classList.remove("over"); });
-    if (c) c.classList.add("over");
+    if (c) { c.classList.add("over"); if (d.hCol && d.hCol !== c) sbHaptic("tick"); d.hCol = c; kbPlace(d, c); }
     kbEdge(d, c);
     d.raf = requestAnimationFrame(kbTick);
   }
@@ -2797,17 +2833,68 @@
     const j = Math.max(0, Math.min(xs.length - 1, i + dir)); d.edgeAt = now;
     if (j !== i) { b._goTo = xs[j]; boardGo(b, xs[j]); d.edgeN++; }
   }
+  /* Motion, the same as the Task Board's (01-events.js bfPlay, bfLanded): cards that change places slide there, and on a drop the
+     card glides from the finger into its slot */
+  const KB_EASE = "cubic-bezier(.2,.8,.2,1)";
+  const kbStill = () => (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) || (window.SBMotion && SBMotion.noParticles && SBMotion.noParticles());
+  const kbCards = () => [...document.querySelectorAll("#grpPT .kb-card[data-id]:not(.kb-lifted)")];
+  function kbRects(){ const m = new Map(); if (kbStill()) return m; kbCards().forEach(c => { const r = c.getBoundingClientRect(); if (r.width) m.set(c.dataset.id, r); }); return m; }
+  function kbSlide(before, skip){
+    if (!before.size) return;
+    kbCards().forEach(c => {
+      const a = before.get(c.dataset.id); if (!a || c.dataset.id === skip || !c.animate) return;
+      const b = c.getBoundingClientRect(); if (!b.width) return;
+      const dx = a.left - b.left, dy = a.top - b.top; if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      c.animate([{transform: `translate(${dx}px,${dy}px)`}, {transform: "none"}], {duration: 260, easing: KB_EASE});
+    });
+  }
+  // The column's own order (GTL.order) decides where a card goes, so the gap opens where the card will really land
+  const kbTo = (d, col) => col === "doing" ? (d.from === "doing" || d.from === "review" ? d.from : "doing") : col;
+  function kbPlace(d, c){
+    const x = ptX(ui.grp), list = c.querySelector("ul"); if (!x || !list || !d.ph) return;
+    const col = c.dataset.kbcol, moved = x.tasks.map(t => t.id === d.id ? Object.assign({}, t, {status: kbTo(d, col)}) : t);
+    const order = (GK.board(moved)[col] || []).map(t => t.id), at = order.indexOf(d.id); if (at < 0) return;
+    const others = [...list.querySelectorAll(":scope > .kb-card[data-id]")].filter(n => n !== d.el), before = others[at] || null;
+    const next = n => { let m = n.nextElementSibling; while (m && m === d.el) m = m.nextElementSibling; return m; };
+    if (d.ph.parentNode === list && (before ? next(d.ph) === before : !next(d.ph) || !next(d.ph).matches(".kb-card[data-id]"))) return;
+    const was = kbRects();
+    if (before) list.insertBefore(d.ph, before); else list.appendChild(d.ph);
+    list.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = true; });
+    if (d.lastList && d.lastList !== list && !d.lastList.querySelector(".kb-card[data-id]:not(.kb-lifted)")) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
+    d.lastList = list;
+    kbSlide(was);
+    if (d.ph.animate && was.size) d.ph.animate([{opacity: 0, transform: "scaleY(.6)"}, {opacity: 1, transform: "none"}], {duration: 180, easing: KB_EASE});
+  }
+  function kbLand(id, ghost, before){
+    const gr = ghost && ghost.isConnected ? ghost.getBoundingClientRect() : null;
+    kbSlide(before, id);
+    if (ghost) ghost.remove();
+    const el = document.querySelector(`#grpPT .kb-card[data-id="${CSS.escape(id)}"]`);
+    if (!el || !gr || !el.animate || kbStill()) return;
+    const f = el.getBoundingClientRect(); if (!f.width) return;
+    const dx = gr.left + gr.width / 2 - (f.left + f.width / 2), dy = gr.top + gr.height / 2 - (f.top + f.height / 2);
+    el.style.zIndex = 5; el.style.position = el.style.position || "relative";
+    const a = el.animate([{transform: `translate(${dx}px,${dy}px) rotate(2deg) scale(1.03)`, boxShadow: "0 14px 30px rgba(0,0,0,.28)"}, {transform: "none", boxShadow: getComputedStyle(el).boxShadow}],
+      {duration: Math.round(Math.min(420, 220 + Math.hypot(dx, dy) * 0.35)), easing: "cubic-bezier(.22,.9,.25,1)"});
+    a.onfinish = a.oncancel = () => { el.style.zIndex = ""; if (el.style.position === "relative") el.style.position = ""; };
+  }
   function kbEnd(ok){
     const d = kbDrag; if (!d) return; clearTimeout(d.timer); cancelAnimationFrame(d.raf);
     if (!d.started) { kbDrag = null; return; }
-    const c = ok ? kbCol(d.x, d.y) : null, to = c ? c.dataset.kbcol : "";
-    if (d.ghost) d.ghost.remove(); d.el.classList.remove("kb-lifted");
+    // it lands where its gap is (as on the Task Board), so a drop between columns or just past one still goes where it showed
+    const c = ok ? ((d.ph && d.ph.closest("#grpPT .kb-col")) || kbCol(d.x, d.y)) : null, col = c ? c.dataset.kbcol : "", to = col ? kbTo(d, col) : "";
+    if (ok) sbHaptic("drop", {force: true});
+    const before = kbRects();
+    if (d.ph) d.ph.remove(); d.el.classList.remove("kb-lifted");
+    if (d.lastList) d.lastList.querySelectorAll(":scope > .kb-none").forEach(n => { n.hidden = false; });
     $$("#grpPT .kb-col.over").forEach(k => k.classList.remove("over")); const kb = d.el.closest(".kb"); if (kb) kb.classList.remove("kb-dragging");
     d.justDragged = true; kbDrag = d; setTimeout(() => { if (kbDrag === d) kbDrag = null; }, 350);
     d.started = false;
     const g = groupOf(ui.grp);
+    // the board redraws at once (ptMutate, then swapPT), then the card glides from where it was let go into its new slot
     if (g && to && to !== d.from && PT_STATUS.some(k => k[0] === to)) ptMutate(g.id, d.id, {status: to});
     else if (g && d.dirty) ptRefresh(g.id);
+    kbLand(d.id, d.ghost, before);
   }
   document.addEventListener("pointermove", e => {
     const d = kbDrag; if (!d || d.justDragged || e.pointerId !== d.pid) return;
@@ -3290,12 +3377,12 @@
 
   // What each kind of group comes with, shown when you choose one so the difference is clear
   const KIND_INFO = {
-    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and quizzes, and see who scores highest in a Quiz Battle", "Propose study sessions and see who is coming", "A weekly challenge with daily check-ins", "Ask questions and mark the answer that helped", "Share the cards you keep missing and see which ones trip up the group"]},
-    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and meeting notes whose action items become tasks"]}
+    study: {lead: "Learn together. Share what you study and keep each other going.", feats: ["Share decks and practice quizzes so everyone can study them", "Propose study sessions and see who is coming, or study together right now", "Chat with the group", "Your course's deadlines, when the group is for a course"], more: "Add questions and answers, whiteboards and more any time in Edit."},
+    project: {lead: "Get a piece of work finished as a team, on time, with a fair split.", feats: ["A countdown to the due date, a progress bar and what is behind", "A task board with owners and due dates, or a plan worked back from the due date", "Pick your part: Lead, Researcher, Editor, Presenter, Designer or a role of your own", "Shared files and links, and a team chat", "Meetings with notes, and Find a Time to pick a time that works for everyone", "Shared whiteboards, concept maps and presentations"], more: "Turn off anything your team doesn't need any time in Edit."}
   };
   const kindPreview = k => `<div class="gk-kind-note grp-kind-note" data-for="${k}"${k === "study" ? "" : " hidden"}><p class="gk-kind-lead">${esc(KIND_INFO[k].lead)}</p>
-      <div class="gk-kind-tabs" aria-label="Tabs you get">${GK.tabsFor(k).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
-      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>`;
+      <div class="gk-kind-tabs" aria-label="Tabs you start with">${GK.tabsFor(k).filter(([t]) => !GDEF_OFF[k].includes(t) && !PROSEC.has(t)).map(t => `<span>${esc(t[1])}</span>`).join("")}</div>
+      <ul class="gk-kind-feats">${KIND_INFO[k].feats.map(f => `<li>${esc(f)}</li>`).join("")}</ul><p class="mini" style="margin:6px 0 0">${esc(KIND_INFO[k].more)}</p></div>`;
   function newGroupSheet(g){
     const edit = !!g, proj = edit && isProj(g);
     const opts = coursesArr().map(c => `<option value="${esc(courseLabel(c))}">${esc(c.name)}</option>`).join("");
@@ -3364,7 +3451,8 @@ ${kindPreview("study")}${kindPreview("project")}`;
           } else if (goal) { try { await api.updateGroup(gid, {weekly_goal: goal}); } catch(e) {} }
           if (gcolor) { try { await api.updateGroup(gid, {color: gcolor}); } catch(e) {} }
           if (icon) { try { await setGroupIcon({id: gid}, icon); } catch(e) { note = ` The icon couldn't be saved. ${e.message}`; } }
-          if (tpl && tpl.kind === kind && (tpl.hidden || []).length) { try { await api.updateGroup(gid, {hidden_features: tpl.hidden.filter(k => GFEAT[kind].some(x => x[0] === k))}); } catch(e) {} }
+          const fromTpl = !!tpl && tpl.kind === kind, hid = fromTpl ? (tpl.hidden || []).filter(k => GFEAT[kind].some(x => x[0] === k)) : defaultHidden(kind, course);
+          if (hid.length) { try { await api.updateGroup(gid, {hidden_features: hid}); if (!fromTpl) leanSet(gid, {at: Date.now()}); } catch(e) {} }
           if (dlg.open) dlg.close(); S.groups = null; ui.tab = "groups"; ui.grp = gid; render(); await loadGroups();
           if (tpl && tpl.kind === "project" && kind === "project" && (tpl.tasks || []).length) tplTasksWhenReady(gid, tpl.id);
           askColorSoon(gid); toast(`${name} is ready. Invite your ${kind === "project" ? "team" : "classmates"}.${note}`, null, {label: "Invite", fn: () => inviteSheet(groupOf(gid))});
@@ -3586,7 +3674,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-retry": S.err = ""; if (ui.grp) { delete S.errG[ui.grp]; loadGroup(ui.grp); } else { S.groups = null; loadGroups(); } render(); return true;
       case "grp-code": codeSheet("", ""); return true;
       case "grp-share-menu": openSheet(`<div class="sheet share-menu">${head("Share or Import")}<div class="sheet-body"><div class="sm-list">
-          <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
+          ${window.SBFSHARE && SBFSHARE.menuOpt ? SBFSHARE.menuOpt() : ""}<button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-page"><b>Study Groups</b><span class="mini">Share decks with classmates in a group</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-code"><b>Enter a Share Code</b><span class="mini">Add a deck someone shared with you</span></button>
           <button type="button" class="sm-opt" data-act="grp-share-pick" data-id="grp-import"><b>Import a Deck File</b><span class="mini">A deck file someone sent you</span></button>
         </div></div></div>`); return true;
@@ -3600,6 +3688,7 @@ ${kindPreview("study")}${kindPreview("project")}`;
       case "grp-signup": if (dlg.open) dlg.close(); setTimeout(() => { if (typeof sb !== "undefined" && sb) sbSignInSheet("signup"); else sbAsk(); }, 30); return true;
       case "grp-new": if (needOnline("Study Groups Need a Free Account")) newGroupSheet(null); return true;
       case "grp-edit": if (g && isOwner(g)) newGroupSheet(g); return true;
+      case "grp-more-feats": { const gg = groupOf(id); if (!gg || !isOwner(gg)) return true; newGroupSheet(gg); setTimeout(() => { const f = dlg.querySelector(".grp-feats"); if (f) f.scrollIntoView({block: "start", behavior: "smooth"}); }, 60); return true; }
       case "grp-invite": inviteSheet(groupOf(id) || g); return true;
       case "grp-leave": if (g) confirmSheet(`Leave ${g.name}?`, `You'll stop seeing its decks, quizzes, sessions and messages. Anything you added to your own board or flashcards stays. ${isHub(g) ? "You can join again from the course's page." : "You can rejoin with the invite code."}`, "Leave Group", async () => {
         try { await api.removeMember(g.id, myId()); S.groups = (S.groups || []).filter(x => x.id !== g.id); ui.grp = null; unsubscribe(); render(); toast(`You left ${g.name}`); } catch(e) { toast(e.message); } }); return true;
@@ -4485,12 +4574,12 @@ ${kindPreview("study")}${kindPreview("project")}`;
   /* Where it all shows */
   function gxPane(g, k){
     const proj0 = isProj(g);
-    const ftSec = (k === "meetings" || (!proj0 && k === "sessions")) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
+    const ftSec = (k === "meetings" || (!proj0 && k === "sessions") || (proj0 && k === "overview" && !featOn(g, "meetings"))) ? (() => { const proj = proj0; return featOn(g, "findtime") ? `<section class="grp-sec" id="gxFind">${secHead(gi('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M12 13v3l2 1"/>'), "Find a Time", null, `<button type="button" class="btn small" data-act="gx-ft" data-id="${esc(g.id)}">Find a Time</button>`)}<p class="grp-none">${proj ? "See when every teammate is free and pick a meeting time that works for all of you." : "See when everyone is free and pick a time to study together."}</p></section>` : ""; })() : "";
     // Group Uploads work in every group project: each file counts in its uploader's own storage
     if (!gxOn(g)) return k === "members" ? `<div id="gxPro">${gxProBox(g)}</div>` : proj0 && k === "files" ? (featOn(g, "uploads") ? gxUploadsHtml(g) : "") : ftSec;
     const proj = isProj(g);
     if (k === "members") return `<div id="gxPro">${gxProBox(g)}</div>`;
-    if (proj && k === "overview") return `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
+    if (proj && k === "overview") return ftSec + `<div id="gxOver" class="gx-over">${gxTeamCard(g)}<div class="gx-tools">${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}${featOn(g, "report") ? `<button type="button" class="btn small" data-act="gx-report" data-id="${esc(g.id)}">Contribution Report</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl-save" data-id="${esc(g.id)}">Save as Template</button></div></div>`;
     if (proj && k === "tasks") return `<div id="gxTasks" class="gx-tools">${featOn(g, "rubric") ? `<button type="button" class="btn small" data-act="gx-rubric" data-id="${esc(g.id)}">Rubric Checklist</button>` : ""}${featOn(g, "split") ? `<button type="button" class="btn small" data-act="gx-split" data-id="${esc(g.id)}">Split the Work</button>` : ""}<button type="button" class="btn small" data-act="gx-tpl" data-id="${esc(g.id)}">Start From a Template</button></div>`;
     if (proj && k === "files") return featOn(g, "uploads") ? gxUploadsHtml(g) : "";
     if (k === "meetings" || (!proj && k === "sessions")) return ftSec + (proj || !featOn(g, "livequiz") ? "" : lqHtml(g));
@@ -4628,7 +4717,7 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
   document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("details.grp-more[open] [data-act]"); if (b) setTimeout(() => { const d = b.closest("details"); if (d) d.open = false; }, 0); }, true);
   document.addEventListener("keydown", e => { if (e.key !== "Escape") return; const d = document.querySelector("details.grp-more[open]"); if (d) { d.open = false; const sm = d.querySelector("summary"); if (sm) sm.focus(); e.stopPropagation(); } }, true);
   document.addEventListener("toggle", e => { const d = e.target; if (d && d.matches && d.matches("details.grp-more") && d.open) closeMenus(d); }, true);
-  window.SBGROUPS = {myName: () => myFirst(),
+  window.SBGROUPS = {myName: () => myFirst(), navBadge: () => updateNavBadge(),
     // open a group you just joined some other way (a Course Hub from a course page), reading the group list again
     openFresh: async gid => { if (!gid) return; S.groups = null; openGroup(gid); try { await loadGroups(); } catch (e) {} }, known: () => Array.isArray(S.groups) ? S.groups.length : null, probe: async () => online() ? ((await api.groups()) || []).length : null,
     // a shared deck, note or quiz link is waiting to open: the welcome sheet waits for it (01-accounts.js), so a first-time

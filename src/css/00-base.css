@@ -422,6 +422,8 @@ label.f .lh .req{margin-left:0}
 input[type=text],input[type=search],input[type=date],input[type=time],input[type=number],input[type=url],select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;font-size:max(16px,1rem);font-weight:400}
 textarea{min-height:84px;resize:vertical}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+/* Focus: Studying For, then Working On (stacked on a phone, where task names need the width) */
+@media (max-width:600px){.pomo-for{grid-template-columns:minmax(0,1fr);gap:10px}}
 .two>*,label.f{min-width:0}
 label.f select,label.f input:not([type=checkbox]):not([type=radio]){max-width:100%;min-width:0}
 fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
@@ -443,6 +445,13 @@ legend{font-size:.88rem;font-weight:600;padding:0;margin-bottom:6px}
 .menu-list .sw{margin-left:auto}
 .toast{position:fixed;left:50%;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1}
+/* where a notice sits can change while it's up (the keyboard closes, a message shows below it): it glides there instead of jumping */
+.toast{transition:opacity .2s,bottom .25s ease,transform .25s ease}
+@media (prefers-reduced-motion:reduce){.toast{transition:opacity .2s}}
+html[data-motion="static"] .toast{transition:opacity .2s}
+/* above the other things that sit at the bottom of the screen (a recording pill, a preview banner, the time zone note, all at 60),
+   so a message never shows up underneath one of them, looking as if it was gone at once */
+#toast.toast{z-index:61}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* v2 additions */
@@ -1305,6 +1314,12 @@ canvas.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:n
 .note.rotating::after{content:attr(data-deg);position:absolute;left:50%;bottom:-30px;transform:translateX(-50%) rotate(calc(-1 * var(--rot)));background:#10254A;color:#fff;font:700 .75rem var(--display);padding:3px 8px;border-radius:6px;white-space:nowrap}
 .note-task-tag{display:inline-flex;align-items:center;gap:2px;max-width:100%;border:0;border-radius:5px;background:rgba(255,255,255,.6);color:#1F3F9A;font:700 .72rem/1.3 var(--display);padding:2px 7px;margin:0 0 6px 4px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-task-tag:hover{background:#fff}
+/* A note's course tag and task tag: the same shape, one under the other, flush on the left with their text lined up (both have
+   the 3px edge), and a long task name ends in … instead of being cut off */
+.note > :is(.note-tag,.note-task-tag){display:flex;align-items:center;gap:3px;width:fit-content;max-width:100%;box-sizing:border-box;margin:0 0 5px;padding:2px 7px 2px 6px;border-radius:5px;font:700 .72rem/1.3 var(--display);text-align:left}
+.note > .note-task-tag{border-left:3px solid color-mix(in srgb,#1F3F9A 45%,transparent)}
+.note > .note-task-tag svg{flex:none;margin:0!important;vertical-align:0!important}
+.note-task-tag .ntt-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .note-task{padding:6px 8px;font-size:.875rem;background:rgba(255,255,255,.55)!important;border:1px solid rgba(42,36,24,.2)!important;border-radius:8px;color:#2A2418!important}
 .tf-notes{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
 .tf-note{position:relative;width:150px;min-height:70px;background:var(--nc);color:#2A2418;border-radius:3px 3px 8px 3px;padding:8px 26px 8px 9px;font-size:.84rem;line-height:1.35;box-shadow:0 3px 8px rgba(0,0,0,.15);white-space:pre-wrap;overflow-wrap:anywhere}
@@ -1949,6 +1964,8 @@ li.task .pp-row-btn:last-child{margin-right:12px}
 .pr-chip{flex:none;display:inline-flex;align-items:center;gap:5px;font:700 .68rem/1 var(--body);letter-spacing:.03em;color:color-mix(in srgb,var(--c) 55%,var(--ink));background:color-mix(in srgb,var(--c) 13%,transparent);border:0;border-radius:999px;padding:3px 8px 3px 7px;white-space:nowrap;font-variant-numeric:normal}
 .pr-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c);flex:none}
 .pr-chip.gt-chip::before{display:none}
+/* the course pill on Also Today rows is the same size as the one beside Do This Next (103-phone-design.css) */
+.plan-row .pr-chip:not(.gt-chip){box-sizing:border-box;height:22px;padding:0 9px 0 8px}
 .pr-why{grid-area:why;justify-self:end;display:inline-flex;align-items:center;gap:6px;max-width:21em;min-width:0;border:0;background:none;padding:4px 6px;border-radius:8px;font-size:.82rem;color:var(--muted);text-align:right}
 button.pr-why{cursor:pointer}
 button.pr-why:hover{background:var(--soft);color:var(--ink)}
@@ -2662,8 +2679,17 @@ html.board-max .wb-stage{border-radius:0;padding:max(8px,env(safe-area-inset-top
 @keyframes spDot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.sp-dots i{animation:none;opacity:.8}}
 html[data-motion="static"] .sp-dots i{animation:none;opacity:.8}
-/* with a message showing too, the notice moves up above it */
-html:has(#toast.show) .toast.sync-pill{transform:translateX(-50%) translateY(-56px)}
+.toast.sync-pill{font-variant-numeric:tabular-nums}
+/* with a message showing too, the notice moves up just above it (by the message's own height, which 01-helpers.js measures) */
+html:has(body > #toast.show) body > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}
+/* (on a phone a message in a sheet shows at the top, so there it stays put) */
+@media (min-width:640px){html:has(dialog[open] > #toast.show) dialog[open] > .toast.sync-pill{transform:translateX(-50%) translateY(calc(-10px - var(--toast-h,46px)))}}
+/* phones: in the same spot as the message (above the tab bar), so it doesn't sit in the middle of the list */
+@media (max-width:639px){
+  .toast.sync-pill{bottom:var(--sb-snack-b,calc(84px + env(safe-area-inset-bottom,0px)));max-width:calc(100vw - 24px)}
+  html.kb-open .toast.sync-pill{bottom:calc(var(--kb-h,0px) + 12px)}
+  dialog[open] > .toast.sync-pill{bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+}
 /* Right-to-left pages (01-i18n.js sets dir="rtl" for a finished Arabic, Hebrew, Farsi or Urdu translation). The shell uses logical
    sides (inset-inline, padding-inline-start), so the sidebar, the Add button and the Time Today control mirror with the page;
    these are the few rules that can't be written that way */

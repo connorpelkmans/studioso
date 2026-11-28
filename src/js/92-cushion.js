@@ -84,7 +84,7 @@ function pillText(c){
 const dayIn = (d, dl) => dl === 0 ? tr("cush.inToday", "the end of today") : dl === 1 ? tr("cush.inTomorrow", "tomorrow") : fmtDate(d);
 const dayName = (d, dl) => dl === 0 ? tr("cush.today", "Today") : dl === 1 ? tr("cush.tomorrow", "Tomorrow") : fmtDate(d);
 const rowCush = m => m < 0 ? tr("cush.rowShort", "{time} short", {time: fm(m)}) : tr("cush.rowSpare", "{time} spare", {time: fm(m)});
-const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9"/></svg>';
+const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 3.2 1.2 5.3 2.9 6.8.9.8 1.5 1.4 1.5 2.2s-.6 1.4-1.5 2.2C8.2 15.7 7 17.8 7 21M17 3c0 3.2-1.2 5.3-2.9 6.8-.9.8-1.5 1.4-1.5 2.2s.6 1.4 1.5 2.2c1.7 1.5 2.9 3.6 2.9 6.8"/></svg>';
 const COLOR = {spare: "#1E9E74", tight: "#D9A21B", short: "#D3352A"};
 
 const cur = () => { try { const F = computeFocus(); return F && F.cushion; } catch (e) { return null; } };

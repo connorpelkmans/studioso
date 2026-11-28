@@ -559,9 +559,10 @@ hook("act", (act, el, id) => {
 const css = document.createElement("style");
 css.textContent = `
 .lc-next{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(228px + env(safe-area-inset-bottom,0px));z-index:49;width:min(560px,calc(100vw - 32px));box-sizing:border-box;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
-@media (min-width:761px){.lc-next{bottom:92px}
-/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons */
-dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}}
+@media (min-width:761px){.lc-next{bottom:92px}}
+/* inside an open sheet it sits under the sheet, in the flow, so it never covers the sheet's own buttons (at every width: on a
+   phone it stayed fixed inside the sheet, rode along with the sheet's slide-in, then jumped into place when the slide ended) */
+dialog > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0}
 /* in the sheet's From Lecture to Exam card (any width) it is part of the card, under the step it's about */
 .lc-chain > .lc-next{position:relative;left:auto;bottom:auto;transform:none;width:auto;max-width:none;margin:10px 0 0;box-shadow:none;z-index:auto}
 .lc-next-t{margin:0;flex:1 1 220px;min-width:0;font-size:.9rem;line-height:1.35;overflow-wrap:anywhere}

@@ -533,6 +533,25 @@ const BB = [
     assert(items(out) === items(plainRun.out) && items(out) > 0, "and nothing was lost: " + items(out) + " items");
   });
 
+  await t("Brightspace: whoami getting no answer reads as signed out, offline or unreachable, not a raw error", async () => {
+    const run = async (failVersions, onLine) => JSON.parse(JSON.stringify(await raw(failVersions, onLine)));
+    const raw = async (failVersions, onLine) => {
+      const base = fakeFetch(BS, []);
+      const f = async (url, opts) => {
+        const p = String(url);
+        if (/users\/whoami$/.test(p) || (failVersions && /\/d2l\/api\/versions\/$/.test(p))) throw new TypeError("Failed to fetch");
+        return base(url, opts);
+      };
+      const ctx = vm.createContext({ fetch: f, AbortController, setTimeout, clearTimeout, location: { origin: "https://d.example.edu" }, console, navigator: { onLine } });
+      return vm.runInContext(L.harvestScript(L.P.brightspace, SAFE), ctx, { filename: "bs-whoami.js" });
+    };
+    assert.deepStrictEqual(await run(false, true), { needLogin: true }, "versions answered, so the sign-in ran out");
+    assert.deepStrictEqual(await run(false, false), { error: "offline" });
+    assert.deepStrictEqual(await run(true, false), { error: "offline" });
+    const r = await run(true, true);
+    assert(r && /^unreachable/.test(r.error) && !r.needLogin, JSON.stringify(r));
+  });
+
   console.log(fail ? `lms-harvest: ${fail} of ${n} failed` : `lms-harvest: ${n} checks passed`);
   process.exitCode = fail ? 1 : 0;
 })();
