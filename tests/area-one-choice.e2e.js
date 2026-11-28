@@ -13,7 +13,7 @@ const SEED = {v: 2, updated: 1, tasks: [], notes: [], files: [], decks: [], even
     const page = await ctx.newPage(); page.on("pageerror", e => errs.push(e.message));
     await page.goto("file://" + path.join(__dirname, "..", "index.html")); await page.waitForFunction(() => window.__sbSync && window.SBAREA, null, {timeout: 15000}); await page.waitForTimeout(600);
     const open = async () => { await page.evaluate(() => { document.querySelectorAll("dialog[open]").forEach(d => d.close()); SBAREA.sheet(); }); await page.waitForTimeout(300); };
-    const view = () => page.evaluate(() => ({on: [...document.querySelectorAll(".area-chip.on")].map(b => b.dataset.area), text: document.getElementById("areaText").value}));
+    const view = () => page.evaluate(() => ({on: [...document.querySelectorAll(".area-chip.on[data-area]")].map(b => b.dataset.area), text: document.getElementById("areaText").value}));
     // a saved field with both (from before): shown as the typed field, nothing picked
     await open();
     let v = await view();

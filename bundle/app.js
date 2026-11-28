@@ -45074,10 +45074,11 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
       <div class="sheet-foot"><button type="button" class="btn" id="bdLater">Sign Out</button><span class="spacer"></span><button type="submit" class="btn primary" data-submit id="bdSave">Continue</button></div></form>`, fd => {
       const iso = bdayOf(fd); if (!iso) { $("#bdMsg").textContent = "Enter your birthday."; return false; }
       answered = true;
-      if (refused() || yearsOld(iso) < 13) { closeUnderage(); return false; }
+      // (the check that asked is told no: left waiting, it held every later check, so publishing again showed nothing)
+      if (refused() || yearsOld(iso) < 13) { if (then) then(0); closeUnderage(); return false; }
       const b = $("#bdSave"); if (b) b.disabled = true;
       call("set_birthdate", {p_date: iso}).then(age => { ageKeep("ok"); if (dlg.open) dlg.close(); if (then) setTimeout(() => then(Number(age)), 0); })
-        .catch(e => { if (isUnder13(e)) { closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
+        .catch(e => { if (isUnder13(e)) { if (then) then(0); closeUnderage(); return; } answered = false; if (b) b.disabled = false; $("#bdMsg").textContent = rpcErr(e); });
       return false;
     });
     const form = dlg.querySelector("#ageAsk");
@@ -45128,7 +45129,10 @@ html[data-motion="calm"] .grp-badge.founder,html[data-motion="calm"] .grp-badge.
     if (ageCached() === "ok") return Promise.resolve(true);
     if (gateRun && gateFor === u.id) return gateRun;
     gateFor = u.id;
-    return (gateRun = new Promise(r => gate(r)));
+    // (only while it runs: kept after, an answer of "can't tell now" was never asked again, nor a birthday that went missing)
+    const run = gateRun = new Promise(r => gate(r));
+    run.then(() => { if (gateRun === run) gateRun = null; });
+    return run;
   }
   // Publishing needs it too (an account that hasn't been asked yet, say it was offline when it signed in)
   function ensureAge(then){ ageReady().then(ok => { if (ok) then(); }); }
@@ -53152,7 +53156,9 @@ function cleanFile(r) {
   /* Duplicate courses: a copy a school sync made of a course you already have is folded into the one you had first.
      Its tasks, events, files, notes and decks move across, blank details are filled in from it, and each school site's
      course list points at the one that stays. Two courses you made yourself are never merged */
-  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object");
+  // (made by a school sync: its id is the sync's own. A course you made that a sync was pointed at carries the sync's details
+  // too, but it's still yours: it was folded into a later copy you made, which then took the school course with it when deleted)
+  const synced = c => FIELDS.some(f => c && c[f] && typeof c[f] === "object" && String(c.id || "").startsWith(f + "c_"));
   const dupKey = c => { const code = cleanCourseCode(c.code, c.name); return code ? "c:" + codeKey(code) : synced(c) ? "n:" + String(c.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") : ""; };
   const blank = v => v == null || v === "" || (Array.isArray(v) && !v.length);
   function dupePlan(){
@@ -53310,6 +53316,8 @@ body:has(#dlg[open]) #lmsSyncIco.ls-corner{display:none}
 body:has(#dlg[open]) #lmsRelog{visibility:hidden;opacity:0;pointer-events:none}
 #lmsRelog{transition:bottom .2s ease}
 @media (prefers-reduced-motion:reduce){#lmsRelog{transition:none}}
+/* computers: a message sits at the bottom too (32px up from 980px wide), so the notice steps up above it instead of covering its button */
+@media (min-width:980px){body:has(#toast.show) #lmsRelog{bottom:calc(42px + var(--toast-h,44px) + env(safe-area-inset-bottom,0px))}}
 /* Phones: the message was cut to "Brightspace sign..." beside the button. The notice is a card the width of the screen, the message
    can take two lines, and the button says just "Sign In" (the message already says you were signed out) */
 @media (max-width:600px){
@@ -82110,7 +82118,9 @@ window.SBTRUTH = (() => {
     if (rest.length < A.length - 4 ? content < 5 : content < 2) return true;
     // a question about something: the answer names it (or a word starting the same way)
     if (/^\s*(what|who|why|how|when|where|which|explain|define|describe|tell me about|meaning of)\b/i.test(q)) {
-      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
+      // ("what deck is this", "which course is that": the answer names the one, not the kind, "You're looking at Cells")
+      const kind = (/^\s*(?:what|which)\s+([a-z]+)\s+(?:is|are|am i on|am i in)\s+(?:this|that|these|those|it|here|open|on screen)\b/i.exec(q) || [])[1];
+      const keys = (low(q).match(/[a-z0-9]+/g) || []).filter(w => !QSTOP.has(w) && w !== low(kind || "") && (w.length > 2 || /^(id|ego|dna|rna|atp|gdp|cpu|ai)$/.test(w)));
       if (keys.length && !keys.some(k => low(A).includes(k.length > 5 ? k.slice(0, k.length - 2) : k))) return true;
     }
     return false;
@@ -83603,7 +83613,7 @@ Examples:
       let L = pool;
       const cn = TR && TR.courseIn ? TR.courseIn(q) : null; if (cn) L = L.filter(t => t.courseId === cn.id);
       // (the days that pick them, not the day they go to: "move everything due wednesday to friday")
-      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
+      const sel = w.replace(/\b(?:to|till|until|onto|over to)\s+(?:next\s+)?(?:mon|tue|wed|thu|fri|sat|sun|tomorrow|today|the|dec|nov|jan|week\b|weekend|\d)\S*.*$/, "").replace(exM ? exM[0] : "\u0000", "");
       const r = TR && TR.range && /\b(today|tonight|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday|overdue|late|next \d+ days)\b/.test(sel) ? TR.range(sel, todayISO()) : null;
       if (r) L = L.filter(t => t.due && t.due >= r.from && t.due <= r.to);
       if (!cn && !r) return null;
@@ -84028,7 +84038,8 @@ Examples:
     const dueOf = d => (d.cards || []).filter(c => c.due && c.due <= today).length, newOf = d => (d.cards || []).filter(c => !c.due && !c.seen).length;
     const named = () => { let best = null, bs = 0; all.forEach(d => { const ws = (String(d.name).toLowerCase().match(/[a-z0-9&]{3,}/g) || []).filter(x => !/^(deck|cards|flashcards|terms|set|nursing|study)$/.test(x)); const s = ws.filter(x => new RegExp(`\\b${x.replace(/&/g, "\\&")}`).test(w)).length; if (s > bs) { bs = s; best = d; } }); return best; };
     // how to, not a deck called "How Do I"
-    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start|delete|rename|share)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\bfor me\b/.test(w))
+    // (sharing, renaming or deleting a deck is the app guide's to answer: they got these steps for making one)
+    if (/^\s*how (do|can|would|should) (i|you|we)\b[^?]*\b(make|create|add|start)\b[^?]*\b(deck|flash ?cards?|cards?)\b/.test(w) && !/\b(share|sharing|send|rename|delete|remove)\b/.test(w) && !/\bfor me\b/.test(w))
       return deckSay("Open Flashcards and tap New Deck, give it a name, then add cards (a question on the front, the answer on the back). Or just ask me: \"make flashcards from my cardiac note\", or \"make a deck called Pharm\".");
     // studying cards they have ("lets do psych cards", "time to review the heart deck", "lets do a card"): that deck opens to study,
     // never a new deck named after the words (round 7 made "Lets Do A Card" and a new Freud deck)
@@ -85667,7 +85678,7 @@ ANSWERING
       // push it 2 days", "got 17/20 on quiz 4 and 40/50 on the lab report, mark both done"): each part done in turn, the way the chat does
       // one on its own ("it" is the task the part before was about; "both" or "them" are the tasks done so far)
       if (multi && !made) { T.status = "Doing those one at a time…"; draw();
-        const outs = [], touched = []; let prev = "";
+        const outs = [], touched = [], chs = [], shows = []; let prev = "";
         for (const p0 of SBTRUTH.steps(q)) {
           let p1 = p0;
           if (prev) p1 = p1.replace(/\b(it|that one)\b/i, prev);
@@ -85682,12 +85693,14 @@ ANSWERING
           let r = null; LASTD = null; const cant = x => !(x && x.answer) || (LASTD && LASTD.intent === "cant") || /^I can't do that from the chat yet/.test(x.answer);
           if (dev) r = await deviceAct(p1, c, true).catch(() => null);
           if (cant(r)) { LASTD = null; const r1 = await intentAct(p1, c, att).catch(() => null); if (!cant(r1) || !(r && r.answer)) r = r1; }
-          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) r = {answer: r2.answer}; }
+          // (a change Ask proposes is kept, to review and confirm: it used to say "Here's the change." with nothing to confirm)
+          if (cant(r)) { const r2 = await SBASSIST.ask(p1, {screen: false}).catch(() => null); if (r2 && r2.answer) { const pk = SBASSIST.pack(r2); r = {answer: r2.answer}; chs.push(...pk.changes); shows.push(...pk.show);
+            const c0 = pk.changes.find(c => c.t && c.t.kind === "task" && c.t.id && state.tasks[c.t.id]); if (c0) r.did = {task: state.tasks[c0.t.id].title}; } }
           if (r && r.answer) { outs.push(r.answer); const nm = (r.did && r.did.task) || (LASTD && LASTD.task) || ""; const t = nm ? taskOf0(nm, null, true) : null; if (t) { prev = t.title; if (!touched.includes(t.title)) touched.push(t.title); }
             // (not only tasks: "dr chen's course to room NUR 210 and make it teal" is that course; an event or deck just changed too)
             else { const other = (r.ref && refName(r.ref)) || (LASTD && (LASTD.item || LASTD.course || LASTD.deck)) || ""; if (other) prev = String(other); } }
         }
-        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: []}; }
+        if (outs.length) made = {answer: outs.join("\n"), sources: [], followUps: [], actions: [], changes: chs.length ? chs : undefined, show: shows.length ? shows.slice(0, 5) : undefined}; }
       // about the companion itself (its name, what it is, what it's wearing): from its real settings, never made up
       if (ctl) made = {answer: ctl.answer, sources: [], followUps: [], actions: []};
       else if (!att.length && !made) { const me = me0 || selfAnswer(q2); if (me) made = {answer: me, sources: [], followUps: [], actions: []}; }
@@ -104858,7 +104871,7 @@ dialog:has(.pdr-sheet){width:min(1180px,calc(100% - 24px));height:min(94vh,1400p
   .pdr-bar > .pdr-nav{order:1}
   .pdr-bar > .pdr-zoom{order:2}
   .pdr-bar > .pdr-out{order:3;margin-left:auto}
-  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:3;bottom:calc((var(--pdr-dock) - 44px) / 2)}
+  .pdr-bar > :is(.pdr-modes,.pdr-ai){position:absolute;z-index:7;bottom:calc((var(--pdr-dock) - 44px) / 2)}
   .pdr-bar > .pdr-modes{left:10px}
   .pdr-bar > .pdr-ai{right:10px;margin:0}
   .pdr-sheet:not([data-mode="read"]) .pdr-bar > .pdr-ai{display:none}
@@ -113207,6 +113220,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
 @media (max-width:760px){
   dialog#dlg .pdr-sheet{box-sizing:border-box;transition:padding-bottom .3s cubic-bezier(.32,.72,0,1)}
   html.kb-open dialog#dlg .pdr-sheet:has(.pde-e.editing){padding-bottom:var(--kb-h,0px)}
+  /* (so the reader isn't also lifted above the keyboard like other sheets: that left the page 39px tall between the two) */
+  html.kb-open dialog#dlg:has(.pdr-sheet .pde-e.editing){margin-bottom:0;max-height:100%}
   dialog#dlg .pdr-sheet > .sheet-head{transition:margin-top .3s cubic-bezier(.32,.72,0,1),opacity .2s ease}
   dialog#dlg .pdr-sheet :is(.pdr-bar,.pdr-bar2){transition:opacity .2s ease}
   html.kb-open .pdr-sheet:has(.pde-e.editing) > .sheet-head{margin-top:calc(-1 * var(--pdr-fold,0px));opacity:0;pointer-events:none}
@@ -113225,7 +113240,8 @@ function concatU8(list){ const out = new Uint8Array(list.reduce((t, x) => t + x.
   .pde-bar.paneled .pde-sub{display:none}
   /* the bar sits at the bottom (99-pro.js) and is one line: the Read / Mark Up / Edit switch, then the tools that fit and More
      (measureFit). The chosen tool's options and notes float just above it, only while there are any */
-  .pdr-sheet > .pde-bar{position:relative;z-index:2;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
+  /* (above the page's edit layer, z-index 4: the More menu and the options float up over the page and are tapped there) */
+  .pdr-sheet > .pde-bar{position:relative;z-index:6;flex-wrap:nowrap;min-height:var(--pdr-dock,60px);padding:8px 10px 8px calc(var(--pdr-dl,0px) + 22px)}
   .pdr-sheet > .pde-bar > .spacer{display:none}
   .pdr-sheet > .pde-bar > .pde-sub{position:absolute;left:8px;right:8px;bottom:calc(100% + 6px);height:auto;min-height:48px;box-sizing:border-box;padding:4px 10px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:0 6px 20px rgba(0,0,0,.16)}
   .pdr-sheet > .pde-bar > .pde-sub:not(:has(> :not([hidden],.pde-note:empty))){display:none}

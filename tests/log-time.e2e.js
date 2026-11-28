@@ -79,7 +79,8 @@ const T = (id, title, due, hours, extra) => Object.assign({id, title, courseId: 
       await p.fill("#ltMin", "30m"); await p.click("dialog[open] [data-submit]"); await p.waitForTimeout(400);
       t = await task("old");
       ok(t.focusMin === 80 && t.log.length === 3 && t.log.filter(e => e[2] === "focus").length === 2, `${w}: logging on it keeps the earlier sessions: ` + JSON.stringify(t));
-      await p.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "edit-task"; b.dataset.id = "old"; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(400);
+      // (tapping a task shows it first; its Edit opens the editor, data-edit)
+      await p.evaluate(() => { const b = document.createElement("button"); b.dataset.act = "edit-task"; b.dataset.edit = "1"; b.dataset.id = "old"; document.body.appendChild(b); b.click(); b.remove(); }); await p.waitForTimeout(400);
       const ed = (await p.locator("dialog[open] .acc-log .tw-days > li").allInnerTexts()).map(s => s.replace(/\s+/g, " ").trim());
       ok(ed.length === 3 && /^Today 30m/.test(ed[0]), `${w}: the task editor shows time worked by day: ` + JSON.stringify(ed));
       ok(!errs.length, `${w}: no page errors: ` + errs.join(" | "));

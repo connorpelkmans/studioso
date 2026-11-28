@@ -12,8 +12,9 @@ const server = http.createServer((req, res) => {
   const f = path.join(root, p); if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end("no"); return; }
   const mime = {".html": "text/html", ".js": "text/javascript", ".json": "application/json", ".css": "text/css"};
   res.writeHead(200, {"content-type": mime[path.extname(f)] || "application/octet-stream"});
-  // Rubric Check is Pro: the paywall is off for this test
-  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;"))); return; }
+  // Rubric Check is Pro: the paywall is off for this test. Quick Capture is switched off for now in 01-helpers.js; switched on
+  // here so it stays tested for when it's back
+  if (p === "/index.html" || /^\/bundle\/[^/]+\.js$/.test(p)) { res.end((/\.html$/.test(p) ? csp.apply : String)(fs.readFileSync(f, "utf8").replace("const PRO_ENFORCED = true;", "const PRO_ENFORCED = false;").replace("const CAPTURE_OFF = true;", "const CAPTURE_OFF = false;"))); return; }
   fs.createReadStream(f).pipe(res);
 });
 let n = 0; const ok = (c, m) => { n++; assert(c, m); console.log("ok -", m); };

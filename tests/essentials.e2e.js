@@ -28,6 +28,8 @@ const MAIN_TABS = {phone: ["board", "plan", "flashcards", "courses", "companion"
   const browser = await chromium.launch({executablePath});
   const open = async (w, h, mob, init) => {
     const ctx = await browser.newContext({serviceWorkers: "block", viewport: {width: w, height: h}, isMobile: mob, hasTouch: mob});
+    // (window.__SB_TEST: the welcome prize wheel and other reward screens stay out of the way, as in the other browser tests)
+    await ctx.addInitScript(() => { window.__SB_TEST = true; });
     await ctx.addInitScript(require("./consent-ok")); await ctx.routeWebSocket(/supabase\.co/, ws => ws.close()); await ctx.route(/supabase\.co/, r => r.abort());
     if (init) await ctx.addInitScript(init.fn, init.arg);
     const page = await ctx.newPage(); page.errs = []; page.on("pageerror", e => page.errs.push(e.message));
