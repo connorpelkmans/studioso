@@ -391,13 +391,14 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
   .cpa-flow{animation:cpa-flow 3.6s linear infinite}
   .cpa-spin{transform-origin:50% 50%;animation:cpa-spin 6s linear infinite}
   .cpa-ecg{stroke-dasharray:42 42;animation:cpa-ecg 1.1s linear infinite}
-  .cpa-rgb{animation:cpa-rgb 3s linear infinite}
-  .cpa-twitch{transform-origin:50% 100%;animation:cpa-twitch 3.4s ease-in-out infinite}
-  .cpa-glint{animation:cpa-glint 2.6s ease-in-out infinite}
-  .cpa-note{animation:cpa-note 2.4s ease-out infinite}
+  .cpa-arc{animation:cpa-arc 1.3s steps(1,end) infinite}
+  .cpa-vortex{transform-origin:50% 50%;animation:cpa-spin 1.5s linear infinite}
+  .cpa-aura{transform-origin:50% 50%;animation:cpa-aura 2.2s ease-in-out infinite}
+  .cpa-spinr{transform-origin:50% 50%;animation:cpa-spin 2s linear infinite reverse}
+  .cpa-rise{transform-origin:50% 100%;animation:cpa-rise 1.3s ease-out infinite}
+  .cpa-sweep{animation:cpa-sweep 2.2s ease-in-out infinite}
 }
-/* the RGB parts stay coloured when still */
-.cpa-rgb{fill:#FF3B5C;stroke:#FF3B5C}
+
 .cp-still .cpa,.cpu-still .cpa,.cp-front.cp-still .cpa{animation:none!important}
 @keyframes cpa-wobble{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
 @keyframes cpa-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.6px)}}
@@ -411,12 +412,11 @@ html .btn.primary.cp-ask-go{min-width:68px;padding:0 15px;font-size:1rem;font-we
 @keyframes cpa-snow{0%{transform:translateY(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateY(var(--sy,6px));opacity:0}}
 @keyframes cpa-scan{from{transform:translateX(calc(var(--sx,8px) * -1))}to{transform:translateX(var(--sx,8px))}}
 @keyframes cpa-flutter{from{transform:rotate(-7deg) skewY(2deg)}to{transform:rotate(7deg) skewY(-5deg)}}
-@keyframes cpa-glow{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes cpa-glow{0%,100%{opacity:.08}50%{opacity:1}}
 @keyframes cpa-flow{from{transform:translateX(0)}to{transform:translateX(48px)}}
 @keyframes cpa-spin{to{transform:rotate(360deg)}}
 @keyframes cpa-ecg{from{stroke-dashoffset:84}to{stroke-dashoffset:0}}
-@keyframes cpa-rgb{0%,100%{fill:#FF3B5C;stroke:#FF3B5C}33%{fill:#4CFF8A;stroke:#4CFF8A}66%{fill:#4FA3FF;stroke:#4FA3FF}}
-@keyframes cpa-rgbs{0%,100%{stroke:#FF3B5C}33%{stroke:#4CFF8A}66%{stroke:#4FA3FF}}
-@keyframes cpa-twitch{0%,70%,100%{transform:rotate(0)}74%{transform:rotate(-14deg)}78%{transform:rotate(0)}82%{transform:rotate(-8deg)}86%{transform:rotate(0)}}
-@keyframes cpa-glint{0%,55%{transform:translateX(0);opacity:0}60%{opacity:1}85%{transform:translateX(14px);opacity:1}90%,100%{transform:translateX(14px);opacity:0}}
-@keyframes cpa-note{0%{transform:translateY(4px);opacity:0}20%{opacity:1}100%{transform:translateY(-8px);opacity:0}}
+@keyframes cpa-arc{0%,8%,16%,40%,48%,70%{opacity:1}4%,12%,28%,44%,58%,82%,100%{opacity:0}}
+@keyframes cpa-aura{0%,100%{transform:scale(.9);opacity:.55}50%{transform:scale(1.12);opacity:1}}
+@keyframes cpa-rise{0%{transform:translateY(2px) scale(.6);opacity:0}25%{opacity:1}100%{transform:translateY(-7px) scale(1.1);opacity:0}}
+@keyframes cpa-sweep{0%{transform:translateX(calc(var(--sw,8px) * -1));opacity:0}15%{opacity:1}60%{transform:translateX(var(--sw,8px));opacity:1}61%,100%{opacity:0;transform:translateX(var(--sw,8px))}}
