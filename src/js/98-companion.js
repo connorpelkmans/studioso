@@ -160,7 +160,7 @@
   /* The wardrobe's other 130 (98-comp-acc.js): 30 each for the head, face and neck and 20 for the chest, from Common to Legendary. How rare a thing is sets
      its price in Studyboard Credits (PRICE); none of them needs Pro */
   const RARITY = ["common", "uncommon", "rare", "exotic", "legendary"];
-  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Exotic", legendary: "Legendary"};
+  const RARITY_NAME = {common: "Common", uncommon: "Uncommon", rare: "Rare", exotic: "Epic", legendary: "Legendary"};
   // What each rarity costs in Studyboard Credits (98-0study-credits.js has how credits are earned and how long each takes)
   const PRICE = {common: 100, uncommon: 200, rare: 300, exotic: 500, legendary: 1000};
   const MORE = (typeof COMP_ACC_MORE === "function" ? COMP_ACC_MORE({OUT, WEAR, INK}) : []).filter(a => RARITY.includes(a.rarity) && !ACC.some(x => x.id === a.id));
@@ -1776,6 +1776,8 @@
 
   /* A new prop: shown in the middle of the screen in a burst of light, with Put It On and Later. It waits for a calm moment
      (nothing being typed, dragged or held, no sheet open), shows even when the companion is hidden, and comes one at a time */
+  // sound effects (01-sfx.js)
+  const sfxPlay = (n, o) => { try { if (window.SBSFX) SBSFX.play(n, o); } catch (e) {} };
   const revealQ = [];
   let revealOn = false, revealT = 0, pressing = false;
   document.addEventListener("pointerdown", () => { pressing = true; }, true);
@@ -1887,7 +1889,7 @@
       <div class="cpu-acts"><button type="button" class="btn cpu-later" data-cpg="later">Later</button><button type="button" class="btn cpu-wear" data-cpg="open">Open It</button></div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    try { sbHaptic("success", {force: true}); } catch (e) {}
+    try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("present");
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('.cpu-acts [data-cpg="open"]'); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let done = false;
@@ -1904,7 +1906,7 @@
       // the hat is the student's as soon as the box is opened (closing the app mid-animation can't lose it)
       try { SC().grant(hat.id); } catch (e) {}
       setCfg({gift: {[gf.key]: 1}});
-      try { sbHaptic("success", {force: true}); } catch (e) {}
+      try { sbHaptic("success", {force: true}); } catch (e) {} sfxPlay("unwrap");
       o.classList.add("cpg-opening");
       setTimeout(() => { gone(); revealOn = false; revealProp(Object.assign({}, hat, {kick: gf.hi, gift: true, hi: gf.hi, proGift: !gf.all, proNext: !!gf.proNext})); setTimeout(giftSoon, 4000); }, still() ? 0 : 900);
     };
@@ -1937,7 +1939,7 @@
       <div class="cpu-acts">${wearNow && !worn ? `<button type="button" class="btn cpu-later" data-cpu="later">Later</button><button type="button" class="btn cpu-wear" data-cpu="wear">Put It On</button>` : `<button type="button" class="btn cpu-wear" data-cpu="later">${worn ? "Love It" : "Got It"}</button>`}</div></div>`;
     document.body.appendChild(o);
     try { if (o.showPopover) o.showPopover(); } catch (e) {}
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); if (!a.paid && !a.gift) sfxPlay("reveal", {rarity: rarityOf(a)});
     const back = document.activeElement;
     setTimeout(() => { const b = o.querySelector('[data-cpu="wear"]') || o.querySelector("[data-cpu]"); if (b) try { b.focus({preventScroll: true}); } catch (e) {} }, 60);
     let closed = false;
@@ -2803,7 +2805,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
       ${c ? `<label class="cp-name"><span>Name</span><span class="cp-name-row"><input type="text" id="cpName" maxlength="${NAME_MAX}" value="${esc(nameOf(c))}" aria-label="Companion name" data-noenter><button type="button" class="btn small" data-act="comp-rename">Save</button></span></label>` : ""}
       <h3 class="fsec cp-acc-h">Accessories ${SC() ? SC().pill() : ""}</h3>
       ${c ? `<div class="cp-acc-prev" data-cid="${esc(c.id)}"><span class="cp-acc-prev-art" aria-hidden="true">${previewHtml(c, wear, 110)}</span><span class="mini cp-acc-prev-t">Point at an accessory to try it on</span></div>` : ""}
-      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Exotic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
+      <p class="mini" style="margin:0">Buy little things to wear with Studyboard Credits, the gold coins you earn by studying. The rarer a thing is, the more it costs: Common ${PRICE.common}, Uncommon ${PRICE.uncommon}, Rare ${PRICE.rare}, Epic ${PRICE.exotic} and Legendary ${PRICE.legendary.toLocaleString()}. ${nGot} of ${ACC.length} are yours so far, and what you buy is yours to keep.</p>
       ${SC() && SC().proSpinHtml ? SC().proSpinHtml() : ""}
       <div class="cp-accs"><button type="button" class="cp-acc-tile${wear.length ? "" : " on"}" data-act="comp-wear" data-acc="" aria-pressed="${!wear.length}"><span class="cp-acc-ic cp-none"></span><span class="cp-acc-n">Nothing</span><span class="mini">${wear.length ? "Take Off All" : "Wearing"}</span></button></div>
       ${ACC_GROUPS.map(([label, slots]) => { const list = ACC.filter(a => slots.includes(slotOf(a.id)) && (!a.gift || isEarned(a))).sort((x, y) => RARITY.indexOf(rarityOf(x)) - RARITY.indexOf(rarityOf(y)));
@@ -2859,7 +2861,7 @@ The student is asking about what's on their screen in Studyboard (a flashcard, a
     // it goes straight on
     const c = current();
     if (c) { const now = wearOf(c); setCfg({wear: {[c.id]: now.filter(x => slotOf(x) !== slotOf(a.id)).concat(a.id)}}); curSig = ""; build(); }
-    sbHaptic("success", {force: true});
+    sbHaptic("success", {force: true}); sfxPlay("buy");
     if (back === "picker") openPicker(); else if (back === "shop") styleShop("companions"); else if (dlg.open) dlg.close();
     try { refreshPicker(); } catch (e) {}
     if (back) {

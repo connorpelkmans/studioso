@@ -129,7 +129,7 @@ span.cp-ai-face.ai-ic{display:inline-block;position:relative;width:1.45em;height
 .cp-accs{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px}
 .cp-acc-tile{border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:8px 6px;display:grid;justify-items:center;gap:2px;font:inherit;cursor:pointer;min-height:44px}
 .cp-acc-tile.on{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent)}
-/* Rarity: grey Common, green Uncommon, blue Rare, purple Exotic, yellow Legendary */
+/* Rarity: grey Common, green Uncommon, blue Rare, purple Epic, yellow Legendary */
 .cp-rar{display:inline-block;font:700 .58rem/1 var(--display);letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:999px;color:#fff;background:#6B7280;vertical-align:middle;white-space:nowrap}
 .cp-rar-uncommon{background:#15803D}
 .cp-rar-rare{background:#2563EB}
