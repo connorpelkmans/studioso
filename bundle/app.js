@@ -1081,6 +1081,13 @@ function normTask(t){
   if (t.aiDecks != null && !(t.aiDecks && Array.isArray(t.aiDecks.ids) && typeof t.aiDecks.sig === "string")) delete t.aiDecks;
   else if (t.aiDecks) t.aiDecks.ids = t.aiDecks.ids.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30);
   if (t.readyDecks != null) { if (Array.isArray(t.readyDecks)) t.readyDecks = t.readyDecks.filter(x => typeof x === "string" && x.length <= 80).slice(0, 30); else delete t.readyDecks; }
+  // the cards picked from a picked deck (deck id → card ids); a deck with no entry counts in full
+  if (t.readyCards != null) {
+    if (t.readyCards && typeof t.readyCards === "object" && !Array.isArray(t.readyCards)) {
+      const o = {}; Object.keys(t.readyCards).slice(0, 30).forEach(k => { const v = t.readyCards[k]; if (k.length <= 80 && Array.isArray(v)) o[k] = v.filter(x => typeof x === "string" && x.length <= 80).slice(0, 1000); });
+      if (Object.keys(o).length) t.readyCards = o; else delete t.readyCards;
+    } else delete t.readyCards;
+  }
   if (t.readySnap != null) {
     const r = t.readySnap, num = v => isNum(v) && Number(v) >= 0 && Number(v) <= 100 ? Math.round(Number(v)) : null;
     if (!r || typeof r !== "object" || !(Number(r.at) > 0)) delete t.readySnap; else t.readySnap = {felt: num(r.felt), measured: num(r.measured), at: Number(r.at)};
@@ -13234,7 +13241,7 @@ const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids)
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + JSON.stringify(ex.readyCards || "") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -13245,31 +13252,37 @@ function examEvidence(ex){
   let out = null;
   const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
   if (linked.length) {
+    // a picked deck counts in full, or only the cards picked from it (readyCards: deck id → card ids)
+    const rc = ex.readyCards && typeof ex.readyCards === "object" ? ex.readyCards : {};
+    const cardsOf = d => { const ids = Array.isArray(rc[d.id]) ? new Set(rc[d.id]) : null; return d.cards.filter(live).filter(c => !ids || ids.has(c.id)); };
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
-    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+    out = {how: "linked", decks: ds, cards: ds.flatMap(cardsOf), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   // Automatic AI's reading of the exam's topics against what each deck holds
   if (!out && aiIds) {
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -13277,7 +13290,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -13288,7 +13301,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -13299,7 +13312,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), JSON.stringify(t.readyCards || ""), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
@@ -23213,6 +23226,7 @@ function deckSheet(d){
     <div class="sheet-body">${REQ_NOTE}
       <label class="f"><span class="lh">Deck Name ${REQ}</span><input type="text" name="name" required maxlength="120" value="${esc(d.name)}" autofocus placeholder="e.g. Population ecology"></label>
       <label class="f">Course<select name="courseId">${courseSelectHtml(d.courseId)}</select></label>
+      ${!isNew && window.SBXR ? SBXR.countsHtml(d, "") : ""}
       <label class="f"><span class="lh">Card Style <span class="hint">how cards look while you study</span></span><select name="cardStyle"><option value="">${esc((CARD_STYLES.find(x => x.id === deckDefaultStyle(d)) || CARD_STYLES[0]).name)} (default)</option>${cardStyleGroups().map(([label, list]) => `<optgroup label="${esc(label)}">${list.map(x => `<option value="${x.id}" ${d.cardStyle === x.id ? "selected" : ""} ${owns("card", x.id) ? "" : "disabled"}>${esc(x.name)}${x.tier === "pro" ? " ✦" : ""}</option>`).join("")}</optgroup>`).join("")}</select></label>
     </div>
     <div class="sheet-foot">${isNew ? "" : `<button type="button" class="btn danger" id="dkDel">Delete Deck</button>${window.SBVH ? SBVH.deckBtn(d) : ""}`}<span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>${isNew ? "Create Deck" : "Save Deck"}</button></div>
@@ -23220,7 +23234,7 @@ function deckSheet(d){
     const name = String(fd.get("name") || "").trim(); if (!name) return false;
     const cs = String(fd.get("cardStyle") || "");
     if (isNew) { const nd = normDeck({id: uid(), created: Date.now(), name, courseId: fd.get("courseId") || "", cardStyle: cs}); ui.deckId = nd.id; saveDeck(nd, `Created ${name}`); }
-    else saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved");
+    else { const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, "") : []; saveDeck(Object.assign(clone(state.decks[d.id]), {name, courseId: fd.get("courseId") || "", cardStyle: cs}), "Deck saved"); if (links.length) applyChanges(links, null); }
   });
   const del = $("#dkDel");
   if (del) del.addEventListener("click", () => { dlg.close(); ui.deckId = null; applyChanges([{kind: "deck", id: d.id, after: null}], `Deleted ${d.name}`); });
@@ -23232,13 +23246,16 @@ function cardSheet(d, cardId){
       <label class="f"><span class="lh">Front ${REQ}</span><textarea name="front" required data-noenter>${esc(c.front)}</textarea></label>
       <label class="f"><span class="lh">Back ${REQ}</span><textarea name="back" required data-noenter>${esc(c.back)}</textarea></label>
       <p class="mini" style="margin:0">Level ${c.box} of 5${c.seen ? `, next review ${cardDueOn(c) && cardDueOn(c) > todayISO() ? esc(fmtDate(cardDueOn(c))) : "today"}` : ", not studied yet"}. Right ${c.right}, wrong ${c.wrong}.</p>
+      ${window.SBXR ? SBXR.countsHtml(d, c.id) : ""}
     </div>
     <div class="sheet-foot"><button type="button" class="btn danger" id="cdDel">Delete</button><button type="button" class="btn" id="cdReset">Reset Progress</button><span class="spacer"></span><button type="button" class="btn primary" data-submit>Save Card</button></div>
   </form>`, fd => {
     const front = String(fd.get("front") || "").trim(), back = String(fd.get("back") || "").trim();
     if (!front || !back) { toast("A card needs both a front and a back"); return false; }
     const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); if (!x) return;
+    const links = window.SBXR ? SBXR.countsChanges(dlg, d.id, cardId) : [];
     x.front = front; x.back = back; delete x.check; nd.updated = Date.now(); saveDeck(nd, "Card saved");
+    if (links.length) applyChanges(links, null);
   });
   $("#cdDel").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); nd.cards = nd.cards.filter(y => y.id !== cardId); saveDeck(nd, "Card deleted"); });
   $("#cdReset").addEventListener("click", () => { dlg.close(); const nd = clone(state.decks[d.id]); const x = nd.cards.find(y => y.id === cardId); Object.assign(x, {box: 0, due: "", seen: 0, right: 0, wrong: 0}); saveDeck(nd, "Card progress reset"); });
@@ -62272,6 +62289,74 @@ var SBSC = (() => {
   let seenTotal = null, lastBy = null, doneSeen = null;
   const calm = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches || !!(window.SBMotion && SBMotion.level() !== "full"); } catch (e) { return false; } };
   const todayN = () => { const t = sc().today; return t && t.d === todayISO() ? Number(t.n) || 0 : 0; };
+  /* ---------- How much more ready for an exam this work made you ----------
+     Exam readiness (examReadiness, 01-helpers.js: the same number the exam shows everywhere) for each exam in the next 60 days,
+     noted while nothing is being earned (readyBase); a reward screen shows the exams it went up for since then, before and
+     after, with a soft chime. Readiness from somewhere else (another device, a slider) is noted quietly, never shown as earned. */
+  const READY_DAYS = 60;
+  let readyBase = null;
+  const readyNow = () => {
+    const m = {}, today = todayISO(), last = typeof addDays === "function" ? addDays(today, READY_DAYS) : "9999";
+    try { Object.values(state.tasks || {}).forEach(t => {
+      if (!t || !MILESTONE(t.type) || t.status === "done" || t.prepFor || !t.due || t.due < today || t.due > last) return;
+      const r = examReadiness(t); m[t.id] = r && r.pct != null ? r.pct : 0;
+    }); } catch (e) {}
+    return m;
+  };
+  const readySet = () => { readyBase = readyNow(); };
+  function readyUps(){
+    const before = readyBase, now = readyNow(); readyBase = now;
+    if (!before) return [];
+    const today = todayISO();
+    return Object.keys(now).filter(id => before[id] != null && now[id] - before[id] >= 1).map(id => {
+      const t = state.tasks[id], days = Math.max(0, Math.round((parse(t.due) - parse(today)) / 864e5));
+      return {id, title: t.title || "Exam", from: before[id], to: now[id], days};
+    }).sort((a, b) => (b.to - b.from) - (a.to - a.from) || a.days - b.days).slice(0, 2);
+  }
+  // A soft, short rising chime (two bell-like notes), quiet, only when Reward Sounds is on (Settings, Appearance)
+  const FX_KEY = "studyboard:fx";
+  const fxOn = () => { try { return localStorage.getItem(FX_KEY) !== "off"; } catch (e) { return true; } };
+  let fxAc = null;
+  function chime(force){
+    try {
+      if ((!fxOn() && !force) || document.hidden || (window.__SB_TEST && !window.__SB_FX)) return;
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return;
+      fxAc = fxAc || new C(); if (fxAc.state === "suspended") fxAc.resume();
+      const t0 = fxAc.currentTime + 0.02, out = fxAc.createGain(); out.gain.value = 0.11; out.connect(fxAc.destination);
+      [[659.25, 0], [987.77, 0.11]].forEach(([f, at]) => {
+        [[1, 1], [2.01, 0.18]].forEach(([mul, lv]) => {
+          const o = fxAc.createOscillator(), g = fxAc.createGain(), s = t0 + at;
+          o.type = "sine"; o.frequency.value = f * mul;
+          g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(lv, s + 0.012); g.gain.exponentialRampToValueAtTime(0.0008, s + (mul > 1 ? 0.35 : 0.9));
+          o.connect(g); g.connect(out); o.start(s); o.stop(s + 1);
+        });
+      });
+    } catch (e) {}
+  }
+  window.SBSC_FX = force => chime(force);
+  const TARGET = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>';
+  const whenTxt = d => d === 0 ? "today" : d === 1 ? "tomorrow" : `in ${d} days`;
+  const readyHtml = ups => !ups || !ups.length ? "" : `<div class="scr-ready" role="group" aria-label="Exam readiness">
+      <div class="scr-ready-h">${TARGET}<span>Exam Readiness</span></div>
+      ${ups.map(u => `<div class="scr-rd" data-from="${u.from}" data-to="${u.to}" aria-label="${esc(u.title)}: ${u.from} percent ready, now ${u.to} percent">
+        <div class="scr-rd-top"><span class="scr-rd-t"><b>${esc(u.title)}</b><span class="mini">${whenTxt(u.days)}</span></span><span class="scr-rd-n"><b data-rn>${u.from}</b>%</span></div>
+        <div class="scr-rd-bar" aria-hidden="true"><i class="scr-rd-was" style="width:${u.from}%"></i><i class="scr-rd-gain" style="left:${u.from}%;width:0"></i></div>
+        <span class="scr-rd-up" aria-hidden="true">+${u.to - u.from}% ready</span></div>`).join("")}</div>`;
+  // the bars fill to their new readiness, the numbers count up, and the chime plays once
+  function readyPlay(o, still, at){
+    const rows = [...o.querySelectorAll(".scr-rd")]; if (!rows.length) return;
+    setTimeout(() => {
+      if (!o.isConnected) return;
+      rows.forEach((row, i) => setTimeout(() => {
+        const a = Number(row.dataset.from), b = Number(row.dataset.to), g = row.querySelector(".scr-rd-gain");
+        if (g) g.style.width = (b - a) + "%";
+        countUp(row.querySelector("[data-rn]"), a, b, still ? 0 : 900);
+        row.classList.add("on");
+      }, still ? 0 : i * 260));
+      chime();
+      try { if (typeof sbHaptic === "function") sbHaptic("tap", {force: true}); } catch (e) {}
+    }, still ? 0 : at);
+  }
   const rq = []; let rOpen = false, rWait = 0;
   // What the credits are working toward: the cheapest accessory not owned yet (from the Wardrobe)
   const target = () => { try { const n = window.SBCOMP && SBCOMP.nextFor ? SBCOMP.nextFor() : null; return n ? Object.assign({icon: SBCOMP.propIcon ? SBCOMP.propIcon(n.id) : "", rarity: SBCOMP.rarityOf ? SBCOMP.rarityOf(n.id) : ""}, n) : null; } catch (e) { return null; } };
@@ -62315,13 +62400,13 @@ var SBSC = (() => {
     else if (gained < sum) lines.push({t: "Over today's limit", n: gained - sum, s: "Some of it didn't count today"});
     // nothing earned: no screen at all (a limit reached, a quiz with no right answers); a pass, a good session or a mastered talk
     // still gets its sound
-    if (!gained) { if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
+    if (!gained) { readySet(); if ((spec.sfx || 0) >= 2) sfx("reward", {level: spec.sfx}); return; }
     if (gained) setSc({today: {d: todayISO(), n: todayN() + gained}});
     const bal = balance();
     // the first screen ever also says what studying from before credits existed has already earned (it's in the balance)
     let welcome = 0;
     if (!sc().intro) { welcome = Math.max(0, bal - gained); setSc({intro: 1}); }
-    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome}));
+    rq.push(Object.assign({}, spec, {lines, gained, bal, bal0: bal - gained, day: todayN(), tgt: target(), welcome, ready: readyUps()}));
     showNext();
   }
   // browser tests see these screens only when they ask for them (credits are still counted), so older tests' clicks aren't covered
@@ -62354,6 +62439,7 @@ var SBSC = (() => {
         <span class="scr-big-n">+<b data-n>${still ? r.gained.toLocaleString() : "0"}</b></span><span class="scr-big-l">Credits</span></div>
       ${r.welcome ? `<p class="scr-welcome"><b>Welcome to Studyboard Credits!</b> Your studying before today already earned you ${coin(16)}<b>${r.welcome.toLocaleString()}</b>. Spend them on accessories for your companion.</p>` : ""}
       <ul class="scr-lines">${r.lines.map((l, i) => `<li style="--d:${0.55 + i * 0.28}s"${l.chest ? ` class="scr-l-chest ch-${l.chest}"` : ""}>${l.chest ? `<span class="scr-l-ic" aria-hidden="true">${chestSvg(l.chest, true)}</span>` : ""}<span><b>${esc(l.t)}</b>${l.s ? `<span class="mini">${esc(l.s)}</span>` : ""}</span><em class="${(l.n || 0) < 0 ? "neg" : ""}">${(l.n || 0) < 0 ? "" : "+"}${(l.n || 0).toLocaleString()}</em></li>`).join("")}</ul>
+      ${readyHtml(r.ready)}
       <div class="scr-stats"><span>Balance <b>${coin(16)}<span data-bal>${r.bal0.toLocaleString()}</span></b></span><span>Today <b>+${r.day.toLocaleString()}</b></span></div>
       <div class="scr-acts"><button type="button" class="btn scr-ward" data-scr="wardrobe">Wardrobe</button><button type="button" class="btn primary scr-go" data-scr="ok">Collect</button></div></div>`;
     mount(o);
@@ -62366,6 +62452,7 @@ var SBSC = (() => {
     setTimeout(() => coinRun(r.gained, cMs), (still ? 0 : 350) + (lvl >= 2 ? 450 : 150));
     const big = o.querySelector("[data-n]"), balEl = o.querySelector("[data-bal]");
     const tickAt = 0.55 + r.lines.length * 0.28;
+    readyPlay(o, still, tickAt * 1000 + 700);
     setTimeout(() => countUp(big, 0, r.gained, cMs, () => { o.classList.add("scr-landed"); sfx("coinLand"); try { if (typeof sbHaptic === "function") sbHaptic("tap"); } catch (e) {} }), still ? 0 : 350);
     setTimeout(() => countUp(balEl, r.bal0, r.bal, 900), still ? 0 : tickAt * 1000 + 200);
     const back = document.activeElement;
@@ -62387,16 +62474,17 @@ var SBSC = (() => {
     if (o.showPopover) o.setAttribute("popover", "manual");
     o.innerHTML = `<span class="scr-mini-coin"><img src="${COIN_SRC}" alt="" width="44" height="44"></span>
       <span class="scr-mini-t"><span class="scr-mini-k">${esc(r.kick || "Task Done")}</span><b>+<span data-n>${still ? r.gained : 0}</span> Credits</b><span class="mini">${esc(r.title || "")}</span>
-</span>`;
+      ${(r.ready || []).map(u => `<span class="scr-mini-rd">${TARGET}<span>${esc(u.title)}: <b>${u.from}% → ${u.to}%</b> ready</span></span>`).join("")}</span>`;
     mount(o);
     requestAnimationFrame(() => o.classList.add("show"));
     try { if (typeof sbHaptic === "function") sbHaptic("success"); } catch (e) {}
     sfx("pop");
     setTimeout(() => countUp(o.querySelector("[data-n]"), 0, r.gained, 600), still ? 0 : 250);
+    if (r.ready && r.ready.length) setTimeout(chime, still ? 0 : 450);
     let closed = false;
     const close = () => { if (closed) return; closed = true; o.classList.remove("show"); setTimeout(() => { try { if (o.hidePopover && o.matches(":popover-open")) o.hidePopover(); } catch (e) {} o.remove(); rOpen = false; paintPills(); setTimeout(showNext, 200); }, still ? 0 : 300); };
     o.addEventListener("click", close);
-    setTimeout(close, 3600);
+    setTimeout(close, r.ready && r.ready.length ? 5200 : 3600);
   }
   function openWardrobe(){
     try { if (window.SBCOMP && SBCOMP.open) SBCOMP.open(); setTimeout(() => { const h = document.querySelector(".cp-acc-h"); if (h) h.scrollIntoView({block: "start"}); }, 120); } catch (e) {}
@@ -62462,25 +62550,28 @@ var SBSC = (() => {
   });
   // Tasks (from anywhere: the board, the chat, a widget): noticed when the app draws, with each newly finished task named
   const doneNow = () => { const m = {}; Object.values(state.tasks || {}).forEach(t => { if (t && t.status === "done") m[t.id] = t; }); return m; };
-  function notice(){
+  // nothing to show: readiness as it is now is the new starting point for the next reward screen
+  function notice(){ if (!notice0()) readySet(); }
+  function notice0(){
     try { checkGrades(); checkPro(); } catch (e) { console.warn("study credits: grades", e); }
     invalidate();
     const t = totals(), done = doneNow();
-    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return; }
+    if (seenTotal == null) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); doneSeen = done; return false; }
     const fresh = Object.values(done).filter(x => doneSeen && !doneSeen[x.id] && x.doneAt && Date.now() - x.doneAt < 120000);
     doneSeen = done;
-    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return; }
+    if (t.earned <= seenTotal) { if (t.earned < seenTotal) seenTotal = t.earned; return false; }
     const gained = t.earned - seenTotal;
     // a big jump at once is work arriving from another device (or a backup), not something just done: counted quietly
-    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return; }
+    if (gained > 250 && !fresh.length) { seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh(); return false; }
     if (fresh.length) {
       const top = fresh.slice(0, 3);
       reward({kind: "task", compact: true, kick: fresh.length === 1 ? `${fresh[0].type || "Task"} Done` : `${fresh.length} Tasks Done`, title: top.map(x => x.title).join(", ") + (fresh.length > 3 ? "…" : ""),
         lines: top.map(x => ({t: x.title, n: taskPts(x)}))});
-      return;
+      return true;
     }
     // credits with no one piece of work behind them (counted quietly): the balance just goes up
     seenTotal = t.earned; lastBy = Object.assign({}, t.by); paintPills(); keepHigh();
+    return false;
   }
   // mid-way through a flashcard session, a quiz or a presentation run: wait (its own screen comes at the end)
   const studying = () => { try { const f = ui.fc; return (ui.tab === "flashcards" && f && (f.mode === "study" || f.mode === "quiz") && Array.isArray(f.q || f.qs) && !!(f.q || f.qs)[f.i]) || !!document.getElementById("prStage"); } catch (e) { return false; } };
@@ -62491,7 +62582,7 @@ var SBSC = (() => {
   }
   hook("render", noticeSoon);
   // the first count after start-up (and after the account's data arrives) is quiet: only new work is shown
-  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); }, 3000); setTimeout(openLeftovers, 12000);
+  hook("boot", () => { setTimeout(() => { invalidate(); seenTotal = totals().earned; lastBy = Object.assign({}, totals().by); doneSeen = doneNow(); keepHigh(); readySet(); }, 3000); setTimeout(openLeftovers, 12000);
     // grades are watched from 15 seconds after start-up (an account's data has arrived by then); a spin left waiting comes back
     setTimeout(() => { gradesReady = true; try { checkGrades(); checkPro(); } catch (e) {} spinSoon(); }, 15000); });
   /* ---------- "+7 credits": a little chip while studying ----------
@@ -62531,7 +62622,7 @@ var SBSC = (() => {
     return `<p class="mini scr-how-day">A steady study day (a 25-minute focus session, 20 flashcards, a practice quiz and a couple of tasks) earns about 65 credits, and finds about one chest: a Common in about a day, a Rare in half a week, an Epic in about a week and a Legendary in about two weeks.</p><ul class="scr-how">${KINDS.map(([k, n, how]) => `<li><span class="scr-how-n"><b>${esc(n)}</b><span class="mini">${esc(how)}</span></span><span class="scr-how-v" title="Earned so far">${coin(16)}${Math.floor(t.by[k] || 0).toLocaleString()}</span></li>`).join("")}</ul>`;
   }
 
-  return {balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
+  return {xr: id => { const t = state.tasks[id]; return t ? examReadiness(t) : null; }, prep: id => { const t = state.tasks[id]; return t && window.SBPREP ? SBPREP.pct(t) : null; }, readyNow, readySet, readyBase: () => Object.assign({}, readyBase || {}), fxOn, chime, FX_KEY, balance, earned, spent, owns, buy, grant, checkGrades: () => { gradesReady = true; checkGrades(); }, checkPro: () => { gradesReady = true; checkPro(); }, proSpinHtml, spinPro, welcomeSpin, planTest: o => { if (window.__SB_TEST) planTest = o || null; }, spinQueue: () => spinQueue().map(x => Object.assign({}, x)), spinSoon, spinsLeftThisWeek, rollChest, chestSvg, pendingChests: () => pending().map(c => Object.assign({}, c)), openLeftovers, liveHtml, focusLive, cardsLeftToday, quizTriesLeft, presRunsLeft, presSlideOk, QUIZ_PASS: () => QUIZ_PASS, PRES_SLIDE: () => PRES_SLIDE, PRES_WHOLE: () => PRES_WHOLE, totals: () => { const t = totals(); return {by: Object.assign({}, t.by), earned: t.earned, spent: spent(), balance: balance()}; },
     kinds: () => KINDS.map(k => k.slice()), coin, coinSrc: () => COIN_SRC, pill, howHtml, paintPills, pop, reward, cardsDone, quizDone,
     // For tests: count again now
     refresh: () => { invalidate(); notice(); }};
@@ -94011,16 +94102,20 @@ const EXAMPREP = (() => {
   function readiness(o){
     o = o || {}; const topics = o.topics || [], sess = o.sessions || [], decks = o.decks || {}, quiz = o.quiz || {};
     const prior = {weak: 0.1, ok: 0.2, strong: 0.35};
-    const doneS = sess.filter(s => s.done), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
+    const doneS = sess.filter(s => s.done || Number(s.part) >= 5), ev = {sessions: doneS.length, cards: 0, quizzes: 0};
     const byTopic = {}; let wsum = 0, rsum = 0;
     topics.forEach(t => {
-      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.filter(s => s.done).reduce((a, s) => a + (s.min || 0), 0);
+      // a session counts in full once it's done; before that, the time actually focused on it counts, up to its length
+      const mine = sess.filter(s => (s.topicIds || []).includes(t.id)), planned = mine.reduce((a, s) => a + (s.min || 0), 0), got = mine.reduce((a, s) => a + (s.done ? (s.min || 0) : Math.min(s.min || 0, Math.max(0, Number(s.part) || 0))), 0);
       const cov = t.done && !planned ? 1 : planned ? Math.min(1, got / planned) : 0;
       const links = t.links || [], ds = links.filter(l => l.k === "deck" && decks[l.id] && decks[l.id].mastery > 0), qs = links.filter(l => l.k === "quiz" && quiz[l.id] != null);
       const mastery = ds.length ? ds.reduce((a, l) => a + decks[l.id].mastery, 0) / ds.length : null, qz = qs.length ? qs.reduce((a, l) => a + quiz[l.id], 0) / qs.length / 100 : null;
       if (mastery != null) ev.cards++; if (qz != null) ev.quizzes++;
       let parts = [[cov, 0.5]]; if (mastery != null) parts.push([mastery, 0.3]); if (qz != null) parts.push([qz, 0.2]);
-      const ws = parts.reduce((a, p) => a + p[1], 0), r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
+      // evidence that isn't there yet (no flashcards, no quiz) holds half its share back: doing the sessions shows the work, not
+      // what you can recall, so sessions alone top out in the mid-70s and the rest is shown with cards and quizzes
+      const missing = (mastery == null ? 0.3 : 0) + (qz == null ? 0.2 : 0);
+      const ws = parts.reduce((a, p) => a + p[1], 0) + missing / 2, r0 = parts.reduce((a, p) => a + p[0] * p[1], 0) / ws;
       const base = t.done ? 0.6 : prior[t.conf] != null ? prior[t.conf] : 0.2;
       const r = clamp(base + (1 - base) * r0, 0, 1);
       byTopic[t.id] = {cov: Math.round(cov * 100), pct: Math.round(r * 100), mastery: mastery == null ? null : Math.round(mastery * 100), quiz: qz == null ? null : Math.round(qz * 100)};
@@ -94139,13 +94234,20 @@ function inputFor(ex, P, topics, due){
     place: (w, items) => { try { return AVAIL.place(w, items, {cfg: availCfg()}); } catch (e) { return EXAMPREP.simplePlace(w, items); } }};
 }
 // doneOf (optional): whether to count a session as done, for the exam-day forecast's "what if" (default: whether it is done)
+// The topics readiness is measured over: the plan's own, or, for a plan made without named topics, the exam itself (the planner
+// puts its sessions on topic "t0", the exam's name), so those plans get a readiness too
+function readyTopics(ex, P){
+  if (P.topics.length) return P.topics;
+  return sessionsOf(ex.id).some(s => s.topicId === "t0") ? [{id: "t0", name: ex.title || "the exam", conf: "ok", weight: null, done: false, links: [], edited: false}] : [];
+}
 function readyFor(ex, doneOf){
-  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {};
-  P.topics.forEach(t => (t.links || []).forEach(l => {
-    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).mastery};
+  const P = prepOf(ex), ss = sessionsOf(ex.id), decks = {}, quiz = {}, topics = readyTopics(ex, P);
+  topics.forEach(t => (t.links || []).forEach(l => {
+    // a linked deck: how well its cards are known now, with forgetting (DR, the same score as everywhere else), not just its boxes
+    if (l.k === "deck" && state.decks[l.id] && !decks[l.id]) decks[l.id] = {mastery: deckStats(state.decks[l.id]).ready / 100};
     if (l.k === "quiz") { const d = state.decks[l.deckId], q = d && (d.aiQuizzes || []).find(x => x.id === l.id), r = q && (q.results || []).slice(-1)[0]; if (r && r.total) quiz[l.id] = Math.round(r.score / r.total * 100); }
   }));
-  return EXAMPREP.readiness({topics: P.topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
+  return EXAMPREP.readiness({topics, sessions: ss.map(s => ({topicIds: s.topicId ? [s.topicId] : [], min: minOf(s), part: Number(s.focusMin) || 0, done: doneOf ? !!doneOf(s) : s.status === "done", kind: s.kind})), decks, quiz});
 }
 /* Exam Day Forecast (Pro): where readiness is heading by the exam, worked out with the plan's own readiness math (sessions done, linked
    flashcard mastery, quiz scores, and each topic's confidence, which Teach It Back sets), never a guess:
@@ -94162,7 +94264,7 @@ function forecastOf(ex){
   const full = readyFor(ex, () => true), slipped = dueSoFar.length - doneSoFar;
   // at your pace: as far from today's readiness toward finishing the plan as the share of sessions done so far
   const pace = rate == null || now.pct == null || full.pct == null ? null : Math.round(now.pct + rate * (full.pct - now.pct));
-  const topics = P.topics.map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
+  const topics = readyTopics(ex, P).map(t => ({id: t.id, name: t.name, conf: t.conf || "ok", now: (now.byTopic[t.id] || {}).pct || 0, full: (full.byTopic[t.id] || {}).pct || 0}));
   const weakest = topics.slice().sort((a, b) => a.full - b.full || a.now - b.now)[0] || null;
   const days = Math.max(0, Math.round((parse(ex.due) - parse(today)) / 864e5));
   // a forecast never promises a sure thing: doing every session is at most 95%, and the pace never beats it
@@ -95240,6 +95342,61 @@ function viewHtml(t){
   if (t.wrap) return `<div class="ewr-last ewr-mine" role="note"><b>Your reflection</b><span>You felt ${esc(pctTxt(t.wrap.felt))} ready, your practice scores said ${esc(pctTxt(t.wrap.measured))}, and you got ${esc(pctTxt(t.wrap.mark))}.</span>${t.wrap.next ? `<span>Next time: <i>${esc(t.wrap.next)}</i></span>` : ""}<button type="button" class="link-btn" data-act="ewr-open" data-id="${esc(t.id)}">Edit</button></div>`;
   return markOf(t) != null ? `<button type="button" class="btn small ewr-btn" data-act="ewr-open" data-id="${esc(t.id)}">Reflect on This ${esc(t.type)}</button>` : "";
 }
+// A picked deck's cards, to narrow it to some of them (after its row, shown with CSS beside it)
+function xrCardsPick(t, d){
+  const rc = t.readyCards && Array.isArray(t.readyCards[d.id]) ? new Set(t.readyCards[d.id]) : null, live = d.cards.filter(x => !x.draft);
+  const on = rc ? live.filter(x => rc.has(x.id)).length : live.length;
+  return `<details class="xr-cards" data-xrc="${esc(d.id)}"><summary>Choose Cards <span class="mini">${on === live.length ? "all cards" : `${on} of ${live.length} cards`}</span></summary><div class="xr-cards-in">${live.map(x =>
+    `<label class="mi-check"><input type="checkbox" name="c:${esc(d.id)}" value="${esc(x.id)}"${!rc || rc.has(x.id) ? " checked" : ""}> <span>${esc(String(x.front || "").slice(0, 90))}</span></label>`).join("")}</div></details>`;
+}
+/* Linking from the flashcards side (the Edit Card and Edit Deck sheets): which upcoming exams a card or deck counts toward.
+   An exam still on Automatic switches to the decks you pick, starting from what Automatic used, so its readiness doesn't drop. */
+const upcomingExams = courseId => { const today = todayISO(); return Object.values(state.tasks || {}).filter(t => isExam(t) && t.status !== "done" && t.due && t.due >= today)
+  .sort((a, b) => ((b.courseId === courseId) - (a.courseId === courseId)) || a.due.localeCompare(b.due)).slice(0, 12); };
+function manualOf(t){
+  if ((t.readyDecks || []).length) return {decks: t.readyDecks.slice(), cards: Object.assign({}, t.readyCards || {})};
+  const ev = examEvidence(Object.assign({}, t, {readyDecks: [], readyCards: null})), by = {};
+  const owner = {}; Object.values(state.decks || {}).forEach(d => (d.cards || []).forEach(c => { owner[c.id] = d.id; }));
+  (ev.cards || []).forEach(c => { const did = owner[c.id]; if (did) (by[did] = by[did] || []).push(c.id); });
+  const cards = {}; Object.keys(by).forEach(did => { const d = state.decks[did], live = d ? d.cards.filter(x => !x.draft).length : 0; if (by[did].length < live) cards[did] = by[did]; });
+  return {decks: Object.keys(by), cards};
+}
+const autoHas = (t, deckId, cardId) => { if ((t.readyDecks || []).length) return false; const ev = examEvidence(t); return cardId ? (ev.cards || []).some(c => c.id === cardId) : (ev.decks || []).some(d => d.id === deckId) || (ev.cards || []).some(c => (state.decks[deckId] || {cards: []}).cards.includes(c)); };
+// "manual", "auto" or "" (a card, or a deck when cardId is empty)
+function countsFor(t, deckId, cardId){
+  if ((t.readyDecks || []).length) {
+    if (!t.readyDecks.includes(deckId)) return "";
+    const ids = t.readyCards && Array.isArray(t.readyCards[deckId]) ? t.readyCards[deckId] : null;
+    if (!cardId) return ids ? "some" : "manual";
+    return !ids || ids.includes(cardId) ? "manual" : "";
+  }
+  return autoHas(t, deckId, cardId) ? "auto" : "";
+}
+// the change to an exam that makes a card (or, with no cardId, a whole deck) count toward it or not
+function linkChange(examId, deckId, cardId, on){
+  const t = state.tasks[examId], d = state.decks[deckId]; if (!t || !d) return null;
+  const m = manualOf(t), has = m.decks.includes(deckId), live = d.cards.filter(x => !x.draft).map(x => x.id);
+  if (!cardId) { if (on) { if (!has) m.decks.push(deckId); delete m.cards[deckId]; } else { m.decks = m.decks.filter(x => x !== deckId); delete m.cards[deckId]; } }
+  else if (on) { if (!has) { m.decks.push(deckId); m.cards[deckId] = [cardId]; } else if (m.cards[deckId] && !m.cards[deckId].includes(cardId)) { m.cards[deckId] = m.cards[deckId].concat(cardId); if (m.cards[deckId].length >= live.length) delete m.cards[deckId]; } }
+  else if (has) { const cur = m.cards[deckId] || live; m.cards[deckId] = cur.filter(x => x !== cardId); if (!m.cards[deckId].length) { delete m.cards[deckId]; m.decks = m.decks.filter(x => x !== deckId); } }
+  const n = clone(t); if (m.decks.length) n.readyDecks = m.decks.slice(0, 30); else delete n.readyDecks;
+  const rc = {}; Object.keys(m.cards).forEach(k => { if (m.decks.includes(k)) rc[k] = m.cards[k]; }); if (m.decks.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
+  return {kind: "task", id: examId, after: n};
+}
+// the "Counts Toward" list for the Edit Card and Edit Deck sheets (empty with no upcoming exams)
+function countsHtml(d, cardId){
+  const xs = upcomingExams(d.courseId); if (!xs.length) return "";
+  return `<fieldset class="f xr-for"><legend class="lh">Counts Toward <span class="hint">the exams whose readiness ${cardId ? "this card" : "this deck"} counts for</span></legend>${xs.map(t => { const s = countsFor(t, d.id, cardId), c = courseOf(t.courseId), on = !!s && s !== "some";
+    // a deck with only some of its cards picked: unticked, with how many (ticking it makes the whole deck count)
+    const some = s === "some" ? (n => ` · ${n} of ${d.cards.filter(x => !x.draft).length} cards count`)((t.readyCards[d.id] || []).length) : "";
+    return `<label class="mi-check"><input type="checkbox" name="xrFor" value="${esc(t.id)}" data-was="${on ? 1 : 0}"${on ? " checked" : ""}> <span>${esc(t.title)} <span class="mini">${esc(fmtDate(t.due))}${c ? " · " + esc(courseLabel(c)) : ""}${s === "auto" ? " · picked automatically" : ""}${some}</span></span></label>`; }).join("")}</fieldset>`;
+}
+// the changes from that list, as the sheet is saved
+function countsChanges(form, deckId, cardId){
+  const out = []; form.querySelectorAll('input[name="xrFor"]').forEach(i => { const was = i.dataset.was === "1"; if (i.checked !== was) { const c = linkChange(i.value, deckId, cardId, i.checked); if (c) out.push(c); } });
+  return out;
+}
+window.SBXR = {countsHtml, countsChanges, countsFor, linkChange, upcomingExams};
 /* Which flashcards count toward this exam's readiness: Automatic (Studyboard matches the exam's topics, from its notes, the
    school site and announcements, to your decks; or the cards since the last exam; or the whole course), or the decks you pick */
 function decksSheet(id){
@@ -95255,20 +95412,29 @@ function decksSheet(id){
       <p style="margin:0">For <b>${esc(t.title)}</b>, readiness is measured from the flashcards and practice quizzes that cover it.</p>
       <label class="mi-check"><input type="radio" name="xrm" value="auto"${mine ? "" : " checked"}> <span><b>Automatic.</b> Right now Studyboard ${esc(how)}.</span></label>
       <label class="mi-check"><input type="radio" name="xrm" value="pick"${mine ? " checked" : ""}> <span><b>Only the decks I pick:</b></span></label>
-      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
+      <div class="xr-decks" id="xrDecks">${decks.length ? decks.map(d => { const c = courseOf(d.courseId); return `<label class="mi-check"><input type="checkbox" name="d" value="${esc(d.id)}"${picked.has(d.id) ? " checked" : ""}> <span>${esc(d.name)} <span class="mini">${isQuizHolder(d) ? (n => `${n} quiz${n === 1 ? "" : "zes"}`)((d.aiQuizzes || []).length) : `${d.cards.length} card${d.cards.length === 1 ? "" : "s"}`}${c ? " · " + esc(courseLabel(c)) : ""}</span></span></label>${!isQuizHolder(d) && d.cards.some(x => !x.draft) ? xrCardsPick(t, d) : ""}`; }).join("") : `<p class="mini">You don't have any flashcards or quizzes yet.</p>`}</div>
     </div>
     <div class="sheet-foot"><span class="spacer"></span><button type="button" class="btn" data-act="close">Cancel</button><button type="button" class="btn primary" data-submit>Save</button></div></form>`, fd => {
     const cur = state.tasks[id]; if (!cur) return;
     const ids = fd.get("xrm") === "pick" ? fd.getAll("d").map(String) : [];
     if (fd.get("xrm") === "pick" && !ids.length) { toast("Pick at least one deck, or choose Automatic"); return false; }
+    // the cards picked in each deck (all of them: the deck counts in full)
+    const rc = {}; ids.forEach(did => { const d = state.decks[did]; if (!d || isQuizHolder(d)) return; const live = d.cards.filter(x => !x.draft).map(x => x.id), on = fd.getAll("c:" + did).map(String).filter(x => live.includes(x));
+      if (dlg.querySelector(`[data-xrc="${CSS.escape(did)}"]`) && on.length < live.length) rc[did] = on; });
     const n = clone(cur); if (ids.length) n.readyDecks = ids; else delete n.readyDecks;
+    if (ids.length && Object.keys(rc).length) n.readyCards = rc; else delete n.readyCards;
     dlg.close(); applyChanges([{kind: "task", id, after: n}], ids.length ? `Readiness for ${cur.title} now uses ${ids.length} deck${ids.length === 1 ? "" : "s"}` : "Readiness is automatic again");
     return false;
   });
   // the decks stay clickable: ticking one switches to "Only the decks I pick"; Automatic dims them
   const box = $("#xrDecks"), sync = () => box.classList.toggle("auto", !dlg.querySelector('input[name="xrm"][value="pick"]').checked);
   dlg.querySelectorAll('input[name="xrm"]').forEach(i => i.addEventListener("change", sync));
-  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => { if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true; sync(); }));
+  box.querySelectorAll("input").forEach(i => i.addEventListener("change", () => {
+    if (i.checked) dlg.querySelector('input[name="xrm"][value="pick"]').checked = true;
+    const pk = i.closest("[data-xrc]");
+    if (pk && i.checked) { const di = box.querySelector(`input[name="d"][value="${CSS.escape(pk.dataset.xrc)}"]`); if (di) di.checked = true; }
+    if (pk) { const all = pk.querySelectorAll('input[type="checkbox"]'), on = [...all].filter(x => x.checked).length, s2 = pk.querySelector("summary .mini"); if (s2) s2.textContent = on === all.length ? "all cards" : `${on} of ${all.length} cards`; }
+    sync(); }));
   sync();
 }
 // Exams with a mark (from any source: the mark sheet, the task form, Paste Grades, school sync) and no reflection yet, newest
@@ -133412,12 +133578,15 @@ const AUTOPILOT = (() => {
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">High Contrast and Calm Backgrounds<span class="sub">Dims and blurs theme scenery and makes cards and text stronger. Turns on by itself if your device asks for more contrast.</span></span><label class="anim-tog"><input type="checkbox" data-act="a11y-contrast" ${hcPref() ? "checked" : ""}> On</label></div>
     <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Sound Effects<span class="sub">Short, happy sounds when you earn credits, open a chest, spin the prize wheel, unlock an accessory, pass a quiz and a few other big moments. Never while you type or scroll. <button type="button" class="link-btn" data-act="sfx-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="sfx" ${window.SBSFX && SBSFX.on() ? "checked" : ""}> On</label></div>
     ${hapticDevice() ? `<div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Haptic Feedback<span class="sub">A light tap you can feel when you check off a task, drag a card, finish a Focus and a few other moments. Nothing while you type or scroll. <button type="button" class="link-btn" data-act="haptic-try">Try It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="haptics" ${hapticOn() ? "checked" : ""}> On</label></div>` : ""}
+    <div class="cap-row" data-group="appearance"><span style="flex:1;font-weight:600">Reward Sounds<span class="sub">A soft chime when a study session makes you more ready for an exam. <button type="button" class="link-btn" data-act="fx-try">Play It</button></span></span><label class="anim-tog"><input type="checkbox" data-act="fx-sounds" ${(() => { try { return localStorage.getItem("studyboard:fx") !== "off"; } catch (e) { return true; } })() ? "checked" : ""}> On</label></div>
     <div class="cap-row sb-wide" data-group="app" data-us-key="tz-shift"><span style="flex:1;font-weight:600;min-width:12rem">Time Zone<span class="sub">Due dates and times stay as you set them when you travel or the clocks change. Home zone for school sites: <b>${esc(tzr || cur || "this device")}</b>.${differs ? ` This device is on ${esc(cur)} now.` : ""}</span></span>${differs ? `<button type="button" class="btn small" data-act="tz-shift">Use ${esc(city(cur))}</button>` : ""}</div>`;
   });
   hook("act", (act, el, id) => {
     if (act === "anim-mode") { setPref(id); dlg.querySelectorAll('[data-act="anim-mode"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); return true; }
     if (act === "text-size") { ls("studyboard:textsize", id === "d" ? null : id); applyTextSize(); dlg.querySelectorAll('[data-act="text-size"]').forEach(b => b.setAttribute("aria-pressed", b.dataset.id === id)); try { queueArt(); } catch (e) {} return true; }
     if (act === "haptic-try") { hapticInputAt = Date.now(); hapticTry().then(m => toast(m)); return true; }
+    if (act === "fx-sounds") { ls("studyboard:fx", el.checked ? null : "off"); if (el.checked && window.SBSC_FX) window.SBSC_FX(); return true; }
+    if (act === "fx-try") { if (window.SBSC_FX) window.SBSC_FX(true); return true; }
     if (act === "sfx-try") { if (window.SBSFX) { if (!SBSFX.on()) toast("Turn Sound Effects on to hear them."); else { SBSFX.play("chest", {rarity: "rare"}); setTimeout(() => SBSFX.play("coinLand"), 1300); } } return true; }
     if (act === "sfx") { if (window.SBSFX) { SBSFX.set(el.checked); if (el.checked) SBSFX.play("coinLand"); } return true; }
     if (act === "haptics") { ls(HAPTIC_KEY, el.checked ? null : "off"); if (el.checked) sbHaptic("tap", {force: true}); return true; }

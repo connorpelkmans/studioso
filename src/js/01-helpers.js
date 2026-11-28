@@ -188,7 +188,7 @@ const xrAiDecks = ex => { const a = ex.aiDecks; return a && Array.isArray(a.ids)
 function examEvidence(ex){
   const k = todayISO() + "|" + (state.updated || 0);
   if (XE_CACHE.k !== k) XE_CACHE = {k, m: {}};
-  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
+  const aiIds = xrAiDecks(ex), ck = ex.id + "|" + (ex.readyDecks || []).join(",") + "|" + JSON.stringify(ex.readyCards || "") + "|" + (ex.notes || "").length + "|" + ex.title + "|" + ex.courseId + "|" + (aiIds || []).join(",");
   if (ex.id && XE_CACHE.m[ck]) return XE_CACHE.m[ck];
   const live = c => !c.draft, alive = Object.values(state.decks || {}).filter(d => d && !d.archived);
   const all = alive.filter(d => !isQuizHolder(d)), course = all.filter(d => ex.courseId && d.courseId === ex.courseId);
@@ -199,31 +199,37 @@ function examEvidence(ex){
   let out = null;
   const linked = (ex.readyDecks || []).map(id => alive.find(d => d.id === id)).filter(Boolean);
   if (linked.length) {
+    // a picked deck counts in full, or only the cards picked from it (readyCards: deck id → card ids)
+    const rc = ex.readyCards && typeof ex.readyCards === "object" ? ex.readyCards : {};
+    const cardsOf = d => { const ids = Array.isArray(rc[d.id]) ? new Set(rc[d.id]) : null; return d.cards.filter(live).filter(c => !ids || ids.has(c.id)); };
     const ds = linked.filter(d => !isQuizHolder(d)), qs = linked.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
-    out = {how: "linked", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
+    out = {how: "linked", decks: ds, cards: ds.flatMap(cardsOf), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
   // Automatic AI's reading of the exam's topics against what each deck holds
   if (!out && aiIds) {
     const pick = aiIds.map(id => alive.find(d => d.id === id)).filter(Boolean), ds = pick.filter(d => !isQuizHolder(d)), qs = pick.filter(d => isQuizHolder(d)).flatMap(d => d.aiQuizzes || []);
     if (pick.length) out = {how: "ai", decks: ds, cards: ds.flatMap(d => d.cards.filter(live)), quiz: deckRes(ds).concat(quizResults(qs)), quizN: qs.length};
   }
-  if (!out && (course.length || courseQz.length)) {
+  // An exam with no course: its own words are matched against every deck and quiz (a course's decks are the pool otherwise)
+  const noCourse = !ex.courseId, pool = noCourse ? all : course, poolQz = noCourse ? holders.flatMap(d => (d.aiQuizzes || []).map(qz => Object.assign({deck: d}, qz))) : courseQz;
+  if (!out && (pool.length || poolQz.length)) {
     // the exam's own words: its title, its notes, and announcements in its course that name it
     const name = String(ex.title || "").toLowerCase().replace(/\s+/g, " ").trim();
     let ann = ""; try { if (window.SBANN && name.length >= 4) ann = SBANN.items().filter(n => n.cid === ex.courseId && (n.title + " " + n.text).toLowerCase().includes(name)).map(n => n.title + " " + n.text).join(" "); } catch (e) {}
-    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = course.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
+    const src = [ex.title, ex.notes, ann].join(" "), nums = xrNums(src), cards = pool.flatMap(d => d.cards.filter(live).map(c => ({c, d})));
     // words that name topics: not shared by most of the course's cards and quizzes (those say nothing about this exam)
-    const docs = cards.map(({c}) => c.front + " " + c.back).concat(courseQz.map(quizText)), freq = {};
+    const docs = cards.map(({c}) => c.front + " " + c.back).concat(poolQz.map(quizText)), freq = {};
     docs.forEach(t => new Set(xrWords(t)).forEach(w => { freq[w] = (freq[w] || 0) + 1; }));
     const terms = new Set(xrWords(src).filter(w => (freq[w] || 0) <= Math.max(1, docs.length * 0.5)));
     const textHit = t => xrNumHit(nums, t) || xrWords(t).some(w => terms.has(w));
     if (terms.size || Object.keys(nums).length) {
       const deckHit = d => xrNumHit(nums, d.name) || xrWords(d.name).some(w => terms.has(w));
       const hit = cards.filter(({c, d}) => deckHit(d) || textHit(c.front + " " + c.back));
-      const qHit = courseQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
-      const cardsOk = hit.length >= 5 && hit.length >= cards.length * 0.1 && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && qHit.length < courseQz.length;
-      if (cardsOk || (!cards.length && quizOk)) {
-        const ds = course.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
+      const qHit = poolQz.filter(qz => deckHit(qz.deck) || textHit(quizText(qz)));
+      // with no course, every deck is in the pool, so a match needn't be a tenth of them, and any matching quiz counts
+      const cardsOk = hit.length >= 5 && (noCourse || hit.length >= cards.length * 0.1) && hit.length < cards.length * 0.95, quizOk = qHit.length > 0 && (noCourse || qHit.length < courseQz.length);
+      if (cardsOk || ((!cards.length || noCourse) && quizOk)) {
+        const ds = pool.filter(d => hit.filter(h => h.d === d).length >= d.cards.filter(live).length * 0.5);
         const runs = a => { const v = [...a].sort((x, y) => x - y), o = []; v.forEach(n => { const l = o[o.length - 1]; if (l && n === l[1] + 1) l[1] = n; else o.push([n, n]); }); return o.map(([x, y]) => x === y ? String(x) : x + "–" + y).join(", "); };
         // "chapters 4-6", "unit 2" for the sheet that explains what Automatic picked
         const label = Object.keys(nums).map(kk => ({ch: "chapter", unit: "unit", module: "module", week: "week", lecture: "lecture", lesson: "lesson"}[kk] || kk) + (nums[kk].size > 1 ? "s " : " ") + runs(nums[kk]));
@@ -231,7 +237,7 @@ function examEvidence(ex){
       }
     }
     // what was made since the course's previous exam (a later exam usually covers the newer material)
-    if (!out && !isCumulative(ex)) {
+    if (!out && !noCourse && !isCumulative(ex)) {
       const prev = Object.values(state.tasks || {}).filter(t => t.id !== ex.id && t.courseId === ex.courseId && MILESTONE(t.type) && !t.prepFor && t.due && t.due < ex.due && (t.type === "Exam" || weightOf(t) >= 10)).sort((a, b) => b.due.localeCompare(a.due))[0];
       if (prev) {
         const since = parse(prev.due).getTime() + 864e5, fresh = cards.filter(({c, d}) => (cardBorn(c) || Number(d.created) || 0) >= since);
@@ -242,7 +248,7 @@ function examEvidence(ex){
         }
       }
     }
-    if (!out) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
+    if (!out && !noCourse) out = {how: "course", decks: course, cards: course.flatMap(d => d.cards.filter(live)), quiz: deckRes(course).concat(quizResults(courseQz)), quizN: courseQz.length};
   }
   if (!out) out = {how: "none", decks: [], cards: [], quiz: [], quizN: 0};
   if (ex.id) XE_CACHE.m[ck] = out;
@@ -253,7 +259,7 @@ function examReadiness(t){
   if (!t || !MILESTONE(t.type)) return null;
   const today = todayISO(), k = today + "|" + (typeof state !== "undefined" ? state.updated || 0 : 0);
   if (XR_CACHE.k !== k) XR_CACHE = {k, m: {}};
-  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), (t.notes || "").length].join("|");
+  const ck = [t.id, t.pct, t.aiPrep && t.aiPrep.at, t.aiDecks && t.aiDecks.at, typeof autoPlanOn === "function" && autoPlanOn(), t.status, t.courseId, (t.readyDecks || []).join(","), JSON.stringify(t.readyCards || ""), (t.notes || "").length].join("|");
   if (t.id && XR_CACHE.m[ck]) return XR_CACHE.m[ck];
   const self = Number(t.pct) > 0 ? Math.max(0, Math.min(100, Math.round(Number(t.pct)))) : null;
   const parts = {}, ws = [];
